@@ -1,0 +1,2 @@
+node scripts/xcode/branch-policy.mjs push
+pnpm verify:pre-push

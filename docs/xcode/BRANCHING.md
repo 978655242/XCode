@@ -57,7 +57,7 @@ gitGraph
 - 提交信息使用 Conventional Commits：`feat:`、`fix:`、`refactor:`、`docs:`、`chore:`、`sync:`（仅同步分支）。
 - `feature/`、`fix/` 的 PR 使用 Squash merge。
 - `sync/` 的 PR 必须使用 Create a merge commit，禁止 Squash 与 Rebase。原因：保留上游提交的原始 SHA，下次同步时 Git 才能正确计算 merge-base，否则同一批上游改动会反复冲突。
-- PR 合并前必须通过 `pnpm typecheck`、`pnpm lint`、`pnpm verify:pre-push`，并按 PR 模板填写检查项。
+- PR 合并前必须通过 CI 检查 `policy` 与 `verify`（见第 8 节），并按 PR 模板填写检查项。
 
 ## 4. 上游同步流程
 
@@ -118,7 +118,7 @@ gh pr create --base XCode-main --title "sync: upstream ZCode <版本>"
 - 默认整体 merge `main`，不要从上游 cherry-pick。cherry-pick 会生成新 SHA，下次 merge 时同一改动会再次冲突。只有紧急安全修复来不及完整同步时才允许 cherry-pick（`git cherry-pick -x`），并在同步记录中登记，下次完整同步时核对。
 - 冲突解决必须说明取舍：保留 XCode 行为、采用上游行为或二者融合。不确定时在 PR 中 @ 相关功能负责人。
 - 同步 PR 只包含上游合并、冲突解决、拒绝项 revert 和必要适配，禁止夹带新功能。
-- 合并后更新 `upstream-sync-log.md` 中的“已同步到”字段。
+- 在同步 PR 内更新 `upstream-sync-log.md`（含“已同步到”字段）；CI 会拒绝未更新记录的同步 PR，也拒绝非同步 PR 修改该文件。
 
 ## 5. 降低与上游的分叉成本
 
@@ -141,3 +141,20 @@ gh pr create --base XCode-main --title "sync: upstream ZCode <版本>"
 - 禁止向 `upstream` 推送。
 - 禁止 Squash 或 Rebase 方式合并 `sync/` PR。
 - 禁止在一个 PR 中同时包含上游同步与功能开发。
+
+## 8. 强制机制
+
+以下规则由工具强制执行，违反会被直接拦截，不依赖自觉：
+
+| 层级          | 位置                                                       | 拦截内容                                                                                                                                        |
+| ------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| GitHub 规则集 | `XCode-main`                                               | 直接 push、force push、删除分支；未通过 `policy`/`verify` 的 PR 不能合并；禁用 Rebase merge。                                                   |
+| GitHub 规则集 | `main`                                                     | force push、删除分支；仅仓库管理员可更新（用于快进上游）。                                                                                      |
+| CI `policy`   | `.github/workflows/xcode-pr.yml`                           | PR 目标不是 `XCode-main`；分支名不合规；非 `sync/` 分支夹带上游提交；同步分支未先快进 `main` 或未更新同步记录；非同步 PR 修改同步记录。         |
+| CI `verify`   | `.github/workflows/xcode-pr.yml`                           | `pnpm lint`、`pnpm typecheck`、`pnpm architecture:check` 失败；PR 改动文件未格式化（同步 PR 跳过）。                                            |
+| 合并后巡检    | `.github/workflows/xcode-main-guard.yml`                   | 同步 PR 被 squash 合并（规则集无法按分支限制合并方式，只能事后告警）；每日检查 `main` 是否偏离上游，并在 Actions Summary 列出待同步的上游提交。 |
+| 本地 pre-push | `.husky/pre-push` → `scripts/xcode/branch-policy.mjs push` | 推送 `XCode-main`、推送含非上游提交的 `main`、分支名不合规；随后执行 `pnpm verify:pre-push`。`pnpm install` 后自动生效。                        |
+
+- `policy`、`verify` 是规则集中的必需检查名，修改 workflow 的 job 名必须同步修改规则集。
+- 规则集、巡检告警只能由仓库管理员处理；禁止为绕过检查而临时关闭规则集或使用 `--no-verify`。
+- 巡检失败（squash 合并了同步 PR）时：revert 该提交，重新用 merge commit 合并同步分支。
