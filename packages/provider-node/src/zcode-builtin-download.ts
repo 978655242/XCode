@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { z } from "zod";
 import { decodeZCodeBuiltinRelease, type ZCodeBuiltinRelease } from "./zcode-builtin-release.js";
 
@@ -66,7 +67,7 @@ export async function downloadZCodeBuiltinRelease(
         : error instanceof z.ZodError
           ? `invalid schema at ${error.issues[0]?.path.join(".") || "root"} (${error.issues[0]?.code})`
           : "invalid response";
-    throw new Error(`ZCode Built-in ${stage}: ${reason}`);
+    throw new Error(`XCode Built-in ${stage}: ${reason}`);
   } finally {
     clearTimeout(timer);
   }

@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { access, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -69,7 +70,7 @@ export async function prepareOnlineUpdate(layout: ServerLayout): Promise<UpdateP
     const pending = await new ReleaseManager(layout).readPending();
     if (!pending) {
       throw new Error(
-        "ZCode Server release source is not configured and no offline pending release is available",
+        "XCode Server release source is not configured and no offline pending release is available",
       );
     }
     return { status: "prepared-offline", version: pending.version };

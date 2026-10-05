@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { rm } from "node:fs/promises";
 import { isAbsolute, resolve, sep } from "node:path";
 import type { GitCheckpointDiff, GitCheckpointFileDiff } from "@zcode/shared";
@@ -184,9 +185,9 @@ export function buildAffectedRepoPaths(files: GitCheckpointFileDiff[]): string[]
 export function buildCheckpointEnv(tempIndexPath: string): NodeJS.ProcessEnv {
   return {
     GIT_INDEX_FILE: tempIndexPath,
-    GIT_AUTHOR_NAME: "ZCode Checkpoint",
+    GIT_AUTHOR_NAME: "XCode Checkpoint",
     GIT_AUTHOR_EMAIL: "checkpoint@zcode.local",
-    GIT_COMMITTER_NAME: "ZCode Checkpoint",
+    GIT_COMMITTER_NAME: "XCode Checkpoint",
     GIT_COMMITTER_EMAIL: "checkpoint@zcode.local",
   };
 }

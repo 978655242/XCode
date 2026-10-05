@@ -190,13 +190,14 @@ function waitForCuaApplicationReturn({
       inspectFrontmost();
       maybeFinishReturn();
     };
-    const onQuit = () => finish(new Error("ZCode quit during CUA permission onboarding"));
+    // XCODE: 权限引导错误显示产品名，不修改 IPC 或取消语义。
+    const onQuit = () => finish(new Error("XCode quit during CUA permission onboarding"));
     const onAbort = () =>
       finish(signal.reason ?? new Error("CUA permission onboarding origin window closed"));
     observationTimer = setTimeout(
       () =>
         finish(
-          new Error(`System Settings did not return to ZCode within ${Math.max(1, timeoutMs)}ms`),
+          new Error(`System Settings did not return to XCode within ${Math.max(1, timeoutMs)}ms`),
         ),
       Math.max(1, timeoutMs),
     );

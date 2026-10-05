@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { join } from "node:path";
 import {
   BUILTIN_WORKFLOW_COMMAND_NAME,
@@ -69,9 +70,9 @@ function buildInitAgentsPrompt(params: {
     : "";
 
   return [
-    "You are running ZCode's built-in /init command.",
+    "You are running XCode's built-in /init command.",
     "",
-    "Your task is to create or update a concise workspace instruction file for future ZCode agents.",
+    "Your task is to create or update a concise workspace instruction file for future XCode agents.",
     "",
     "Target:",
     `- Workspace directory: ${params.workingDirectory}`,
@@ -87,7 +88,7 @@ function buildInitAgentsPrompt(params: {
     "3. If AGENTS.md already exists, read it first and update it with Edit instead of replacing it wholesale.",
     "4. If AGENTS.md does not exist, create it at the workspace root.",
     "5. Keep the file practical and short enough for future agents to read quickly.",
-    "6. Include only project-specific facts future ZCode agents would otherwise miss.",
+    "6. Include only project-specific facts future XCode agents would otherwise miss.",
     "7. Ask the user only if a repository-specific decision cannot be inferred and would materially change the file.",
     "",
     "Recommended AGENTS.md content:",

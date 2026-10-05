@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { updatePreparationResultSchema } from "../contracts.js";
 import { requestControl } from "../ipc/controlClient.js";
 import { createServiceLogger } from "@zcode/services/node";
@@ -55,7 +56,7 @@ export async function runUpdateCommand(
   discardPreparedUpdate = "discard" in preparation ? preparation.discard : undefined;
   if (preparation.status === "up-to-date") {
     if (json) stdout(io, preparation);
-    else stdout(io, `ZCode Server ${preparation.version} is already up to date`);
+    else stdout(io, `XCode Server ${preparation.version} is already up to date`);
     return 0;
   }
   if (!force && discardPreparedUpdate) {

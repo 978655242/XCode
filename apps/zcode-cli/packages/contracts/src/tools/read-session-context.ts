@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { z } from "zod";
 import { toToolJsonSchema } from "./json-schema.js";
 
@@ -14,7 +15,7 @@ export const ReadSessionContextInputSchema = z
     sessionId: z
       .string()
       .regex(SESSION_ID_PATTERN, "Session id must use the sess_* format.")
-      .describe("Target ZCode session id to read from persisted session history."),
+      .describe("Target XCode session id to read from persisted session history."),
     query: z
       .string()
       .min(1)

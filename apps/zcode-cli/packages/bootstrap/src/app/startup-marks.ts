@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import type { ConfigResult } from "@zcode/adapters/config";
 import { discoverNodePluginsSync } from "@zcode/adapters/plugins";
 import type { AgentRuntimeConfig } from "@zcode/core";
@@ -36,7 +37,7 @@ export function resolveStartupPlugins(input: {
     storageRoot: pluginStorageRoot,
     workingDirectory: input.workingDirectory,
   });
-  input.startupTimer.mark("ZCode plugins resolved", {
+  input.startupTimer.mark("XCode plugins resolved", {
     context: {
       commandRootCount: pluginOutcome.commandRoots.length,
       diagnosticCount: pluginOutcome.diagnostics.length,
@@ -62,7 +63,7 @@ export function startAppStartup(input: {
   resume: boolean;
   startupTimer: StartupTimer;
 }): void {
-  input.startupTimer.start("ZCode app startup started", {
+  input.startupTimer.start("XCode app startup started", {
     context: {
       hasInjectedModelAdapter: input.hasInjectedModelAdapter,
       resume: input.resume,
@@ -76,7 +77,7 @@ export function markConfigurationLoaded(input: {
   configResult: ConfigResult;
   startupTimer: StartupTimer;
 }): void {
-  input.startupTimer.mark("ZCode app configuration loaded", {
+  input.startupTimer.mark("XCode app configuration loaded", {
     context: {
       configSourceEnv: input.configResult.sources.env,
       configSourceProject: input.configResult.sources.project.loaded,
@@ -94,7 +95,7 @@ export function markStorageAdaptersInitialized(input: {
   startupTimer: StartupTimer;
   storageRoot: string;
 }): void {
-  input.startupTimer.mark("ZCode storage adapters initialized", {
+  input.startupTimer.mark("XCode storage adapters initialized", {
     context: {
       hasInjectedArtifactStore: input.hasInjectedArtifactStore,
       hasInjectedSessionStore: input.hasInjectedSessionStore,
@@ -113,7 +114,7 @@ export function markMcpAdapterInitialized(input: {
   startupTimer: StartupTimer;
   trustedMcpServerCount: number;
 }): void {
-  input.startupTimer.mark("ZCode MCP adapter initialized", {
+  input.startupTimer.mark("XCode MCP adapter initialized", {
     context: {
       hasInjectedMcpPort: input.hasInjectedMcpPort,
       mcpEnabled: input.mcpEnabled,
@@ -130,7 +131,7 @@ export function markRuntimeConstructed(input: {
   sessionId: string;
   startupTimer: StartupTimer;
 }): void {
-  input.startupTimer.mark("ZCode runtime constructed", {
+  input.startupTimer.mark("XCode runtime constructed", {
     context: {
       hasInjectedModelAdapter: input.hasInjectedModelAdapter,
       sessionId: input.sessionId,
@@ -145,7 +146,7 @@ export function completeAppStartup(input: {
   startupTimer: StartupTimer;
   workingDirectory: string;
 }): void {
-  input.startupTimer.complete("ZCode app startup completed", {
+  input.startupTimer.complete("XCode app startup completed", {
     context: {
       sessionId: input.sessionId,
       workingDirectory: input.workingDirectory,

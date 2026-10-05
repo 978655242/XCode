@@ -209,7 +209,8 @@ async function serve(options) {
   });
 
   console.log("");
-  console.log("ZCode Web is running");
+  // XCODE: Web 启动提示使用产品显示名，命令和路由保持兼容。
+  console.log("XCode Web is running");
   console.log(`Local:   ${localUrl}`);
   if (options.host === "0.0.0.0" || options.host === "::") {
     for (const url of networkUrls(port, token)) {

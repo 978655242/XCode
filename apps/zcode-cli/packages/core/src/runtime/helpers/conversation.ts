@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { activeSessionMessages, modelMessageContentToText } from "../deps.js";
 import {
   buildPromptAttachmentBlocks,
@@ -174,7 +175,7 @@ function formatBrowserAmbientUserInput(
     ...(context.currentUrl ? [`- Current URL: ${context.currentUrl}`] : []),
     "</in-app-browser-context>",
     "",
-    "## My request for ZCode:",
+    "## My request for XCode:",
     input,
   ];
   return lines.join("\n");

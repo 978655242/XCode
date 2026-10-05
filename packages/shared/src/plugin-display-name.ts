@@ -1,9 +1,10 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import type { ZCodePluginStoreListing } from "./zcode-protocol/index.js";
 
 const CANONICAL_PLUGIN_NAME_ACRONYMS: Readonly<Record<string, string>> = {
   aws: "AWS",
   mcp: "MCP",
-  zcode: "ZCode",
+  zcode: "XCode",
 };
 
 /** listing 的多语言字段先精确匹配，再按语言前缀兜底。 */

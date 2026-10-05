@@ -10,8 +10,9 @@ import {
 
 const LINUX_DEEP_LINK_DESKTOP_FILE = "zcode.desktop";
 const LINUX_DEEP_LINK_MIME_TYPE = "x-scheme-handler/zcode";
-// 归属标记：用于识别用户级 zcode.desktop 是否由本应用写入（历史所有版本都带这行 Comment）。
-const LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER = "Comment=ZCode Desktop App";
+// XCODE: 新桌面条目显示 XCode；仍识别旧归属标记以安全清理历史协议注册。
+const LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER = "Comment=XCode Desktop App";
+const LEGACY_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER = "Comment=ZCode Desktop App";
 
 type LinuxDesktopEnv = {
   APPIMAGE?: string;
@@ -109,7 +110,7 @@ function createLinuxDeepLinkDesktopEntry(params: {
   productName?: string;
   iconName?: string;
 }): string {
-  const productName = params.productName ?? "ZCode";
+  const productName = params.productName ?? "XCode";
   const iconName = params.iconName ?? "zcode";
   const command = {
     executablePath: params.executablePath,
@@ -174,7 +175,13 @@ function isOwnedDesktopEntry(path: string): boolean {
     // 避免可清理的遗留条目被误判为用户自定义条目而永久残留。
     return content
       .split("\n")
-      .some((line) => line.replaceAll("\r", "").trim() === LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER);
+      .some((line) => {
+        const marker = line.replaceAll("\r", "").trim();
+        return (
+          marker === LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER ||
+          marker === LEGACY_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER
+        );
+      });
   } catch {
     return false;
   }

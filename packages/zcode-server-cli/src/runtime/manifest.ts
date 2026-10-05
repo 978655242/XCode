@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { platform, arch } from "node:process";
 import { SERVER_RUNTIME_NODE_VERSION } from "../contracts.js";
 import { z } from "zod";
@@ -60,7 +61,7 @@ export const serverRuntimeManifestSchema = z
 export function currentServerTarget(): ServerTarget {
   const target = `${platform}-${arch}`;
   if (!supportedServerTargets.includes(target as ServerTarget)) {
-    throw new Error(`Unsupported ZCode Server target: ${target}`);
+    throw new Error(`Unsupported XCode Server target: ${target}`);
   }
   return target as ServerTarget;
 }

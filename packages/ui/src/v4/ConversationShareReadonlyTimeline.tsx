@@ -1,3 +1,4 @@
+// XCODE: 仅统一产品展示名称，保留内部标识与用户内容。
 /* oxlint-disable eslint(max-lines) -- Share 与 Desktop 共用的只读 Row/turn presentation 需要保持在同一安全边界。
  * 安全边界约束：本文件被匿名公开分享页（packages/web/src/share）直接引用，新增依赖必须考虑
  * 公开页 bundle 体积与无 Desktop 宿主（window.zcode / PlatformProvider / tab store）的运行环境；
@@ -1105,7 +1106,7 @@ export function ConversationShareReadonlyTimeline({
           artifactPreview: "下载文件",
           markerCompact: "上下文已压缩",
           markerModelChange: "模型已切换",
-          unsupportedRows: "部分内容需要更新 ZCode 查看",
+          unsupportedRows: "部分内容需要更新 XCode 查看",
         }
       : {
           history: "Reasoning",
@@ -1116,7 +1117,7 @@ export function ConversationShareReadonlyTimeline({
           artifactPreview: "Download file",
           markerCompact: "Context compacted",
           markerModelChange: "Model switched",
-          unsupportedRows: "Some content requires a newer version of ZCode",
+          unsupportedRows: "Some content requires a newer version of XCode",
         };
   const artifactOpenContext = useMemo<ArtifactOpenContextValue | null>(() => {
     if (

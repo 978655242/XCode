@@ -21,6 +21,8 @@ const GENERIC_ZCODE_UI_ERROR_MESSAGES = new Set([
   "Compact failed",
   "Rewind failed",
   "ZCode session failed",
+  // XCODE: 识别当前产品错误，同时保留历史会话中的旧错误文案。
+  "XCode session failed",
 ]);
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {

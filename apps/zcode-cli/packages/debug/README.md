@@ -1,6 +1,7 @@
 # debug
+<!-- XCODE: 仅统一调试工具说明中的产品展示名。 -->
 
-Development-only trace and context viewer for ZCode.
+Development-only trace and context viewer for XCode.
 
 Run from the repository root:
 

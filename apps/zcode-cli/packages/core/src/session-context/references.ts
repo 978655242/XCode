@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { type SessionId } from "@zcode/contracts";
 
 const SESSION_REFERENCE_PATTERN = /#(sess_[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)/g;
@@ -15,7 +16,7 @@ export function buildReferencedSessionContextReminderBody(input: string): string
   if (sessionIds.length === 0) return null;
 
   return [
-    "The user referenced prior ZCode session(s) in this prompt:",
+    "The user referenced prior XCode session(s) in this prompt:",
     ...sessionIds.map((sessionId) => `- ${sessionId}`),
     "",
     "These references are not automatically expanded into the current context.",

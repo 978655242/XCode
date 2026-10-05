@@ -1,3 +1,4 @@
+// XCODE: 新停止提示使用 XCode，同时保留历史会话的取消识别以免恢复成错误。
 // Transcript → SessionEvent 合成（「reduce(transcript) ≡ reduce(events)」）。
 //
 // 动机：v4 投影是事件溯源，但部分历史突变（纯对话 fork 复制 message 不复制 event、
@@ -220,7 +221,8 @@ function isPersistedAssistantCancellation(error: AssistantErrorInfo): boolean {
   if (
     code === undefined &&
     error.name === "Error" &&
-    data?.message === LEGACY_PROTOCOL_SESSION_STOPPED_MESSAGE
+    (data?.message === LEGACY_PROTOCOL_SESSION_STOPPED_MESSAGE ||
+      data?.message === "XCode Protocol session stopped")
   ) {
     // 旧 session/stop 使用普通 Error 作为 AbortSignal.reason，transcript 又未持久化
     // cancelled result；冷恢复若只认 AbortError，会把用户停止重新合成为 TurnError 和错误 Banner。

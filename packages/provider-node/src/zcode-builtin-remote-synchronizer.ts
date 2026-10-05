@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { atomicWritePrivateTextFile, withFileLock } from "@zcode/shared/node";
@@ -81,7 +82,7 @@ export class ZCodeBuiltinRemoteSynchronizer {
   async #refresh(force: boolean, signal: AbortSignal): Promise<ZCodeBuiltinRefreshResult> {
     const endpointKey = (await this.#options.resolveEndpointKey()).trim();
     if (this.#disposed) return "disposed";
-    if (!endpointKey) throw new Error("ZCode Built-in 远端 Endpoint 不能为空");
+    if (!endpointKey) throw new Error("XCode Built-in 远端 Endpoint 不能为空");
     const leaseId = randomUUID();
     const acquired = await withFileLock(this.#options.controlFilePath, async () => {
       const now = this.#now();

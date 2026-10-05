@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import type {
   WorkflowGraphCollection,
   WorkflowGraphNode,
@@ -14,7 +15,7 @@ export function buildDefaultNodePrompt(
     .map((artifact) => `- ${artifact.label}: ${artifact.path}`)
     .join("\n");
   return [
-    `You are running a ZCode workflow node for phase: ${phase}.`,
+    `You are running a XCode workflow node for phase: ${phase}.`,
     `Workflow run: ${snapshot.runId}`,
     `Working directory: ${snapshot.cwd}`,
     "",
@@ -49,7 +50,7 @@ export function buildDefaultPlannerPrompt(
     )
     .join("\n");
   return [
-    `You are running a ZCode workflow exploration planner for phase: ${phase}.`,
+    `You are running a XCode workflow exploration planner for phase: ${phase}.`,
     `Workflow run: ${snapshot.runId}`,
     `Working directory: ${snapshot.cwd}`,
     "",

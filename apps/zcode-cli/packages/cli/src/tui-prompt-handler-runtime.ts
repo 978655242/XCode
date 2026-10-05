@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 // tui-prompt-handler.ts 顶到 oxlint max-lines 上限（400 行），把 createApp 里
 // 「读 dotenv → 定位要恢复的会话 → 装 bootstrap 模块 → 起 Provider Registry
 // 常驻运行时 → 读默认模型选择」这段进程级准备拆到本文件；
@@ -48,7 +49,7 @@ export async function prepareTuiAppRuntime(
   const sessionId = await resolveResumeSession(request, workingDirectory, env, deps);
   const bootstrapModule = deps.createZCodeApp ? undefined : await loadBootstrapModule();
   const createAppFactory = deps.createZCodeApp ?? bootstrapModule?.createZCodeApp;
-  if (!createAppFactory) throw new Error("ZCode app factory is unavailable.");
+  if (!createAppFactory) throw new Error("XCode app factory is unavailable.");
   const prepareTelemetry =
     deps.prepareZCodeTelemetryEnv ?? bootstrapModule?.prepareZCodeTelemetryEnv;
   if (prepareTelemetry) {

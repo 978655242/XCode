@@ -1,5 +1,6 @@
 import { cn } from "@/components/lib/utils.js";
-import zaiLogoUrl from "@/assets/provider-icons/logo-zai.svg";
+// XCODE: 窗口品牌使用 X 图标，不修改 ZAI 供应商资源。
+import xcodeLogoUrl from "@/assets/xcode-mark.svg";
 
 export function WindowsTopLeftLogo({
   className,
@@ -20,8 +21,8 @@ export function WindowsTopLeftLogo({
       )}
     >
       <img
-        src={zaiLogoUrl}
-        alt="ZCode"
+        src={xcodeLogoUrl}
+        alt="XCode"
         className={cn("pointer-events-none size-5 select-none", imageClassName)}
         draggable={false}
       />

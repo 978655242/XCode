@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { z } from "zod";
 import { modelConfigDataSchema } from "@zcode/shared/model-config";
 import { manualModelConfigSchema } from "./manual-model-config.js";
@@ -117,7 +118,7 @@ const personalProviderConfigRuleSchema = providerConfigRuleSchema
       context.addIssue({
         code: "custom",
         path: ["config", "access"],
-        message: "固定 Account Provider 的 Access 只能由 ZCode Built-in Config 声明",
+        message: "固定 Account Provider 的 Access 只能由 XCode Built-in Config 声明",
       });
     }
   });

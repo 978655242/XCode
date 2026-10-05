@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { createHash } from "node:crypto";
 import type { SharedZCodeCredentialStore } from "@zcode/adapters/auth";
 import type { ProviderRuntimeHeadersPort } from "@zcode/core";
@@ -73,7 +74,7 @@ export async function resolveStandaloneCodingPlanProvider(
   );
   if (matches.length !== 1) {
     throw new Error(
-      `ZCode Built-in Config 必须为 ${family} 声明唯一 Individual Coding Plan Provider`,
+      `XCode Built-in Config 必须为 ${family} 声明唯一 Individual Coding Plan Provider`,
     );
   }
   return matches[0]!;

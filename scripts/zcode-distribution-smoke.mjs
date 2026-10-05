@@ -56,7 +56,8 @@ try {
     }),
   );
   await until(
-    () => /ZCode/.test(screen) && /(?:登录|\/login|输入提示词|Type a prompt)/i.test(screen),
+    // XCODE: 就绪依据为可交互入口，不再将产品文案作为启动条件。
+    () => /(?:登录|\/login|输入提示词|Type a prompt)/i.test(screen),
     "TUI initialized render",
     () => screen,
   );

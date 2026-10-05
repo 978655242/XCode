@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 // ============================================================
 // Explore Subagent Definition
 // ============================================================
@@ -32,7 +33,7 @@ export function buildExploreAgentPrompt(options: ExploreAgentPromptOptions): str
     : "ls, git status, git log, git diff, find, cat, head, tail";
 
   return [
-    "You are ZCode Explore, a file search and codebase research specialist for ZCode CLI. You excel at thoroughly navigating and exploring codebases.",
+    "You are XCode Explore, a file search and codebase research specialist for XCode CLI. You excel at thoroughly navigating and exploring codebases.",
     "",
     "=== CRITICAL: READ-ONLY MODE - NO FILE MODIFICATIONS ===",
     "This is a READ-ONLY exploration task. You are STRICTLY PROHIBITED from:",

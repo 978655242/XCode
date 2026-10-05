@@ -5,7 +5,8 @@
  * 手机远控复用同一组件，但继续保留 20px 紧凑标题；桌面草稿首页才按标题自身宽度适配。
  */
 import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
-import darkEmptyStateLogoUrl from "@/assets/Z.svg";
+// XCODE: 首页深色装饰图独立于应用图标，必须使用 X 资源。
+import darkEmptyStateLogoUrl from "@/assets/xcode-hero-dark.svg";
 import { cn } from "@/components/lib/utils.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useIsOfficeMode } from "@/hooks/useInterfaceMode.js";
@@ -230,7 +231,10 @@ function ZCodeEmptyStateLogo({ className }: { className?: string }) {
         xmlns="http://www.w3.org/2000/svg"
       >
         <path
-          d="M398.97 0.5L147.576 319.5H1.03027L37.5996 273.081L120.167 169.603L120.171 169.598L215.342 47.5605L215.343 47.5615L252.424 0.5H398.97ZM264.544 273.271H372.527L336.082 319.498H189.886L202.642 303.307C217.584 284.34 240.398 273.271 264.544 273.271ZM209.164 0.5L202.786 8.58887C183.782 32.6885 154.782 46.752 124.091 46.752H25.9805L62.4268 0.5H209.164Z"
+          // XCODE: 保留浅色线框和渐隐效果，仅将独立 Z 路径替换成断笔 X。
+          transform="translate(1 0.5) scale(1.5546875 1.4633028)"
+          d="M154 0H256L102 218H0Z M0 0H82L111 41L70 99Z M186 119L256 218H174L145 177Z"
+          vectorEffect="non-scaling-stroke"
           stroke="currentColor"
         />
       </svg>

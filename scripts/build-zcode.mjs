@@ -242,7 +242,8 @@ async function main() {
   const rootPackageJson = await readJson(resolve(root, "package.json"));
   const version = options.version ?? rootPackageJson.version;
   if (!version || typeof version !== "string") {
-    throw new Error("Unable to resolve ZCode version.");
+    // XCODE: 仅迁移产品显示名，发行包命令与内部身份保持兼容。
+    throw new Error("Unable to resolve XCode version.");
   }
 
   await buildOutputs(options.skipBuild);

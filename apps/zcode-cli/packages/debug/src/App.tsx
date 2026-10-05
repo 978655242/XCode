@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import {
   AlertTriangle,
   BarChart3,
@@ -254,7 +255,7 @@ export function App() {
     <main className="app-shell">
       <header className="topbar">
         <div>
-          <h1>ZCode 调试台</h1>
+          <h1>XCode 调试台</h1>
           <p>Trace、甘特执行、网络抓包</p>
         </div>
         <div className="topbar-actions">

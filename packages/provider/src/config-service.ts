@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 /* oxlint-disable eslint(max-lines) -- Provider/Model 的原子配置生命周期共享一次 Repository 更新边界，拆开会重复顺序与规范化逻辑。 */
 import type {
   ModelConfigRules,
@@ -162,7 +163,7 @@ export class ProviderConfigService implements ProviderSource<ProviderConfigSnaps
         // 通用保存入口只解析 ProviderConfig，曾绕过 Personal Source Schema，
         // 允许固定 Account Provider 的 access 被写盘，直到下次读取才整份拒绝。
         throw new Error(
-          `固定 Account Provider 的 Access 只能由 ZCode Built-in Config 声明: ${providerId}`,
+          `固定 Account Provider 的 Access 只能由 XCode Built-in Config 声明: ${providerId}`,
         );
       }
       // 普通保存曾同时承担创建语义，删除后的迟到保存可以凭空复活 Overlay。

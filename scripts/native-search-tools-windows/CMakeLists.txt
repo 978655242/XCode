@@ -4,7 +4,8 @@ cmake_policy(SET CMP0091 NEW)
 project(zcode_native_ugrep LANGUAGES C CXX)
 
 if(NOT MSVC)
-  message(FATAL_ERROR "ZCode Windows ugrep must be built with MSVC")
+  # XCODE: 构建诊断采用产品显示名，原生搜索目标不变。
+  message(FATAL_ERROR "XCode Windows ugrep must be built with MSVC")
 endif()
 
 foreach(source_name UGREP PCRE2 ZLIB BZIP2 ZSTD BROTLI)

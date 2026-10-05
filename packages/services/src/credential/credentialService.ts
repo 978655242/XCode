@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { atomicWritePrivateTextFile, backupCorruptFile, withFileLock } from "@zcode/shared/node";
@@ -48,7 +49,7 @@ async function readAll(credentialsFile = getCredentialsFile()): Promise<Record<s
     if (getErrorCode(error) === "ENOENT") {
       return {};
     }
-    throw new Error(`Unable to read ZCode credentials: ${credentialsFile}`, { cause: error });
+    throw new Error(`Unable to read XCode credentials: ${credentialsFile}`, { cause: error });
   }
 
   try {
@@ -68,7 +69,7 @@ async function readAll(credentialsFile = getCredentialsFile()): Promise<Record<s
       backupPath,
       credentialsFile,
     });
-    throw new Error(`ZCode credentials are corrupt: ${credentialsFile}`, { cause: error });
+    throw new Error(`XCode credentials are corrupt: ${credentialsFile}`, { cause: error });
   }
 }
 

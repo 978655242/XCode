@@ -5,9 +5,10 @@ import type { Locale } from "@zcode/shared";
 const MENU_KEY_NAME = "ZCode.OpenInZCode";
 const DIRECTORY_MENU_KEY = `HKCU\\Software\\Classes\\Directory\\shell\\${MENU_KEY_NAME}`;
 const DRIVE_MENU_KEY = `HKCU\\Software\\Classes\\Drive\\shell\\${MENU_KEY_NAME}`;
+// XCODE: 仅替换资源管理器菜单文案，注册表键继续兼容已有安装。
 const MENU_LABELS: Record<Locale, string> = {
-  "zh-CN": "在ZCode中打开",
-  "en-US": "Open in ZCode",
+  "zh-CN": "在XCode中打开",
+  "en-US": "Open in XCode",
 };
 
 type Logger = {

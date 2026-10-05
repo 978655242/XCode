@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import type { ZCodeApp } from "../app/types.js";
 import type { ZCodeProtocolAgentDependencies } from "./server-types.js";
 
@@ -34,7 +35,7 @@ export class ProtocolRuntimeResources {
   };
 
   assertServing(): void {
-    if (this.stopping) throw new Error("ZCode Protocol runtime is stopping");
+    if (this.stopping) throw new Error("XCode Protocol runtime is stopping");
   }
 
   close(): Promise<void> {

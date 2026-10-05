@@ -138,7 +138,8 @@ export function createBrowserControlMainBridge(deps: {
     id: browserId,
     generation: browserGeneration,
     type: "iab",
-    name: "ZCode In-app Browser",
+    // XCODE: 浏览器控制能力描述采用产品展示名，不修改控制协议。
+    name: "XCode In-app Browser",
     capabilities: {
       // capability collection 只列 optional capability；tabs/cua/screenshot/dialog 是 core API，
       // 不能伪装成 capability。viewport 是 Playwright-like Tab 核心 API；browser capability

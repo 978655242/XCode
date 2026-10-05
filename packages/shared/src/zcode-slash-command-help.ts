@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 export type BuiltinZCodeSlashCommandHelpEntry = {
   aliases?: readonly string[];
   details: readonly string[];
@@ -29,7 +30,7 @@ export const BUILTIN_ZCODE_SLASH_COMMAND_HELP_ENTRIES: readonly BuiltinZCodeSlas
         "/login [zai-coding-plan|bigmodel-coding-plan|zai-coding-plan-api-key <api-key>|bigmodel-coding-plan-api-key <api-key>]",
     },
     {
-      details: ["Deletes Z.ai OAuth credentials from the shared ZCode credential store."],
+      details: ["Deletes Z.ai OAuth credentials from the shared XCode credential store."],
       name: "logout",
       summary: "Remove the shared Z.ai login credentials.",
       usage: "/logout",

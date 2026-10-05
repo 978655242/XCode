@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { ZCODE_FILE_LOCK_TIMEOUT_ERROR_CODE } from "../errors.js";
 import { mkdir, readFile, readdir, rmdir, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -163,7 +164,7 @@ function createFileLockTimeoutError(
   cause?: unknown,
 ): NodeJS.ErrnoException {
   const error = new Error(
-    `Timed out after ${waitedMs}ms waiting for the ZCode file lock: ${lockFile}`,
+    `Timed out after ${waitedMs}ms waiting for the XCode file lock: ${lockFile}`,
   ) as NodeJS.ErrnoException & { cause?: unknown };
   error.code = ZCODE_FILE_LOCK_TIMEOUT_ERROR_CODE;
   error.path = filePath;
@@ -211,7 +212,7 @@ export async function acquireFileLock(
         currentOwners.length !== 1 ||
         currentOwners[0] !== `owner-${token}.json`
       ) {
-        throw Object.assign(new Error("ZCode file lock ownership changed during acquire"), {
+        throw Object.assign(new Error("XCode file lock ownership changed during acquire"), {
           code: "EEXIST",
         });
       }

@@ -1,3 +1,4 @@
+// XCODE: 仅统一产品展示名称，保留内部标识与用户内容。
 import {
   conversationShareErrorEnvelopeSchema,
   conversationShareKnownErrorCodeSchema,
@@ -244,7 +245,7 @@ export class ConversationSharePreviewClient {
       });
       throw new ConversationSharePreviewClientError({
         kind: "unsupported_schema_version",
-        message: "Conversation share requires a newer ZCode version",
+        message: "Conversation share requires a newer XCode version",
         status: response.status,
       });
     }

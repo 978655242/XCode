@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type {
@@ -375,7 +376,7 @@ function warnUnsupportedComponents(loaded: LoadedPlugin, diagnostics: PluginDiag
     if (key in loaded.manifest) {
       diagnostics.push({
         code: "plugin_unsupported_component",
-        message: `Plugin component is diagnostic-only in this ZCode runtime: ${key}`,
+        message: `Plugin component is diagnostic-only in this XCode runtime: ${key}`,
         path: loaded.manifestPath,
         pluginId: loaded.id,
         severity: "warning",
@@ -518,7 +519,7 @@ function parsePluginHookEvents(input: {
     if (!SUPPORTED_HOOK_EVENTS.has(eventName)) {
       input.diagnostics.push({
         code: "plugin_hook_unsupported_event",
-        message: `Plugin hook event is not supported by this ZCode runtime: ${eventName}`,
+        message: `Plugin hook event is not supported by this XCode runtime: ${eventName}`,
         path: input.sourcePath,
         pluginId: input.loaded.id,
         severity: "warning",

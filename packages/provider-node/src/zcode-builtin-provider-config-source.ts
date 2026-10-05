@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { watch, type FSWatcher } from "node:fs";
 import { createHash } from "node:crypto";
 import { mkdir, readFile } from "node:fs/promises";
@@ -33,7 +34,7 @@ export class NodeZCodeBuiltinProviderConfigSource implements ProviderSource<Prov
 
   constructor(options: NodeZCodeBuiltinProviderConfigSourceOptions) {
     const bundledFilePath = options.bundledFilePath.trim();
-    if (!bundledFilePath) throw new Error("ZCode Built-in bundledFilePath 不能为空");
+    if (!bundledFilePath) throw new Error("XCode Built-in bundledFilePath 不能为空");
     this.#bundledFilePath = bundledFilePath;
     this.#activeFilePath = options.activeFilePath?.trim() || bundledFilePath;
     // 旧标识只有发布序号，不同 Endpoint 同序号会让 Registry 误复用上一来源。
@@ -73,7 +74,7 @@ export class NodeZCodeBuiltinProviderConfigSource implements ProviderSource<Prov
         if (serializeZCodeBuiltinRelease(release) === serializeZCodeBuiltinRelease(current)) {
           return "unchanged" as const;
         }
-        throw new Error(`ZCode Built-in 相同 revision ${release.revision} 对应不同内容`);
+        throw new Error(`XCode Built-in 相同 revision ${release.revision} 对应不同内容`);
       }
       await this.#writeActiveLocked(release);
       this.#observedSignature = signatureOf(release);
@@ -197,7 +198,7 @@ function selectReleaseCandidate(
   if (valid.length === 0) {
     throw new AggregateError(
       [bundled?.error, active?.error].filter((error) => error !== undefined),
-      "Bundled 与 Active ZCode Built-in Release 均不可用",
+      "Bundled 与 Active XCode Built-in Release 均不可用",
     );
   }
   return valid.reduce((newest, candidate) =>

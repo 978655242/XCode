@@ -2,6 +2,7 @@
 name: web-gui-tester
 description: Use the browser automation tooling available in the session to test web frontends interactively in a purely GUI-based, black-box manner: simulate real user clicks, text input, scrolling, and other actions; use screenshots for visual verification and read-only DOM inspection for cross-validation; and produce a final test report. Suitable for verifying whether web functionality works correctly, reproducing frontend bugs, checking interaction feedback and layout styling, or conducting exploratory testing of a page. Use this skill when the user asks to test a webpage/frontend feature, verify UI behavior, reproduce a page bug, or provides only a URL and asks you to “test it.”
 ---
+<!-- XCODE: 产品展示名统一为 XCode，保留技能接口、命令和资源标识。 -->
 
 ## Core Principles
 
@@ -98,7 +99,7 @@ For every new page state—initial load and every state after an interaction—p
 #### Visual verification
 
 - Obtain and **view** screenshots in the way the tooling prescribes: an image returned directly by the tool counts as viewed; a screenshot saved to a file must be read with the session's file/image reading tool before visual verification counts as complete. Capturing without viewing is not observation.
-- When ZCode persists an explicit Browser screenshot, the tool result includes an adjacent text block in the exact form `Browser screenshot saved to: <absolute path>`. Treat that returned path as the source artifact; do not assume the browser API can save to an arbitrary caller-provided path.
+- When XCode persists an explicit Browser screenshot, the tool result includes an adjacent text block in the exact form `Browser screenshot saved to: <absolute path>`. Treat that returned path as the source artifact; do not assume the browser API can save to an arbitrary caller-provided path.
 - **Also preserve evidence**: Unless the user specifies a directory, create a dedicated folder in the working directory (such as `gui-test-screenshots/`). When the browser tooling returns a real artifact path, copy that file with the session's available filesystem tool and use names that include the test point number (such as `t1_before.png`). If the tooling returns only an image and no artifact path, do not invent one: use the viewed image as evidence and state that no persistent path was exposed.
 - Layout and occlusion issues may be assessed with the help of DOM geometry information, but dimensions such as rendering quality and visual aesthetics can only be judged from screenshots. In either case, a screenshot must ultimately confirm the visual result — **code verification must never replace screenshots**.
 

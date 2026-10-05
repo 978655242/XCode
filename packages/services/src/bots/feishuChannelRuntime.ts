@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import {
   isFeishuBotProvider,
   type BotConfig,
@@ -88,7 +89,7 @@ export function createFeishuChannelRuntime(deps: FeishuChannelRuntimeDeps) {
           botId: bot.id,
           provider: bot.provider,
           status: "idle",
-          message: "Feishu WebSocket is handled by another ZCode window.",
+          message: "Feishu WebSocket is handled by another XCode window.",
         });
         await waitFor(BOT_RUNTIME_LOCK_RETRY_MS, signal);
         continue;

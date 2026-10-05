@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 export interface CuaAgentSpawnAdmissionContext {
   workspaceKey: string;
   workspacePath?: string;
@@ -37,7 +38,7 @@ export class CuaAgentAdmissionGate {
   waitForSpawnAdmission(context: CuaAgentSpawnAdmissionContext): Promise<void> {
     const signal = context.signal;
     if (signal?.aborted) {
-      return Promise.reject(signal.reason ?? new Error("ZCode agent process start was cancelled."));
+      return Promise.reject(signal.reason ?? new Error("XCode agent process start was cancelled."));
     }
     if (this.activeEpoch === undefined) {
       return Promise.resolve();
@@ -46,7 +47,7 @@ export class CuaAgentAdmissionGate {
       let waiter!: AdmissionWaiter;
       const onAbort = (): void => {
         this.waiters.delete(waiter);
-        reject(signal?.reason ?? new Error("ZCode agent process start was cancelled."));
+        reject(signal?.reason ?? new Error("XCode agent process start was cancelled."));
       };
       waiter = {
         resolve: () => {

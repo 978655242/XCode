@@ -1,12 +1,13 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import type { ContextSection } from "../types.js";
 import { estimateTokens } from "../utils.js";
 
 export function buildDesktopContextSection(): ContextSection {
   return createDesktopSection(
-    "ZCode Desktop Context",
+    "XCode Desktop Context",
     "desktop_context",
     [
-      "# ZCode Desktop Context",
+      "# XCode Desktop Context",
       "",
       "### Files & URLs",
       "- Return local web URLs as Markdown links (e.g., [label](http://127.0.0.1:8080)).",

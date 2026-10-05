@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 export const ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV = "ZCODE_BUILTIN_PROVIDER_CONFIG_FILE";
 export const ZCODE_BUILTIN_PROVIDER_BUNDLED_CONFIG_FILE_ENV =
   "ZCODE_BUILTIN_PROVIDER_BUNDLED_CONFIG_FILE";
@@ -25,7 +26,7 @@ export function resolveNodeProviderRuntimePaths(
   const personalFilePath = env[ZCODE_PERSONAL_PROVIDER_CONFIG_FILE_ENV]?.trim();
   if (!zcodeBuiltinFilePath && !personalFilePath) return null;
   if (!zcodeBuiltinFilePath || !personalFilePath) {
-    throw new Error("ZCode Built-in 与 Personal Provider Config 路径必须同时提供");
+    throw new Error("XCode Built-in 与 Personal Provider Config 路径必须同时提供");
   }
   return Object.freeze({ zcodeBuiltinFilePath, personalFilePath });
 }

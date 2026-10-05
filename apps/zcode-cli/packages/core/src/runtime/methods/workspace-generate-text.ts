@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import {
   SessionEventType,
   createChildTraceContext,
@@ -24,7 +25,7 @@ import { auxiliaryModelOptions } from "../../model/auxiliary-model-options.js";
 const WORKSPACE_GENERATE_TEXT_TIMEOUT_MS = 60_000;
 const CONNECTIVITY_PROBE_MAX_OUTPUT_TOKENS = 1;
 // 探测请求使用固定最小 prompt，避免多余推理开销；不可改写角色、文本或混入会话历史。
-const CONNECTIVITY_PROBE_SYSTEM = "You are ZCode connectivity probe.";
+const CONNECTIVITY_PROBE_SYSTEM = "You are XCode connectivity probe.";
 const CONNECTIVITY_PROBE_USER = "hi";
 const GIT_COMMIT_MESSAGE_QUERY_SOURCE = "git_commit_message";
 

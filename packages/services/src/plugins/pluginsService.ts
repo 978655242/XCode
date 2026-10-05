@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import type { PluginScope, PluginsOverviewResult } from "@zcode/shared";
 import type { IPluginsService } from "./plugins.js";
 
@@ -15,7 +16,7 @@ function createRetiredOverview(): PluginsOverviewResult {
 }
 
 function throwRetiredPluginManagement(): never {
-  throw new Error("Legacy plugin management has been retired in ZCode Agent mode");
+  throw new Error("Legacy plugin management has been retired in XCode Agent mode");
 }
 
 export function createPluginsService(_options?: PluginsServiceOptions): IPluginsService {

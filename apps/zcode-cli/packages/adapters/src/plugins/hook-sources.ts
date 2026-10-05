@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { readFileSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import type { HookEventName, PluginDiagnostic } from "@zcode/contracts";
@@ -130,7 +131,7 @@ export function listPluginHookEventNames(input: {
       if (!SUPPORTED_HOOK_EVENTS.has(eventName)) {
         input.diagnostics.push({
           code: "plugin_hook_unsupported_event",
-          message: `Plugin hook event is not supported by this ZCode runtime: ${eventName}`,
+          message: `Plugin hook event is not supported by this XCode runtime: ${eventName}`,
           path: source.sourcePath,
           pluginId: input.loaded.id,
           severity: "warning",

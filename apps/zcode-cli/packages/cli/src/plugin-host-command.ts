@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -100,7 +101,7 @@ function assertCapturedBrokerLaunchIsAuthorized(credentials: CapturedBrokerCrede
     process.env[ZCODE_CUA_NODE_REPL_HOST_ENV_KEY] !== "1"
   ) {
     throw new Error(
-      "Captured ZCode CUA broker credentials may only launch the trusted shared node_repl host",
+      "Captured XCode CUA broker credentials may only launch the trusted shared node_repl host",
     );
   }
 }

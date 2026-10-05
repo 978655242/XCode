@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { readFile } from "node:fs/promises";
 import type { ReleaseManager } from "./releaseManager.js";
 
@@ -9,7 +10,7 @@ export async function recoverSupervisorStartup(
 ): Promise<void> {
   await readFile(uninstalledFile, "utf8")
     .then(() => {
-      throw new Error(`ZCode Server has been uninstalled: ${serverRoot}`);
+      throw new Error(`XCode Server has been uninstalled: ${serverRoot}`);
     })
     .catch((error: unknown) => {
       if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;

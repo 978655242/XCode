@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { isAbsolute, resolve } from "node:path";
 import { SqliteSessionStore } from "@zcode/adapters/storage";
 import { resolvePath, type ConfigResult } from "@zcode/adapters/config";
@@ -76,7 +77,7 @@ export async function openStartupSessionStore(
   startupTimer: StartupTimer,
 ): Promise<SqliteSessionStore> {
   const dbPath = getSessionDbPath(configResult);
-  startupTimer.start("ZCode SQLite migration started", {
+  startupTimer.start("XCode SQLite migration started", {
     context: { dbPath },
     event: "bootstrap.app.startup.sqlite_migration.started",
     stage: "migrate_session_db",
@@ -93,7 +94,7 @@ export async function openStartupSessionStore(
       },
     },
   );
-  startupTimer.mark("ZCode SQLite migration completed", {
+  startupTimer.mark("XCode SQLite migration completed", {
     context: { dbPath },
     event: "bootstrap.app.startup.sqlite_migration.completed",
     stage: "migrate_session_db",

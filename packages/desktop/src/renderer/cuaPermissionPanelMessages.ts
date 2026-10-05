@@ -13,8 +13,9 @@ const MESSAGES: Record<
   Locale,
   Omit<CuaPermissionPanelMessages, "permissionLabel"> & Record<CuaPermissionKind, string>
 > = {
+  // XCODE: 权限页面复用原有语言资源，原生辅助程序身份不变。
   "zh-CN": {
-    documentTitle: "ZCode Computer Use 权限",
+    documentTitle: "XCode Computer Use 权限",
     dragTitle: "拖动我到上面的权限列表",
     hintPrefix: "把左边的图标拖进上方的",
     hintSuffix: "列表",
@@ -23,7 +24,7 @@ const MESSAGES: Record<
     screen_recording: "屏幕录制",
   },
   "en-US": {
-    documentTitle: "ZCode Computer Use Permissions",
+    documentTitle: "XCode Computer Use Permissions",
     dragTitle: "Drag me to the permission list above",
     hintPrefix: "Drag the icon on the left into the ",
     hintSuffix: " list above",

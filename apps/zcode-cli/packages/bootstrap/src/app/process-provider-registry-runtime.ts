@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import {
   AccountProviderService,
   MutableAccountProviderConfigSource,
@@ -48,7 +49,7 @@ export async function startProcessProviderRegistryRuntime(
 ) {
   const paths = resolveNodeProviderRuntimePaths(env);
   if (!paths) {
-    throw new Error("缺少进程 Provider Registry 的 ZCode Built-in / Personal Config 路径");
+    throw new Error("缺少进程 Provider Registry 的 XCode Built-in / Personal Config 路径");
   }
 
   const accountSource = new MutableAccountProviderConfigSource();

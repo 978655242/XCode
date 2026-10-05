@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { basename } from "../deps.js";
 import type { FilePartSource, TurnAttachment } from "../deps.js";
 import type { ResolvedTurnAttachment } from "../types.js";
@@ -99,6 +100,6 @@ function formatPathReferenceReason(reason: PathReferenceReason): string {
   if (reason === "image_too_large") return "the image is larger than the inline media budget";
   if (reason === "pdf_too_large") return "the PDF is larger than the inline PDF input limit";
   if (reason === "text_too_large") return "the text file is larger than the inline text budget";
-  if (reason === "video_too_large") return "the video is larger than the ZCode video input limit";
+  if (reason === "video_too_large") return "the video is larger than the XCode video input limit";
   return "the file is not a known text attachment";
 }

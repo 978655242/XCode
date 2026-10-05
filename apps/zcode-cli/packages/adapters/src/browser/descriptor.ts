@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import type { BrowserBackendDescriptor } from "@zcode/contracts";
 
 export function createManagedCdpDescriptor(
@@ -8,7 +9,7 @@ export function createManagedCdpDescriptor(
     id: browserId,
     generation,
     type: "cdp",
-    name: "ZCode Headless Chromium",
+    name: "XCode Headless Chromium",
     capabilities: {
       browser: [],
       tab: [],

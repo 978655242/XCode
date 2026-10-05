@@ -1,8 +1,9 @@
-import { access, cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { access, copyFile, cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 export const DEV_ELECTRON_PROTOCOL_SCHEME = "zcode";
-export const DEV_ELECTRON_APP_NAME = "ZCode Dev";
+// XCODE: 仅迁移开发应用展示名，协议、bundle ID 与缓存根目录保持不变。
+export const DEV_ELECTRON_APP_NAME = "XCode Dev";
 export const DEV_ELECTRON_APP_BUNDLE_ID = "dev.zcode.app.development";
 // 副本布局版本，见 prepareDevElectronAppBundle 中的指纹说明。
 export const DEV_ELECTRON_BUNDLE_FORMAT = 2;
@@ -24,7 +25,8 @@ function replacePlistString(plist, key, value) {
 
 function appendProtocolDeclaration(plist) {
   if (plist.includes(`<string>${DEV_ELECTRON_PROTOCOL_SCHEME}</string>`)) {
-    return plist;
+    // XCODE: 已注册 scheme 的缓存副本也更新协议展示名，保留原 URL scheme。
+    return replacePlistString(plist, "CFBundleURLName", DEV_ELECTRON_APP_NAME);
   }
 
   const closingDictIndex = plist.lastIndexOf("</dict>");
@@ -45,6 +47,8 @@ export function patchDevElectronInfoPlist(plist) {
   let patched = replacePlistString(plist, "CFBundleDisplayName", DEV_ELECTRON_APP_NAME);
   patched = replacePlistString(patched, "CFBundleIdentifier", DEV_ELECTRON_APP_BUNDLE_ID);
   patched = replacePlistString(patched, "CFBundleName", DEV_ELECTRON_APP_NAME);
+  // XCODE: 开发 .app 也使用产品图标，不沿用 raw Electron 的图标声明。
+  patched = replacePlistString(patched, "CFBundleIconFile", "xcode.icns");
   return appendProtocolDeclaration(patched);
 }
 
@@ -110,6 +114,17 @@ export async function prepareDevElectronAppBundle({
     await writeFile(infoPlistPath, patchedInfoPlist, "utf8");
     // 指纹最后写：中途失败时下次仍会判定为需要重拷，不会留下半成品缓存。
     if (sourceStamp !== undefined) await writeFile(sourceStampPath, sourceStamp, "utf8");
+  }
+
+  // XCODE: 缓存命中也同步展示名与产品图标，不依赖 Electron 二进制变化来刷新 Info.plist。
+  await copyFile(
+    join(import.meta.dirname, "../build/icon.icns"),
+    join(appPath, "Contents", "Resources", "xcode.icns"),
+  );
+  const currentInfoPlist = await readFile(infoPlistPath, "utf8");
+  const patchedInfoPlist = patchDevElectronInfoPlist(currentInfoPlist);
+  if (patchedInfoPlist !== currentInfoPlist) {
+    await writeFile(infoPlistPath, patchedInfoPlist, "utf8");
   }
 
   return {

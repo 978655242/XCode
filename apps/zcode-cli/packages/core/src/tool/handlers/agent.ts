@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 // ============================================================
 // Agent Tool Handler
 // ============================================================
@@ -286,7 +287,7 @@ function canReadBackgroundOutputFile(toolNames: readonly string[] | undefined): 
 
 export const taskToolEntry: ToolEntry = {
   ...agentToolEntry,
-  capability: "Claude Code-compatible alias for launching a ZCode subagent",
+  capability: "Claude Code-compatible alias for launching a XCode subagent",
   metadata: {
     ...agentToolEntry.metadata,
     name: TASK_TOOL_NAME,
@@ -302,7 +303,7 @@ export const taskToolEntry: ToolEntry = {
 function createTaskToolEntryFromAgent(entry: ToolEntry): ToolEntry {
   return {
     ...entry,
-    capability: "Claude Code-compatible alias for launching a ZCode subagent",
+    capability: "Claude Code-compatible alias for launching a XCode subagent",
     metadata: {
       ...entry.metadata,
       name: TASK_TOOL_NAME,

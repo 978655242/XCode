@@ -14,12 +14,13 @@ export function ZCodeAboutLogo({ className }: { className?: string }) {
     >
       <path
         fill="currentColor"
-        d="M134.4 0.130152L116.48 25.6022C113.665 29.5699 109.054 32.0019 104.064 32.0019H6.3999V0C6.3999 0.130149 134.4 0.130152 134.4 0.130152Z"
+        // XCODE: 保留斜切断笔风格，将品牌字标改为 X。
+        d="M0 0H82L111 41L70 99Z"
       />
       <path fill="currentColor" d="M256 0.130127L102.401 217.732H0L153.599 0.130127H256Z" />
       <path
         fill="currentColor"
-        d="M121.601 217.732L139.65 192.134C142.465 188.166 147.076 185.734 152.067 185.734H249.604V217.736H121.601V217.732Z"
+        d="M186 119L256 218H174L145 177Z"
       />
     </svg>
   );
@@ -54,7 +55,8 @@ export function ZCodeWordmarkLogo({ className }: { className?: string }) {
         fill="currentColor"
       />
       <path
-        d="M3.48423 12.1225V1.16174H43.3351L19.3084 41.4481H40.7219V51.9734H0L23.6637 12.1225H3.48423Z"
+        // XCODE: 组合字标的首字母同步改为 X，保留 CODE 字形。
+        d="M25.865 1.162H43L17.135 51.973H0Z M0 1.162H13.773L18.645 10.718L11.758 24.237Z M31.242 28.899L43 51.973H29.227L24.355 42.417Z"
         fill="currentColor"
       />
     </svg>

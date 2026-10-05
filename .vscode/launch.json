@@ -2,7 +2,8 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "ZCode Desktop: Main",
+      // XCODE: 调试入口显示名迁移，调试协议与端口保持不变。
+      "name": "XCode Desktop: Main",
       "type": "pwa-node",
       "request": "attach",
       "port": 9231,
@@ -19,7 +20,7 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "ZCode Desktop: Main (with host inspect)",
+      "name": "XCode Desktop: Main (with host inspect)",
       "type": "pwa-node",
       "request": "attach",
       "port": 9231,
@@ -34,7 +35,7 @@
       "skipFiles": ["<node_internals>/**"]
     },
     {
-      "name": "ZCode Desktop: Renderer",
+      "name": "XCode Desktop: Renderer",
       "type": "pwa-chrome",
       "request": "attach",
       "port": 9229,
@@ -42,7 +43,7 @@
       "timeout": 30000
     },
     {
-      "name": "ZCode Desktop: Host",
+      "name": "XCode Desktop: Host",
       "type": "pwa-node",
       "request": "attach",
       "port": 9230,
@@ -58,16 +59,16 @@
   ],
   "compounds": [
     {
-      "name": "ZCode Desktop: F5",
-      "configurations": ["ZCode Desktop: Main", "ZCode Desktop: Renderer"],
+      "name": "XCode Desktop: F5",
+      "configurations": ["XCode Desktop: Main", "XCode Desktop: Renderer"],
       "stopAll": true
     },
     {
-      "name": "ZCode Desktop: F5 (with host inspect)",
+      "name": "XCode Desktop: F5 (with host inspect)",
       "configurations": [
-        "ZCode Desktop: Main (with host inspect)",
-        "ZCode Desktop: Renderer",
-        "ZCode Desktop: Host"
+        "XCode Desktop: Main (with host inspect)",
+        "XCode Desktop: Renderer",
+        "XCode Desktop: Host"
       ],
       "stopAll": true
     }

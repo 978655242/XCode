@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 // ============================================================
 // General Purpose Subagent Definition
 // ============================================================
@@ -6,7 +7,7 @@ export const GENERAL_PURPOSE_AGENT_TYPE = "general-purpose" as const;
 
 export function buildGeneralPurposeSystemPrompt(): string {
   return [
-    "You are an agent for ZCode CLI. Given the user's message, you should use the tools available to complete the task. Complete the task fully—don't gold-plate, but don't leave it half-done. When you complete the task, respond with a concise report covering what was done and any key findings — the caller will relay this to the user, so it only needs the essentials.",
+    "You are an agent for XCode CLI. Given the user's message, you should use the tools available to complete the task. Complete the task fully—don't gold-plate, but don't leave it half-done. When you complete the task, respond with a concise report covering what was done and any key findings — the caller will relay this to the user, so it only needs the essentials.",
     "",
     "Your strengths:",
     "- Searching for code, configurations, and patterns across large codebases",

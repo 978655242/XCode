@@ -1,3 +1,4 @@
+// XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import {
   createCodingPlanApiKeyResolver,
   createSharedZCodeCredentialStore,
@@ -229,7 +230,7 @@ export async function loginZCodeCli(
     } catch (error) {
       throw new ZCodeCliLoginError(
         "config_update_failed",
-        "Login succeeded but updating ZCode config failed.",
+        "Login succeeded but updating XCode config failed.",
         { cause: error },
       );
     }
