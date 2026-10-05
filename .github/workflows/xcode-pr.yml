@@ -1,0 +1,55 @@
+# XCode PR 必过检查。job 名 policy / verify 被 XCode-main 规则集设为 required status checks，改名需同步更新规则集。
+name: XCode PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xcode-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    name: policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Check branch policy
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/xcode/branch-policy.mjs pr
+
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.14.0" # 与 mise.toml 保持一致
+          cache: pnpm
+      # 只跑静态检查，不需要 node-pty 等原生模块的 postinstall 构建。
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm architecture:check
+      # 上游存量文件未全部格式化，只检查本 PR 改动；同步 PR 的改动来自上游，跳过。
+      - name: Format check (changed files)
+        if: ${{ !startsWith(github.event.pull_request.head.ref, 'sync/') }}
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          git diff --name-only -z --diff-filter=ACMR "origin/${BASE_REF}...HEAD" \
+            | xargs -0 -r pnpm exec oxfmt --check --no-error-on-unmatched-pattern

@@ -1,0 +1,36 @@
+# 合并后巡检：同步 PR 被 squash 合并、main 偏离上游镜像。GitHub 规则集无法事前拦截这两类问题。
+name: XCode main guard
+
+on:
+  push:
+    branches: [XCode-main]
+  schedule:
+    - cron: "17 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  merge-method:
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Check sync PRs kept merge commits
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+        run: node scripts/xcode/branch-policy.mjs guard-merge
+
+  mirror:
+    if: ${{ github.event_name != 'push' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Check main mirrors upstream ZCode
+        run: node scripts/xcode/branch-policy.mjs guard-mirror
