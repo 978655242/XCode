@@ -40,7 +40,7 @@ it does not alter the derived trajectories. Without this option, no reference
 copy is written. Unrecognized options are rejected before recording or derivation.
 
 When `--model`, `--upstream-base-url`, and API-key flags are omitted, the recorder
-uses the same XCode model config resolution as the CLI. The upstream request is
+uses the same XWork model config resolution as the CLI. The upstream request is
 still proxied through the recorder; only the model provider `baseURL` is replaced
 with the local proxy URL at runtime.
 
@@ -63,7 +63,7 @@ shape.
 
 ## Model-IO Converter
 
-`model-io` reads a real XCode `model-io-*.jsonl` file and turns the main
+`model-io` reads a real XWork `model-io-*.jsonl` file and turns the main
 conversation into a reusable Anthropic trajectory:
 
 ```text

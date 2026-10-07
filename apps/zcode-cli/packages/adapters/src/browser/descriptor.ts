@@ -9,7 +9,7 @@ export function createManagedCdpDescriptor(
     id: browserId,
     generation,
     type: "cdp",
-    name: "XCode Headless Chromium",
+    name: "XWork Headless Chromium",
     capabilities: {
       browser: [],
       tab: [],

@@ -47,7 +47,7 @@ const ACCEPTED_INPUT_PROJECTION_GRACE_MS = 2_000;
 const ACCEPTED_INPUT_COMMAND_TYPES = new Set(["sendText"]);
 
 /** 退避耗尽时展示给用户的 lastError（无底层 error 对象可引用的换代路径）。 */
-const RUNTIME_RECYCLED_ERROR = "XCode agent runtime 已被回收，重连未成功";
+const RUNTIME_RECYCLED_ERROR = "XWork agent runtime 已被回收，重连未成功";
 
 function monotonicNow(): number {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -69,15 +69,19 @@ function isRuntimeRecycleError(error: unknown): boolean {
   return (
     // 冷订阅可能亲自拉起新 runtime；restart 令在途 ACK 失效后仍须有界重订，不能停在 error。
     message.includes("fault.subscription.runtimeRestarted") ||
+    message.includes("XWork agent transport closed") ||
+    message.includes("XWork Protocol client disposed") ||
+    message.includes("XWork Protocol client is disposed") ||
+    // XCODE: 展示名更新不能改变既有远端运行时错误的回收判断；旧文案只用于兼容识别。
     message.includes("XCode agent transport closed") ||
     message.includes("XCode Protocol client disposed") ||
     message.includes("XCode Protocol client is disposed") ||
-    // XCODE: 展示名更新不能改变既有远端运行时错误的回收判断；仅识别旧文案，不重新生成它。
     message.includes("ZCode agent transport closed") ||
     message.includes("ZCode Protocol client disposed") ||
     message.includes("ZCode Protocol client is disposed") ||
     message.includes("ZCode Agent runtime is not running") ||
-    message.includes("XCode Agent runtime is not running")
+    message.includes("XCode Agent runtime is not running") ||
+    message.includes("XWork Agent runtime is not running")
   );
 }
 

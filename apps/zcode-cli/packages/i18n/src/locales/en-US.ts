@@ -8,15 +8,15 @@ export const enUS: ZCodeCopy = {
       localeUnsupported: (value) =>
         `Unsupported --locale value: ${value}. Supported locales: en-US, zh-CN, auto.`,
     },
-    help: (version) => `XCode ${version}
+    help: (version) => `XWork ${version}
 
 Usage:
   zcode [command] [options]
 
-With no command, XCode opens the full-screen TUI.
+With no command, XWork opens the full-screen TUI.
 
 Commands:
-  app-server Run the XCode Protocol stdio app server
+  app-server Run the XWork Protocol stdio app server
   commands   List custom slash commands (\`commands list\`)
   doctor     Inspect runtime and packaging assumptions
   login [zai|bigmodel]  Sign in through browser authorization
@@ -288,7 +288,7 @@ Slash Commands:
     },
     terminal: {
       requiresInteractive: "TUI requires an interactive terminal.",
-      starting: "Starting XCode... Ctrl+C to exit",
+      starting: "Starting XWork... Ctrl+C to exit",
     },
     transcript: {
       compact: {

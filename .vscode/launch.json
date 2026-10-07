@@ -3,7 +3,7 @@
   "configurations": [
     {
       // XCODE: 调试入口显示名迁移，调试协议与端口保持不变。
-      "name": "XCode Desktop: Main",
+      "name": "XWork Desktop: Main",
       "type": "pwa-node",
       "request": "attach",
       "port": 9231,
@@ -20,7 +20,7 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "XCode Desktop: Main (with host inspect)",
+      "name": "XWork Desktop: Main (with host inspect)",
       "type": "pwa-node",
       "request": "attach",
       "port": 9231,
@@ -35,7 +35,7 @@
       "skipFiles": ["<node_internals>/**"]
     },
     {
-      "name": "XCode Desktop: Renderer",
+      "name": "XWork Desktop: Renderer",
       "type": "pwa-chrome",
       "request": "attach",
       "port": 9229,
@@ -43,7 +43,7 @@
       "timeout": 30000
     },
     {
-      "name": "XCode Desktop: Host",
+      "name": "XWork Desktop: Host",
       "type": "pwa-node",
       "request": "attach",
       "port": 9230,
@@ -59,16 +59,16 @@
   ],
   "compounds": [
     {
-      "name": "XCode Desktop: F5",
-      "configurations": ["XCode Desktop: Main", "XCode Desktop: Renderer"],
+      "name": "XWork Desktop: F5",
+      "configurations": ["XWork Desktop: Main", "XWork Desktop: Renderer"],
       "stopAll": true
     },
     {
-      "name": "XCode Desktop: F5 (with host inspect)",
+      "name": "XWork Desktop: F5 (with host inspect)",
       "configurations": [
-        "XCode Desktop: Main (with host inspect)",
-        "XCode Desktop: Renderer",
-        "XCode Desktop: Host"
+        "XWork Desktop: Main (with host inspect)",
+        "XWork Desktop: Renderer",
+        "XWork Desktop: Host"
       ],
       "stopAll": true
     }

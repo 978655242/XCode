@@ -66,10 +66,7 @@ function ZCodeStartupLogo({
         d="M0 0H82L111 41L70 99Z"
       />
       <path fill="currentColor" d="M256 0.130127L102.401 217.732H0L153.599 0.130127H256Z" />
-      <path
-        fill="currentColor"
-        d="M186 119L256 218H174L145 177Z"
-      />
+      <path fill="currentColor" d="M186 119L256 218H174L145 177Z" />
     </svg>
   );
 }

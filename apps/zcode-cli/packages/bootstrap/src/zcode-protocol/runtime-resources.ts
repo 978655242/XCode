@@ -35,7 +35,7 @@ export class ProtocolRuntimeResources {
   };
 
   assertServing(): void {
-    if (this.stopping) throw new Error("XCode Protocol runtime is stopping");
+    if (this.stopping) throw new Error("XWork Protocol runtime is stopping");
   }
 
   close(): Promise<void> {

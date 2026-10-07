@@ -189,17 +189,17 @@ async function verifyHelperPermissionIdentityUnchanged(
   await options.verifyHelperInstalled?.(identity.appPath);
   // XCODE: 权限错误使用辅助程序展示名，签名与权限主体校验保持不变。
   if (!cuaHelperBundleFingerprintUnchanged(identity.appPath, fingerprint)) {
-    throw new Error(`XCode Computer Use changed while its ${phase} signature was being verified`);
+    throw new Error(`XWork Computer Use changed while its ${phase} signature was being verified`);
   }
   const currentIdentity = await (
     options.resolveHelperIdentity ?? resolveHelperPermissionSubjectIdentity
   )(identity.appPath);
   if (!sameHelperPermissionIdentity(identity, currentIdentity)) {
-    throw new Error(`XCode Computer Use permission identity changed during ${phase} verification`);
+    throw new Error(`XWork Computer Use permission identity changed during ${phase} verification`);
   }
   if (!cuaHelperBundleFingerprintUnchanged(identity.appPath, fingerprint)) {
     throw new Error(
-      `XCode Computer Use changed while its ${phase} permission identity was being resolved`,
+      `XWork Computer Use changed while its ${phase} permission identity was being resolved`,
     );
   }
   return fingerprint;
@@ -505,7 +505,7 @@ export async function openCuaPermissionOnboarding(
   if (platform !== "darwin") {
     return {
       success: false,
-      error: "XCode Computer Use permissions are only available on macOS.",
+      error: "XWork Computer Use permissions are only available on macOS.",
     };
   }
   const env = options.env ?? process.env;
@@ -529,7 +529,7 @@ export async function openCuaPermissionOnboarding(
     // 根本不会进到这个 catch；只有真正校验失败才会到这里。
     return {
       success: false,
-      error: `XCode Computer Use is unavailable (install/verification failed): ${messageOf(error)}`,
+      error: `XWork Computer Use is unavailable (install/verification failed): ${messageOf(error)}`,
     };
   }
 
@@ -542,7 +542,7 @@ export async function openCuaPermissionOnboarding(
     return {
       success: false,
       returnedFromSettings: false,
-      error: `XCode Computer Use permission identity verification failed: ${messageOf(error)}`,
+      error: `XWork Computer Use permission identity verification failed: ${messageOf(error)}`,
     };
   }
   const verifiedOptions: OpenCuaAccessibilitySettingsOptions = {
@@ -599,7 +599,7 @@ export async function prepareCuaHelperPermissionDrag(
   if (platform !== "darwin") {
     return {
       success: false,
-      error: "XCode Computer Use permissions are only available on macOS.",
+      error: "XWork Computer Use permissions are only available on macOS.",
     };
   }
   const env = options.env ?? process.env;
@@ -621,13 +621,13 @@ export async function prepareCuaHelperPermissionDrag(
     const verifiedFingerprint = captureCuaHelperBundleFingerprint(helperAppPath);
     await (options.verifyHelperInstalled ?? defaultInstaller?.verifyInstalled)?.(helperAppPath);
     if (!cuaHelperBundleFingerprintUnchanged(helperAppPath, verifiedFingerprint)) {
-      throw new Error("XCode Computer Use changed while its drag signature was being verified");
+      throw new Error("XWork Computer Use changed while its drag signature was being verified");
     }
     const identity = await (
       options.resolveHelperIdentity ?? resolveHelperPermissionSubjectIdentity
     )(helperAppPath);
     if (!cuaHelperBundleFingerprintUnchanged(helperAppPath, verifiedFingerprint)) {
-      throw new Error("XCode Computer Use changed while its drag identity was being resolved");
+      throw new Error("XWork Computer Use changed while its drag identity was being resolved");
     }
     return {
       success: true,

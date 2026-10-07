@@ -127,7 +127,7 @@ if (process.platform === "darwin" && existsSync(electronBinary)) {
   });
   electronCommand = devBundle.executablePath;
   // XCODE: 开发启动提示与原生应用展示名一致。
-  console.log(`[dev] Prepared macOS XCode Dev bundle: ${devBundle.appPath}`);
+  console.log(`[dev] Prepared macOS XWork Dev bundle: ${devBundle.appPath}`);
 }
 
 const electron = spawn(electronCommand, ["."], {

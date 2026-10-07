@@ -1120,11 +1120,11 @@ function unwrapClientConfigProducts(
   payload: ZCodeClientConfigEnvelope,
 ): CodingPlanStaticProductsConfig {
   if (payload.code !== undefined && payload.code !== 0) {
-    throw new Error(payload.msg?.trim() || "XCode client config request failed");
+    throw new Error(payload.msg?.trim() || "XWork client config request failed");
   }
   const products = payload.data?.configs?.codingPlanStaticProducts;
   if (!products || typeof products !== "object") {
-    throw new Error("XCode client config missing Coding Plan products");
+    throw new Error("XWork client config missing Coding Plan products");
   }
   return normalizeStaticProductProviderIds(products);
 }
@@ -1133,11 +1133,11 @@ function unwrapClientConfigTeamProducts(
   payload: ZCodeClientConfigEnvelope,
 ): CodingPlanStaticTeamProductsConfig {
   if (payload.code !== undefined && payload.code !== 0) {
-    throw new Error(payload.msg?.trim() || "XCode client config request failed");
+    throw new Error(payload.msg?.trim() || "XWork client config request failed");
   }
   const products: unknown = payload.data?.configs?.codingPlanStaticTeamProducts;
   if (!products || typeof products !== "object") {
-    throw new Error("XCode client config missing Coding Plan team products");
+    throw new Error("XWork client config missing Coding Plan team products");
   }
   for (const providerProducts of Object.values(products)) {
     if (
@@ -1146,7 +1146,7 @@ function unwrapClientConfigTeamProducts(
     ) {
       // 远端配置没有运行时类型保障；无效静态目录必须整体降级为读取失败，
       // 让 UI 继续使用实时 pricing 恢复团队订阅身份，不能在合并阶段抛错。
-      throw new Error("XCode client config has invalid Coding Plan team products");
+      throw new Error("XWork client config has invalid Coding Plan team products");
     }
   }
   return normalizeStaticProductProviderIds(products as CodingPlanStaticTeamProductsConfig);
@@ -1197,7 +1197,7 @@ function unwrapClientConfigStartPlanPreview(
   payload: ZCodeClientConfigEnvelope,
 ): StartPlanPreviewConfig | null {
   if (payload.code !== undefined && payload.code !== 0) {
-    throw new Error(payload.msg?.trim() || "XCode client config request failed");
+    throw new Error(payload.msg?.trim() || "XWork client config request failed");
   }
   const preview = payload.data?.configs?.startPlanPreview;
   if (!preview) {
@@ -1208,7 +1208,7 @@ function unwrapClientConfigStartPlanPreview(
     typeof preview.name !== "string" ||
     !Array.isArray(preview.entitlements)
   ) {
-    throw new Error("XCode client config invalid Start Plan preview");
+    throw new Error("XWork client config invalid Start Plan preview");
   }
   return {
     planId: preview.planId,
@@ -1221,7 +1221,7 @@ function unwrapClientConfigForceUpdate(
   payload: ZCodeClientConfigEnvelope,
 ): ForceUpdateConfig | null {
   if (payload.code !== undefined && payload.code !== 0) {
-    throw new Error(payload.msg?.trim() || "XCode client config request failed");
+    throw new Error(payload.msg?.trim() || "XWork client config request failed");
   }
 
   const forceUpdate = payload.data?.configs?.forceUpdate;

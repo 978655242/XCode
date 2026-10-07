@@ -37,7 +37,7 @@ export const DEFAULT_PLUGIN_MARKETPLACES: DefaultPluginMarketplace[] = [
     id: ZCODE_OFFICIAL_PLUGIN_MARKETPLACE_ID,
     source: "https://cdn-zcode.z.ai/zcode/official-plugin/marketplace.json",
     name: ZCODE_OFFICIAL_PLUGIN_MARKETPLACE_ID,
-    description: "Official XCode plugins marketplace: built-in and community plugins for XCode.",
+    description: "Official XWork plugins marketplace: built-in and community plugins for XWork.",
     pluginCount: 0,
   },
 ];

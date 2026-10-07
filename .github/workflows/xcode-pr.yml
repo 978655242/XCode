@@ -1,5 +1,5 @@
-# XCode PR 必过检查。job 名 policy / verify 被 XCode-main 规则集设为 required status checks，改名需同步更新规则集。
-name: XCode PR
+# XWork PR 必过检查。job 名 policy / verify 被 XCode-main 规则集设为 required status checks，改名需同步更新规则集。
+name: XWork PR
 
 on:
   pull_request:

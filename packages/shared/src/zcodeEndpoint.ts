@@ -88,12 +88,12 @@ function readRuntimeEnvValue(
 export function normalizeZCodeEndpointOrigin(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) {
-    throw new Error("XCode endpoint origin is empty");
+    throw new Error("XWork endpoint origin is empty");
   }
 
   const parsed = new URL(trimmed);
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-    throw new Error("XCode endpoint origin must use http or https");
+    throw new Error("XWork endpoint origin must use http or https");
   }
   return parsed.origin;
 }

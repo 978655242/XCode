@@ -20,7 +20,7 @@ import {
   type FeedbackSubmissionJob,
 } from "@/feedback/feedbackSubmissionJob.js";
 
-const FEEDBACK_ZCODE_AGENT_LABEL = "XCode Agent";
+const FEEDBACK_ZCODE_AGENT_LABEL = "XWork Agent";
 
 export const DEFAULT_FEEDBACK_TYPE: FeedbackTicketType = "bug";
 export const DEFAULT_FEEDBACK_SEVERITY: FeedbackTicketSeverity = "P2-中";

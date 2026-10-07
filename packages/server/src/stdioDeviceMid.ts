@@ -27,7 +27,7 @@ export async function ensureRemoteServerDeviceMid(
     return await ensureDeviceMid();
   } catch (error) {
     options.log(
-      "deviceMid 初始化失败，XCode endpoint 请求将不带 X-Device-Mid:",
+      "deviceMid 初始化失败，XWork endpoint 请求将不带 X-Device-Mid:",
       error instanceof Error ? error.message : String(error),
     );
     return undefined;

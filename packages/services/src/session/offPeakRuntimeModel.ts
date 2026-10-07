@@ -30,7 +30,7 @@ export class OffPeakCredentialsUnavailableError extends OffPeakPermanentDispatch
   constructor(readonly missing: "jwt" | "codingPlanApiKey") {
     super(
       missing === "jwt"
-        ? "off-peak requires XCode login (jwt missing)"
+        ? "off-peak requires XWork login (jwt missing)"
         : "off-peak requires a coding plan provider api key",
     );
     this.name = "OffPeakCredentialsUnavailableError";

@@ -61,8 +61,8 @@ function generateSelfSignedCa(): { certPem: string; keyPem: string } {
   cert.validity.notAfter = notAfter;
 
   const attrs = [
-    { name: "commonName", value: "XCode Network CA" },
-    { name: "organizationName", value: "XCode" },
+    { name: "commonName", value: "XWork Network CA" },
+    { name: "organizationName", value: "XWork" },
   ];
   cert.setSubject(attrs);
   cert.setIssuer(attrs); // 自签：issuer == subject

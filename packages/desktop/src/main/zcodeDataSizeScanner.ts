@@ -28,7 +28,7 @@ interface ZCodeDataSizeScanOptions extends ZCodeDataSizeScanRequest {
 
 function createAbortError(): DOMException {
   // XCODE: 取消扫描错误采用统一产品展示名。
-  return new DOMException("XCode data size scan aborted", "AbortError");
+  return new DOMException("XWork data size scan aborted", "AbortError");
 }
 
 function isMissingPathError(error: unknown): boolean {

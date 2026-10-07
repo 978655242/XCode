@@ -130,7 +130,7 @@ export function createTelegramChannelRuntime(deps: TelegramChannelRuntimeDeps) {
           provider: "telegram",
           status: "idle",
           messageId: "bots.runtime.telegramLongPollingHandledElsewhere",
-          message: "Telegram long polling is handled by another XCode window.",
+          message: "Telegram long polling is handled by another XWork window.",
           offset: await deps.readTelegramOffset(bot.id),
         });
         await waitFor(BOT_RUNTIME_LOCK_RETRY_MS, signal);

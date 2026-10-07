@@ -38,7 +38,7 @@ export async function cleanupProtocolRuntime(options: {
         }),
       ]);
     } catch (error) {
-      options.logger.warn(`XCode Protocol ${resource} shutdown failed`, {
+      options.logger.warn(`XWork Protocol ${resource} shutdown failed`, {
         errorType: error instanceof Error ? error.name : typeof error,
         event: `zcode_protocol.${resource}.shutdown.failed`,
         module: "bootstrap.zcode_protocol",

@@ -1,7 +1,7 @@
-<!-- XCODE: 产品展示名统一为 XCode，保留技能接口、命令和资源标识。 -->
+<!-- XCODE: 产品展示名统一为 XWork，保留技能接口、命令和资源标识。 -->
 # Built-in Browser Automation API
 
-The browser registry understands backend types `iab`, `extension`, and `cdp`. Playwright is a `Tab` API surface, not a backend. The desktop host normally advertises `iab`, while XCode CLI can explicitly advertise a managed headless Chromium as `cdp`. Never treat an unadvertised backend as available.
+The browser registry understands backend types `iab`, `extension`, and `cdp`. Playwright is a `Tab` API surface, not a backend. The desktop host normally advertises `iab`, while XWork CLI can explicitly advertise a managed headless Chromium as `cdp`. Never treat an unadvertised backend as available.
 
 Start by selecting a browser and a tab. Every Browser Use JS call runs in a fresh kernel, so run the Skill bootstrap and recreate the selected browser wrapper in each call. Read its complete effective documentation once:
 
@@ -80,7 +80,7 @@ Available entry points:
   renderer shows it only if that scope is currently foreground; background sessions never steal the user's current UI.
 - `browser.tabs.new()` creates a real IAB tab and returns only after its guest ready acknowledgement.
 - `browser.user.openTabs()` lists user tabs without granting control; call `browser.user.claimTab(tab)` explicitly before using one.
-- Browser tabs persist across turns for the lifetime of the current XCode process. `tabs.finalize({ keep })` marks
+- Browser tabs persist across turns for the lifetime of the current XWork process. `tabs.finalize({ keep })` marks
   only listed tabs as `handoff` or `deliverable`; unlisted tabs remain open. Only `tab.close()`, a user close, window
   close, or process exit removes a tab.
 - Creating an IAB tab automatically opens the right pane and activates that tab so the user can see browser use in progress.

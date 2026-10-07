@@ -145,16 +145,16 @@ export function resolveExternalWorkspaceOpenDialogCopy(
     return {
       buttons: ["打开文件夹", "取消"],
       // XCODE: 外部链接确认显示产品名，URL scheme 保持兼容。
-      title: "打开外部 XCode 链接？",
-      message: "是否在 XCode 中打开此文件夹？",
+      title: "打开外部 XWork 链接？",
+      message: "是否在 XWork 中打开此文件夹？",
       detail: (path) => `${path}\n\n只打开你信任来源的文件夹。项目设置可能影响 agent runtime。`,
     };
   }
 
   return {
     buttons: ["Open folder", "Cancel"],
-    title: "Open external XCode link?",
-    message: "Open this folder in XCode?",
+    title: "Open external XWork link?",
+    message: "Open this folder in XWork?",
     detail: (path) =>
       `${path}\n\nOnly open folders from sources you trust. Project settings may affect the agent runtime.`,
   };

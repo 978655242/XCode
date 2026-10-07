@@ -70,9 +70,9 @@ function buildInitAgentsPrompt(params: {
     : "";
 
   return [
-    "You are running XCode's built-in /init command.",
+    "You are running XWork's built-in /init command.",
     "",
-    "Your task is to create or update a concise workspace instruction file for future XCode agents.",
+    "Your task is to create or update a concise workspace instruction file for future XWork agents.",
     "",
     "Target:",
     `- Workspace directory: ${params.workingDirectory}`,
@@ -88,7 +88,7 @@ function buildInitAgentsPrompt(params: {
     "3. If AGENTS.md already exists, read it first and update it with Edit instead of replacing it wholesale.",
     "4. If AGENTS.md does not exist, create it at the workspace root.",
     "5. Keep the file practical and short enough for future agents to read quickly.",
-    "6. Include only project-specific facts future XCode agents would otherwise miss.",
+    "6. Include only project-specific facts future XWork agents would otherwise miss.",
     "7. Ask the user only if a repository-specific decision cannot be inferred and would materially change the file.",
     "",
     "Recommended AGENTS.md content:",

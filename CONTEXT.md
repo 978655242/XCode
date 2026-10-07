@@ -1,4 +1,4 @@
-# XCode 插件商店（Plugin Store）
+# XWork 插件商店（Plugin Store）
 
 插件设置页及其市场浏览/安装体验的领域词汇表。本文件统一定义商店相关术语，供页面、服务和文档使用。
 
@@ -7,7 +7,9 @@
 ### 市场与来源
 
 **Official Marketplace（官方市场）**:
-<!-- XCODE: 产品展示使用 XCode；市场来源及稳定 id 保留上游归属。 -->
+
+<!-- XCODE: 产品展示使用 XWork；市场来源及稳定 id 保留上游归属。 -->
+
 上游 ZCode 官方运营的分发渠道，市场 id 为 `zcode-plugins-official`，内容 = 内置插件 + CDN 插件。是"分发渠道"而非"作者归属"——其中可以收录社区作者的插件。
 _Avoid_: "官方"泛指一切受信市场
 

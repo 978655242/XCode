@@ -10,7 +10,7 @@ export async function recoverSupervisorStartup(
 ): Promise<void> {
   await readFile(uninstalledFile, "utf8")
     .then(() => {
-      throw new Error(`XCode Server has been uninstalled: ${serverRoot}`);
+      throw new Error(`XWork Server has been uninstalled: ${serverRoot}`);
     })
     .catch((error: unknown) => {
       if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;

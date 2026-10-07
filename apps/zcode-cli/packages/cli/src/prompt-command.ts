@@ -166,7 +166,7 @@ export const runPrompt = async (
     const sessionId = await resolveResumeSession(resumeRequest, workingDirectory, env, deps);
     const bootstrapModule = deps.createZCodeApp ? undefined : await loadBootstrapModule();
     const createApp = deps.createZCodeApp ?? bootstrapModule?.createZCodeApp;
-    if (!createApp) throw new Error("XCode app factory is unavailable.");
+    if (!createApp) throw new Error("XWork app factory is unavailable.");
     const streamsEvents = wantsEventStream(options);
     let mapSessionEvent: NonNullable<RunDependencies["mapSessionEvent"]> | undefined;
     if (streamsEvents) {

@@ -93,7 +93,7 @@ const ZCODE_DOWNLOAD_URL = "https://zcode.z.ai";
 
 const COPY: Record<ConversationShareLandingLocale, Copy> = {
   "zh-CN": {
-    brand: "XCode 会话分享",
+    brand: "XWork 会话分享",
     loading: "正在加载分享内容",
     loadingDescription: "请稍候，我们正在验证分享链接。",
     loginTitle: "登录后查看分享",
@@ -115,22 +115,22 @@ const COPY: Record<ConversationShareLandingLocale, Copy> = {
     networkDescription: "请检查网络后重试。",
     invalidTitle: "分享格式无效",
     invalidDescription: "服务返回的分享内容无法通过安全校验。",
-    outdatedTitle: "需要更新 XCode",
-    outdatedDescription: "这个分享由更新版本的 XCode 创建，请升级后再查看。",
+    outdatedTitle: "需要更新 XWork",
+    outdatedDescription: "这个分享由更新版本的 XWork 创建，请升级后再查看。",
     unavailableTitle: "分享不可访问",
     unavailableDescription: "当前账号没有权限，或者分享内容已不存在。",
     retry: "重试",
-    continueInZCode: "去 XCode 继续",
+    continueInZCode: "去 XWork 继续",
     switchToDarkTheme: "切换到深色主题",
     switchToLightTheme: "切换到浅色主题",
-    continueHelp: "如果没有自动打开 XCode，请先下载客户端，或再次尝试打开。",
-    downloadZCode: "下载 XCode",
+    continueHelp: "如果没有自动打开 XWork，请先下载客户端，或再次尝试打开。",
+    downloadZCode: "下载 XWork",
     artifactCountOne: "{count} 个结果物",
     artifactCountOther: "{count} 个结果物",
     retryOpen: "再次打开",
   },
   "en-US": {
-    brand: "XCode Conversation Share",
+    brand: "XWork Conversation Share",
     loading: "Loading shared conversation",
     loadingDescription: "Please wait while we verify this share link.",
     loginTitle: "Sign in to view this share",
@@ -153,18 +153,18 @@ const COPY: Record<ConversationShareLandingLocale, Copy> = {
     networkDescription: "Check your network connection and try again.",
     invalidTitle: "Invalid share content",
     invalidDescription: "The shared content failed the public safety contract.",
-    outdatedTitle: "Update XCode to continue",
+    outdatedTitle: "Update XWork to continue",
     outdatedDescription:
-      "This share was created by a newer version of XCode. Please update to view it.",
+      "This share was created by a newer version of XWork. Please update to view it.",
     unavailableTitle: "Share unavailable",
     unavailableDescription:
       "This account is not allowed to view the share, or it no longer exists.",
     retry: "Try again",
-    continueInZCode: "Continue in XCode",
+    continueInZCode: "Continue in XWork",
     switchToDarkTheme: "Switch to dark theme",
     switchToLightTheme: "Switch to light theme",
-    continueHelp: "If XCode did not open, download the app or try opening it again.",
-    downloadZCode: "Download XCode",
+    continueHelp: "If XWork did not open, download the app or try opening it again.",
+    downloadZCode: "Download XWork",
     artifactCountOne: "{count} artifact",
     artifactCountOther: "{count} artifacts",
     retryOpen: "Try again",
@@ -409,9 +409,9 @@ export function ConversationShareLandingPage({
                   ref={brandRef}
                   data-share-brand="true"
                   className="shrink-0 text-ui-lg font-semibold text-foreground"
-                  aria-label="XCode"
+                  aria-label="XWork"
                 >
-                  XCode
+                  XWork
                 </div>
                 <h1
                   ref={titleRef}

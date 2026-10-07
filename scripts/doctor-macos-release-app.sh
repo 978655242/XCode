@@ -3,8 +3,8 @@
 set -euo pipefail
 
 # XCODE: 默认路径跟随新的应用展示名；环境变量接口保持兼容。
-APP_PATH="${1:-${ZCODE_MACOS_RELEASE_APP_PATH:-/Applications/XCode.app}}"
-# 安装包身份与后端环境分轴：ZCODE_PREVIEW_IDENTITY=1 让生产后端的构建仍是 XCode Preview。
+APP_PATH="${1:-${ZCODE_MACOS_RELEASE_APP_PATH:-/Applications/XWork.app}}"
+# 安装包身份与后端环境分轴：ZCODE_PREVIEW_IDENTITY=1 让生产后端的构建仍是 XWork Preview。
 # 只认 "1"，与 CI workflow / release 门的精确比较同一套语义（其它拼写一律视为未开启）。
 is_preview_identity_requested() {
   [[ "${ZCODE_PREVIEW_IDENTITY:-}" = "1" ]]
@@ -16,8 +16,8 @@ APP_EXECUTABLE_NAME="${ZCODE_APP_EXECUTABLE_NAME:-$APP_DISPLAY_NAME}"
 if [ "${APP_PATH:-}" = "--help" ] || [ "${APP_PATH:-}" = "-h" ]; then
   cat <<'USAGE'
 Usage:
-  bash scripts/doctor-macos-release-app.sh /Applications/XCode.app
-  ZCODE_MACOS_RELEASE_APP_PATH=/Applications/XCode.app pnpm run doctor:macos-release
+  bash scripts/doctor-macos-release-app.sh /Applications/XWork.app
+  ZCODE_MACOS_RELEASE_APP_PATH=/Applications/XWork.app pnpm run doctor:macos-release
 
 Always validates the installed macOS release app with:
   codesign --verify --deep --strict <app>

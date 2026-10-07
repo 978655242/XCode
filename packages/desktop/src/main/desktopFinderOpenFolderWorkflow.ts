@@ -1,16 +1,17 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import type { Locale } from "@zcode/shared";
 
-// XCODE: 保留已安装 workflow 路径和 bundle ID，仅更新 Finder 服务展示名。
-const WORKFLOW_NAME = "Open in ZCode.workflow";
+// XCODE: Finder 服务目录也是用户可见品牌；bundle ID 保持稳定用于安全识别并迁移旧目录。
+const WORKFLOW_NAME = "Open in XWork.workflow";
+const LEGACY_WORKFLOW_NAME = "Open in ZCode.workflow";
 const WORKFLOW_BUNDLE_ID = "dev.zcode.app.finder-open-workflow";
 const WORKFLOW_VERSION = "5";
 const SERVICES_MENU_LABELS: Record<Locale, string> = {
-  "zh-CN": "在XCode中打开",
-  "en-US": "Open in XCode",
+  "zh-CN": "在XWork中打开",
+  "en-US": "Open in XWork",
 };
 
 const workflowScript = `first=""
@@ -246,6 +247,25 @@ function refreshMacServicesIndex(): void {
   child.unref();
 }
 
+function removeLegacyWorkflowIfOwned(servicesDir: string): boolean {
+  const legacyWorkflowDir = join(servicesDir, LEGACY_WORKFLOW_NAME);
+  const legacyInfoPlistPath = join(legacyWorkflowDir, "Contents", "Info.plist");
+  if (!existsSync(legacyInfoPlistPath)) {
+    return false;
+  }
+
+  // 同名 workflow 可能由用户自行创建；只有稳定 bundle ID 证明归属本应用时才删除。
+  const legacyInfoPlist = readFileSync(legacyInfoPlistPath, "utf8");
+  const ownedBundleIdPattern =
+    /<key>CFBundleIdentifier<\/key>\s*<string>dev\.zcode\.app\.finder-open-workflow<\/string>/u;
+  if (!ownedBundleIdPattern.test(legacyInfoPlist)) {
+    return false;
+  }
+
+  rmSync(legacyWorkflowDir, { recursive: true, force: true });
+  return true;
+}
+
 export function installFinderOpenFolderWorkflow(options: {
   platform: NodeJS.Platform;
   locale: Locale;
@@ -278,10 +298,11 @@ export function installFinderOpenFolderWorkflow(options: {
       resourcesDocumentWorkflowPath,
       workflowContent,
     );
+    const legacyWorkflowRemoved = removeLegacyWorkflowIfOwned(servicesDir);
 
-    if (infoChanged || workflowChanged || resourcesWorkflowChanged) {
+    if (infoChanged || workflowChanged || resourcesWorkflowChanged || legacyWorkflowRemoved) {
       // Finder 系统服务展示名来自 workflow 的 Info.plist。
-      // 语言切换后必须重写 plist 并刷新 Services 索引，否则系统菜单会继续显示旧语言。
+      // 语言切换或品牌迁移后必须刷新 Services 索引，否则系统菜单会继续显示旧名称。
       (options.refreshServicesIndex ?? refreshMacServicesIndex)();
       options.logger.info("[finder-open-folder] Finder 服务已安装或更新", {
         locale: options.locale,

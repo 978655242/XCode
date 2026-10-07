@@ -1,7 +1,7 @@
 # Repository dependencies
-<!-- XCODE: 包装产品名称统一为 XCode，第三方制品来源和归属不变。 -->
+<!-- XCODE: 包装产品名称统一为 XWork，第三方制品来源和归属不变。 -->
 
-This directory contains versioned third-party artifacts required by XCode packaging.
+This directory contains versioned third-party artifacts required by XWork packaging.
 Keep the original archives in Git; extracted binaries and build caches belong in
 the existing ignored output directories.
 

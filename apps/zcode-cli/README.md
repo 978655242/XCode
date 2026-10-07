@@ -41,7 +41,7 @@ Run `npm run bootstrap` after cloning the repository. It checks the local Node.j
 
 ## Plugin Development
 
-XCode plugins are local bundles that can contribute skills, custom commands, and MCP servers.
+XWork plugins are local bundles that can contribute skills, custom commands, and MCP servers.
 
 Plugin state lives under `~/.zcode/cli/plugins`:
 
@@ -49,7 +49,7 @@ Plugin state lives under `~/.zcode/cli/plugins`:
 - `data/<plugin-id>/`: persistent plugin data. MCP servers should write runtime output here, not into the plugin source directory.
 - `marketplaces/zcode-plugins-official/`: bundled and CDN partitions plus the merged metadata for the single official marketplace.
 
-This repository also ships built-in official plugins as workspace packages. The bundled Browser Use, Document Skills, Skill Creator, and XCode Guide content plugins are default-enabled and appear as `browser-use@zcode-plugins-official`, `document-skills@zcode-plugins-official`, `skill-creator@zcode-plugins-official`, and `zcode-guide@zcode-plugins-official`. Runtime-heavy official plugins, and local-data migration plugins such as `ios-simulator@zcode-plugins-official`, `android-emulator@zcode-plugins-official`, and `restore-legacy-sessions@zcode-plugins-official`, are discovered by XCode but stay disabled until the user enables them.
+This repository also ships built-in official plugins as workspace packages. The bundled Browser Use, Document Skills, Skill Creator, and XWork Guide content plugins are default-enabled and appear as `browser-use@zcode-plugins-official`, `document-skills@zcode-plugins-official`, `skill-creator@zcode-plugins-official`, and `zcode-guide@zcode-plugins-official`. Runtime-heavy official plugins, and local-data migration plugins such as `ios-simulator@zcode-plugins-official`, `android-emulator@zcode-plugins-official`, and `restore-legacy-sessions@zcode-plugins-official`, are discovered by XWork but stay disabled until the user enables them.
 
 ```sh
 zcode plugins list
@@ -74,7 +74,7 @@ For local plugin development, put the plugin in any directory, then add it to th
 
 MCP config can live directly in `.zcode-plugin/plugin.json` through `mcpServers`. A plugin may provide both `.mcp.json` and manifest `mcpServers`; when the same server name appears in both places, `mcpServers` from the selected manifest wins.
 
-Supported fields in the current XCode plugin surface:
+Supported fields in the current XWork plugin surface:
 
 - `name`, `version`, `description`, `author`, `license`
 - `skills`: relative folder or folders containing `SKILL.md` files
@@ -139,7 +139,7 @@ For MCP servers, prefer Node's normal package build and `bin` output when target
 
 ## MCP Configuration
 
-XCode reads MCP servers from the main JSON config. The default user config path is `~/.zcode/cli/config.json`; MCP entries live under `mcp.servers`. MCP is enabled by default, so `features.mcp` only needs to be set when you want an explicit on/off switch. The current CLI does not auto-discover standalone `mcp.json` or `.mcp.json` files outside enabled plugins.
+XWork reads MCP servers from the main JSON config. The default user config path is `~/.zcode/cli/config.json`; MCP entries live under `mcp.servers`. MCP is enabled by default, so `features.mcp` only needs to be set when you want an explicit on/off switch. The current CLI does not auto-discover standalone `mcp.json` or `.mcp.json` files outside enabled plugins.
 
 ```json
 {
@@ -174,7 +174,7 @@ XCode reads MCP servers from the main JSON config. The default user config path 
 
 Supported server types:
 
-- `stdio`: requires `command`; accepts `args`, `cwd`, `env`, `enabled`, and `timeoutMs`. `cwd` is resolved from the active working directory, and the server process inherits XCode's environment plus any `env` overrides.
+- `stdio`: requires `command`; accepts `args`, `cwd`, `env`, `enabled`, and `timeoutMs`. `cwd` is resolved from the active working directory, and the server process inherits XWork's environment plus any `env` overrides.
 - `http`: requires `url`; accepts `headers`, `enabled`, and `timeoutMs`.
 - `sse`: requires `url`; accepts `headers`, `enabled`, and `timeoutMs`.
 
@@ -182,7 +182,7 @@ MCP tools are registered before the first model request and exposed as `mcp__<se
 
 ## Hooks Configuration
 
-XCode reads hooks from the same main JSON config file as MCP, usually `~/.zcode/cli/config.json`. Hooks are disabled by default; set `hooks.enabled` to `true` and add process hooks under `hooks.events`.
+XWork reads hooks from the same main JSON config file as MCP, usually `~/.zcode/cli/config.json`. Hooks are disabled by default; set `hooks.enabled` to `true` and add process hooks under `hooks.events`.
 
 Supported hook events:
 

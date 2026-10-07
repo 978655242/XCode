@@ -15,7 +15,7 @@ export function buildDefaultNodePrompt(
     .map((artifact) => `- ${artifact.label}: ${artifact.path}`)
     .join("\n");
   return [
-    `You are running a XCode workflow node for phase: ${phase}.`,
+    `You are running a XWork workflow node for phase: ${phase}.`,
     `Workflow run: ${snapshot.runId}`,
     `Working directory: ${snapshot.cwd}`,
     "",
@@ -50,7 +50,7 @@ export function buildDefaultPlannerPrompt(
     )
     .join("\n");
   return [
-    `You are running a XCode workflow exploration planner for phase: ${phase}.`,
+    `You are running a XWork workflow exploration planner for phase: ${phase}.`,
     `Workflow run: ${snapshot.runId}`,
     `Working directory: ${snapshot.cwd}`,
     "",

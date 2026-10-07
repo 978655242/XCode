@@ -205,7 +205,7 @@ async function runPluginsUpdateCommand(
   ctx.stdout.write(
     version && version === result.previousVersion
       ? `Plugin ${pluginId} is already up to date (${version}).\n`
-      : `Updated plugin ${pluginId} from ${result.previousVersion || "unknown"} to ${version || "unknown"}. Restart XCode to apply.\n`,
+      : `Updated plugin ${pluginId} from ${result.previousVersion || "unknown"} to ${version || "unknown"}. Restart XWork to apply.\n`,
   );
   writeWarnings(ctx, result.diagnostics);
   return 0;

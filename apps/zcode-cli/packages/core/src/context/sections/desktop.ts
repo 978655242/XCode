@@ -4,10 +4,10 @@ import { estimateTokens } from "../utils.js";
 
 export function buildDesktopContextSection(): ContextSection {
   return createDesktopSection(
-    "XCode Desktop Context",
+    "XWork Desktop Context",
     "desktop_context",
     [
-      "# XCode Desktop Context",
+      "# XWork Desktop Context",
       "",
       "### Files & URLs",
       "- Return local web URLs as Markdown links (e.g., [label](http://127.0.0.1:8080)).",

@@ -230,7 +230,7 @@ export async function loginZCodeCli(
     } catch (error) {
       throw new ZCodeCliLoginError(
         "config_update_failed",
-        "Login succeeded but updating XCode config failed.",
+        "Login succeeded but updating XWork config failed.",
         { cause: error },
       );
     }

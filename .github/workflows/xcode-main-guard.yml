@@ -1,5 +1,5 @@
 # 合并后巡检：同步 PR 被 squash 合并、main 偏离上游镜像。GitHub 规则集无法事前拦截这两类问题。
-name: XCode main guard
+name: XWork main guard
 
 on:
   push:

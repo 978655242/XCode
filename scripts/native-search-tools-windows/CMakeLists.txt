@@ -5,7 +5,7 @@ project(zcode_native_ugrep LANGUAGES C CXX)
 
 if(NOT MSVC)
   # XCODE: 构建诊断采用产品显示名，原生搜索目标不变。
-  message(FATAL_ERROR "XCode Windows ugrep must be built with MSVC")
+  message(FATAL_ERROR "XWork Windows ugrep must be built with MSVC")
 endif()
 
 foreach(source_name UGREP PCRE2 ZLIB BZIP2 ZSTD BROTLI)

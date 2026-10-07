@@ -1,7 +1,7 @@
-<!-- XCODE: 产品展示名统一为 XCode，保留技能接口、命令和资源标识。 -->
+<!-- XCODE: 产品展示名统一为 XWork，保留技能接口、命令和资源标识。 -->
 # Tab Cleanup
 
-- IAB tabs persist for the lifetime of the current XCode process. Turn end, session end, an omitted finalize call,
+- IAB tabs persist for the lifetime of the current XWork process. Turn end, session end, an omitted finalize call,
   and omission from `keep` do not close a tab.
 - Call `tab.close()` only when the model intentionally decides to close that exact tab. A user may also close tabs
   directly in the UI.
@@ -9,4 +9,4 @@
   `deliverable` or `handoff`; unlisted tabs retain their current lifecycle and remain visible.
 - Use `deliverable` when a live page is the requested result and should be released from agent control. Use
   `handoff` when unfinished work must remain controllable by the same session.
-- XCode does not restore these tabs after the XCode process exits.
+- XWork does not restore these tabs after the XWork process exits.

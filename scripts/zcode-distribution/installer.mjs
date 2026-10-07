@@ -48,8 +48,8 @@ exec node "$INSTALL_DIR/current/bin/zcode.mjs" "\\$@"
 SH
 chmod +x "$BIN_DIR/zcode"
 
-# XCODE: 安装提示显示 XCode，保留 zcode 命令与安装目录。
-echo "XCode $VERSION installed."
+# XCODE: 安装提示显示 XWork，保留 zcode 命令与安装目录。
+echo "XWork $VERSION installed."
 echo "Run: zcode (TUI) or zcode --web (Web)"
 case ":$PATH:" in
   *":$BIN_DIR:"*) ;;

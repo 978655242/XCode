@@ -1,4 +1,4 @@
-<!-- XCODE: 产品展示名统一为 XCode，保留技能接口、命令和资源标识。 -->
+<!-- XCODE: 产品展示名统一为 XWork，保留技能接口、命令和资源标识。 -->
 # In-app Browser video recording
 
 `Tab.recording` records the controlled IAB tab's existing WebView. It does not launch Playwright or
@@ -41,5 +41,5 @@ latest DOM snapshot; use coordinates only for visually verified canvas/custom co
 have only one active recording. The hard duration limit is 90 seconds.
 
 Recording keeps a hidden IAB rendering surface alive during capture and releases it before finalizing
-the WebM stream. XCode uses Electron's built-in Chromium `MediaRecorder`; recording does not require
+the WebM stream. XWork uses Electron's built-in Chromium `MediaRecorder`; recording does not require
 FFmpeg or any executable on the application PATH.

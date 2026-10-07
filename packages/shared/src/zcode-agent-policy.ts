@@ -4,7 +4,7 @@ import type { CommandAgentSource } from "./command-types.js";
 import type { ZCodeProvider } from "./zcode-task-types-core.js";
 
 export const ZCODE_AGENT_PROVIDER = "glm" satisfies ZCodeProvider;
-export const ZCODE_AGENT_PROVIDER_LABEL = "XCode Agent";
+export const ZCODE_AGENT_PROVIDER_LABEL = "XWork Agent";
 export const ZCODE_COMMAND_AGENT_SOURCE = "zcodeAgent" satisfies CommandAgentSource;
 
 export const zcodeAgentProviderSchema = z.literal(ZCODE_AGENT_PROVIDER);

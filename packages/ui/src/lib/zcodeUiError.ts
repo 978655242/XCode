@@ -21,7 +21,8 @@ const GENERIC_ZCODE_UI_ERROR_MESSAGES = new Set([
   "Compact failed",
   "Rewind failed",
   "ZCode session failed",
-  // XCODE: 识别当前产品错误，同时保留历史会话中的旧错误文案。
+  // XCODE: 生成 XWork 文案，同时识别 XCode/ZCode 历史会话错误。
+  "XWork session failed",
   "XCode session failed",
 ]);
 

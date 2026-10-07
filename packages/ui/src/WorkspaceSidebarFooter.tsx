@@ -66,7 +66,7 @@ function getSidebarProfileName(user?: UserInfo | null): string {
     return username;
   }
 
-  return "XCode";
+  return "XWork";
 }
 
 function getSidebarProfileBadge(

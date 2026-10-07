@@ -15,7 +15,7 @@ export function readNodeReplBrowserRuntimeBridge(
   const bridge = globals[NODE_REPL_BROWSER_BRIDGE_SYMBOL];
   if (!bridge || typeof bridge !== "object") {
     throw new Error(
-      "Browser runtime bridge is unavailable. Use Browser from a XCode desktop or shared-host session.",
+      "Browser runtime bridge is unavailable. Use Browser from a XWork desktop or shared-host session.",
     );
   }
   return bridge as NodeReplBrowserRuntimeBridge;

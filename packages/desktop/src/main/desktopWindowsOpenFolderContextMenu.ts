@@ -7,8 +7,8 @@ const DIRECTORY_MENU_KEY = `HKCU\\Software\\Classes\\Directory\\shell\\${MENU_KE
 const DRIVE_MENU_KEY = `HKCU\\Software\\Classes\\Drive\\shell\\${MENU_KEY_NAME}`;
 // XCODE: 仅替换资源管理器菜单文案，注册表键继续兼容已有安装。
 const MENU_LABELS: Record<Locale, string> = {
-  "zh-CN": "在XCode中打开",
-  "en-US": "Open in XCode",
+  "zh-CN": "在XWork中打开",
+  "en-US": "Open in XWork",
 };
 
 type Logger = {

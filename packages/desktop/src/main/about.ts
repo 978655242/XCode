@@ -53,7 +53,7 @@ interface AboutSnapshotOptions {
 }
 
 // XCODE: 原生关于窗口及产品版权页脚采用展示名；上游 LICENSE/NOTICE 归属不改写。
-const ABOUT_APPLICATION_NAME = "XCode Desktop App";
+const ABOUT_APPLICATION_NAME = "XWork Desktop App";
 // 自定义 About 内容本体是 256x280；原生窗口如果同尺寸会让内容贴满透明窗口边界。
 // 这里给 BrowserWindow 额外留出背景呼吸空间，避免正式 About 看起来比 demo 更局促。
 const ABOUT_WINDOW_WIDTH = 256;
@@ -69,18 +69,18 @@ const ABOUT_MESSAGES: Record<
   }
 > = {
   "zh-CN": {
-    aboutTitle: "关于 XCode",
+    aboutTitle: "关于 XWork",
     versionLabel: "版本",
     okButtonLabel: "确定",
     optimizedForAppleSilicon: "已针对 Apple Silicon 优化。",
-    copyright: (year) => `版权所有 © ${year} XCode。`,
+    copyright: (year) => `版权所有 © ${year} XWork。`,
   },
   "en-US": {
-    aboutTitle: "About XCode",
+    aboutTitle: "About XWork",
     versionLabel: "version",
     okButtonLabel: "OK",
     optimizedForAppleSilicon: "Optimized for Apple Silicon.",
-    copyright: (year) => `Copyright © ${year} XCode.`,
+    copyright: (year) => `Copyright © ${year} XWork.`,
   },
 };
 

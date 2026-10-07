@@ -1336,7 +1336,7 @@ function confirmAppQuit(originWindow?: BrowserWindow | null) {
     cancelId: 1,
     title: isZh ? "退出确认" : "Confirm Quit",
     // XCODE: 退出确认采用统一产品展示名。
-    message: isZh ? "确认退出 XCode?" : "Quit XCode?",
+    message: isZh ? "确认退出 XWork?" : "Quit XWork?",
     detail: detailLines.join("\n"),
     icon: nativeImage.createFromPath(iconPath),
   };

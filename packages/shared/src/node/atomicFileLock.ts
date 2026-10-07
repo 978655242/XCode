@@ -164,7 +164,7 @@ function createFileLockTimeoutError(
   cause?: unknown,
 ): NodeJS.ErrnoException {
   const error = new Error(
-    `Timed out after ${waitedMs}ms waiting for the XCode file lock: ${lockFile}`,
+    `Timed out after ${waitedMs}ms waiting for the XWork file lock: ${lockFile}`,
   ) as NodeJS.ErrnoException & { cause?: unknown };
   error.code = ZCODE_FILE_LOCK_TIMEOUT_ERROR_CODE;
   error.path = filePath;
@@ -212,7 +212,7 @@ export async function acquireFileLock(
         currentOwners.length !== 1 ||
         currentOwners[0] !== `owner-${token}.json`
       ) {
-        throw Object.assign(new Error("XCode file lock ownership changed during acquire"), {
+        throw Object.assign(new Error("XWork file lock ownership changed during acquire"), {
           code: "EEXIST",
         });
       }

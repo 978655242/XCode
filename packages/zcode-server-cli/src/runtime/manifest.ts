@@ -61,7 +61,7 @@ export const serverRuntimeManifestSchema = z
 export function currentServerTarget(): ServerTarget {
   const target = `${platform}-${arch}`;
   if (!supportedServerTargets.includes(target as ServerTarget)) {
-    throw new Error(`Unsupported XCode Server target: ${target}`);
+    throw new Error(`Unsupported XWork Server target: ${target}`);
   }
   return target as ServerTarget;
 }

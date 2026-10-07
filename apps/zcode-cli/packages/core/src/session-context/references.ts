@@ -16,7 +16,7 @@ export function buildReferencedSessionContextReminderBody(input: string): string
   if (sessionIds.length === 0) return null;
 
   return [
-    "The user referenced prior XCode session(s) in this prompt:",
+    "The user referenced prior XWork session(s) in this prompt:",
     ...sessionIds.map((sessionId) => `- ${sessionId}`),
     "",
     "These references are not automatically expanded into the current context.",

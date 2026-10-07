@@ -509,7 +509,7 @@ function wrapZCodeAgentCommandWithStdioTapDevProxy(
 
   const tapScript = findUpward("scripts/dev/zcode-stdio-tap.mjs");
   if (!tapScript) {
-    debugLog("XCode stdio tap proxy enabled but script not found");
+    debugLog("XWork stdio tap proxy enabled but script not found");
     return command;
   }
 
@@ -610,7 +610,7 @@ export class ZCodeAgentProcessManager {
       callback(reporter);
     } catch (error) {
       // 进程生命周期上报是旁路观测，临时失败不得阻断 agent 启动或回收。
-      warnLog("XCode agent process lifecycle reporter failed", error);
+      warnLog("XWork agent process lifecycle reporter failed", error);
     }
   }
 
@@ -646,7 +646,7 @@ export class ZCodeAgentProcessManager {
       ) {
         return;
       }
-      log("XCode agent process idle timeout; reclaiming", {
+      log("XWork agent process idle timeout; reclaiming", {
         workspaceKey,
         pid: managed.child.pid,
         runtimeIdentity: managed.runtimeIdentity.identity,
@@ -751,7 +751,7 @@ export class ZCodeAgentProcessManager {
       .disposeAndWait()
       .then(() => {
         cleanupCompleted = true;
-        log("XCode agent process cleanup completed", {
+        log("XWork agent process cleanup completed", {
           workspaceKey: managed.runtimeIdentity.workspaceKey,
           pid: managed.child.pid,
           runtimeIdentity: managed.runtimeIdentity.identity,
@@ -769,7 +769,7 @@ export class ZCodeAgentProcessManager {
     managed.cleanupPromise = cleanupPromise;
     if (options.reportError !== false) {
       void cleanupPromise.catch((error) => {
-        errorLog("XCode agent process cleanup failed", {
+        errorLog("XWork agent process cleanup failed", {
           workspaceKey: managed.runtimeIdentity.workspaceKey,
           pid: managed.child.pid,
           runtimeIdentity: managed.runtimeIdentity.identity,
@@ -805,7 +805,7 @@ export class ZCodeAgentProcessManager {
       // 残留。restart/app quit 都不能把这种中间态暴露给调用方，需重试一次并复用
       // transport 内部快照；真实残留会在第二次 cleanup 继续抛出。
       const cleanupError = firstError as NodeJS.ErrnoException;
-      warnLog(`XCode agent process cleanup retrying during ${retryScope}`, {
+      warnLog(`XWork agent process cleanup retrying during ${retryScope}`, {
         workspaceKey: managed.runtimeIdentity.workspaceKey,
         pid: managed.child.pid,
         runtimeIdentity: managed.runtimeIdentity.identity,
@@ -817,7 +817,7 @@ export class ZCodeAgentProcessManager {
       try {
         await this.cleanupManagedProcess(managed, retryReason, { reportError: false });
       } catch (finalError) {
-        errorLog("XCode agent process cleanup failed", {
+        errorLog("XWork agent process cleanup failed", {
           workspaceKey: managed.runtimeIdentity.workspaceKey,
           pid: managed.child.pid,
           runtimeIdentity: managed.runtimeIdentity.identity,
@@ -835,7 +835,7 @@ export class ZCodeAgentProcessManager {
     workspaceIdentity?: string;
   }): Promise<ZCodeProtocolClient> {
     if (this.disposed) {
-      throw new Error("XCode agent process manager is disposed.");
+      throw new Error("XWork agent process manager is disposed.");
     }
     const workspaceKey = resolveWorkspaceKey(params);
     const existing = this.processesByWorkspaceKey.get(workspaceKey);
@@ -846,11 +846,11 @@ export class ZCodeAgentProcessManager {
     const starting = this.startingByWorkspaceKey.get(workspaceKey);
     if (starting) {
       const waitStartedAt = Date.now();
-      log("XCode agent process start already in progress", {
+      log("XWork agent process start already in progress", {
         workspaceKey,
       });
       const client = await starting;
-      log("XCode agent process start wait completed", {
+      log("XWork agent process start wait completed", {
         workspaceKey,
         durationMs: Date.now() - waitStartedAt,
       });
@@ -962,14 +962,14 @@ export class ZCodeAgentProcessManager {
     const resolveCommandDurationMs = Date.now() - resolveCommandStartedAt;
     if (!command) {
       throw new Error(
-        "XCode agent server command is not configured. Set ZCODE_AGENT_SERVER_COMMAND before integration.",
+        "XWork agent server command is not configured. Set ZCODE_AGENT_SERVER_COMMAND before integration.",
       );
     }
     if (admissionSignal.aborted) {
-      throw admissionSignal.reason ?? new Error("XCode agent process start was cancelled.");
+      throw admissionSignal.reason ?? new Error("XWork agent process start was cancelled.");
     }
     const effectiveCommand = wrapZCodeAgentCommandWithStdioTapDevProxy(command, workspaceKey);
-    log("XCode agent command resolved", {
+    log("XWork agent command resolved", {
       workspaceKey,
       command: command.command,
       effectiveCommand: effectiveCommand.command,
@@ -986,12 +986,12 @@ export class ZCodeAgentProcessManager {
     if (this.disposed) {
       // app 正在关闭时，启动中的 warmup 可能刚完成 command/env resolve。
       // 这时继续 spawn 会绕过 disposeAllAndWait 的快照，重新制造一个无人托管的 agent 进程。
-      throw new Error("XCode agent process manager is disposed.");
+      throw new Error("XWork agent process manager is disposed.");
     }
     if ((this.restartGenerationByWorkspaceKey.get(workspaceKey) ?? 0) !== startGeneration) {
       // 切模型会重启单个 workspace。旧启动请求如果在重启后才恢复，
       // 不能继续 spawn 并写回进程池，否则新配置会被旧 agent 覆盖。
-      throw new Error("XCode agent process start was cancelled.");
+      throw new Error("XWork agent process start was cancelled.");
     }
     // cwd 探测也让出事件循环，必须放在最终 admission 与销毁/代际检查之前。
     const spawnPreflight = await buildZCodeAgentSpawnPreflight(
@@ -1004,15 +1004,15 @@ export class ZCodeAgentProcessManager {
     // 再等待并复查代际，不能只依赖第一次 admission。
     await this.waitForSpawnAdmission?.({ ...params, workspaceKey, signal: admissionSignal });
     if (this.disposed) {
-      throw new Error("XCode agent process manager is disposed.");
+      throw new Error("XWork agent process manager is disposed.");
     }
     if ((this.restartGenerationByWorkspaceKey.get(workspaceKey) ?? 0) !== startGeneration) {
-      throw new Error("XCode agent process start was cancelled.");
+      throw new Error("XWork agent process start was cancelled.");
     }
     // app 以本地开发方式启动时，让 agent 子进程也带上 ZCODE_RUNTIME_ENV=development；
     // 不再传 NODE_ENV，避免用户 shell/runtime 变量影响 ZCode 运行模式或泄漏到 Bash 工具。
     const runtimeEnv = resolveZCodeRuntimeEnv(process.env);
-    log("XCode agent spawn preflight", {
+    log("XWork agent spawn preflight", {
       workspaceKey,
       spawnPreflight,
     });
@@ -1170,7 +1170,7 @@ export class ZCodeAgentProcessManager {
         );
       }
       this.reportRuntimeReady(managed);
-      log("XCode agent process started", {
+      log("XWork agent process started", {
         workspaceKey,
         command: effectiveCommand.command,
         cwd: spawnPreflight.cwd,
@@ -1180,7 +1180,7 @@ export class ZCodeAgentProcessManager {
     });
     child.once("error", (error) => {
       errorLog(
-        `XCode agent process error${this.processLifecycleReporter?.onError ? ` ${ZCODE_AGENT_LIFECYCLE_LOG_MARKER}` : ""}`,
+        `XWork agent process error${this.processLifecycleReporter?.onError ? ` ${ZCODE_AGENT_LIFECYCLE_LOG_MARKER}` : ""}`,
         {
           workspaceKey,
           pid: child.pid,
@@ -1236,14 +1236,14 @@ export class ZCodeAgentProcessManager {
       };
       // 之前日志只有新的 "process started"，缺少旧 pid 的退出轨迹。
       // agent native crash 后 UI 只会看到 protocol close/Session is not active，无法判断是崩溃还是主动重启。
-      log("XCode agent process exited", exitContext);
+      log("XWork agent process exited", exitContext);
       if (terminationKind === "unexpected") {
         // Agent 顶层异常只写 stderr 并以非零 code 退出；stderr 过去仅走开发态
         // debug，生产日志只剩 code=1，无法还原异常。不能只按非零 code 判断：signal crash
         // 和长期运行的 Agent 自行 exit 0 同样是非预期退出。
         // 已有独立生命周期事件，显式标记包装日志，避免 Electron 将其再计为 JS 异常。
         errorLog(
-          `XCode agent process exited unexpectedly${this.processLifecycleReporter ? ` ${ZCODE_AGENT_LIFECYCLE_LOG_MARKER}` : ""}`,
+          `XWork agent process exited unexpectedly${this.processLifecycleReporter ? ` ${ZCODE_AGENT_LIFECYCLE_LOG_MARKER}` : ""}`,
           {
             ...exitContext,
             stderr,
@@ -1280,7 +1280,7 @@ export class ZCodeAgentProcessManager {
       }
       if (event.method === "workspace/cancelGenerateText") {
         warnLog(
-          "XCode agent cancel notification timed out; keeping client (best-effort control plane)",
+          "XWork agent cancel notification timed out; keeping client (best-effort control plane)",
           {
             workspaceKey,
             method: event.method,
@@ -1291,7 +1291,7 @@ export class ZCodeAgentProcessManager {
         );
         return;
       }
-      warnLog("XCode agent request timed out; disposing stale protocol client", {
+      warnLog("XWork agent request timed out; disposing stale protocol client", {
         workspaceKey,
         method: event.method,
         requestId: event.requestId,
@@ -1312,7 +1312,7 @@ export class ZCodeAgentProcessManager {
     });
     client.onClose(() => {
       const wasActiveClient = this.processesByWorkspaceKey.get(workspaceKey) === managed;
-      log("XCode agent protocol client closed", {
+      log("XWork agent protocol client closed", {
         workspaceKey,
         pid: child.pid,
         runtimeIdentity: runtimeIdentity.identity,
@@ -1345,7 +1345,7 @@ export class ZCodeAgentProcessManager {
     // runtime identity 是查询接口，旧实现却复用了启动型 getClient，
     // 导致 provider 保存等被动探测按 workspace 数量隐式 spawn Agent CLI。
     if (!managed || managed.exited || managed.child.killed) {
-      throw new Error("XCode agent runtime identity is unavailable.");
+      throw new Error("XWork agent runtime identity is unavailable.");
     }
     return managed.runtimeIdentity;
   }
@@ -1408,7 +1408,7 @@ export class ZCodeAgentProcessManager {
 
   private abortPendingStarts(
     workspaceKey: string,
-    reason = new Error("XCode agent process start was cancelled."),
+    reason = new Error("XWork agent process start was cancelled."),
   ): void {
     const controllers = this.startAdmissionAbortControllersByWorkspaceKey.get(workspaceKey);
     if (!controllers) {
@@ -1420,7 +1420,7 @@ export class ZCodeAgentProcessManager {
   }
 
   private abortAllPendingStarts(
-    reason = new Error("XCode agent process manager is disposed."),
+    reason = new Error("XWork agent process manager is disposed."),
   ): void {
     for (const workspaceKey of this.startAdmissionAbortControllersByWorkspaceKey.keys()) {
       this.abortPendingStarts(workspaceKey, reason);

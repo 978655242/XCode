@@ -10,8 +10,9 @@ import {
 
 const LINUX_DEEP_LINK_DESKTOP_FILE = "zcode.desktop";
 const LINUX_DEEP_LINK_MIME_TYPE = "x-scheme-handler/zcode";
-// XCODE: 新桌面条目显示 XCode；仍识别旧归属标记以安全清理历史协议注册。
-const LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER = "Comment=XCode Desktop App";
+// XCODE: 新桌面条目显示 XWork；仍识别 XCode/ZCode 旧归属标记以安全清理历史协议注册。
+const LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER = "Comment=XWork Desktop App";
+const LEGACY_XCODE_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER = "Comment=XCode Desktop App";
 const LEGACY_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER = "Comment=ZCode Desktop App";
 
 type LinuxDesktopEnv = {
@@ -110,7 +111,7 @@ function createLinuxDeepLinkDesktopEntry(params: {
   productName?: string;
   iconName?: string;
 }): string {
-  const productName = params.productName ?? "XCode";
+  const productName = params.productName ?? "XWork";
   const iconName = params.iconName ?? "zcode";
   const command = {
     executablePath: params.executablePath,
@@ -173,15 +174,14 @@ function isOwnedDesktopEntry(path: string): boolean {
     const content = readFileSync(path, "utf8");
     // 去掉 \r 与行首尾空白，兼容 CRLF 行尾或手工编辑器引入的额外空白，
     // 避免可清理的遗留条目被误判为用户自定义条目而永久残留。
-    return content
-      .split("\n")
-      .some((line) => {
-        const marker = line.replaceAll("\r", "").trim();
-        return (
-          marker === LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER ||
-          marker === LEGACY_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER
-        );
-      });
+    return content.split("\n").some((line) => {
+      const marker = line.replaceAll("\r", "").trim();
+      return (
+        marker === LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER ||
+        marker === LEGACY_XCODE_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER ||
+        marker === LEGACY_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER
+      );
+    });
   } catch {
     return false;
   }

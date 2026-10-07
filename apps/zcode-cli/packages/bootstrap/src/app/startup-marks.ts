@@ -37,7 +37,7 @@ export function resolveStartupPlugins(input: {
     storageRoot: pluginStorageRoot,
     workingDirectory: input.workingDirectory,
   });
-  input.startupTimer.mark("XCode plugins resolved", {
+  input.startupTimer.mark("XWork plugins resolved", {
     context: {
       commandRootCount: pluginOutcome.commandRoots.length,
       diagnosticCount: pluginOutcome.diagnostics.length,
@@ -63,7 +63,7 @@ export function startAppStartup(input: {
   resume: boolean;
   startupTimer: StartupTimer;
 }): void {
-  input.startupTimer.start("XCode app startup started", {
+  input.startupTimer.start("XWork app startup started", {
     context: {
       hasInjectedModelAdapter: input.hasInjectedModelAdapter,
       resume: input.resume,
@@ -77,7 +77,7 @@ export function markConfigurationLoaded(input: {
   configResult: ConfigResult;
   startupTimer: StartupTimer;
 }): void {
-  input.startupTimer.mark("XCode app configuration loaded", {
+  input.startupTimer.mark("XWork app configuration loaded", {
     context: {
       configSourceEnv: input.configResult.sources.env,
       configSourceProject: input.configResult.sources.project.loaded,
@@ -95,7 +95,7 @@ export function markStorageAdaptersInitialized(input: {
   startupTimer: StartupTimer;
   storageRoot: string;
 }): void {
-  input.startupTimer.mark("XCode storage adapters initialized", {
+  input.startupTimer.mark("XWork storage adapters initialized", {
     context: {
       hasInjectedArtifactStore: input.hasInjectedArtifactStore,
       hasInjectedSessionStore: input.hasInjectedSessionStore,
@@ -114,7 +114,7 @@ export function markMcpAdapterInitialized(input: {
   startupTimer: StartupTimer;
   trustedMcpServerCount: number;
 }): void {
-  input.startupTimer.mark("XCode MCP adapter initialized", {
+  input.startupTimer.mark("XWork MCP adapter initialized", {
     context: {
       hasInjectedMcpPort: input.hasInjectedMcpPort,
       mcpEnabled: input.mcpEnabled,
@@ -131,7 +131,7 @@ export function markRuntimeConstructed(input: {
   sessionId: string;
   startupTimer: StartupTimer;
 }): void {
-  input.startupTimer.mark("XCode runtime constructed", {
+  input.startupTimer.mark("XWork runtime constructed", {
     context: {
       hasInjectedModelAdapter: input.hasInjectedModelAdapter,
       sessionId: input.sessionId,
@@ -146,7 +146,7 @@ export function completeAppStartup(input: {
   startupTimer: StartupTimer;
   workingDirectory: string;
 }): void {
-  input.startupTimer.complete("XCode app startup completed", {
+  input.startupTimer.complete("XWork app startup completed", {
     context: {
       sessionId: input.sessionId,
       workingDirectory: input.workingDirectory,

@@ -77,7 +77,7 @@ export async function openStartupSessionStore(
   startupTimer: StartupTimer,
 ): Promise<SqliteSessionStore> {
   const dbPath = getSessionDbPath(configResult);
-  startupTimer.start("XCode SQLite migration started", {
+  startupTimer.start("XWork SQLite migration started", {
     context: { dbPath },
     event: "bootstrap.app.startup.sqlite_migration.started",
     stage: "migrate_session_db",
@@ -94,7 +94,7 @@ export async function openStartupSessionStore(
       },
     },
   );
-  startupTimer.mark("XCode SQLite migration completed", {
+  startupTimer.mark("XWork SQLite migration completed", {
     context: { dbPath },
     event: "bootstrap.app.startup.sqlite_migration.completed",
     stage: "migrate_session_db",

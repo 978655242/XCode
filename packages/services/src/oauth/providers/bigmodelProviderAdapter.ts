@@ -171,7 +171,7 @@ export class BigModelProviderAdapter implements OAuthProviderAdapter {
           msg: payload.msg,
         });
         throw new Error(
-          payload.msg?.trim() || `BigModel XCode token 交换失败（code: ${payload.code}）`,
+          payload.msg?.trim() || `BigModel XWork token 交换失败（code: ${payload.code}）`,
         );
       }
       const zcodeJwtToken = payload.data?.token?.trim() || "";
@@ -180,7 +180,7 @@ export class BigModelProviderAdapter implements OAuthProviderAdapter {
           code: payload.code,
           msg: payload.msg,
         });
-        throw new Error("BigModel XCode token 交换失败：响应缺少 data.token");
+        throw new Error("BigModel XWork token 交换失败：响应缺少 data.token");
       }
       const accessToken = resolveBigModelBusinessAccessToken(payload);
       if (!accessToken) {
@@ -191,7 +191,7 @@ export class BigModelProviderAdapter implements OAuthProviderAdapter {
           code: payload.code,
           msg: payload.msg,
         });
-        throw new Error("BigModel XCode token 交换失败：响应缺少 data.bigmodel.access_token");
+        throw new Error("BigModel XWork token 交换失败：响应缺少 data.bigmodel.access_token");
       }
 
       const refreshToken =

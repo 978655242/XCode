@@ -1,4 +1,4 @@
-# XCode Design System
+# XWork Design System
 
 Portable design system for AI-assisted UI work in this repository.
 
@@ -19,8 +19,9 @@ Treat violations of this section as design-system defects, not stylistic prefere
 
 ## Product Character
 
-<!-- XCODE: 产品显示名统一为 XCode，设计规则与组件身份不变。 -->
-XCode is a desktop-first and web-compatible AI workspace. The interface should feel calm, dense, and operational rather than decorative.
+<!-- XCODE: 产品显示名统一为 XWork，设计规则与组件身份不变。 -->
+
+XWork is a desktop-first and web-compatible AI workspace. The interface should feel calm, dense, and operational rather than decorative.
 
 Design for:
 
@@ -461,7 +462,7 @@ Overlay rules:
 
 ## Elevation and Depth
 
-XCode should use restrained depth. Layer primarily through background contrast, borders, and radius before relying on heavy shadows.
+XWork should use restrained depth. Layer primarily through background contrast, borders, and radius before relying on heavy shadows.
 
 Recommended elevation levels:
 

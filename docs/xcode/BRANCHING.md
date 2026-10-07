@@ -1,12 +1,12 @@
-# XCode 分支与上游同步规范
+# XWork 分支与上游同步规范
 
-XCode 是基于智谱开源项目 [zai-org/ZCode](https://github.com/zai-org/ZCode) 的下游产品。本规范所有开发者（含 AI Agent）都必须遵守。
+XWork 是基于智谱开源项目 [zai-org/ZCode](https://github.com/zai-org/ZCode) 的下游产品。本规范所有开发者（含 AI Agent）都必须遵守。
 
 ## 1. 远端约定
 
 | 远端       | 地址                                 | 用途             |
 | ---------- | ------------------------------------ | ---------------- |
-| `origin`   | `git@github.com:978655242/XCode.git` | XCode 产品仓库   |
+| `origin`   | `git@github.com:978655242/XCode.git` | XWork 产品仓库   |
 | `upstream` | `git@github.com:zai-org/ZCode.git`   | ZCode 上游，只读 |
 
 首次克隆后执行：
@@ -23,7 +23,7 @@ git fetch upstream --tags
 gitGraph
   commit id: "ZCode v3.14.3"
   branch XCode-main
-  commit id: "XCode 规范"
+  commit id: "XWork 规范"
   branch feature/xxx
   commit id: "功能开发"
   checkout XCode-main
@@ -39,8 +39,8 @@ gitGraph
 
 | 分支                       | 来源            | 规则                                                                          |
 | -------------------------- | --------------- | ----------------------------------------------------------------------------- |
-| `main`                     | `upstream/main` | 上游纯镜像。只允许 fast-forward 到 `upstream/main`，禁止提交任何 XCode 改动。 |
-| `XCode-main`               | —               | XCode 产品主干，GitHub 默认分支。禁止直接 push，只接受 PR。                   |
+| `main`                     | `upstream/main` | 上游纯镜像。只允许 fast-forward 到 `upstream/main`，禁止提交任何 XWork 改动。 |
+| `XCode-main`               | —               | XWork 产品主干，GitHub 默认分支。禁止直接 push，只接受 PR。                   |
 | `feature/<简述>`           | `XCode-main`    | 新功能。                                                                      |
 | `fix/<简述>`               | `XCode-main`    | 缺陷修复。                                                                    |
 | `hotfix/<版本>-<简述>`     | 发布 tag        | 线上紧急修复，合回 `XCode-main`。                                             |
@@ -122,9 +122,9 @@ gh pr create --base XCode-main --title "sync: upstream ZCode <版本>"
 
 ## 5. 降低与上游的分叉成本
 
-后续同步的成本取决于 XCode 改了多少上游文件。开发时必须：
+后续同步的成本取决于 XWork 改了多少上游文件。开发时必须：
 
-- XCode 专属功能优先放在新文件、新模块或新包中，通过上游已有的扩展点（依赖注入、插件、配置）接入，不直接改写上游核心文件。
+- XWork 专属功能优先放在新文件、新模块或新包中，通过上游已有的扩展点（依赖注入、插件、配置）接入，不直接改写上游核心文件。
 - 必须修改上游文件时，改动保持最小，并在改动处加注释 `// XCODE: <原因>`，便于同步时识别。
 - 禁止对上游文件做与功能无关的格式化、重命名、目录调整。
 - 品牌名称、图标、域名、服务地址等差异集中到配置或资源文件，不在业务代码中散落替换。
@@ -133,11 +133,11 @@ gh pr create --base XCode-main --title "sync: upstream ZCode <版本>"
 ## 6. 版本与 Tag
 
 - 上游 tag（如 `v3.14.3`）保持原样，不删除、不重写。
-- XCode 发布 tag 使用 `xcode-v<主>.<次>.<修订>`，只在 `XCode-main` 上打，避免与上游 tag 冲突。
+- XWork 发布 tag 沿用 `xcode-v<主>.<次>.<修订>`，只在 `XCode-main` 上打，避免破坏既有发布自动化和上游 tag。
 
 ## 7. 禁止事项
 
-- 禁止向 `main` 提交或合并任何 XCode 代码；禁止 force push `main` 与 `XCode-main`。
+- 禁止向 `main` 提交或合并任何 XWork 代码；禁止 force push `main` 与 `XCode-main`。
 - 禁止向 `upstream` 推送。
 - 禁止 Squash 或 Rebase 方式合并 `sync/` PR。
 - 禁止在一个 PR 中同时包含上游同步与功能开发。

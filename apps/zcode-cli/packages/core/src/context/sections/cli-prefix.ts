@@ -6,7 +6,7 @@
 import type { ContextSection } from "../types.js";
 import { estimateTokens } from "../utils.js";
 
-const CLI_PREFIX_PROMPT = "You are XCode, an interactive coding agent";
+const CLI_PREFIX_PROMPT = "You are XWork, an interactive coding agent";
 
 export function buildCliPrefixSection(): ContextSection {
   const content = CLI_PREFIX_PROMPT;

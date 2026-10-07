@@ -1,7 +1,7 @@
 """XCODE: regenerate X lettermark assets without changing the original icon backdrop.
 Requires Pillow. Run from the repository root; existing assets supply the backdrops.
 """
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 POLYGONS = [((154, 0), (256, 0), (102, 218), (0, 218)),
             ((0, 0), (82, 0), (111, 41), (70, 99)),
@@ -41,18 +41,16 @@ for path in ('packages/desktop/build/icon.ico', 'public/logo/icons/icon.ico', 'p
     windows.save(path, format='ICO', sizes=[(s, s) for s in (16, 24, 32, 48, 64, 128, 256)])
 installer.save('packages/desktop/build/icon_installer.icns', format='ICNS')
 installer.save('packages/desktop/build/icon_installer.ico', format='ICO', sizes=[(s, s) for s in (16, 32, 48, 64, 128, 256)])
-# XCODE: DMG 包装背景中的组合字标也属于品牌图形，不能留下 ZCODE。
+# XCODE: DMG 包装背景中的组合字标也属于品牌图形，必须显示 XWORK。
 for path, scale in (('packages/desktop/build/dmg_background.png', 1),
                     ('packages/desktop/build/dmg_background@2x.png', 2)):
     image = Image.open(path).convert('RGBA')
-    box = (173 * scale, 78 * scale, 209 * scale, 119 * scale)
-    ImageDraw.Draw(image).rectangle(box, fill=image.getpixel((170 * scale, 75 * scale)))
-    mask = Image.new('L', (image.width * 4, image.height * 4))
-    draw = ImageDraw.Draw(mask)
-    for polygon in POLYGONS:
-        draw.polygon([((174 * scale + x / 256 * 33 * scale) * 4,
-                       (79 * scale + y / 218 * 39 * scale) * 4) for x, y in polygon], fill=255)
-    mask = mask.resize(image.size, Image.Resampling.LANCZOS)
-    image.paste(Image.new('RGBA', image.size, '#333333'), (0, 0), mask)
+    background = image.getpixel((170 * scale, 75 * scale))
+    ImageDraw.Draw(image).rectangle(
+        (170 * scale, 72 * scale, 370 * scale, 124 * scale), fill=background)
+    font = ImageFont.load_default(size=38 * scale)
+    ImageDraw.Draw(image).text(
+        (173 * scale, 74 * scale), 'XWORK', font=font, fill='#333333',
+        stroke_width=1 * scale, stroke_fill='#333333')
     image.save(path)
-print('Generated XCode desktop, installer, web and public icons')
+print('Generated XWork desktop, installer, web and public icons')

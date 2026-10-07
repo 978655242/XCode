@@ -80,7 +80,7 @@ export function buildNativeSearchToolsWindows({
   };
 
   // XCODE: 构建输出使用产品显示名，不修改工具身份。
-  console.log("==> XCode native search build");
+  console.log("==> XWork native search build");
   console.log(`    target:  ${plan.platformKey}`);
   console.log(`    output:  ${plan.outputDir}`);
   console.log(`    workdir: ${workDir}`);

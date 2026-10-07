@@ -255,7 +255,7 @@ export function App() {
     <main className="app-shell">
       <header className="topbar">
         <div>
-          <h1>XCode 调试台</h1>
+          <h1>XWork 调试台</h1>
           <p>Trace、甘特执行、网络抓包</p>
         </div>
         <div className="topbar-actions">

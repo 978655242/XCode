@@ -162,7 +162,7 @@ export async function createFeedbackDiagnosticArchive(options: {
     zip.addBuffer(
       Buffer.from(
         [
-          "XCode diagnostic logs",
+          "XWork diagnostic logs",
           `timestamp: ${now.toISOString()}`,
           `appVersion: ${ZCODE_VERSION}`,
           `commit: ${ZCODE_COMMIT}`,

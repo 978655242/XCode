@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// XCode 分支规范的机器校验，规则来源：docs/xcode/BRANCHING.md。
+// XWork 分支规范的机器校验，规则来源：docs/xcode/BRANCHING.md。
 // 子命令：
 //   pr            CI 校验 PR（env: BASE_REF, HEAD_REF, HEAD_SHA）
 //   push          本地 pre-push hook，stdin 为 git 传入的 ref 列表

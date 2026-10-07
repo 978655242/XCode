@@ -1,6 +1,6 @@
-// XCODE: 产品展示归因统一为 XCode，保留来源请求头键与协议。
+// XCODE: 产品展示归因统一为 XWork，保留来源请求头键与协议。
 export const OPENROUTER_ATTRIBUTION_HEADERS = {
-  "X-OpenRouter-Title": "XCode",
+  "X-OpenRouter-Title": "XWork",
   "X-OpenRouter-Categories": "programming-app",
 } as const;
 

@@ -245,7 +245,7 @@ export class ConversationSharePreviewClient {
       });
       throw new ConversationSharePreviewClientError({
         kind: "unsupported_schema_version",
-        message: "Conversation share requires a newer XCode version",
+        message: "Conversation share requires a newer XWork version",
         status: response.status,
       });
     }

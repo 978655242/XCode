@@ -14,8 +14,8 @@ export const INDICATOR_SHADOW_INSET = { top: 6, right: 8, bottom: 12, left: 8 } 
 function indicatorCopy(locale: Locale): { text: string; width: number } {
   // XCODE: 系统操作浮层显示统一产品名。
   return locale === "zh-CN"
-    ? { text: "XCode 正在操作电脑", width: 234 }
-    : { text: "XCode is controlling your computer", width: 308 };
+    ? { text: "XWork 正在操作电脑", width: 234 }
+    : { text: "XWork is controlling your computer", width: 308 };
 }
 
 export function indicatorWindowSize(locale: Locale): { width: number; height: number } {

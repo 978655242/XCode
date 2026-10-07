@@ -542,7 +542,7 @@ async function dispatchOffPeakRun(request: OffPeakRunDispatchRequest): Promise<{
   const zcodeTaskService = activeServices?.getOptional(IZCodeTaskService);
   if (!zcodeTaskService) {
     // XCODE: 返回给 renderer 的服务错误显示统一产品名，内部服务标识不变。
-    throw new Error("XCode task service is not initialized.");
+    throw new Error("XWork task service is not initialized.");
   }
   const runtime = await ensureOffPeakRuntime();
   if (!runtime) {
@@ -856,7 +856,7 @@ async function dispatchCronRun(request: CronRunDispatchRequest): Promise<{
   const targetServices = resolveAutomationTargetServices(request);
   const zcodeTaskService = targetServices.getOptional(IZCodeTaskService);
   if (!zcodeTaskService) {
-    throw new Error("XCode task service is not initialized.");
+    throw new Error("XWork task service is not initialized.");
   }
   const modelSelectionService = targetServices.getOptional(IModelSelectionService);
   if (!modelSelectionService) {
@@ -1354,12 +1354,12 @@ function createReportingRemoteZCodeTaskService<T extends object>(
     const onDynamicTaskReady = Reflect.get(target, "onDynamicTaskReady");
     if (typeof onDynamicTaskReady !== "function") {
       workspaceTaskTracker.finish(taskId, meta);
-      throw new Error("remote XCode task service does not expose onDynamicTaskReady");
+      throw new Error("remote XWork task service does not expose onDynamicTaskReady");
     }
     const subscribe = onDynamicTaskReady.call(target, taskId);
     if (typeof subscribe !== "function") {
       workspaceTaskTracker.finish(taskId, meta);
-      throw new Error("remote XCode task ready event is not subscribable");
+      throw new Error("remote XWork task ready event is not subscribable");
     }
     workspaceProxyState.trackTaskReady(
       taskId,
@@ -1513,12 +1513,12 @@ function warmUpZCodeAgent(
       if (!result.available) {
         if (result.reasonCode === "provider_not_ready") {
           logger.info(
-            `XCode agent warmup waiting for provider/model (${reason}) workspace=${workspacePath}`,
+            `XWork agent warmup waiting for provider/model (${reason}) workspace=${workspacePath}`,
           );
           return;
         }
         logger.warn(
-          `XCode agent warmup unavailable (${reason}) workspace=${workspacePath} reason=${result.reason ?? "unknown"}`,
+          `XWork agent warmup unavailable (${reason}) workspace=${workspacePath} reason=${result.reason ?? "unknown"}`,
         );
         return;
       }
@@ -1526,11 +1526,11 @@ function warmUpZCodeAgent(
       // presentation 只剩 mode 与 slash commands。预热不能为读取 presentation 额外创建
       // Agent App，否则其 MCP close 会占住协议通道并阻塞真正的 Session 初始化。
       logger.info(
-        `XCode agent warmup ready (${reason}) workspace=${workspacePath} transport=${result.transportKind ?? "unknown"}`,
+        `XWork agent warmup ready (${reason}) workspace=${workspacePath} transport=${result.transportKind ?? "unknown"}`,
       );
     })
     .catch((error) => {
-      logger.warn(`XCode agent warmup failed (${reason}) workspace=${workspacePath}:`, error);
+      logger.warn(`XWork agent warmup failed (${reason}) workspace=${workspacePath}:`, error);
     });
 }
 
@@ -2457,7 +2457,7 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
       parentPort.postMessage({
         type: HostResponseTypes.SessionMessageDeliverResult,
         result: {
-          error: "XCode task service is not initialized.",
+          error: "XWork task service is not initialized.",
           messageId: msg.request.messageId,
           requestId: msg.request.requestId,
           sessionId: msg.request.fromSessionId,
@@ -2493,7 +2493,7 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
   if (msg.type === HostMessageTypes.SessionMessageDeliveryResult) {
     const zcodeTaskService = activeServices?.getOptional(IZCodeTaskService);
     if (!zcodeTaskService) {
-      logger.warn("session message delivery result received before XCode task service initialized");
+      logger.warn("session message delivery result received before XWork task service initialized");
       return;
     }
     void zcodeTaskService.sendSessionMessageDeliveryResult(msg.result).catch((error) => {

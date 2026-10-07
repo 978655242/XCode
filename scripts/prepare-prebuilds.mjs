@@ -167,8 +167,8 @@ function readZCodeAgentRuntimeVersion() {
   const runtimeSource = readFileSync(runtimeSourcePath, "utf8");
   const match = runtimeSource.match(/version:\s*["']([^"']+)["']/);
   if (!match?.[1]) {
-    // XCODE: 运行时版本诊断显示 XCode，保留读取文件与解析规则。
-    throw new Error("Unable to parse XCode Agent runtime version");
+    // XCODE: 运行时版本诊断显示 XWork，保留读取文件与解析规则。
+    throw new Error("Unable to parse XWork Agent runtime version");
   }
   return match[1];
 }

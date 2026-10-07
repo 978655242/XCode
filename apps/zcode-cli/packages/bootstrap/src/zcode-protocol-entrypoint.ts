@@ -116,7 +116,7 @@ export async function runZCodeProtocolAgent(
     },
     startupStartedAt,
   );
-  startupTimer.start("XCode Protocol agent startup started", {
+  startupTimer.start("XWork Protocol agent startup started", {
     context: { version: options.version },
     event: "zcode_protocol.startup.started",
     stage: "start",
@@ -339,7 +339,7 @@ export async function runZCodeProtocolAgent(
       (message) => connection.send(message),
       logger,
     );
-    startupTimer.complete("XCode Protocol agent startup completed", {
+    startupTimer.complete("XWork Protocol agent startup completed", {
       event: "zcode_protocol.startup.completed",
       stage: "total",
     });
@@ -349,7 +349,7 @@ export async function runZCodeProtocolAgent(
     options.lifecycle?.requestShutdown(
       error instanceof Error ? error : new Error("Protocol runtime failed", { cause: error }),
     );
-    startupTimer.fail("XCode Protocol agent startup failed", error, {
+    startupTimer.fail("XWork Protocol agent startup failed", error, {
       event: "zcode_protocol.startup.failed",
       stage: "total",
     });
@@ -368,7 +368,7 @@ export async function runZCodeProtocolAgent(
       sessionStore,
       providerRegistryRuntime,
     });
-    logger.info("XCode Protocol agent shutdown completed", {
+    logger.info("XWork Protocol agent shutdown completed", {
       ...traceContextToLogContext(traceContext),
       event: "zcode_protocol.shutdown.completed",
       module: "bootstrap.zcode_protocol",
