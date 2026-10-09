@@ -1,4 +1,14 @@
-import { access, copyFile, cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import {
+  access,
+  copyFile,
+  cp,
+  mkdir,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 export const DEV_ELECTRON_PROTOCOL_SCHEME = "zcode";
@@ -6,7 +16,7 @@ export const DEV_ELECTRON_PROTOCOL_SCHEME = "zcode";
 export const DEV_ELECTRON_APP_NAME = "XWork Dev";
 export const DEV_ELECTRON_APP_BUNDLE_ID = "dev.zcode.app.development";
 // 副本布局版本，见 prepareDevElectronAppBundle 中的指纹说明。
-export const DEV_ELECTRON_BUNDLE_FORMAT = 2;
+export const DEV_ELECTRON_BUNDLE_FORMAT = 3;
 
 function escapeXml(value) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll('"', "&quot;");
@@ -38,18 +48,44 @@ function appendProtocolDeclaration(plist) {
   return `${plist.slice(0, closingDictIndex)}${protocolDeclaration}${plist.slice(closingDictIndex)}`;
 }
 
+function setPlistEnvironmentValue(plist, key, value) {
+  const environmentPattern = /(<key>LSEnvironment<\/key>\s*<dict>)([\s\S]*?)(<\/dict>)/u;
+  const entryPattern = new RegExp(`(<key>${key}</key>\\s*<string>)[^<]*(</string>)`, "u");
+  if (environmentPattern.test(plist)) {
+    return plist.replace(environmentPattern, (_match, opener, entries, closer) => {
+      const updatedEntries = entryPattern.test(entries)
+        ? entries.replace(
+            entryPattern,
+            (_entry, prefix, suffix) => `${prefix}${escapeXml(value)}${suffix}`,
+          )
+        : `${entries}\n\t\t<key>${key}</key>\n\t\t<string>${escapeXml(value)}</string>`;
+      return `${opener}${updatedEntries}${closer}`;
+    });
+  }
+
+  const closingDictIndex = plist.lastIndexOf("</dict>");
+  if (closingDictIndex < 0) {
+    throw new Error("Dev Electron Info.plist is missing its root dict");
+  }
+  const environment = `\n\t<key>LSEnvironment</key>\n\t<dict>\n\t\t<key>${key}</key>\n\t\t<string>${escapeXml(value)}</string>\n\t</dict>\n`;
+  return `${plist.slice(0, closingDictIndex)}${environment}${plist.slice(closingDictIndex)}`;
+}
+
 /**
  * 为 macOS 本地 Dev runtime 写入产品身份和 zcode URL scheme。
  * raw Electron 的 Info.plist 没有 CFBundleURLTypes，系统只能把 zcode 交给
  * com.github.Electron；这里仅修改启动副本，避免污染 node_modules 中的 Electron。
  */
-export function patchDevElectronInfoPlist(plist) {
+export function patchDevElectronInfoPlist(plist, rendererUrl) {
   let patched = replacePlistString(plist, "CFBundleDisplayName", DEV_ELECTRON_APP_NAME);
   patched = replacePlistString(patched, "CFBundleIdentifier", DEV_ELECTRON_APP_BUNDLE_ID);
   patched = replacePlistString(patched, "CFBundleName", DEV_ELECTRON_APP_NAME);
   // XCODE: 开发 .app 也使用产品图标，不沿用 raw Electron 的图标声明。
   patched = replacePlistString(patched, "CFBundleIconFile", "xcode.icns");
-  return appendProtocolDeclaration(patched);
+  patched = appendProtocolDeclaration(patched);
+  // XCODE: LaunchServices 冷启动不会继承 dev.mjs 的环境；本地 bundle 显式携带 Vite 地址。
+  patched = setPlistEnvironmentValue(patched, "ZCODE_LOCAL_DEV_BUNDLE", "1");
+  return setPlistEnvironmentValue(patched, "ELECTRON_RENDERER_URL", rendererUrl);
 }
 
 export function resolveDevElectronAppBundlePath({ runtimeRoot, electronVersion, arch }) {
@@ -57,15 +93,18 @@ export function resolveDevElectronAppBundlePath({ runtimeRoot, electronVersion, 
 }
 
 export async function prepareDevElectronAppBundle({
+  appSourcePath,
   electronAppPath,
   runtimeRoot,
   electronVersion,
   arch,
+  rendererUrl,
 }) {
   const appPath = resolveDevElectronAppBundlePath({ runtimeRoot, electronVersion, arch });
   const infoPlistPath = join(appPath, "Contents", "Info.plist");
-  const sourceExecutablePath = join(electronAppPath, "Contents", "MacOS", "Electron");
   const existingExecutablePath = join(appPath, "Contents", "MacOS", "Electron");
+  const appEntryPath = join(appPath, "Contents", "Resources", "app");
+  const sourceExecutablePath = join(electronAppPath, "Contents", "MacOS", "Electron");
   // 源二进制的身份指纹，写在 .app 外面：放进 Contents 会污染 bundle 结构。
   const sourceStampPath = join(dirname(appPath), ".zcode-dev-electron-source.json");
   // 这里原本把两个 Electron 可执行文件（各 ~100MB+）整份读进内存做 equals，
@@ -110,8 +149,6 @@ export async function prepareDevElectronAppBundle({
     // 等 macOS 沙箱子进程只允许读本 bundle 目录，顺链接出去会被拦，表现为
     // "icudtl.dat not found in bundle" 然后 "GPU process isn't usable. Goodbye."。
     await cp(electronAppPath, appPath, { recursive: true, verbatimSymlinks: true });
-    const patchedInfoPlist = patchDevElectronInfoPlist(await readFile(infoPlistPath, "utf8"));
-    await writeFile(infoPlistPath, patchedInfoPlist, "utf8");
     // 指纹最后写：中途失败时下次仍会判定为需要重拷，不会留下半成品缓存。
     if (sourceStamp !== undefined) await writeFile(sourceStampPath, sourceStamp, "utf8");
   }
@@ -122,10 +159,15 @@ export async function prepareDevElectronAppBundle({
     join(appPath, "Contents", "Resources", "xcode.icns"),
   );
   const currentInfoPlist = await readFile(infoPlistPath, "utf8");
-  const patchedInfoPlist = patchDevElectronInfoPlist(currentInfoPlist);
+  const patchedInfoPlist = patchDevElectronInfoPlist(currentInfoPlist, rendererUrl);
   if (patchedInfoPlist !== currentInfoPlist) {
     await writeFile(infoPlistPath, patchedInfoPlist, "utf8");
   }
+  // XCODE: LaunchServices 启动 .app 时不会附带开发命令的 "." 参数；没有 Resources/app
+  // Electron 会执行 default_app.asar 并显示欢迎页。用链接复用源码根目录，让协议回调
+  // 与 `Electron .` 启动走同一入口；每次启动重建，避免旧 runtime 缓存继续指向默认壳。
+  await rm(appEntryPath, { recursive: true, force: true });
+  await symlink(appSourcePath, appEntryPath, "dir");
 
   return {
     appPath,

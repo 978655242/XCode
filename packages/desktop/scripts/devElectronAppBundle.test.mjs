@@ -1,0 +1,51 @@
+import assert from "node:assert/strict";
+import { mkdtemp, mkdir, readFile, readlink, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import test from "node:test";
+
+import { prepareDevElectronAppBundle } from "./devElectronAppBundle.mjs";
+
+const ELECTRON_INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+  <key>CFBundleDisplayName</key><string>Electron</string>
+  <key>CFBundleIdentifier</key><string>com.github.Electron</string>
+  <key>CFBundleName</key><string>Electron</string>
+  <key>CFBundleIconFile</key><string>electron.icns</string>
+</dict>
+</plist>`;
+
+test("prepareDevElectronAppBundle links the package root as the Electron app entry", async (t) => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "xcode-dev-electron-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
+
+  const electronAppPath = join(tempRoot, "Electron.app");
+  const appSourcePath = join(tempRoot, "desktop");
+  await mkdir(join(electronAppPath, "Contents", "MacOS"), { recursive: true });
+  await mkdir(join(electronAppPath, "Contents", "Resources"), { recursive: true });
+  await mkdir(appSourcePath, { recursive: true });
+  await writeFile(join(electronAppPath, "Contents", "Info.plist"), ELECTRON_INFO_PLIST);
+  await writeFile(join(electronAppPath, "Contents", "MacOS", "Electron"), "electron");
+
+  const bundle = await prepareDevElectronAppBundle({
+    appSourcePath,
+    electronAppPath,
+    runtimeRoot: join(tempRoot, "runtime"),
+    electronVersion: "test",
+    arch: "arm64",
+    rendererUrl: "http://localhost:5174",
+  });
+
+  const appEntryPath = join(bundle.appPath, "Contents", "Resources", "app");
+  assert.equal(resolve(await readlink(appEntryPath)), resolve(appSourcePath));
+
+  const infoPlist = await readFile(join(bundle.appPath, "Contents", "Info.plist"), "utf8");
+  assert.match(infoPlist, /<key>ZCODE_LOCAL_DEV_BUNDLE<\/key>\s*<string>1<\/string>/u);
+  assert.match(infoPlist, /<key>CFBundleDisplayName<\/key>\s*<string>XWork Dev<\/string>/u);
+  assert.match(infoPlist, /<key>CFBundleName<\/key>\s*<string>XWork Dev<\/string>/u);
+  assert.match(
+    infoPlist,
+    /<key>ELECTRON_RENDERER_URL<\/key>\s*<string>http:\/\/localhost:5174<\/string>/u,
+  );
+});

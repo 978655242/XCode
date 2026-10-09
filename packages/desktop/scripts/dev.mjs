@@ -120,7 +120,9 @@ if (process.platform === "darwin" && existsSync(electronBinary)) {
   const electronPackage = JSON.parse(await readFile(electronPackageJsonPath, "utf8"));
   const electronAppPath = resolve(electronBinary, "../../..");
   const devBundle = await prepareDevElectronAppBundle({
+    appSourcePath: root,
     electronAppPath,
+    rendererUrl,
     runtimeRoot: resolve(root, "../../.zcode-runtime/desktop-dev"),
     electronVersion: electronPackage.version,
     arch: process.arch,

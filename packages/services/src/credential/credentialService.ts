@@ -7,7 +7,9 @@ import {
   credentialRecordSchema,
   credentialValueSchema,
   formatZodError,
+  CREDENTIAL_DECRYPT_ERROR_CODE,
 } from "@zcode/shared";
+import { createPrivateCredentialCipherProvider } from "./providers/privateCredentialCipherProvider.js";
 import type { ICredentialService } from "./credential.js";
 import {
   createCredentialCipherProvider,
@@ -84,6 +86,81 @@ interface CredentialServiceDependencies {
   /** Host 私有的持久化成功通知；不进入 Renderer/RPC 凭据接口。 */
   onDidMutate?: (event: { operation: "save" | "delete"; key: string }) => void;
 }
+// XCODE: Renderer 的任意 key RPC 不能读取、覆盖或删除 Host 私有身份。
+function assertPublicCredentialKey(key: string): void {
+  if (key.startsWith("new-api:") || key.startsWith("official-cloud:")) {
+    throw Object.assign(new Error("Private credentials are not available through RPC"), {
+      code: "XCODE_CREDENTIAL_SCOPE_DENIED",
+    });
+  }
+}
+
+function assertHostCredentialKey(key: string): void {
+  credentialKeySchema.parse(key);
+  if (!key.startsWith("new-api:") && !key.startsWith("official-cloud:")) {
+    throw new Error("Invalid private credential namespace");
+  }
+}
+
+export interface HostCredentialStoreDependencies {
+  credentialsFile?: string;
+  cipherProvider?: CredentialCipherProvider;
+}
+
+// XCODE: 此 standalone Host port 不注册为 RPC，私有密文与旧官方密文使用不同 key。
+export async function readHostCredentialRecord(
+  key: string,
+  dependencies: HostCredentialStoreDependencies = {},
+): Promise<string | null> {
+  assertHostCredentialKey(key);
+  const records = await readAll(dependencies.credentialsFile ?? getCredentialsFile());
+  const encrypted = records[key];
+  if (encrypted === undefined) return null;
+  if (!encrypted.startsWith("enc:v1:")) {
+    throw Object.assign(new Error("Private credentials require encrypted storage recovery"), {
+      code: CREDENTIAL_DECRYPT_ERROR_CODE,
+    });
+  }
+  return (dependencies.cipherProvider ?? createPrivateCredentialCipherProvider()).decrypt(encrypted);
+}
+
+export async function updateHostCredentialRecords<T>(
+  keys: readonly string[],
+  mutate: (records: ReadonlyMap<string, string | null>) => {
+    changes: ReadonlyMap<string, string | null>;
+    result: T;
+  },
+  dependencies: HostCredentialStoreDependencies = {},
+): Promise<T> {
+  for (const key of keys) assertHostCredentialKey(key);
+  const credentialsFile = dependencies.credentialsFile ?? getCredentialsFile();
+  return withFileLock(credentialsFile, async () => {
+    const records = await readAll(credentialsFile);
+    const cipher = dependencies.cipherProvider ?? createPrivateCredentialCipherProvider();
+    const selected = new Map<string, string | null>();
+    for (const key of keys) {
+      const encrypted = records[key];
+      if (encrypted !== undefined && !encrypted.startsWith("enc:v1:")) {
+        throw Object.assign(new Error("Private credentials require encrypted storage recovery"), {
+          code: CREDENTIAL_DECRYPT_ERROR_CODE,
+        });
+      }
+      selected.set(key, encrypted === undefined ? null : cipher.decrypt(encrypted));
+    }
+    const { changes, result } = mutate(selected);
+    for (const [key, value] of changes) {
+      if (!selected.has(key)) throw new Error("Undeclared private credential mutation");
+      if (value === null) {
+        delete records[key];
+      } else {
+        records[key] = cipher.encrypt(credentialValueSchema.parse(value));
+      }
+    }
+    if (changes.size > 0) await writeAll(credentialsFile, records);
+    return result;
+  });
+}
+
 
 export function createCredentialService(
   dependencies: CredentialServiceDependencies = {},
@@ -93,6 +170,7 @@ export function createCredentialService(
   return {
     async load(key: string): Promise<string | null> {
       const validatedKey = credentialKeySchema.parse(key);
+      assertPublicCredentialKey(validatedKey);
       const creds = await readAll();
       const rawValue = creds[validatedKey];
       if (rawValue === undefined) {
@@ -104,6 +182,7 @@ export function createCredentialService(
 
     async save(key: string, value: string): Promise<void> {
       const validatedKey = credentialKeySchema.parse(key);
+      assertPublicCredentialKey(validatedKey);
       const validatedValue = credentialValueSchema.parse(value);
       const encryptedValue = cipherProvider.encrypt(validatedValue);
       const credentialsFile = getCredentialsFile();
@@ -119,6 +198,7 @@ export function createCredentialService(
 
     async delete(key: string): Promise<void> {
       const validatedKey = credentialKeySchema.parse(key);
+      assertPublicCredentialKey(validatedKey);
       const credentialsFile = getCredentialsFile();
       await withFileLock(credentialsFile, async () => {
         const creds = await readAll(credentialsFile);

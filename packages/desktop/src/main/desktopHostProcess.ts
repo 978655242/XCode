@@ -34,6 +34,7 @@ import {
   ZCODE_DESKTOP_CONTEXT_PROMPT_ENABLED_ENV,
 } from "@zcode/shared";
 import { getMainLaunchPartialMarks } from "./desktopLaunchMarks.js";
+import { isLocalDevelopmentBundleLaunch } from "./desktopLocalDevelopmentBundle.js";
 import { BroadcastHub } from "./broadcastHub.js";
 import type { TaskRealtimeBus } from "./taskRealtimeBus.js";
 import { createHostLogRelay } from "./hostLogRelay.js";
@@ -133,8 +134,10 @@ export function loadWindow(
     });
   }
 
-  // 生产包不能信任继承环境中的开发服务器地址，否则会被本机开发会话劫持为空白页。
-  if (!app.isPackaged && process.env["ELECTRON_RENDERER_URL"]) {
+  // XCODE: 正式包不能信任继承环境中的开发服务器地址；只有本地生成的开发 bundle
+  // 通过 Info.plist 写入的显式标记和可验证路径才可在 LaunchServices 冷启动时使用 Vite。
+  const isLocalDevelopmentBundle = isLocalDevelopmentBundleLaunch();
+  if ((!app.isPackaged || isLocalDevelopmentBundle) && process.env["ELECTRON_RENDERER_URL"]) {
     const base = process.env["ELECTRON_RENDERER_URL"];
     const url = new URL(page === "login" ? `${base}/login.html` : base);
     for (const [key, value] of Object.entries(query)) {
