@@ -1,5 +1,6 @@
 /* eslint-disable max-lines -- zcodeSessionService 聚合 desktop-continuous session 操作、draft lifecycle 和 task index 同步边界，拆分需要单独设计。 */
 import type { IZCodeAgentService } from "#src/zcode-agent/zcodeAgent.js";
+import { sessionCreateAdmission } from "#src/zcode-agent/zcodeAgent.js";
 import type { ZCodeTaskIndexSyncer } from "#src/zcode-agent/zcodeTaskIndexSyncer.js";
 import { createServiceLogger } from "#src/logger/serviceLogger.js";
 import {
@@ -136,6 +137,8 @@ export function createZCodeSessionService({
       modelOverride?: string;
       thoughtLevelOverride?: string;
       moveGroupedTaskToTop?: boolean;
+      assertCurrent?: () => Promise<void>;
+      assertCurrentSync?: () => void;
       /** 设计修正：必填，发射点必须声明变更类别。 */
       broadcastReason: ZCodeWorkspaceTaskListChanged["reason"];
     },
@@ -221,13 +224,20 @@ export function createZCodeSessionService({
     async createSession(params: ZCodeSessionCreateParams) {
       const startedAt = Date.now();
       const sessionTraceId = params.sessionTraceId ?? createSessionTraceId();
+      const admission = params[sessionCreateAdmission];
+      if (admission) await admission.assertCurrent();
       const agentParams = await withResolvedMcpServers({ ...params, sessionTraceId });
+      // XCODE: MCP 解析期间可能换号，旧导入必须在真正创建 worker 会话前停止。
+      if (admission) await admission.assertCurrent();
       logger.info(sessionTraceId, "[zcode-session-service] createSession 分配 session trace", {
         persistence: agentParams.persistence,
         workspaceIdentity: agentParams.workspaceIdentity,
         workspacePath: agentParams.workspacePath,
       });
+      admission?.assertCurrentSync?.();
       const snapshot = await agentService.createSession(agentParams);
+      if (admission) await admission.assertCurrent();
+      admission?.assertCurrentSync?.();
       logger.info(sessionTraceId, "[zcode-session-service] createSession agent 返回", {
         durationMs: Date.now() - startedAt,
         mcpServerCount: agentParams.mcpServers?.length ?? 0,
@@ -255,13 +265,17 @@ export function createZCodeSessionService({
       // 立刻把初始 snapshot 也同步到 sqlite + 广播，让 UI 列表第一时间看到新会话行。
       // desktop-continuous 首发不会经过 legacy createTask，必须在这里同步写 grouped 顶部顺序。
       const snapshotWithRuntime = withApiRetryRuntime(snapshot);
+      if (admission) await admission.assertCurrent();
       const broadcastStartedAt = Date.now();
       await broadcastSnapshot(snapshotWithRuntime, "createSession", {
         moveGroupedTaskToTop: true,
         // 首发广播沿用 task_meta_changed 旧语义（低频，一个任务一次）；
         // 语义化成 task_created（insert-active）需连同乐观插入去重一起改。
         broadcastReason: "task_meta_changed",
+        assertCurrent: admission?.assertCurrent,
+        assertCurrentSync: admission?.assertCurrentSync,
       });
+      if (admission) await admission.assertCurrent();
       logger.info(sessionTraceId, "[zcode-session-service] createSession task index 同步完成", {
         broadcastDurationMs: Date.now() - broadcastStartedAt,
         durationMs: Date.now() - startedAt,
@@ -269,6 +283,7 @@ export function createZCodeSessionService({
         workspaceIdentity: params.workspaceIdentity,
         workspacePath: params.workspacePath,
       });
+      admission?.assertCurrentSync?.();
       return snapshotWithRuntime;
     },
 

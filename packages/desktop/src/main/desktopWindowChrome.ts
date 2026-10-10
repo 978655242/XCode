@@ -1,5 +1,14 @@
 /* eslint-disable max-lines -- 桌面窗口 chrome、webview 安全策略和 popup 路由共享同一 BrowserWindow 生命周期上下文。 */
-import { app, BrowserWindow, Menu, nativeImage, nativeTheme, screen, shell } from "electron";
+import {
+  app,
+  BrowserWindow,
+  Menu,
+  nativeImage,
+  nativeTheme,
+  screen,
+  session,
+  shell,
+} from "electron";
 import { join } from "node:path";
 import type {
   ContextMenuParams,
@@ -37,6 +46,14 @@ import {
   resolveDesktopWindowSize,
   type DesktopWindowSize,
 } from "./desktopWindowSize.js";
+import {
+  attachNativePlanWebview,
+  canAttachNativePlanWebview,
+  isNativePlanWebviewPartition,
+  guardOrdinaryNativePlanRequests,
+  guardPlanWebviewSession,
+  isNativePlanPrivateUrl,
+} from "./nativePlanWebviewManager.js";
 // CDP-on-guest pivot：内置浏览器改回 `<webview>` 渲染，宿主 BrowserWindow 需重新开 webviewTag，
 // 并在 will/did-attach-webview 里做 guest 硬化 + URL 白名单 + popup 路由回内部 tab。
 const ALLOWED_EMBEDDED_BROWSER_PROTOCOLS = new Set([
@@ -372,6 +389,7 @@ function attachEmbeddedBrowserWindowOpenHandler(options: {
 
   options.guestWebContents.setWindowOpenHandler((details): WindowOpenHandlerResponse => {
     const { url, disposition } = details;
+    if (isNativePlanPrivateUrl(url)) return { action: "deny" };
     if (!isAllowedEmbeddedBrowserNewWindowUrl(url)) {
       options.logger.warn(`[browser-pane] blocked unsupported webview popup url: ${url}`);
       return { action: "deny" };
@@ -447,6 +465,7 @@ function attachEmbeddedBrowserWindowOpenHandler(options: {
   });
 
   options.guestWebContents.on("will-navigate", (event, url) => {
+    if (event.defaultPrevented) return;
     const guestUrl =
       typeof options.guestWebContents.getURL === "function"
         ? options.guestWebContents.getURL()
@@ -580,6 +599,8 @@ export function createBrowserWindow(options: {
     autoHideMenuBar: isLinuxDesktopWindow(),
     ...buildDesktopWindowVisualOptions(),
     webPreferences: {
+      // XCODE: Renderer 在创建 guest 之前的 fetch 也不得把私有交接 Cookie 写入默认分区。
+      session: guardPlanWebviewSession(session.defaultSession),
       preload: options.preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
@@ -613,6 +634,7 @@ export function createBrowserWindow(options: {
   win.on("unmaximize", () => syncDesktopWindowChromeState(win));
   attachWindowsWindowRepaint(win);
   const pendingWebviewCodingPlanGuestFlags: boolean[] = [];
+  const pendingNativePlanPartitions: ({ partition: string; url: string } | null)[] = [];
 
   win.webContents.once("did-finish-load", () => {
     // 生产包使用 loadFile(file://...) 导航时，Chromium 可能在页面加载完成后重放
@@ -645,13 +667,27 @@ export function createBrowserWindow(options: {
     // Coding Plan 官网页例外：它需要 window.zcodeBridge 回传购买完成信号，
     // 改用专用 preload（codingPlanWebview.ts），其余 webview 保持原生 Dialog 桥。
     const targetUrl = params.src ?? "about:blank";
+    const nativePartition = isNativePlanWebviewPartition(params.partition)
+      ? params.partition
+      : null;
+    if (nativePartition && !canAttachNativePlanWebview(win.id, nativePartition, targetUrl)) {
+      event.preventDefault();
+      return;
+    }
+    if (!nativePartition && isNativePlanPrivateUrl(targetUrl)) {
+      event.preventDefault();
+      return;
+    }
+    webPreferences.session = guardPlanWebviewSession(session.fromPartition(params.partition ?? ""));
     const isCodingPlanWebview = isCodingPlanEmbeddedWebviewSrc(targetUrl);
-    webPreferences.preload = isCodingPlanWebview
-      ? codingPlanWebviewPreloadPath
-      : embeddedBrowserJavaScriptDialogPreloadPath;
+    webPreferences.preload = nativePartition
+      ? undefined
+      : isCodingPlanWebview
+        ? codingPlanWebviewPreloadPath
+        : embeddedBrowserJavaScriptDialogPreloadPath;
     webPreferences.contextIsolation = true;
     webPreferences.nodeIntegration = false;
-    webPreferences.nodeIntegrationInSubFrames = true;
+    webPreferences.nodeIntegrationInSubFrames = nativePartition === null;
     webPreferences.sandbox = true;
 
     delete params.preload;
@@ -659,7 +695,7 @@ export function createBrowserWindow(options: {
     // nodeIntegrationInSubFrames 是 guest 创建期偏好；派生 WebPreferences 与原始 attach
     // 参数都固定为 true，确保发生真实导航的子 frame 在网页脚本前加载同一 preload。
     // 无 src 的继承型空 frame 不触发 preload，由 preload 内的同源 frame 观察器接管。
-    params.nodeintegrationinsubframes = "true";
+    params.nodeintegrationinsubframes = nativePartition ? "false" : "true";
     delete params.disablewebsecurity;
     delete params.allowpopups;
 
@@ -676,9 +712,25 @@ export function createBrowserWindow(options: {
     }
 
     pendingWebviewCodingPlanGuestFlags.push(isCodingPlanWebview);
+    pendingNativePlanPartitions.push(
+      nativePartition ? { partition: nativePartition, url: targetUrl } : null,
+    );
   });
 
   win.webContents.on("did-attach-webview", (_event, guestWebContents) => {
+    const nativePartition = pendingNativePlanPartitions.shift();
+    if (nativePartition) {
+      pendingWebviewCodingPlanGuestFlags.shift();
+      attachNativePlanWebview(
+        win.id,
+        nativePartition.partition,
+        nativePartition.url,
+        guestWebContents,
+        options.logger,
+      );
+      return;
+    }
+    guardOrdinaryNativePlanRequests(guestWebContents);
     attachEmbeddedBrowserWindowOpenHandler({
       guestWebContents,
       hostWebContents: win.webContents,

@@ -4,6 +4,7 @@ import type { completeModelConfigDataSchema } from "@zcode/shared/model-config";
 import type {
   completeApiKeyAccessDataSchema,
   completeZhipuAccountAccessDataSchema,
+  completeNewApiAccountAccessDataSchema,
   completeProviderConfigDataSchema,
 } from "./config/provider-data-schema.js";
 import type { ConfigValidationIssue } from "./config-overlay.js";
@@ -12,8 +13,9 @@ import {
   ModelConfig,
   ModelConfigRules,
   type ZhipuAccountAccessConfig,
+  type NewApiAccountAccessConfig,
   type ModelId,
-  type ProviderConfig,
+  ProviderConfig,
   type ProviderConfigRule,
   ProviderConfigMap,
   type ProviderTemplateMap,
@@ -21,13 +23,16 @@ import {
 } from "./config/index.js";
 import { resolveOwnedOrder } from "./owned-order.js";
 import type { AccountProviderStates } from "./account-provider-state.js";
+import type { AccountModelConfigs } from "./sources.js";
+import type { NewApiOwner } from "@zcode/shared/new-api";
 
 export type RegistryZhipuAccountAccessConfig = ZhipuAccountAccessConfig &
   z.infer<typeof completeZhipuAccountAccessDataSchema>;
 
 export type RegistryProviderAccessConfig =
   | (ApiKeyAccessConfig & z.infer<typeof completeApiKeyAccessDataSchema>)
-  | RegistryZhipuAccountAccessConfig;
+  | RegistryZhipuAccountAccessConfig
+  | (NewApiAccountAccessConfig & z.infer<typeof completeNewApiAccountAccessDataSchema>);
 
 export type RegistryProviderConfig = ProviderConfig &
   z.infer<typeof completeProviderConfigDataSchema> & {
@@ -39,24 +44,27 @@ export type RegistryProviderConfigObject = z.infer<typeof completeProviderConfig
 export function serializeRegistryProviderConfig(
   config: RegistryProviderConfig,
 ): RegistryProviderConfigObject {
+  const access = config.access;
   return {
     group: config.group,
     ...(config.logo === undefined ? {} : { logo: config.logo }),
     access:
-      config.access.type !== "zhipu-account"
+      access.type === "zhipu-account"
         ? {
-            type: config.access.type,
-            apiKey: config.access.apiKey,
-            ...(config.access.apiKeyManagementUrl === undefined
-              ? {}
-              : { apiKeyManagementUrl: config.access.apiKeyManagementUrl }),
+            type: access.type,
+            accountType: access.accountType,
+            mode: access.mode,
+            entitled: access.entitled,
           }
-        : {
-            type: config.access.type,
-            accountType: config.access.accountType,
-            mode: config.access.mode,
-            entitled: config.access.entitled,
-          },
+        : access.type === "new-api-account"
+          ? access.toJSON()
+          : {
+              type: access.type,
+              apiKey: access.apiKey,
+              ...(access.apiKeyManagementUrl === undefined
+                ? {}
+                : { apiKeyManagementUrl: access.apiKeyManagementUrl }),
+            },
     api: {
       type: config.api.type,
       baseUrl: config.api.baseUrl,
@@ -133,12 +141,16 @@ export interface ProviderConfigResolverInput {
   readonly personalModels: ModelConfigRules;
   readonly accountProviders: ProviderConfigMap;
   readonly accountStates?: AccountProviderStates;
+  readonly accountModelConfigs?: AccountModelConfigs;
+  readonly accountOwner?: NewApiOwner | null;
+  readonly accountRevision?: string;
   readonly personalProviderOrder?: readonly ProviderId[];
 }
 
 export interface ResolvedProviderModelCandidate {
   readonly kind: "candidate";
   readonly modelId: ModelId;
+  readonly displayName?: string;
   readonly source: "builtin" | "personal";
   readonly config: ModelConfig;
   readonly effectiveBuiltinConfig: ModelConfig;
@@ -162,6 +174,7 @@ export interface ResolvedProvider extends Pick<ProviderConfigRule, "templateId" 
 
 export interface ProviderModel {
   readonly modelId: ModelId;
+  readonly displayName?: string;
   readonly config: RegistryModelConfig;
 }
 
@@ -169,6 +182,10 @@ export interface Provider extends Pick<ProviderConfigRule, "templateId" | "provi
   readonly providerId: ProviderId;
   readonly config: RegistryProviderConfig;
   readonly models: readonly ProviderModel[];
+  readonly accountOwner?: NewApiOwner;
+  readonly accountRevision?: string;
+  /** XCODE: 官方连接的非秘密执行代际只留在内部 Registry。 */
+  readonly accountConnectionKey?: string;
 }
 
 export interface ProviderConfigResolution {
@@ -196,7 +213,11 @@ export class ProviderConfigResolver {
       return template ? template.overlay(concrete) : concrete;
     });
     const personalProviders = input.personalProviders.mapConfigs((config, providerId) =>
-      effectiveBuiltinProviders.has(providerId) ? config.withoutGroup() : config,
+      effectiveBuiltinProviders.get(providerId)?.access?.type === "new-api-account"
+        ? new ProviderConfig({ modelOrder: config.modelOrder, visibility: config.visibility })
+        : effectiveBuiltinProviders.has(providerId)
+          ? config.withoutGroup()
+          : config,
     );
     const templatePersonalProviders = personalProviders.mapConfigs((personal, providerId, rule) => {
       if (effectiveBuiltinProviders.has(providerId)) return personal;
@@ -218,7 +239,10 @@ export class ProviderConfigResolver {
       const rule = effectiveProviders.getRule(providerId)!;
       const { config, providerName } = rule;
       // 账号不再支持总禁用；旧覆盖值不能让无开关的账号永久失效，其他资格仍正常校验。
-      const enabled = config.access?.type === "zhipu-account" || (rule.enabled ?? true);
+      const enabled =
+        config.access?.type === "zhipu-account" ||
+        config.access?.type === "new-api-account" ||
+        (rule.enabled ?? true);
       const providerPath = ["providers", providerId];
       const registryProviderResult = createRegistryProviderConfig(config, providerPath);
       const providerIssues: ConfigValidationIssue[] = registryProviderResult.ok
@@ -235,7 +259,8 @@ export class ProviderConfigResolver {
       }
       issues.push(...providerIssues);
       const builtinModelIds = config.builtinModelIds ?? [];
-      const personalModelIds = config.personalModelIds ?? [];
+      const personalModelIds =
+        config.access?.type === "new-api-account" ? [] : (config.personalModelIds ?? []);
       const builtinIdsInOrder = uniqueInOrder(builtinModelIds);
       const builtinIds = new Set(builtinIdsInOrder);
       const personalIdsInOrder = uniqueInOrder(personalModelIds).filter(
@@ -247,27 +272,36 @@ export class ProviderConfigResolver {
         config.modelOrder ?? [],
       );
       const accessEntitled =
-        config.access?.type !== "zhipu-account" || config.access.entitled === true;
+        (config.access?.type !== "zhipu-account" && config.access?.type !== "new-api-account") ||
+        config.access.entitled === true;
       // 账号权益与当前连接是两件事。非当前账号仍保留设置展示，不向普通 Registry 发布模型。
       // Off-Peak 不定义 current，沿用其独立调度、隐藏和鉴权规则。
       const accountCurrent = input.accountStates?.[providerId]?.current !== false;
       const providerExecutable =
         enabled && accessEntitled && accountCurrent && providerIssues.length === 0;
       const models = orderedModelIds.map((modelId): ResolvedProviderModel => {
-        const modelConfig = effectiveModelRules.resolve({
-          providerId,
-          templateId,
-          modelId,
-          apiType: config.api?.type,
-          baseUrl: config.api?.baseUrl,
-        });
-        const effectiveBuiltinConfig = input.zcodeBuiltinModelRules.resolve({
-          providerId,
-          templateId,
-          modelId,
-          apiType: config.api?.type,
-          baseUrl: config.api?.baseUrl,
-        });
+        const { displayName, ...nativeConfig } =
+          input.accountModelConfigs?.[providerId]?.[modelId] ?? {};
+        const modelConfig =
+          config.access?.type === "new-api-account"
+            ? ModelConfig.fromData(nativeConfig)
+            : effectiveModelRules.resolve({
+                providerId,
+                templateId,
+                modelId,
+                apiType: config.api?.type,
+                baseUrl: config.api?.baseUrl,
+              });
+        const effectiveBuiltinConfig =
+          config.access?.type === "new-api-account"
+            ? modelConfig
+            : input.zcodeBuiltinModelRules.resolve({
+                providerId,
+                templateId,
+                modelId,
+                apiType: config.api?.type,
+                baseUrl: config.api?.baseUrl,
+              });
         const registryModelResult = createRegistryModelConfig(modelConfig, [
           ...providerPath,
           "models",
@@ -281,6 +315,7 @@ export class ProviderConfigResolver {
         return Object.freeze({
           kind: "candidate",
           modelId,
+          ...(displayName !== undefined ? { displayName } : {}),
           source: builtinIds.has(modelId) ? "builtin" : "personal",
           config: modelConfig,
           effectiveBuiltinConfig,
@@ -311,7 +346,7 @@ export class ProviderConfigResolver {
       }
       const validModels = models
         .filter((model) => model.executable)
-        .map(({ modelId, config: modelConfig }) => {
+        .map(({ modelId, displayName, config: modelConfig }) => {
           const result = createRegistryModelConfig(modelConfig, [
             ...providerPath,
             "models",
@@ -319,7 +354,11 @@ export class ProviderConfigResolver {
           ]);
           if (!result.ok)
             throw new Error(`Registry Model 完整性结果不一致: ${providerId}/${modelId}`);
-          return Object.freeze({ modelId, config: result.config });
+          return Object.freeze({
+            modelId,
+            ...(displayName !== undefined ? { displayName } : {}),
+            config: result.config,
+          });
         });
       if (validModels.length === 0) continue;
       registryProviders.push(
@@ -329,6 +368,14 @@ export class ProviderConfigResolver {
           templateId,
           config: registryProviderResult.config,
           models: Object.freeze(validModels),
+          ...(config.access?.type === "zhipu-account" &&
+          config.access.mode === "off-peak" &&
+          input.accountStates?.[providerId]?.connectionKey
+            ? { accountConnectionKey: input.accountStates[providerId]!.connectionKey }
+            : {}),
+          ...(config.access?.type === "new-api-account" && input.accountOwner
+            ? { accountOwner: input.accountOwner, accountRevision: input.accountRevision }
+            : {}),
         }),
       );
     }

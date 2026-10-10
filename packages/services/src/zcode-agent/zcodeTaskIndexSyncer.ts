@@ -122,6 +122,9 @@ export interface ZCodeTaskIndexSyncer {
       thoughtLevelOverride?: string;
       moveGroupedTaskToTop?: boolean;
       unreadSignal?: ZCodeWorkspaceTaskListChanged["unreadSignal"];
+      // XCODE: Host 导入 fence 在异步 index 同步后仍须阻止旧 owner 广播。
+      assertCurrent?: () => Promise<void>;
+      assertCurrentSync?: () => void;
       /**
        * 设计修正：必填。切模型（task_model_changed）/快照收敛（task_status_changed）
        * 这类变更不得落到 task_meta_changed——后者会被 UI 当成归属相关变更
@@ -1666,6 +1669,8 @@ export function createZCodeTaskIndexSyncer(
       thoughtLevelOverride?: string;
       moveGroupedTaskToTop?: boolean;
       unreadSignal?: ZCodeWorkspaceTaskListChanged["unreadSignal"];
+      assertCurrent?: () => Promise<void>;
+      assertCurrentSync?: () => void;
       broadcastReason: ZCodeWorkspaceTaskListChanged["reason"];
     },
   ): Promise<ZCodeTaskMeta> {
@@ -1675,14 +1680,24 @@ export function createZCodeTaskIndexSyncer(
     // 同时把 snapshot.messages 里可见的聊天正文索引下去，
     // 让 TaskSearchDialog 正文搜索能命中；旧 sqlite 行下次到这里时自然回填。
     const searchableText = buildSearchableTextFromSnapshot(snapshot);
+    if (options.assertCurrent) await options.assertCurrent();
     // desktop-continuous 首发若先提交 task row、再补 grouped sort_order，
     // sessions-index 会在两次写之间把缺序 task 暴露给 Renderer，产生先到底部再回顶部的跳动。
     const { meta: persisted, initializedGroupedOrder } = options?.moveGroupedTaskToTop
-      ? await taskIndexRepo.syncTaskMetaAtGroupedTop({ meta, searchableText })
+      ? await taskIndexRepo.syncTaskMetaAtGroupedTop({
+          meta,
+          searchableText,
+          assertCurrent: options.assertCurrentSync,
+        })
       : {
-          meta: await taskIndexRepo.syncTaskMeta({ meta, searchableText }),
+          meta: await taskIndexRepo.syncTaskMeta({
+            meta,
+            searchableText,
+            assertCurrent: options.assertCurrentSync,
+          }),
           initializedGroupedOrder: false,
         };
+    if (options.assertCurrent) await options.assertCurrent();
     // createSession 刚回来时 snapshot 既没有 title 也没有 user message，
     // 默认 title 会落成 "New session" 占位符。这种"还没有任何用户内容"的快照不应该广播给 UI，
     // 否则侧边栏会先闪一下 "New session"，等 sendPrompt 完成后才换成真正的 prompt 文本。
@@ -1693,6 +1708,7 @@ export function createZCodeTaskIndexSyncer(
         // 预热 session 从 draft 提升时，grouped 顺序会先于首标题落库。
         // 即使暂时没有可广播的 task meta，也必须通知 renderer 重拉 structure；
         // 否则 sessions-index 已显示 task、structure 仍缺序，当前进程会把它补到末尾。
+        options.assertCurrentSync?.();
         emitWorkspaceTaskListChanged(
           {
             workspacePath: persisted.workspacePath,
@@ -1705,6 +1721,7 @@ export function createZCodeTaskIndexSyncer(
       }
       return persisted;
     }
+    options.assertCurrentSync?.();
     emitWorkspaceTaskListChanged(
       {
         workspacePath: persisted.workspacePath,

@@ -19,3 +19,40 @@ export function isZCodeAgentMcpStatusModeUnsupportedError(error: unknown): boole
   }
   return (error as { code?: unknown }).code === ZCODE_AGENT_MCP_STATUS_MODE_UNSUPPORTED_ERROR_CODE;
 }
+
+/** XCODE: 仅精确 session 的可信持久确认决定附件清理；缺失/畸形确认仍属未知。 */
+export function readSharedImportCommitStatus(
+  error: unknown,
+  sessionId: string | undefined,
+): boolean | null {
+  if (
+    !sessionId ||
+    typeof error !== "object" ||
+    error === null ||
+    !Object.hasOwn(error, "data") ||
+    !("data" in error)
+  )
+    return null;
+  const data = error.data;
+  if (
+    typeof data !== "object" ||
+    data === null ||
+    !Object.hasOwn(data, "sharedImportCommit") ||
+    !("sharedImportCommit" in data)
+  )
+    return null;
+  const commit = data.sharedImportCommit;
+  if (
+    typeof commit !== "object" ||
+    commit === null ||
+    Reflect.ownKeys(commit).length !== 2 ||
+    !Object.hasOwn(commit, "sessionId") ||
+    !Object.hasOwn(commit, "committed") ||
+    !("sessionId" in commit) ||
+    !("committed" in commit) ||
+    commit.sessionId !== sessionId ||
+    typeof commit.committed !== "boolean"
+  )
+    return null;
+  return commit.committed;
+}

@@ -4,6 +4,7 @@ import type { z } from "zod";
 import {
   completeApiKeyAccessDataSchema,
   completeZhipuAccountAccessDataSchema,
+  completeNewApiAccountAccessDataSchema,
   completeProviderApiDataSchema,
   completeProviderConfigDataSchema,
   type providerApiTypeDataSchema,
@@ -111,7 +112,40 @@ export class ZhipuAccountAccessConfig extends ConfigOverlay<ZhipuAccountAccessCo
   }
 }
 
-export type ProviderAccessConfig = ApiKeyAccessConfig | ZhipuAccountAccessConfig;
+export class NewApiAccountAccessConfig extends ConfigOverlay<NewApiAccountAccessConfig> {
+  readonly type = "new-api-account" as const;
+  readonly accountType = "new-api" as const;
+  readonly mode = "private-subscription" as const;
+  readonly entitled: boolean;
+
+  constructor(input: { readonly entitled: boolean }) {
+    super();
+    this.entitled = input.entitled;
+    Object.freeze(this);
+  }
+
+  overlay(next: NewApiAccountAccessConfig): NewApiAccountAccessConfig {
+    return next;
+  }
+
+  validateComplete(path: readonly string[] = []): readonly ConfigValidationIssue[] {
+    return validateConfigSchema(completeNewApiAccountAccessDataSchema, this.toJSON(), path);
+  }
+
+  toJSON(): z.infer<typeof completeNewApiAccountAccessDataSchema> {
+    return {
+      type: this.type,
+      accountType: this.accountType,
+      mode: this.mode,
+      entitled: this.entitled,
+    };
+  }
+}
+
+export type ProviderAccessConfig =
+  | ApiKeyAccessConfig
+  | ZhipuAccountAccessConfig
+  | NewApiAccountAccessConfig;
 
 export type ProviderAccessConfigObject = Readonly<z.infer<typeof providerAccessDataSchema>>;
 
@@ -505,6 +539,8 @@ function overlayProviderAccess(
       return current.overlay(next as ApiKeyAccessConfig);
     case "zhipu-account":
       return current.overlay(next as ZhipuAccountAccessConfig);
+    case "new-api-account":
+      return current.overlay(next as NewApiAccountAccessConfig);
   }
 }
 

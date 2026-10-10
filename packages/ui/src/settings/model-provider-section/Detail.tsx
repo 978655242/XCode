@@ -290,7 +290,7 @@ export function ModelProviderSectionDetail({
     providerName: string,
     status: CodingPlanStatus,
     options?: CodingPlanLoginOptions,
-  ) => number | void;
+  ) => number | void | Promise<void>;
   onCodingPlanDisconnect: (
     presetId: BuiltinModelProviderId,
     providerId: OAuthProviderId,
@@ -837,6 +837,7 @@ export function ModelProviderSectionDetail({
   }
 
   const customProvider = selectedNavItem.provider;
+  const nativeManaged = customProvider.config.access?.type === "new-api-account";
   const customApiKeyUrl = customProvider.templateId
     ? getProviderFormApiKeyManagementUrl(customProvider)
     : undefined;
@@ -846,7 +847,7 @@ export function ModelProviderSectionDetail({
       provider={customProvider}
       onSave={onSave}
       {...modelEditingProps}
-      onDelete={() => onDelete(customProvider)}
+      onDelete={nativeManaged ? undefined : () => onDelete(customProvider)}
       onReorderModelIds={
         onReorderProviderModels
           ? (modelIds) => onReorderProviderModels(customProvider.providerId, modelIds)
@@ -854,8 +855,9 @@ export function ModelProviderSectionDetail({
       }
       onTestModel={onTestModel}
       presetApiKeyUrl={customApiKeyUrl}
-      readOnlyEndpoints={false}
-      nameEditable
+      readOnlyEndpoints={nativeManaged}
+      nameEditable={!nativeManaged}
+      headerActionsVisible={!nativeManaged}
       onOpenPresetApiKey={
         customApiKeyUrl
           ? () => {

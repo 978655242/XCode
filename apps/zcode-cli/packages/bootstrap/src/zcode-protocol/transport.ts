@@ -170,13 +170,14 @@ export class ZCodeProtocolNdjsonConnection {
       return;
     }
     if (this.shouldBypassProcessingQueue(message)) {
-      // 停止/取消控制必须等它前面的普通请求真正进入 handler、建立 abort
-      // controller，再越过该请求的异步执行；只延后一轮微任务会让控制请求提前成为空操作。
-      void this.lastQueuedMessageStarted
-        .then(() => this.handleMessage(message))
-        .catch((error: unknown) => {
-          this.fail(error instanceof Error ? error : new Error(String(error)));
-        });
+      // 授权更新不能等排在模型之后的普通请求；停止/取消仍等目标请求建立 abort controller。
+      const handling =
+        "method" in message && message.method === zcodeProtocolMethods.providerUpdateAccountConfig
+          ? this.handleMessage(message)
+          : this.lastQueuedMessageStarted.then(() => this.handleMessage(message));
+      void handling.catch((error: unknown) => {
+        this.fail(error instanceof Error ? error : new Error(String(error)));
+      });
       return;
     }
     let markStarted!: () => void;
@@ -223,13 +224,14 @@ export class ZCodeProtocolNdjsonConnection {
   }
 
   private shouldBypassProcessingQueue(message: ZCodeProtocolMessage): boolean {
-    // 模型任务占住串行队列时，停止/取消请求必须仍能进入 server，
-    // 才能把底层 AbortSignal 传给真实模型请求。控制面只旁路当前执行，普通请求仍保持串行。
+    // XCODE: 授权替换/丢失与停止/取消同属控制面，不能排在其需要中断的模型任务之后。
+    // 必须仍能进入 server 传递底层 AbortSignal；普通请求保持串行。
     return (
       "id" in message &&
       "method" in message &&
       (message.method === zcodeProtocolMethods.sessionStop ||
-        message.method === zcodeProtocolMethods.workspaceCancelGenerateText)
+        message.method === zcodeProtocolMethods.workspaceCancelGenerateText ||
+        message.method === zcodeProtocolMethods.providerUpdateAccountConfig)
     );
   }
 

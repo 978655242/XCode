@@ -1,6 +1,57 @@
 // XCODE: 仅统一产品展示文案，保留语言资源键与协议标识。
 /** 中文翻译 */
 const zhCN: Record<string, string> = {
+  "login.privateCredentialRecovery.title": "私有凭据需要人工恢复",
+  "login.privateCredentialRecovery.description":
+    "请解锁操作系统凭据存储，或恢复 XWork 凭据备份后重启。现有凭据未被删除，也不会改用其他密钥或官方账号。",
+  "settings.modelProvider.native.viewReset": "周期详情 · 只读",
+  "settings.modelProvider.native.viewPlans": "查看订阅套餐",
+  "settings.usage.nativeAuthorization.active": "授权有效",
+  "settings.usage.nativeAuthorization.exhausted": "额度已耗尽",
+  "settings.usage.nativeAuthorization.expired": "授权已过期",
+  "settings.usage.nativeAuthorization.revoked": "授权已撤销",
+  "settings.usage.nativeAuthorization.unassigned": "尚未授予订阅",
+  "settings.usage.nativePeriod.never": "不自动重置",
+  "settings.usage.nativePeriod.daily": "每日",
+  "settings.usage.nativePeriod.weekly": "每周",
+  "settings.usage.nativePeriod.monthly": "每月",
+  "settings.usage.nativePeriod.custom": "自定义周期",
+  "login.oauth.button.native": "登录 New API",
+  "settings.modelProvider.native.planTitle": "订阅套餐 · 只读",
+  "settings.modelProvider.native.manualGrant":
+    "套餐与额度由管理员授予。本页面仅供查看，不能购买或变更订阅。",
+  "settings.modelProvider.native.handoffFailed": "无法打开只读套餐页，请重新登录或重试。",
+  "settings.modelProvider.native.catalogIssue": "不可选择 — {reason}。请联系管理员修正模型元数据。",
+  "chat.error.noNativeModel":
+    "当前没有可用的 New API 模型。请联系管理员检查指定套餐与模型权限，或配置自定义模型。",
+  "settings.modelProvider.native.officialCloud": "官方云 · 独立连接",
+  "settings.modelProvider.native.disconnectCloud": "断开官方云",
+  "settings.modelProvider.native.cloudFailed": "官方云连接失败，请重试。",
+  "settings.usage.native.currentPeriod": "当前订阅周期",
+  "settings.usage.nativeOfficialScope": "官方云 · {family} · {name}（独立计费）",
+  "settings.usage.nativeOfficialConnectDescription":
+    "官方 MCP 额度与私人订阅分开。连接官方账号后读取其真实额度。",
+  "settings.usage.nativeOfficialConnect": "连接 {family}",
+  "settings.usage.nativeAccount": "New API 账号用量 — 全部已记录的 Key 与资金来源",
+  "settings.usage.nativeLoadingDescription": "正在读取 New API 账号的消费记录。",
+  "settings.usage.nativeStartDate": "开始日期",
+  "settings.usage.nativeEndDate": "结束日期",
+  "settings.usage.nativeQuotaPeriod": "私人订阅 · {period}",
+  "settings.usage.nativeAdminReset": "额度仅供读取。重置、续期或更换套餐请联系管理员。",
+  "settings.usage.nativeUnlimited": "无限制",
+  "settings.usage.nativeQuotaAmounts": "已用 {used} · 总额 {total} · 剩余 {remaining} quota",
+  "settings.usage.nativeUnavailable": "此来源暂不提供",
+  "settings.usage.nativeConsumptionRecords": "消费记录数",
+  "settings.usage.native.charged_quota": "扣费额度",
+  "settings.usage.native.refunded_quota": "退款额度",
+  "settings.usage.native.net_quota": "净额度（可为负数）",
+  "settings.usage.nativePrecision":
+    "展示精确 quota 计数，而非货币金额。图表使用近似显示精度；缓存、推理、工具与 Agent 时长暂不提供。",
+  "settings.usage.nativeHeatmapCell": "{date}：{tokens} tokens，{records} 条消费记录",
+  "settings.usage.nativeHeatmapWeeklyCell":
+    "截至 {date} 的一周：{tokens} tokens，{records} 条消费记录",
+  "settings.usage.nativeHeatmapCumulativeCell":
+    "截至 {date}：{tokens} tokens，{records} 条消费记录",
   "startPlan.recommendation.subagentDescription":
     "你的体验套餐中，{model} 仍有可用额度，是否将此子智能体的模型切换到体验套餐？",
   "startPlan.recommendation.preferenceSaveFailed": "未能保存“不再提示”，本次仍按你的选择继续。",

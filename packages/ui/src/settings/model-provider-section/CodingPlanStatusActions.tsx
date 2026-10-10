@@ -26,7 +26,7 @@ export function CodingPlanStatusActions({
   loginVisible: boolean;
   canDisconnectProvider: boolean;
   disconnectLoading?: boolean;
-  onLogin?: (options?: CodingPlanLoginOptions) => void;
+  onLogin?: (options?: CodingPlanLoginOptions) => number | void | Promise<void>;
   onDisconnect?: () => void;
 }) {
   const { intl } = useZCodeIntl();

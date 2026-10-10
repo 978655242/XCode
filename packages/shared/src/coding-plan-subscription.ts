@@ -1,6 +1,39 @@
 /* eslint-disable max-lines -- Coding Plan 订阅协议类型需要集中导出给 UI、services 和 RPC 共享，拆散会增加跨包类型入口复杂度。 */
 import type { ProviderFamilyDomain } from "./model-provider-family.js";
 import type { BUILTIN_MODEL_PROVIDER_IDS } from "./model-provider-types.js";
+import type { NewApiEntitlements, NewApiPlans } from "./new-api.js";
+
+export type SelfServiceReadResult<T> =
+  | { availability: "available"; data: T }
+  | { availability: "not-supported"; reason: "manual_admin"; data: null };
+
+export interface NativeCodingPlanReadSnapshot {
+  source: "new-api";
+  purchaseMode: "manual_admin";
+  scope: "private-user";
+  plans: Array<{
+    id: string;
+    title: string;
+    subtitle: string;
+    priceAmount: string;
+    currency: string;
+    durationUnit: NewApiPlans["items"][number]["duration_unit"];
+    durationValue: string;
+    durationCustomSeconds: string;
+    totalQuota: string;
+    resetPeriod: NewApiPlans["items"][number]["reset_period"];
+    resetCustomSeconds: string;
+    enabled: boolean;
+  }>;
+  entitlement: NewApiEntitlements;
+}
+
+export type CodingPlanReadResult<T> = T | NativeCodingPlanReadSnapshot;
+export function isNativeCodingPlanRead(value: unknown): value is NativeCodingPlanReadSnapshot {
+  return (
+    typeof value === "object" && value !== null && "source" in value && value.source === "new-api"
+  );
+}
 
 export type CodingPlanPayType = "ALI" | "WECHAT";
 export type CodingPlanOverseasPaymentChannel = "STRIPE_PAY" | "PAYPAL_PAY";

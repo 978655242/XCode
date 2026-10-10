@@ -10,6 +10,7 @@ import { Loader2Icon, LoaderIcon, TriangleAlertIcon } from "lucide-react";
 import {
   type OAuthProviderMeta,
   BIGMODEL_PROVIDER_ID,
+  NEW_API_PROVIDER_ID,
   TID_LOGIN_USE_API_KEY_BUTTON,
   TID_OAUTH_CANCEL,
   TID_OAUTH_ERROR,
@@ -488,6 +489,8 @@ function LoginPanelLogo() {
 
 function getLoginOAuthButtonMessageId(providerId: string): string {
   switch (providerId) {
+    case NEW_API_PROVIDER_ID:
+      return "login.oauth.button.native";
     case ZAI_PROVIDER_ID:
       return "login.oauth.button.zai";
     case BIGMODEL_PROVIDER_ID:
@@ -538,11 +541,11 @@ function getProviderPriority(provider: OAuthProviderMeta): number {
 }
 
 function resolveVisibleLoginProviders(providers: OAuthProviderMeta[]): OAuthProviderMeta[] {
-  // ZAI / BigModel 现在共享 App 登录事实源，未登录时登录入口必须同时展示两个入口。
-  // 不能临时隐藏 BigModel，否则用户无法主动选择 BigModel 作为 active provider。
-  return [...providers].sort((left, right) => {
-    return getProviderPriority(left) - getProviderPriority(right);
-  });
+  // XCODE: Private mode exposes only its primary identity; official cloud connects separately.
+  const native = providers.find((provider) => provider.id === NEW_API_PROVIDER_ID);
+  return native
+    ? [native]
+    : [...providers].sort((left, right) => getProviderPriority(left) - getProviderPriority(right));
 }
 
 function resolveLoginRetryProvider({

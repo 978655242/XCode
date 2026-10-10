@@ -1,3 +1,4 @@
+import type { NewApiEntitlements } from "./new-api.js";
 export type CodingPlanResetType = "FIVE_HOUR" | "WEEK";
 
 export interface CodingPlanResetScopeRequest {
@@ -14,13 +15,34 @@ export interface CodingPlanResetHistorySnapshot {
   usedAt: number;
 }
 
-export interface CodingPlanResetStatusSnapshot {
+export interface OfficialWindowsResetStatus {
+  mode: "official-windows";
   availableFiveHourResets: CodingPlanResetOpportunitySnapshot[];
   availableWeekResets: CodingPlanResetOpportunitySnapshot[];
   latestFiveHourResetHistory: CodingPlanResetHistorySnapshot | null;
   latestWeekResetHistory: CodingPlanResetHistorySnapshot | null;
   hasUnreadHistory: boolean;
 }
+
+export interface NativeSinglePeriodResetStatus {
+  mode: "native-single-period";
+  source: "new-api";
+  selfServiceEnabled: false;
+  authorizationStatus: NewApiEntitlements["status"];
+  authorizationRevision: string;
+  period: "never" | "daily" | "weekly" | "monthly" | "custom" | null;
+  lastResetTime: number | null;
+  nextResetTime: number | null;
+  resetTimeZone: string | null;
+  history: { availability: "not-supported"; reason: "native-history-not-provided" };
+}
+
+export type CodingPlanResetStatusSnapshot =
+  | OfficialWindowsResetStatus
+  | NativeSinglePeriodResetStatus;
+export type CodingPlanResetHistoryReadResult =
+  | { availability: "available" }
+  | { availability: "not-supported"; reason: "native-history-not-provided" };
 
 export interface CodingPlanResetOpportunityRequest extends CodingPlanResetScopeRequest {
   idempotencyKey: string;

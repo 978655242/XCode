@@ -5,6 +5,15 @@ import { z } from "zod";
 export * from "./usage-quota.js";
 import type { UsageMcpQuotaSnapshot, UsageQuotaSnapshot } from "./usage-quota.js";
 import type { ZCodeAccountAccess, ZCodeProviderAccountAccess } from "./zcode-protocol/index.js";
+import type { NewApiEntitlements, NewApiUsage } from "./new-api.js";
+
+export interface NewApiAccountUsageSnapshot {
+  source: "new-api";
+  scope: "new-api-account";
+  range: CodingPlanUsageRange;
+  generatedAt: number;
+  native: NewApiUsage;
+}
 
 export const ESTIMATED_TOKEN_CHAR_DIVISOR = 3;
 
@@ -17,7 +26,7 @@ export type CodingPlanUsageDetailSubject = "model" | "tool";
 export interface UsageStatsRequest {
   range: UsageStatsRange;
   /** 使用统计数据源。App Usage 显式使用本地 session 聚合,Coding Plan 显式使用 monitor 接口。 */
-  dataSource?: "local" | "monitor";
+  dataSource?: "local" | "monitor" | "new-api";
   /** 设置页可传入用户当前选中的 Z.AI / BigModel 来源，避免两边都配置时只隐式读取第一家。 */
   preferredProviderId?: string;
   /** Registry 静态访问类别，或调用边界已解析的动态账号访问上下文。 */
@@ -62,6 +71,10 @@ export interface UsageEntitlementRequest {
 }
 
 export interface UsageEntitlementSnapshot {
+  source?: "new-api";
+  scope?: "private-user";
+  authorizationStatus?: NewApiEntitlements["status"];
+  authorizationRevision?: string;
   generatedAt: number;
   /** 当前额度响应的服务端时间（毫秒）；与本地快照生成时间 generatedAt 分离。 */
   serverTime?: number;
@@ -87,7 +100,7 @@ export interface UsageEntitlementSnapshot {
 }
 
 export interface UsageEntitlementContext {
-  scope: "personal" | "team";
+  scope: "personal" | "team" | "private-user";
   organizationId?: string | null;
   projectId?: string | null;
   displayName?: string | null;
@@ -103,7 +116,7 @@ export interface PlanIdentitySnapshot {
 }
 
 export interface UsageEntitlementRemaining {
-  count: number;
+  count: number | null;
   isShow: boolean;
   percentage?: number;
   nextResetTime?: number | null;
@@ -267,6 +280,12 @@ export interface AppUsageRequest {
 }
 
 export interface CodingPlanUsageSnapshot {
+  source?: "new-api";
+  scope?: "new-api-account";
+  consumptionRecordCount?: string;
+  /** Exact signed account facts; chart numbers are explicitly display-only approximations. */
+  native?: NewApiUsage;
+  displayPrecision?: "approximate";
   range: CodingPlanUsageRange;
   rangeStartDate: string;
   rangeEndDate: string;
@@ -282,14 +301,30 @@ export interface CodingPlanUsageSnapshot {
 
 export interface CodingPlanActivitySnapshot {
   summary: CodingPlanActivitySummary;
-  heatmap: AppUsageHeatmap;
+  heatmap: CodingPlanActivityHeatmap;
 }
+
+export type CodingPlanActivityHeatmapCell = Omit<
+  AppUsageHeatmapCell,
+  "turnCount" | "toolCallCount"
+> & {
+  turnCount: number | null;
+  toolCallCount: number | null;
+  consumptionRecordCount?: string;
+};
+export interface CodingPlanActivityHeatmapWeek {
+  weekIndex: number;
+  days: Array<CodingPlanActivityHeatmapCell | null>;
+}
+export type CodingPlanActivityHeatmap = Omit<AppUsageHeatmap, "weeks"> & {
+  weeks: CodingPlanActivityHeatmapWeek[];
+};
 
 export interface CodingPlanActivitySummary {
   totalTokens: number;
   peakDailyTokens: number;
   peakDailyTokensDate: string | null;
-  totalUsageDurationMs: number;
+  totalUsageDurationMs: number | null;
   currentStreakDays: number;
   longestStreakDays: number;
   favoriteModelName: string | null;
@@ -303,16 +338,16 @@ export interface CodingPlanUsageDetailSnapshot {
 export interface CodingPlanUsageDetailSummary {
   cacheHitRate: number | null;
   cacheHitRateTrend: number | null;
-  totalCredits: number;
+  totalCredits: number | null;
   totalCreditsTrend: number | null;
-  averageDailyCredits: number;
+  averageDailyCredits: number | null;
   averageDailyCreditsTrend: number | null;
 }
 
 export interface CodingPlanModelUsageSnapshot {
   xTime: string[];
   granularity: CodingPlanUsageGranularity;
-  totalModelCallCount: number;
+  totalModelCallCount: number | null;
   totalTokensUsage: number;
   modelDataList: CodingPlanModelData[];
   modelSummaryList: CodingPlanModelSummary[];
@@ -341,6 +376,7 @@ export interface CodingPlanModelSummary {
 }
 
 export interface CodingPlanToolUsageSnapshot {
+  availability?: "available" | "not-supported";
   xTime: string[];
   granularity: CodingPlanUsageGranularity;
   toolDataList: CodingPlanToolData[];
@@ -366,6 +402,7 @@ export interface CodingPlanToolSummary {
 }
 
 export interface CodingPlanHealthSnapshot {
+  availability?: "available" | "not-supported";
   xTime: string[];
   proMaxDecodeSpeed: number[];
   liteDecodeSpeed: number[];

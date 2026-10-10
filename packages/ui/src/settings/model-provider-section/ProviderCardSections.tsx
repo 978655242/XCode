@@ -470,17 +470,19 @@ export function ProviderModelsSection({
         <span className="text-ui-base text-foreground-subtle">
           {intl.formatMessage({ id: "settings.modelProvider.models" })}
         </span>
-        <Button
-          type="button"
-          variant="secondary"
-          size="default"
-          className="rounded-lg"
-          data-testid={TID_MODEL_PROVIDER_ADD_MODEL_BUTTON}
-          onClick={openAddDialog}
-        >
-          <Plus data-icon="inline-start" aria-hidden="true" />
-          {intl.formatMessage({ id: "settings.modelProvider.addModel" })}
-        </Button>
+        {providerAccess?.type !== "new-api-account" ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="default"
+            className="rounded-lg"
+            data-testid={TID_MODEL_PROVIDER_ADD_MODEL_BUTTON}
+            onClick={openAddDialog}
+          >
+            <Plus data-icon="inline-start" aria-hidden="true" />
+            {intl.formatMessage({ id: "settings.modelProvider.addModel" })}
+          </Button>
+        ) : null}
       </div>
       {models.length > 0 ? (
         <div className="overflow-hidden rounded-lg border border-input-border bg-input">
@@ -523,12 +525,20 @@ export function ProviderModelsSection({
                       })
                     }
                     settingsRevision={settingsRevision}
-                    onDelete={!model.builtin ? () => onDeleteModel(model.modelId) : undefined}
-                    onEnabledChange={(enabled) => {
-                      void Promise.resolve(onModelEnabledChange?.(model.modelId, enabled)).catch(
-                        () => undefined,
-                      );
-                    }}
+                    onDelete={
+                      providerAccess?.type !== "new-api-account" && !model.builtin
+                        ? () => onDeleteModel(model.modelId)
+                        : undefined
+                    }
+                    onEnabledChange={
+                      providerAccess?.type === "new-api-account"
+                        ? undefined
+                        : (enabled) => {
+                            void Promise.resolve(
+                              onModelEnabledChange?.(model.modelId, enabled),
+                            ).catch(() => undefined);
+                          }
+                    }
                     onTest={onTestModel}
                   />
                   {!completeProperties && (

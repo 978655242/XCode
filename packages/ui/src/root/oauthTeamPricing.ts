@@ -16,6 +16,7 @@ export async function getEnterprisePricingProducts(
       authenticated: true,
       family: domain,
     });
+    if ("source" in pricing) return { status: "error" };
     return { status: "success", productList: pricing.productList };
   } catch (error) {
     logger.warn("[Root] 刷新登录后团队套餐失败", { domain, error });

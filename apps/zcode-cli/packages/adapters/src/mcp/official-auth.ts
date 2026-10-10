@@ -119,13 +119,41 @@ export function createOfficialMcpAuthFetch(
         `official MCP request origin does not match the configured endpoint: ${input.serverName}`,
       );
     }
+    const rpc = describeJsonRpc(init?.body);
+    // XCODE: 先冻结 Host 准入，再等待本地 trust；重试和响应消费均沿用同一 scope。
+    const authRequest = {
+      mcpKey: input.official.mcpKey, pluginId: input.official.pluginId, targetOrigin: origin,
+      ...(input.workspaceIdentity ? { workspaceIdentity: input.workspaceIdentity } : {}),
+      ...(input.workspacePath ? { workspacePath: input.workspacePath } : {}),
+      ...(init?.signal ? { signal: init.signal } : {}),
+    };
+    const captured = await input.authHeadersPort?.resolveHeaders({
+      ...authRequest, ...(rpc.officialInvocationScope ? { scope: rpc.officialInvocationScope, validateOnly: true } : { captureOnly: true }),
+    });
+    if (rpc.officialInvocationScope ? !captured?.ok || captured.scope !== rpc.officialInvocationScope :
+      captured && !captured.ok && captured.reason === "official_auth_scope_changed") {
+      throw failWith("official_auth_scope_changed", "official MCP invocation owner changed");
+    }
+    const scope = captured?.ok ? captured.scope : undefined;
+    const assertScopeSync = (): void => {
+      if (scope && input.authHeadersPort?.isScopeCurrent && !input.authHeadersPort.isScopeCurrent(scope)) {
+        throw failWith("official_auth_scope_changed", "official MCP invocation owner changed");
+      }
+    };
+    const assertScope = async (): Promise<void> => {
+      if (!scope) return;
+      const checked = await input.authHeadersPort?.resolveHeaders({ ...authRequest, scope, validateOnly: true });
+      if (!checked?.ok || checked.scope !== scope) {
+        throw failWith("official_auth_scope_changed", "official MCP invocation owner changed");
+      }
+    };
     const trust = await input.trustedOrigins.isTrusted({
       mcpKey: input.official.mcpKey,
       origin,
       pluginId: input.official.pluginId,
     });
     if (!trust.trusted) {
-      // fail closed：网络请求次数必须为 0，凭证也不会被解析。
+      // XCODE: fail closed：网络请求为 0；此前 Host 捕获只回传非秘密 scope，不发身份头。
       // message 里带上 origin 与 pluginId：只报 serverName 时，看到 detail 也无法判断
       // 判定输入到底是什么（曾因此把 pluginId 后缀问题误查成 url 配置问题）。
       throw failWith(
@@ -137,7 +165,6 @@ export function createOfficialMcpAuthFetch(
 
     // 请求级 debug 上下文。刻意只含非敏感项：rpc 方法名、请求体字节数、路径。
     // 不记 body 内容（含用户 query），不记任何 header 值。
-    const rpc = describeJsonRpc(init?.body);
     const logBase = {
       event: "mcp.official_auth.request",
       mcpKey: input.official.mcpKey,
@@ -156,15 +183,11 @@ export function createOfficialMcpAuthFetch(
       let resolveDurationMs: number | undefined;
       if (input.authHeadersPort) {
         const resolveStartedAt = Date.now();
-        const resolved = await input.authHeadersPort.resolveHeaders({
-          mcpKey: input.official.mcpKey,
-          pluginId: input.official.pluginId,
-          targetOrigin: origin,
-          ...(input.workspaceIdentity ? { workspaceIdentity: input.workspaceIdentity } : {}),
-          ...(input.workspacePath ? { workspacePath: input.workspacePath } : {}),
-          ...(init?.signal ? { signal: init.signal } : {}),
-        });
+        const resolved = await input.authHeadersPort.resolveHeaders({ ...authRequest, ...(scope ? { scope } : {}) });
         resolveDurationMs = Date.now() - resolveStartedAt;
+        if (resolved.ok ? scope && resolved.scope !== scope : scope || resolved.reason === "official_auth_scope_changed") {
+          throw failWith("official_auth_scope_changed", "official MCP invocation owner changed");
+        }
         if (resolved.ok) {
           authHeaders = resolved.headers;
         } else {
@@ -220,12 +243,21 @@ export function createOfficialMcpAuthFetch(
 
       const sendStartedAt = Date.now();
       try {
+        assertScopeSync();
         const response = await input.baseFetch(resource, {
           ...init,
+          ...(rpc.transportBody ? { body: rpc.transportBody } : {}),
           headers,
           // 第一阶段不跟随任何重定向；正式 endpoint 应配置为 canonical URL。
           redirect: "manual",
         });
+        try {
+          await assertScope();
+          assertScopeSync();
+        } catch (error) {
+          await discardBody(response);
+          throw error;
+        }
         // 服务端自行生成的 request id，从响应头读回。这是**唯一**能把客户端日志与
         // 服务端日志对上的键：客户端不发送该头，服务端也不采纳入站值。
         const serverRequestId = readServerRequestId(response);
@@ -328,6 +360,15 @@ export function createOfficialMcpAuthFetch(
         rpc.method === "tools/call" ? withServerRequestId(baseMessage, response) : baseMessage;
       await discardBody(response);
       throw failWith("official_auth_redirect_blocked", message);
+    }
+    await assertScope();
+    assertScopeSync();
+    // XCODE: SSE/JSON body 可能晚于响应头消费，逐块检查防止已切号的结果进入 SDK。
+    if (scope && response.body) {
+      return new Response(response.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+        async transform(chunk, controller) { await assertScope(); assertScopeSync(); controller.enqueue(chunk); },
+        async flush() { await assertScope(); assertScopeSync(); },
+      })), { status: response.status, statusText: response.statusText, headers: response.headers });
     }
     return response;
   };
@@ -508,6 +549,8 @@ function describeJsonRpc(body: unknown): {
   spanId?: string;
   toolName?: string;
   traceId?: string;
+  officialInvocationScope?: string;
+  transportBody?: string;
 } {
   if (typeof body !== "string" || body.length === 0) return {};
   try {
@@ -525,12 +568,15 @@ function describeJsonRpc(body: unknown): {
     // span 才是"一次 tool call"的粒度：traceId 覆盖整个顶层 session，同一 session 里的
     // 多次调用共用它，用它做关联会串号。
     const spanId = meta && typeof meta.span_id === "string" ? meta.span_id : undefined;
+    const officialInvocationScope = meta && typeof meta.officialInvocationScope === "string" ? meta.officialInvocationScope : undefined;
+    if (meta && officialInvocationScope) delete meta.officialInvocationScope;
     return {
       ...(id !== undefined ? { id } : {}),
       ...(method ? { method } : {}),
       ...(spanId ? { spanId } : {}),
       ...(toolName ? { toolName } : {}),
       ...(traceId ? { traceId } : {}),
+      ...(officialInvocationScope ? { officialInvocationScope, transportBody: JSON.stringify(record) } : {}),
     };
   } catch {
     return {};

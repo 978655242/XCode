@@ -12,7 +12,7 @@ import type {
   MigrateLegacyCommonMcpResult,
   SaveCliMcpToUserDirectoryRequest,
 } from "./mcp.js";
-import type { OAuthStateRegistration } from "./oauth.js";
+import type { OAuthCallbackEvent, OAuthStateRegistration } from "./oauth.js";
 import type { AppSettings, Locale } from "./protocol.js";
 import type { ArmsCustomEventPayload, RendererTelemetryEventPayload } from "./telemetry.js";
 import type {
@@ -679,7 +679,7 @@ export interface IPlatformService {
    * 注册 OAuth deep link 回调监听
    * @returns disposer 函数，调用后只移除当前回调
    */
-  onOAuthCallback(callback: (url: string) => void): () => void;
+  onOAuthCallback(callback: (event: OAuthCallbackEvent) => void): () => void;
 
   /**
    * 注册支付 deep link 回调监听
@@ -889,6 +889,14 @@ export interface IPlatformService {
 
   /** 清理内置浏览器持久化分区；cache 模式保留认证数据，all 模式清理全部站点数据。 */
   clearEmbeddedBrowserData?(mode: "cache" | "all"): Promise<EmbeddedBrowserDataClearResult>;
+
+  /** XCODE: Main checks the trusted Host owner before admitting the short read-only handoff. */
+  prepareNativePlanWebview?(request: {
+    url: string;
+    ownerGeneration: number;
+  }): Promise<{ partition: string }>;
+  closeNativePlanWebview?(partition: string): Promise<void>;
+  onNativePlanWebviewInvalidated?(callback: (partition: string) => void): () => void;
 
   /** 注册新版本已下载完毕的回调，参数为新版本号，返回 disposer */
   onUpdateReady(callback: (version: string) => void): () => void;

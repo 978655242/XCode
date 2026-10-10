@@ -15,7 +15,7 @@ type SdkStdioDispose = (this: StdioClientTransport) => Promise<void>;
 const sdkDispose = Object.getOwnPropertyDescriptor(StdioClientTransport.prototype, "_dispose")
   ?.value as SdkStdioDispose | undefined;
 
-type StdioRequestMetaProvider = () => Promise<Record<string, unknown> | undefined>;
+type StdioRequestMetaProvider = (message: JSONRPCMessage) => Promise<Record<string, unknown> | undefined>;
 
 interface StdioProcessExitInfo {
   exitCode: number | null;
@@ -79,7 +79,7 @@ export class ProcessTreeStdioClientTransport extends StdioClientTransport {
   }
 
   override async send(message: JSONRPCMessage): Promise<void> {
-    const requestMeta = await this.requestMetaProvider?.();
+    const requestMeta = await this.requestMetaProvider?.(message);
     await super.send(mergeRequestMeta(message, requestMeta));
   }
 

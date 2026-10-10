@@ -14,6 +14,10 @@ import { isOffPeakMockEnabled, startOffPeakMockGateway } from "./offPeakMockGate
 import type { ServiceLogger } from "../logger/serviceLogger.js";
 import { AccountRequestCredentialUnavailableError } from "../model-provider/accountProviderRequestAuthService.js";
 import type { IAccountRequestAuthService } from "../model-provider/accountRequestAuthService.js";
+import {
+  officialCloudInvocationScope,
+  type OfficialCloudConnectionHost,
+} from "../official-mcp/officialCloudConnectionService.js";
 
 /** 仅用于确定性配置错误；host 据类型输出 permanent，禁止依赖错误文本分流。 */
 export class OffPeakPermanentDispatchError extends Error {
@@ -71,6 +75,13 @@ export interface OffPeakCredentialSnapshot {
   projectId?: string;
   /** 仅供进程内 mock 代理真实选中 Coding Plan 上游；不会过 RPC 或持久化。 */
   providerBaseURL?: string;
+  /** XCODE: 非秘密连接代际跨派发传给 worker，静态官方凭据不得脱离该生命周期。 */
+  executionIdentity?: string;
+  /** Host-only fence; never serialized into worker auth, RPC, task rows or logs. */
+  assertCurrent?: () => Promise<void>;
+  assertCurrentSync?: () => void;
+  /** Host-only durable principal digest; never projected into worker request auth. */
+  ownerKey?: string;
 }
 
 interface OffPeakCredentialResolverDeps {
@@ -83,6 +94,13 @@ interface OffPeakCredentialResolverDeps {
   } | null>;
   env?: NodeJS.ProcessEnv;
 }
+
+type OffPeakCredentialInput =
+  | OffPeakCredentialResolverDeps
+  | {
+      officialCloudHost: Pick<OfficialCloudConnectionHost, "resolveCredentials" | "isCurrent">;
+      env?: NodeJS.ProcessEnv;
+    };
 
 type SelectedOffPeakCodingPlan = Pick<
   OffPeakCredentialSnapshot,
@@ -133,9 +151,59 @@ function createOffPeakSelectionFingerprint(
  * Team key 继续复用 Account Request Auth 的 org/project resolver，失败时绝不回退个人 key。
  */
 export async function resolveOffPeakCredentials(
-  deps: OffPeakCredentialResolverDeps,
+  deps: OffPeakCredentialInput,
   options: { allowMockCredentials?: boolean } = {},
 ): Promise<OffPeakCredentialSnapshot> {
+  if ("officialCloudHost" in deps) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const credentials = await deps.officialCloudHost.resolveCredentials();
+      if (!credentials) throw new OffPeakCredentialsUnavailableError("jwt");
+      const access = credentials.access;
+      if (!access || access.family !== credentials.family)
+        throw new OffPeakCodingPlanUnavailableError("connection_unavailable");
+      if (access.planKind === "start-plan")
+        throw new OffPeakCodingPlanUnavailableError("start_plan_not_supported");
+      if (!credentials.codingPlanApiKey)
+        throw new OffPeakCredentialsUnavailableError("codingPlanApiKey");
+      if (!(await deps.officialCloudHost.isCurrent(credentials))) continue;
+      credentials.assertCurrentSync?.();
+      const team = access.planKind === "team-coding-plan";
+      const providerId =
+        credentials.family === "zai"
+          ? team
+            ? BUILTIN_MODEL_PROVIDER_IDS.zaiTeamCodingPlan
+            : BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan
+          : team
+            ? BUILTIN_MODEL_PROVIDER_IDS.bigmodelTeamCodingPlan
+            : BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan;
+      return {
+        jwt: credentials.jwt,
+        codingPlanApiKey: credentials.codingPlanApiKey,
+        kind:
+          credentials.family === "zai"
+            ? team
+              ? "zai-team"
+              : "zai-personal"
+            : team
+              ? "bigmodel-team"
+              : "bigmodel-personal",
+        providerFamily: credentials.family,
+        providerId,
+        executionIdentity: officialCloudInvocationScope(credentials),
+        ownerKey: credentials.ownerKey,
+        assertCurrentSync: credentials.assertCurrentSync,
+        assertCurrent: async () => {
+          if (!(await deps.officialCloudHost.isCurrent(credentials)))
+            throw new OffPeakCodingPlanUnavailableError("selection_changed");
+          credentials.assertCurrentSync?.();
+        },
+        ...(access.planKind === "team-coding-plan"
+          ? { organizationId: access.organizationId, projectId: access.projectId }
+          : {}),
+      };
+    }
+    throw new OffPeakCodingPlanUnavailableError("selection_changed");
+  }
   const env = deps.env ?? process.env;
   if (options.allowMockCredentials !== false && env["ZCODE_OFFPEAK_MOCK"] === "1") {
     if (env["ZCODE_OFFPEAK_MOCK_NO_PLAN"] === "1") {
@@ -240,6 +308,14 @@ export function buildOffPeakPlanIdentityHeaders(
   };
 }
 
+/** XCODE: 执行凭据保留 Host-only fence，只有数据字段可投影到 worker。 */
+export interface OffPeakRequestAuth {
+  apiKey: string;
+  headers: Record<string, string>;
+  executionIdentity?: string;
+  assertCurrent?: () => Promise<void>;
+}
+
 /**
  * 构造一次闲时执行的动态鉴权材料。Endpoint、模型能力和 reasoning 等静态事实由
  * Built-in Provider / Model Config 提供，禁止再随单次派发下发。
@@ -247,8 +323,14 @@ export function buildOffPeakPlanIdentityHeaders(
 export function buildOffPeakRequestAuth(params: {
   credentials: OffPeakCredentialSnapshot;
   ticketId: string;
-}): { apiKey: string; headers: Record<string, string> } {
+}): OffPeakRequestAuth {
   return {
+    ...(params.credentials.executionIdentity
+      ? { executionIdentity: params.credentials.executionIdentity }
+      : {}),
+    ...(params.credentials.assertCurrent
+      ? { assertCurrent: params.credentials.assertCurrent }
+      : {}),
     // Anthropic 兼容客户端会发送 x-api-key；服务端仍以 Authorization 与计划 Key 裁决。
     apiKey: params.credentials.jwt,
     headers: {
@@ -262,7 +344,7 @@ export function buildOffPeakRequestAuth(params: {
 
 /** renderer 可见的脱敏支持快照；凭证原文始终留在 host/service 内存。 */
 export async function resolveOffPeakCodingPlanSupport(
-  deps: OffPeakCredentialResolverDeps,
+  deps: OffPeakCredentialInput,
 ): Promise<OffPeakCodingPlanSupport> {
   try {
     const snapshot = await resolveOffPeakCredentials(deps);
@@ -290,12 +372,9 @@ export async function resolveOffPeakCodingPlanSupport(
  * mock 网关的上游解析：把 admitted 的 messages 代理到用户 coding plan 的 anthropic
  * 兼容端点（真模型、走用户自己的 key，仅开发/演示）。
  */
-export async function resolveOffPeakMockUpstream(deps: {
-  credentialService: OffPeakCredentialResolverDeps["credentialService"];
-  accountRequestAuthService: OffPeakCredentialResolverDeps["accountRequestAuthService"];
-  resolveAccountProvider: OffPeakCredentialResolverDeps["resolveAccountProvider"];
-  env?: NodeJS.ProcessEnv;
-}): Promise<{ url: string; headers: Record<string, string> }> {
+export async function resolveOffPeakMockUpstream(
+  deps: OffPeakCredentialInput,
+): Promise<{ url: string; headers: Record<string, string> }> {
   const credentials = await resolveOffPeakCredentials(deps, {
     // mock 自己的 placeholder 不能拿去代理上游；这里强制解析真实 selected connection。
     allowMockCredentials: false,

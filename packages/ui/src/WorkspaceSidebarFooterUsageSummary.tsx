@@ -13,7 +13,7 @@ import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdow
 import {
   resolveCodingPlanUsageRemainingState,
   type CodingPlanUsageAvailableProvider,
-} from "@/CodingPlanUsageRemainingPanel.js";
+} from "@/lib/codingPlanUsageSources.js";
 import { useProviderSettingsView } from "@/hooks/useProviderSettingsView.js";
 import { useUsageEntitlement } from "@/hooks/useUsageEntitlement.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
@@ -36,6 +36,7 @@ import { type SidebarUsageCodingPlanProviderId } from "@/lib/sidebarUsageCodingP
 import { useEnterpriseCodingPlanProducts } from "@/settings/model-provider-section/useEnterpriseCodingPlanProducts.js";
 import {
   buildCodingPlanUsageSources,
+  buildNativeCodingPlanUsageSource,
   resolveSidebarCurrentCodingPlanUsageSource,
 } from "@/lib/codingPlanUsageSources.js";
 import { selectWorkspaceZCodeState, useZCodeSessionStore } from "@/store/zcodeSessionStore.js";
@@ -99,6 +100,20 @@ export function useWorkspaceSidebarFooterUsageSummaryState({
     providerSettingsRead.state.status === "ready" ? providerSettingsRead.state.view : null;
   // 首次读取失败也不能被解释成“已经加载且没有套餐”；只有 Ready 才能消费 Provider 事实。
   const providerSourcesLoading = providerSettingsRead.state.status !== "ready";
+  const nativeSource = useMemo(
+    () => buildNativeCodingPlanUsageSource(providerSettingsView),
+    [providerSettingsView],
+  );
+  const nativeEntitlement = useUsageEntitlement({
+    enabled: enabled && Boolean(nativeSource),
+    includeSubscription: true,
+    preferredProviderId: nativeSource?.providerId,
+    accountAccess: nativeSource?.accountAccess,
+    allowDisabledPreferredProvider: true,
+    requirePreferredProvider: true,
+    allowEnvApiKey: false,
+    refreshOnMount: true,
+  });
   const selectedSupplierKey = useZCodeSessionStore((state) =>
     workspacePath
       ? selectWorkspaceZCodeState(state, workspacePath, workspaceIdentity).selectedSupplierKey
@@ -106,25 +121,33 @@ export function useWorkspaceSidebarFooterUsageSummaryState({
   );
   const availableCodingPlanProviders = useMemo(
     () =>
-      [
-        BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan,
-        BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan,
-      ].flatMap((providerId): CodingPlanUsageAvailableProvider[] => {
-        const access = resolveEntitledAccountProviderAccess(providerSettingsView, providerId);
-        if (!access) return [];
-        return [
-          {
-            providerId,
-            accountAccess: access.access,
-            label:
-              access.label ||
-              (providerId === BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan
-                ? "Z.ai - Coding Plan"
-                : "BigModel - Coding Plan"),
-          },
-        ];
-      }),
-    [providerSettingsView],
+      nativeSource
+        ? [
+            {
+              providerId: nativeSource.providerId,
+              accountAccess: nativeSource.accountAccess,
+              label: nativeSource.label,
+            },
+          ]
+        : [
+            BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan,
+            BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan,
+          ].flatMap((providerId): CodingPlanUsageAvailableProvider[] => {
+            const access = resolveEntitledAccountProviderAccess(providerSettingsView, providerId);
+            if (!access) return [];
+            return [
+              {
+                providerId,
+                accountAccess: access.access,
+                label:
+                  access.label ||
+                  (providerId === BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan
+                    ? "Z.ai - Coding Plan"
+                    : "BigModel - Coding Plan"),
+              },
+            ];
+          }),
+    [providerSettingsView, nativeSource],
   );
   const zaiProvider = availableCodingPlanProviders.find(
     (provider) => provider.providerId === BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan,
@@ -238,6 +261,7 @@ export function useWorkspaceSidebarFooterUsageSummaryState({
             : {}),
         },
         teamSources,
+        nativeSource,
       }),
     [
       scopedSelectedProviderId,
@@ -245,6 +269,7 @@ export function useWorkspaceSidebarFooterUsageSummaryState({
       sharedSettings?.providerFamilyConnectionSelections,
       teamSources,
       zaiProvider?.accountAccess,
+      nativeSource,
     ],
   );
   const selectedProviderId = currentUsageSource?.sourceId;
@@ -317,6 +342,15 @@ export function useWorkspaceSidebarFooterUsageSummaryState({
   }, [zaiEntitlement.refresh, bigmodelEntitlement.refresh, teamEntitlement.refresh]);
   const profilePlanBadge = resolveSidebarFooterProfilePlanBadge({
     individualEntitlements: [
+      ...(nativeSource
+        ? [
+            {
+              providerId: nativeSource.providerId,
+              snapshot: nativeEntitlement.snapshot,
+              loading: nativeEntitlement.loading,
+            },
+          ]
+        : []),
       ...(providerFamilyDomain !== "bigmodel"
         ? [
             {
@@ -345,6 +379,17 @@ export function useWorkspaceSidebarFooterUsageSummaryState({
           : Boolean(zaiTeamProvider || bigmodelTeamProvider),
   });
   const providerEntitlements = [
+    ...(nativeSource
+      ? [
+          {
+            sourceId: nativeSource.id,
+            providerId: nativeSource.providerId,
+            accountAccess: nativeSource.accountAccess,
+            label: nativeSource.label,
+            ...nativeEntitlement,
+          },
+        ]
+      : []),
     ...(currentUsageSource?.providerId === BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan &&
     currentUsageSource.audience === "individual"
       ? [
@@ -388,7 +433,8 @@ export function useWorkspaceSidebarFooterUsageSummaryState({
     modelProvidersLoading: providerSourcesLoading,
     selectedProviderId,
   });
-  const visibleUsageState = usageState?.hasAnyActiveCodingPlan ? usageState : null;
+  const visibleUsageState =
+    usageState && (usageState.hasAnyActiveCodingPlan || nativeSource) ? usageState : null;
   const selectedUpgradeProviderId: SidebarUsageCodingPlanProviderId | undefined =
     selectedProviderId === BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan ||
     selectedProviderId === BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan
@@ -433,9 +479,12 @@ export function WorkspaceSidebarFooterUsageSummaryContent({
   const upgradeProviderSnapshot =
     providerEntitlements.find((item) => item.providerId === upgradeTargetProviderId)?.snapshot ??
     null;
-  const upgradeActionLabelId = isMaxCodingPlanSnapshot(upgradeProviderSnapshot)
-    ? "sidebar.usage.plan.renew"
-    : "sidebar.usage.plan.upgrade";
+  const upgradeActionLabelId =
+    upgradeProviderSnapshot?.source === "new-api" || entryGate.native
+      ? "settings.modelProvider.native.viewPlans"
+      : isMaxCodingPlanSnapshot(upgradeProviderSnapshot)
+        ? "sidebar.usage.plan.renew"
+        : "sidebar.usage.plan.upgrade";
 
   return (
     <>

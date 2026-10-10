@@ -19,6 +19,7 @@ import {
   resolveModelProviderFamilySpecByProviderId,
   resolveProviderFamilyDomainFromOAuthProvider,
   ZAI_PROVIDER_ID,
+  NEW_API_PROVIDER_ID,
 } from "@zcode/shared";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { Button } from "@/components/ui/button.js";
@@ -65,6 +66,7 @@ import {
   type SettingsModelProviderTarget,
 } from "@/lib/settingsNavigation.js";
 import { useEnterpriseCodingPlanProducts } from "@/settings/model-provider-section/useEnterpriseCodingPlanProducts.js";
+import { useOfficialCloudConnection } from "@/hooks/useOfficialCloudConnection.js";
 
 export {
   fuzzyMatch,
@@ -247,6 +249,7 @@ export function ModelProviderSection({
   const { intl, locale } = useZCodeIntl();
   const confirmDialog = useConfirmDialog();
   const platform = usePlatform();
+  const officialCloud = useOfficialCloudConnection();
   const { modelSelectionService, oauthService, credentialService } = useServices();
   const {
     modelProviders,
@@ -282,7 +285,8 @@ export function ModelProviderSection({
       (providerSettingsView?.providers ?? [])
         .filter(
           (provider) =>
-            provider.effectiveConfig.access?.type === "zhipu-account" &&
+            (provider.effectiveConfig.access?.type === "zhipu-account" ||
+              provider.effectiveConfig.access?.type === "new-api-account") &&
             provider.effectiveConfig.access.entitled === true,
         )
         .map((provider) => provider.providerId),
@@ -329,6 +333,12 @@ export function ModelProviderSection({
   const applyModelProviderTarget = useCallback(
     (target: SettingsModelProviderTarget | undefined) => {
       if (!target) return false;
+      if (target.providerId?.startsWith("account:new-api-")) {
+        setInvalidProviderTarget(false);
+        setTemplatePickerOpen(false);
+        setSelectedNodeKey(createCustomProviderNodeKey(target.providerId));
+        return true;
+      }
       const providerId = resolveCodingPlanIntentProviderId(target);
       if (!providerId) {
         // 未知 ID 不能只静默忽略：pending 指令不消费的话，外部输入错误会困住导航。
@@ -484,6 +494,14 @@ export function ModelProviderSection({
         shouldApply?: () => boolean;
       } = {},
     ) => {
+      const providers = await oauthService.getProviders();
+      if (providers.some((provider) => provider.id === NEW_API_PROVIDER_ID)) {
+        const activeProvider = await oauthService.getActiveProvider();
+        if (options.shouldApply && !options.shouldApply()) return null;
+        setActiveOAuthProvider(activeProvider);
+        setCodingPlanPurchaseTokenAuthenticatedByProviderId({});
+        return activeProvider;
+      }
       const [activeProvider, zaiToken, bigmodelToken] = await Promise.all([
         credentialService.load("oauth:active_provider"),
         credentialService.load(`oauth:${ZAI_PROVIDER_ID}:access_token`),
@@ -522,7 +540,7 @@ export function ModelProviderSection({
       }
       return normalizedActiveProvider;
     },
-    [credentialService, setOAuthError, setUser],
+    [credentialService, oauthService, setOAuthError, setUser],
   );
 
   const refreshProviderPanelAfterAuthChange = useCallback(
@@ -792,6 +810,12 @@ export function ModelProviderSection({
       status: CodingPlanStatus,
       options?: CodingPlanLoginOptions,
     ) => {
+      if (
+        activeOAuthProvider === NEW_API_PROVIDER_ID &&
+        (providerId === "zai" || providerId === "bigmodel")
+      ) {
+        return officialCloud.startOAuth(providerId === "zai" ? "zai" : "bigmodel");
+      }
       setPresetSubscriptionProviderId(presetId);
       setCodingPlanStatusSyncProviderId(presetId);
       logger.info("[ModelProviderSection] 请求通过统一登录入口登录并连接 Coding Plan", {
@@ -802,20 +826,34 @@ export function ModelProviderSection({
         forceOAuth: options?.forceOAuth === true,
       });
       if (activeOAuthProvider === providerId && options?.forceOAuth !== true) {
-        void refreshProviderPanelAfterAuthChange({}).finally(() => {
-          setPresetSubscriptionProviderId((current) => (current === presetId ? null : current));
-          setCodingPlanStatusSyncProviderId((current) => (current === presetId ? null : current));
-        });
-        return;
+        return refreshProviderPanelAfterAuthChange({})
+          .catch((error) => {
+            logger.error("[ModelProviderSection] 刷新 Coding Plan 连接失败", error);
+          })
+          .finally(() => {
+            setPresetSubscriptionProviderId((current) => (current === presetId ? null : current));
+            setCodingPlanStatusSyncProviderId((current) => (current === presetId ? null : current));
+          });
       }
       // ZAI/BigModel provider 不再有独立 connection，Connect 必须切换 App active provider。
       return requestLoginEntry(providerId);
     },
-    [activeOAuthProvider, refreshProviderPanelAfterAuthChange, requestLoginEntry],
+    [
+      activeOAuthProvider,
+      officialCloud.startOAuth,
+      refreshProviderPanelAfterAuthChange,
+      requestLoginEntry,
+    ],
   );
 
   const handleCodingPlanDisconnect = useCallback(
     async (presetId: BuiltinModelProviderId, providerId: OAuthProviderId, providerName: string) => {
+      if (
+        (await oauthService.getProviders()).some((provider) => provider.id === NEW_API_PROVIDER_ID)
+      ) {
+        await officialCloud.logout();
+        return;
+      }
       if (providerId !== BIGMODEL_PROVIDER_ID && providerId !== ZAI_PROVIDER_ID) {
         return;
       }
@@ -864,6 +902,7 @@ export function ModelProviderSection({
     },
     [
       oauthService,
+      officialCloud.logout,
       platform,
       updateSharedSettings,
       sharedSettings?.providerFamilyDomain,
@@ -1074,6 +1113,67 @@ export function ModelProviderSection({
       onReorderProviderIds={handleReorderProviderIds}
       reorderableProviderIds={reorderableProviderIds}
     >
+      {modelProviders.some((provider) => provider.config.group === "new-api-family") ? (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface p-3 text-ui-base">
+          <span className="text-foreground-subtle">
+            {intl.formatMessage({ id: "settings.modelProvider.native.officialCloud" })}
+          </span>
+          {officialCloud.snapshot?.status === "connected" ? (
+            <>
+              <span>
+                {officialCloud.snapshot.identity.displayName || officialCloud.snapshot.family}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={officialCloud.loading}
+                onClick={() => void officialCloud.logout()}
+              >
+                {intl.formatMessage({ id: "settings.modelProvider.native.disconnectCloud" })}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={officialCloud.loading || officialCloud.snapshot?.status === "locked"}
+                onClick={() => void officialCloud.startOAuth("zai")}
+              >
+                Z.ai
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={officialCloud.loading || officialCloud.snapshot?.status === "locked"}
+                onClick={() => void officialCloud.startOAuth("bigmodel")}
+              >
+                BigModel
+              </Button>
+            </>
+          )}
+          {officialCloud.error ? (
+            <span role="alert" className="text-destructive">
+              {intl.formatMessage({ id: "settings.modelProvider.native.cloudFailed" })}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+      {providerSettingsView?.catalogIssues?.map((issue) => (
+        <div
+          key={issue.modelId}
+          role="note"
+          className="mb-2 rounded-lg border border-border p-3 text-ui-base text-foreground-subtle"
+        >
+          <span className="break-words font-medium">{issue.displayName || issue.modelId}</span>
+          <span className="block break-words">
+            {intl.formatMessage(
+              { id: "settings.modelProvider.native.catalogIssue" },
+              { reason: issue.code },
+            )}
+          </span>
+        </div>
+      ))}
       {(invalidProviderTarget || navigationUnavailable) && !templatePickerOpen ? (
         <p role="alert" className="mb-3 text-ui-base text-destructive">
           {intl.formatMessage({

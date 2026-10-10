@@ -1,4 +1,4 @@
-import { CodingPlanEntryButton } from "@/settings/CodingPlanEntryButton.js";
+import { CodingPlanEntryButton, useCodingPlanEntryGate } from "@/settings/CodingPlanEntryButton.js";
 /**
  * ChatErrorBanner — 错误提示组件
  *
@@ -121,12 +121,16 @@ export function ChatErrorBanner({
   onOpenUpgrade?: () => void;
 }) {
   const { intl } = useZCodeIntl();
+  const { native } = useCodingPlanEntryGate();
   const openFeedbackSubmit = useFeedbackStore((state) => state.openSubmit);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const actionButtonClassName = "shrink-0";
   const iconButtonClassName = "shrink-0";
-  const localizedErrorMessage = resolveChatErrorBannerDisplayMessage(error, intl);
   const modelConfigMissing = isModelConfigMissingError(error);
+  const localizedErrorMessage =
+    modelConfigMissing && native
+      ? intl.formatMessage({ id: "chat.error.noNativeModel" })
+      : resolveChatErrorBannerDisplayMessage(error, intl);
   const hookBlocked = error.code === "fault.runtime.hookBlocked";
   if (shouldSuppressChatErrorBanner(error)) {
     return null;
@@ -218,11 +222,17 @@ export function ChatErrorBanner({
                 "button-gradient gap-1.5 text-white hover:bg-transparent hover:opacity-90 dark:bg-[#484A58] dark:hover:bg-[#484A58]",
               )}
               aria-label={intl.formatMessage({
-                id: "chat.quota.action.upgrade",
+                id: native
+                  ? "settings.modelProvider.native.viewPlans"
+                  : "chat.quota.action.upgrade",
               })}
             >
               <RocketIcon className="size-3.5" />
-              {intl.formatMessage({ id: "chat.quota.action.upgrade" })}
+              {intl.formatMessage({
+                id: native
+                  ? "settings.modelProvider.native.viewPlans"
+                  : "chat.quota.action.upgrade",
+              })}
             </CodingPlanEntryButton>
             <Button
               type="button"

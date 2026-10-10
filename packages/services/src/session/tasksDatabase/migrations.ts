@@ -64,6 +64,10 @@ const definitions = [
     id: "0003_official_glm_selection",
     checksumInput: [OFFICIAL_GLM_SELECTION_MIGRATION_SQL],
   },
+  {
+    id: "0004_native_off_peak_owner",
+    checksumInput: ["ALTER TABLE off_peak_tasks ADD COLUMN native_owner_key TEXT"],
+  },
 ] as const;
 
 export function runTasksDatabaseMigrations(
@@ -113,7 +117,17 @@ export function runTasksDatabaseMigrations(
       options.onProgress?.("migrating", { ...migrationFacts });
       if (migration.id === "0001_adopt_task_schema") adoptSchema(db);
       else if (migration.id === "0002_provider_selection") importLegacyAutomationSelections(db);
-      else db.exec(OFFICIAL_GLM_SELECTION_MIGRATION_SQL);
+      else if (migration.id === "0003_official_glm_selection")
+        db.exec(OFFICIAL_GLM_SELECTION_MIGRATION_SQL);
+      else if (
+        migration.id === "0004_native_off_peak_owner" &&
+        !db
+          .prepare("PRAGMA table_info(off_peak_tasks)")
+          .all()
+          .some((entry) => entry.name === "native_owner_key")
+      ) {
+        db.exec("ALTER TABLE off_peak_tasks ADD COLUMN native_owner_key TEXT");
+      }
       migrationFacts.executedCount++;
       db.prepare("INSERT INTO tasks_schema_migration VALUES(?,?,?)").run(
         migration.id,

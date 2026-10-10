@@ -499,6 +499,13 @@ export const hostIncomingMessageSchema = z.discriminatedUnion("type", [
   hostOffPeakRunMessageSchema,
   hostBrowserExecuteResultMessageSchema,
   hostLocalMediaPreviewPathAuthorizeResultMessageSchema,
+  z
+    .object({
+      type: z.literal("private-plan-web-handoff-authorize-result"),
+      requestId: nonEmptyStringSchema,
+      ok: z.boolean(),
+    })
+    .strict(),
   hostCuaPipFocusChangedMessageSchema,
   hostProviderProvisioningExecuteMessageSchema,
 ]);
@@ -893,6 +900,11 @@ export const hostCronSchedulerWakeRequestResponseSchema = z.object({
 export const hostOffPeakSchedulerWakeRequestResponseSchema = z.object({
   type: z.literal("off-peak-scheduler-wake-request"),
   offPeakTaskId: z.string().optional(),
+  nativeOwnerKey: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .nullable()
+    .optional(),
 });
 
 // host → main：执行一条 browser-use 命令（main 用 WebContentsView+CDP 执行）。
@@ -985,6 +997,31 @@ export type HostResourceUsageSnapshotResultResponse = z.infer<
 export const hostResponseMessageSchema = z.discriminatedUnion("type", [
   z
     .object({ type: z.literal("database-startup-state"), state: databaseStartupStateSchema })
+    .strict(),
+  // XCODE: Main 只接收Host的非秘密分区owner，不复制业务账号或认证凭据。
+  z
+    .object({
+      type: z.literal("private-account-owner-changed"),
+      owner: z
+        .object({
+          origin: z.string().url(),
+          ownerGeneration: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+        })
+        .strict()
+        .nullable(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("private-plan-web-handoff-authorize-request"),
+      requestId: nonEmptyStringSchema,
+      handoff: z
+        .object({
+          url: z.string().url(),
+          ownerGeneration: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+        })
+        .strict(),
+    })
     .strict(),
   hostResourceUsageSnapshotResultResponseSchema,
   hostRemoteWorkspaceConnectionLogResponseSchema,

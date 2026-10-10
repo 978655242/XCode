@@ -70,6 +70,7 @@ import {
   zcodeProviderRuntimeHeadersRequestParamsSchema,
   zcodeProviderTestModelConnectivityResultSchema,
   zcodeOfficialMcpAuthHeadersRequestParamsSchema,
+  zcodeOfficialInvocationScopeValidationParamsSchema,
   summarizeOfficialMcpIdentityHeaders,
   zcodeProtocolEmptyResultSchema,
   zcodeProtocolMethods,
@@ -124,7 +125,7 @@ import {
   mergeAutomationMutationToolDenylist,
   mergeOffPeakMutationToolDenylist,
 } from "#src/zcode-agent/automationToolPolicy.js";
-import { ZCODE_AGENT_RUNTIME_UNAVAILABLE_CODE } from "./zcodeAgent.js";
+import { ZCODE_AGENT_RUNTIME_UNAVAILABLE_CODE, sessionCreateAdmission } from "./zcodeAgent.js";
 import type {
   ZCodeProtocolRequestId,
   ModelSelection,
@@ -296,7 +297,10 @@ import { createBackgroundSessionEventCoalescer } from "#src/zcode-agent/zcodeSes
 import { AutomationService } from "#src/session/automationService.js";
 import { AutomationRepo } from "#src/session/automationRepo.js";
 import { TaskIndexRepo } from "#src/session/taskIndexRepo.js";
-import { ZCodeAgentMcpStatusModeUnsupportedError } from "#src/zcode-agent/zcodeAgentErrors.js";
+import {
+  ZCodeAgentMcpStatusModeUnsupportedError,
+  readSharedImportCommitStatus,
+} from "#src/zcode-agent/zcodeAgentErrors.js";
 import { ZCodeAgentProcessManager } from "./zcodeAgentProcessManager.js";
 import type { ZCodeAgentProcessManagerOptions } from "./zcodeAgentProcessManager.js";
 import type { IOffPeakTaskService } from "#src/session/offPeakTask.js";
@@ -649,6 +653,10 @@ function buildSessionCreateParams(
     // importedHistory 是导入历史的完整性边界，不能像 thoughtLevel/persistence
     // 那样在旧协议兼容重试里省略，否则会创建一个可切模型但没有历史内容的空 session。
     ...(params.importedHistory !== undefined ? { importedHistory: params.importedHistory } : {}),
+    // XCODE: 准入代际不可作为旧协议可降级字段；旧 worker 必须 fail closed。
+    ...(params[sessionCreateAdmission]?.scope
+      ? { officialInvocationScope: params[sessionCreateAdmission].scope }
+      : {}),
     // 只在灰度命中时下发 true（缺省不发字段）；旧 CLI strict schema 不认时经 compat 省略。
     ...(params.offPeakToolEnabled === true && !omittedFields.has("offPeakToolEnabled")
       ? { offPeakToolEnabled: true }
@@ -909,14 +917,25 @@ interface CreateZCodeAgentServiceOptions extends Omit<
    * 例如 standalone CLI 没有 host auth port 的场景。
    */
   officialMcpAuthHeadersResolver?: {
+    captureOwnerFence?(): { isCurrent(): boolean };
+    validateInvocationScope?(scope: string): Promise<boolean>;
     resolveHeaders(request: {
       mcpKey: string;
       pluginId: string;
       targetOrigin: string;
+      scope?: string;
+      captureOnly?: boolean;
+      validateOnly?: boolean;
       workspace: { workspaceIdentity?: string; workspaceKey: string; workspacePath: string };
     }): Promise<
-      | { ok: true; headers: Record<string, string> }
-      | { ok: false; reason: "official_auth_unavailable" | "official_auth_plan_required" }
+      | { ok: true; headers: Record<string, string>; scope?: string }
+      | {
+          ok: false;
+          reason:
+            | "official_auth_unavailable"
+            | "official_auth_plan_required"
+            | "official_auth_scope_changed";
+        }
     >;
   };
   /**
@@ -1407,6 +1426,11 @@ export function createZCodeAgentService(
               ]),
             ),
             states: snapshot.states ?? {},
+            owner: snapshot.owner,
+            modelConfigs: snapshot.modelConfigs,
+            catalogIssues: snapshot.catalogIssues,
+            catalogRevision: snapshot.catalogRevision,
+            authorizationRevision: snapshot.authorizationRevision,
           },
           zcodeProviderUpdateAccountConfigResultSchema,
         );
@@ -2292,6 +2316,40 @@ export function createZCodeAgentService(
           return;
         }
 
+        // XCODE: worker 提交分享导入前只核对 owner scope，不向 worker/Renderer 转发身份头。
+        if (request.method === zcodeProtocolMethods.interactionValidateOfficialInvocationScope) {
+          const parsed = zcodeOfficialInvocationScopeValidationParamsSchema.safeParse(
+            request.params,
+          );
+          if (
+            !parsed.success ||
+            resolveWorkspaceKey(parsed.data.workspace) !== resolveWorkspaceKey(workspace) ||
+            client.isDisposed ||
+            activeClientsByWorkspaceKey.get(resolveWorkspaceKey(workspace))?.client !== client
+          ) {
+            void client.respond(request.id, { ok: false });
+            return;
+          }
+          const resolver = options?.officialMcpAuthHeadersResolver;
+          const fence = resolver?.captureOwnerFence?.();
+          void (async () => {
+            try {
+              const ok = (await resolver?.validateInvocationScope?.(parsed.data.scope)) ?? false;
+              void client.respond(request.id, {
+                ok:
+                  ok &&
+                  (!fence || fence.isCurrent()) &&
+                  !client.isDisposed &&
+                  activeClientsByWorkspaceKey.get(resolveWorkspaceKey(workspace))?.client ===
+                    client,
+              });
+            } catch {
+              void client.respond(request.id, { ok: false });
+            }
+          })();
+          return;
+        }
+
         // 官方 Server MCP 身份头：纯 RPC 中继，host 自动解析并响应。
         // 不 emitSessionEvent、不进 pending map——该请求没有 UI 语义，renderer 不参与。
         if (request.method === zcodeProtocolMethods.interactionRequestOfficialMcpAuthHeaders) {
@@ -2304,9 +2362,19 @@ export function createZCodeAgentService(
             });
             return;
           }
+          if (
+            resolveWorkspaceKey(parsed.data.workspace) !== resolveWorkspaceKey(workspace) ||
+            client.isDisposed
+          ) {
+            void client.respond(request.id, { ok: false, reason: "official_auth_scope_changed" });
+            return;
+          }
           // host 侧二次校验必须发生在**读取凭据之前**：未命中即返回，resolveHeaders 不被调用，
           // 因此不会有任何凭据被读入内存。
           void (async () => {
+            // XCODE: trust 的 await 前冻结 Native owner，不能在换号后才选择凭据。
+            const resolver = options?.officialMcpAuthHeadersResolver;
+            const ownerFence = resolver?.captureOwnerFence?.();
             const trustedOrigins = options?.officialMcpTrustedOrigins;
             const trust = trustedOrigins
               ? await trustedOrigins
@@ -2318,6 +2386,10 @@ export function createZCodeAgentService(
                   // 判定自身异常也按不可信处理，绝不因为校验失败就放行。
                   .catch(() => ({ detail: "validator_error", trusted: false }))
               : { detail: "validator_missing", trusted: false };
+            if (ownerFence && !ownerFence.isCurrent()) {
+              void client.respond(request.id, { ok: false, reason: "official_auth_scope_changed" });
+              return;
+            }
             if (!trust.trusted) {
               // 只记录非敏感的请求上下文；凭据未被读取，自然也无从泄露。
               logger.warn(request.trace?.traceId, "官方 MCP 身份头请求未通过 host 侧可信校验", {
@@ -2334,7 +2406,6 @@ export function createZCodeAgentService(
               });
               return;
             }
-            const resolver = options?.officialMcpAuthHeadersResolver;
             if (!resolver) {
               void client.respond(request.id, {
                 ok: false,
@@ -2349,10 +2420,20 @@ export function createZCodeAgentService(
                 pluginId: parsed.data.pluginId,
                 targetOrigin: parsed.data.targetOrigin,
                 workspace: parsed.data.workspace,
+                ...(parsed.data.scope ? { scope: parsed.data.scope } : {}),
+                ...(parsed.data.captureOnly ? { captureOnly: true } : {}),
+                ...(parsed.data.validateOnly ? { validateOnly: true } : {}),
               });
+              if (ownerFence && !ownerFence.isCurrent()) {
+                void client.respond(request.id, {
+                  ok: false,
+                  reason: "official_auth_scope_changed",
+                });
+                return;
+              }
               // host 侧不能只在失败时留日志，成功路径完全静默会无法回答"到底发了哪几个头"。
               // 只记 header 名与套餐维度：凭证值绝不入日志（日志留存周期不受控）。
-              if (result.ok) {
+              if (result.ok && !parsed.data.captureOnly && !parsed.data.validateOnly) {
                 const firstIssuance = officialMcpIssuanceAudit.markFirst(
                   parsed.data.pluginId,
                   parsed.data.mcpKey,
@@ -2368,7 +2449,7 @@ export function createZCodeAgentService(
                   resolveDurationMs: Date.now() - resolveStartedAt,
                   targetOrigin: parsed.data.targetOrigin,
                 });
-              } else {
+              } else if (!result.ok) {
                 logger.info(request.trace?.traceId, "官方 MCP 身份头不可用", {
                   mcpKey: parsed.data.mcpKey,
                   pluginId: parsed.data.pluginId,
@@ -3423,12 +3504,19 @@ export function createZCodeAgentService(
 
     async createSession(params: ZCodeAgentCreateSessionParams) {
       const startedAt = Date.now();
+      const admission = params[sessionCreateAdmission];
+      await admission?.assertCurrent();
+      admission?.assertCurrentSync?.();
       const client = await getClient(params);
+      await admission?.assertCurrent();
+      admission?.assertCurrentSync?.();
       await ensureAccountProviderConfigSynced({
         client,
         reason: "session_create",
         workspace: params,
       });
+      await admission?.assertCurrent();
+      admission?.assertCurrentSync?.();
       const sessionTraceId = params.sessionTraceId;
       logger.info(sessionTraceId, "开始请求 XWork Protocol session/create", {
         hasInitialModel: params.model !== undefined,
@@ -3443,13 +3531,50 @@ export function createZCodeAgentService(
       const offPeakToolEnabled = isOffPeakToolSupported(params);
       // 灰度在 client 就绪时已判定，这里是进程内已解析 promise 的再次 await（不打远端）。
       const dynamicWorkflowEnabled = await resolveDynamicWorkflowGate();
+      await admission?.assertCurrent();
+      let dispatched = false;
+      let persistenceCommitted = false;
+      // XCODE: 只有真正尝试派发后才可能已提交；未知结果保留附件，但不宣称提交成功。
+      const handlePersistenceFailure = (error: unknown): never => {
+        if (dispatched && admission) {
+          const commit = readSharedImportCommitStatus(error, params.sessionId);
+          if (commit === true) {
+            persistenceCommitted = true;
+            admission.onCommitted();
+          } else if (
+            commit === null &&
+            !(
+              typeof error === "object" &&
+              error !== null &&
+              "code" in error &&
+              error.code === -32602
+            )
+          ) {
+            admission.onPersistenceUncertain?.();
+          }
+        }
+        throw error;
+      };
+      const onDispatch = () => {
+        admission?.assertCurrentSync?.();
+        dispatched = true;
+      };
       try {
-        const snapshot = await client.request(
-          zcodeProtocolMethods.sessionCreate,
-          buildSessionCreateParams({ ...params, offPeakToolEnabled, dynamicWorkflowEnabled }),
-          zcodeSessionStateSnapshotSchema,
-          sessionTraceId ? { trace: { traceId: sessionTraceId } } : undefined,
-        );
+        await admission?.assertCurrent();
+        admission?.assertCurrentSync?.();
+        const snapshot = await client
+          .request(
+            zcodeProtocolMethods.sessionCreate,
+            buildSessionCreateParams({ ...params, offPeakToolEnabled, dynamicWorkflowEnabled }),
+            zcodeSessionStateSnapshotSchema,
+            { ...(sessionTraceId ? { trace: { traceId: sessionTraceId } } : {}), onDispatch },
+          )
+          .catch(handlePersistenceFailure);
+        persistenceCommitted = true;
+        // XCODE: worker 已持久提交后先移交附件所有权，迟到 owner 校验不得删已引用附件。
+        admission?.onCommitted();
+        await admission?.assertCurrent();
+        admission?.assertCurrentSync?.();
         rememberSessionTrace({ ...params, sessionId: snapshot.session.sessionId }, snapshot);
         logger.info(sessionTraceId, "XWork Protocol session/create 完成", {
           durationMs: Date.now() - startedAt,
@@ -3462,9 +3587,10 @@ export function createZCodeAgentService(
           workspaceKey: resolveWorkspaceKey(params),
           workspacePath: params.workspacePath,
         });
+        admission?.assertCurrentSync?.();
         return snapshot;
       } catch (error) {
-        const compatFields = getSessionCreateCompatFields(error);
+        const compatFields = persistenceCommitted ? [] : getSessionCreateCompatFields(error);
         if (compatFields.length === 0) {
           logger.warn(sessionTraceId, "XWork Protocol session/create 失败", {
             durationMs: Date.now() - startedAt,
@@ -3484,15 +3610,24 @@ export function createZCodeAgentService(
         // host/UI 可能已经发送新版 session/create 可选字段，但本地打包、
         // 远端部署或仍存活的旧 app-server 还在使用旧 strict schema。只对已知
         // 可选字段降级重试，避免 thoughtLevel/persistence 版本差阻塞首发创建。
-        const snapshot = await client.request(
-          zcodeProtocolMethods.sessionCreate,
-          buildSessionCreateParams(
-            { ...params, offPeakToolEnabled, dynamicWorkflowEnabled },
-            new Set(compatFields),
-          ),
-          zcodeSessionStateSnapshotSchema,
-          sessionTraceId ? { trace: { traceId: sessionTraceId } } : undefined,
-        );
+        dispatched = false;
+        await admission?.assertCurrent();
+        admission?.assertCurrentSync?.();
+        const snapshot = await client
+          .request(
+            zcodeProtocolMethods.sessionCreate,
+            buildSessionCreateParams(
+              { ...params, offPeakToolEnabled, dynamicWorkflowEnabled },
+              new Set(compatFields),
+            ),
+            zcodeSessionStateSnapshotSchema,
+            { ...(sessionTraceId ? { trace: { traceId: sessionTraceId } } : {}), onDispatch },
+          )
+          .catch(handlePersistenceFailure);
+        persistenceCommitted = true;
+        admission?.onCommitted();
+        await admission?.assertCurrent();
+        admission?.assertCurrentSync?.();
         rememberSessionTrace({ ...params, sessionId: snapshot.session.sessionId }, snapshot);
         if (!compatFields.includes("thoughtLevel") || !params.thoughtLevel) {
           logger.info(sessionTraceId, "XWork Protocol session/create 兼容重试完成", {
@@ -3502,10 +3637,13 @@ export function createZCodeAgentService(
             workspaceKey: resolveWorkspaceKey(params),
             workspacePath: params.workspacePath,
           });
+          admission?.assertCurrentSync?.();
           return snapshot;
         }
         // 旧 create schema 不认识 thoughtLevel 时，创建后再走旧协议已有的
         // session/setThoughtLevel，保证首轮 prompt 仍使用用户在工具栏选择的推理强度。
+        await admission?.assertCurrent();
+        admission?.assertCurrentSync?.();
         const snapshotWithThoughtLevel = await client.request(
           zcodeProtocolMethods.sessionSetThoughtLevel,
           {
@@ -3516,6 +3654,8 @@ export function createZCodeAgentService(
           zcodeSessionStateSnapshotSchema,
           sessionTraceId ? { trace: { traceId: sessionTraceId } } : undefined,
         );
+        await admission?.assertCurrent();
+        admission?.assertCurrentSync?.();
         rememberSessionTrace(
           { ...params, sessionId: snapshotWithThoughtLevel.session.sessionId },
           snapshotWithThoughtLevel,
@@ -3531,6 +3671,7 @@ export function createZCodeAgentService(
             workspacePath: params.workspacePath,
           },
         );
+        admission?.assertCurrentSync?.();
         return snapshotWithThoughtLevel;
       }
     },

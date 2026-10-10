@@ -73,6 +73,7 @@ function latestUsedAtForType(
   snapshot: CodingPlanResetStatusSnapshot,
   resetType: CodingPlanResetType,
 ): number | null {
+  if (snapshot.mode === "native-single-period") return null;
   return (
     (resetType === "WEEK"
       ? snapshot.latestWeekResetHistory?.usedAt
@@ -285,8 +286,8 @@ function markHistoryReadOnce(params: {
 
   const request = params.service
     .markCodingPlanResetHistoryRead(params.scope)
-    .then(() => {
-      completed?.add(historyKey);
+    .then((result) => {
+      if (result.availability === "available") completed?.add(historyKey);
     })
     .finally(() => {
       inflight.delete(historyKey);
@@ -384,7 +385,13 @@ export function useCodingPlanQuotaResetUi({
       accountAccess: stableAccountAccess,
     };
   }, [preferredProviderId, stableAccountAccess]);
-  const enabled = Boolean(requestedEnabled && sourceKey?.trim() && usageStatsService && scope);
+  const enabled = Boolean(
+    requestedEnabled &&
+    sourceKey?.trim() &&
+    usageStatsService &&
+    scope &&
+    scope.accountAccess.type !== "new-api-account",
+  );
   const entriesBySource = useZCodeStoreWithDefault(
     (state) => state.codingPlanQuotaResetUiBySource,
     EMPTY_ENTRIES,
@@ -546,7 +553,11 @@ export function useCodingPlanQuotaResetUi({
       // used_at 按类型唯一，重复标记无副作用。
       // 必须先于 entitlement 刷新标记已读。等待刷新完成再上报会延迟清理服务端游标，
       // 其他窗口在此期间轮询可能重复播放自动完成提示。
-      if (snapshot.hasUnreadHistory && completedAt !== null) {
+      if (
+        snapshot.mode === "official-windows" &&
+        snapshot.hasUnreadHistory &&
+        completedAt !== null
+      ) {
         void markHistoryReadOnce({
           service: usageStatsService,
           scope,

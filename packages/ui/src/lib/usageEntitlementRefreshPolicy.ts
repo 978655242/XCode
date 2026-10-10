@@ -106,9 +106,12 @@ function buildEntitlementRequestKey(options: UsageEntitlementRequestOptions): st
 export function buildEntitlementFreshnessKey(params: {
   cacheKey: string;
   options: UsageEntitlementRequestOptions;
+  ownerKey?: string;
 }): string {
   return JSON.stringify({
     cacheKey: params.cacheKey,
+    // XCODE: Native 固定 provider/access 不可共享不同主账号或重新登录前的请求与快照。
+    ...(params.ownerKey ? { ownerKey: params.ownerKey } : {}),
     request: JSON.parse(buildEntitlementRequestKey(params.options)) as Record<string, unknown>,
   });
 }

@@ -56,6 +56,7 @@ import {
   AutomationRepo,
   OffPeakTaskRepo,
   OffPeakTaskService,
+  OFF_PEAK_TASK_OWNER_FENCE,
   createServiceLogger,
   buildTaskChangeSummary,
   createHostApiNetworkTransport,
@@ -63,6 +64,7 @@ import {
   OffPeakModelUnavailableError,
   OffPeakPermanentDispatchError,
   type HostApiNetworkTransport,
+  type OffPeakOwnerFence,
   type OffPeakRequestAuthBuilder,
 } from "@zcode/services/node";
 import { createHostResourceUsageResponder } from "./hostResourceUsage.js";
@@ -224,6 +226,35 @@ function authorizeLocalMediaPreviewPath(path: string): Promise<string> {
     } catch (error) {
       pendingLocalMediaPreviewPathAuthorizations.delete(requestId);
       reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
+}
+
+// XCODE: 复用可信 Main 授权往返；等回执再发布 URL，不能用超时掩盖跨端口顺序。
+const pendingNewApiPlanWebHandoffs = new Map<
+  string,
+  {
+    resolve: () => void;
+    reject: (error: Error) => void;
+  }
+>();
+function authorizeNewApiPlanWebHandoff(handoff: {
+  url: string;
+  ownerGeneration: number;
+}): Promise<void> {
+  if (!parentPort) return Promise.reject(new Error("XCODE_WEB_HANDOFF_ADMISSION_UNAVAILABLE"));
+  const requestId = randomUUID();
+  return new Promise<void>((resolve, reject) => {
+    pendingNewApiPlanWebHandoffs.set(requestId, { resolve, reject });
+    try {
+      parentPort.postMessage({
+        type: HostResponseTypes.PrivatePlanWebHandoffAuthorizeRequest,
+        requestId,
+        handoff,
+      });
+    } catch {
+      pendingNewApiPlanWebHandoffs.delete(requestId);
+      reject(new Error("XCODE_WEB_HANDOFF_ADMISSION_UNAVAILABLE"));
     }
   });
 }
@@ -456,13 +487,19 @@ async function finalizeOffPeakRun(params: {
   workspaceIdentity?: string;
   outcome: ZCodeAutomationRunOutcome;
   error?: string;
+  assertCurrent: OffPeakOwnerFence;
 }): Promise<void> {
+  await params.assertCurrent();
+  params.assertCurrent.assertCurrentSync?.();
   // 自动续跑：票据过期（active 3h 到期 / ready 废票）不是失败——
   // 同 task_id 重取号回 queued，等下一个 ready 再 resume 同 session 续跑。
   if (params.outcome === "failed" && isOffPeakTicketExpiredError(params.error)) {
     const runtime = await ensureOffPeakRuntime();
     if (runtime) {
-      await runtime.service.handleTicketExpiredDuringRun(params.offPeakTaskId);
+      await runtime.service.handleTicketExpiredDuringRun(
+        params.offPeakTaskId,
+        params.assertCurrent,
+      );
       logger.info(
         `off-peak segment expired, requeued for continuation task=${params.offPeakTaskId}`,
       );
@@ -482,6 +519,7 @@ async function finalizeOffPeakRun(params: {
     endedAt: Date.now(),
     ...(params.error ? { failureReason: params.error } : {}),
     ...(filesChanged !== undefined ? { filesChanged } : {}),
+    assertCurrent: params.assertCurrent,
   });
   if (!updated) {
     // 终态不可逆出：任务已被用户先一步取消/删除等，丢弃迟到回写（幂等兜底）。
@@ -493,6 +531,8 @@ async function finalizeOffPeakRun(params: {
   logger.info(
     `off-peak run finished task=${params.offPeakTaskId} status=${status} filesChanged=${filesChanged ?? "n/a"}`,
   );
+  await params.assertCurrent();
+  params.assertCurrent.assertCurrentSync?.();
   // 后台完成统一置未读，打开 task 时由导航链路清除（与 cron 同款）。
   void params.zcodeTaskService.setTaskUnread({
     taskId: params.taskId,
@@ -509,6 +549,7 @@ function trackOffPeakRunOutcome(params: {
   traceId: TraceId;
   workspacePath: string;
   workspaceIdentity?: string;
+  assertCurrent: OffPeakOwnerFence;
 }): void {
   const key = offPeakRunSubscriptionKey(params.taskId, params.traceId);
   disposeOffPeakRunSubscription(key);
@@ -524,6 +565,7 @@ function trackOffPeakRunOutcome(params: {
         ...(params.workspaceIdentity ? { workspaceIdentity: params.workspaceIdentity } : {}),
         outcome: result.outcome,
         ...(result.error ? { error: result.error } : {}),
+        assertCurrent: params.assertCurrent,
       }).catch((error) => logger.warn("off-peak 终态回写失败:", error));
     },
   );
@@ -552,12 +594,24 @@ async function dispatchOffPeakRun(request: OffPeakRunDispatchRequest): Promise<{
     // schedulable 必然已取号；无票派发说明快照失序，按 transient 回执等下轮（轮询会补票）。
     throw new Error("off-peak dispatch without server ticket");
   }
+  const taskOwnerFence = await runtime.service[OFF_PEAK_TASK_OWNER_FENCE](request.offPeakTaskId);
   // idle plan 使用普通 Selection；单次执行约束保证它不写入 Session Selection。
   const idleSelection = request.modelSelection;
   if (!(await runtime.validateSelection(idleSelection))) {
     throw new OffPeakModelUnavailableError("idlePlan");
   }
-  const requestAuth = await runtime.buildRequestAuth(request.serverTicketId);
+  // Host-only fences never enter worker auth; durable row and current credentials must agree.
+  taskOwnerFence.assertCurrentSync?.();
+  const { assertCurrent: assertRequestCurrent, ...requestAuth } = await runtime.buildRequestAuth(
+    request.serverTicketId,
+  );
+  const assertCurrent = async (): Promise<void> => {
+    await taskOwnerFence();
+    await assertRequestCurrent?.();
+    taskOwnerFence.assertCurrentSync?.();
+  };
+  await assertCurrent();
+  taskOwnerFence.assertCurrentSync?.();
   // 首次派发与复用会话的恢复派发需要在轮次事实中可区分；该字段只描述
   // 当前自动 turn 的调度阶段，不改变稳定 task ID、独立 message ID 或手动消息语义。
   const dispatchKind = resolveOffPeakDispatchKind(request);
@@ -581,6 +635,8 @@ async function dispatchOffPeakRun(request: OffPeakRunDispatchRequest): Promise<{
         zcodeTaskService.listDeletedTaskIds(workspaceScope),
         zcodeTaskService.listTasks(workspaceScope),
       ]);
+      await assertCurrent?.();
+      taskOwnerFence.assertCurrentSync?.();
       assertBoundSessionDispatchable({
         sessionId: taskId,
         deleted: deletedIds.includes(taskId),
@@ -592,12 +648,16 @@ async function dispatchOffPeakRun(request: OffPeakRunDispatchRequest): Promise<{
         // 绑定会话首次盖章归属标记，侧栏归入闲时分组（机制同 cron targetTaskId）。
         offPeakTaskId: request.offPeakTaskId,
       });
+      await assertCurrent?.();
+      taskOwnerFence.assertCurrentSync?.();
       await zcodeTaskService.setConfigOption({
         taskId,
         traceId,
         configId: "mode",
         value: request.permissionMode,
       });
+      await assertCurrent?.();
+      taskOwnerFence.assertCurrentSync?.();
     } else if (dispatchKind === "resume") {
       // 续跑段：resume 同一 session（冷恢复水合历史；send 前必须先 resume）。
       taskId = request.conversationId!;
@@ -612,6 +672,8 @@ async function dispatchOffPeakRun(request: OffPeakRunDispatchRequest): Promise<{
         // pre-打点会话续跑时补写归属标记（bootstrap 回填之外的双保险）。
         offPeakTaskId: request.offPeakTaskId,
       });
+      await assertCurrent?.();
+      taskOwnerFence.assertCurrentSync?.();
       // 权限模式随派发下发（resume 后显式设置，幂等）。
       await zcodeTaskService.setConfigOption({
         taskId,
@@ -619,6 +681,8 @@ async function dispatchOffPeakRun(request: OffPeakRunDispatchRequest): Promise<{
         configId: "mode",
         value: request.permissionMode,
       });
+      await assertCurrent?.();
+      taskOwnerFence.assertCurrentSync?.();
       // 档位是 idle Selection 的一部分，只在 sendPrompt 注入；单独写档位会污染用户会话。
     } else {
       const task = await zcodeTaskService.createTask({
@@ -633,6 +697,8 @@ async function dispatchOffPeakRun(request: OffPeakRunDispatchRequest): Promise<{
         // 创建时即盖章持久归属标记（月亮图标/后续系统分组只看该标记，不再反查 store）。
         offPeakTaskId: request.offPeakTaskId,
       });
+      await assertCurrent?.();
+      taskOwnerFence.assertCurrentSync?.();
       taskId = task.taskId;
       traceId = task.traceId;
     }
@@ -644,7 +710,10 @@ async function dispatchOffPeakRun(request: OffPeakRunDispatchRequest): Promise<{
       traceId,
       workspacePath: request.workspacePath,
       ...(request.workspaceIdentity ? { workspaceIdentity: request.workspaceIdentity } : {}),
+      assertCurrent: taskOwnerFence,
     });
+    await assertCurrent?.();
+    taskOwnerFence.assertCurrentSync?.();
     await zcodeTaskService.sendPrompt({
       taskId,
       traceId,
@@ -668,6 +737,8 @@ async function dispatchOffPeakRun(request: OffPeakRunDispatchRequest): Promise<{
       offPeakTaskId: request.offPeakTaskId,
       offPeakRunType,
     });
+    await assertCurrent();
+    taskOwnerFence.assertCurrentSync?.();
     // 只有 init 实际新建；绑定首跑和跨票续跑只是原 Session 的后续输入。
     if (dispatchKind === "init") {
       reportHostSessionCreate(parentPort, {
@@ -2359,6 +2430,15 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
     return;
   }
 
+  if (msg.type === HostMessageTypes.PrivatePlanWebHandoffAuthorizeResult) {
+    const pending = pendingNewApiPlanWebHandoffs.get(msg.requestId);
+    if (!pending) return;
+    pendingNewApiPlanWebHandoffs.delete(msg.requestId);
+    if (msg.ok) pending.resolve();
+    else pending.reject(new Error("XCODE_STALE_WEB_HANDOFF"));
+    return;
+  }
+
   if (msg.type === HostMessageTypes.CronRun) {
     if (databaseStartup?.coordinator.snapshot.phase !== "ready") {
       parentPort.postMessage({
@@ -2843,6 +2923,22 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
               hostApiNetworkTransport,
               authorizeLocalMediaPreviewPath,
               runtimeProcessEnvPatch: msg.runtimeProcessEnvPatch,
+              // XCODE: 仅Host→Main的非秘密分区生命周期，不能由Renderer认领owner。
+              onNewApiOwnerChanged: (owner) => {
+                parentPort?.postMessage({
+                  type: HostResponseTypes.PrivateAccountOwnerChanged,
+                  owner: owner
+                    ? { origin: owner.origin, ownerGeneration: owner.authGeneration }
+                    : null,
+                });
+              },
+              onNativeOffPeakOwnerKeyChanged: (nativeOwnerKey) => {
+                parentPort?.postMessage({
+                  type: HostResponseTypes.OffPeakSchedulerWakeRequest,
+                  nativeOwnerKey,
+                });
+              },
+              authorizeNewApiPlanWebHandoff,
               agentRuntimeContext: {
                 getDeviceMid: () => msg.deviceMid,
                 runtimeSurface: "desktop_local_host",

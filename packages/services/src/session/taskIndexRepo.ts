@@ -1278,6 +1278,7 @@ export class TaskIndexRepo {
     // 调用方可以从 snapshot.messages 计算正文，传进来同步刷新 searchable_text。
     // 不传则保留 sqlite 已有的 searchable_text（在 writeRecord 里兜底）。
     searchableText?: string;
+    assertCurrent?: () => void;
   }): Promise<ZCodeTaskMeta> {
     const result = await this.syncTaskMetaWithGroupedAdmission(params, false);
     return result.meta;
@@ -1291,6 +1292,7 @@ export class TaskIndexRepo {
     deleted?: boolean;
     titleOverridden?: boolean;
     searchableText?: string;
+    assertCurrent?: () => void;
   }): Promise<{ meta: ZCodeTaskMeta; initializedGroupedOrder: boolean }> {
     return this.syncTaskMetaWithGroupedAdmission(params, true);
   }
@@ -1303,11 +1305,14 @@ export class TaskIndexRepo {
       deleted?: boolean;
       titleOverridden?: boolean;
       searchableText?: string;
+      assertCurrent?: () => void;
     },
     initializeGroupedAtTop: boolean,
   ): Promise<{ meta: ZCodeTaskMeta; initializedGroupedOrder: boolean }> {
     await this.ensureReady();
     return this.enqueueWrite(params.meta, () => {
+      // XCODE: 排队/初始化后在真实 SQLite 写入前核对，迟到导入不能进入另一个账号的索引。
+      params.assertCurrent?.();
       const database = this.getDatabase();
       if (initializeGroupedAtTop) database.exec("BEGIN IMMEDIATE");
       try {

@@ -18,13 +18,17 @@
 import {
   OFFICIAL_MCP_AUTH_HEADER_NAMES,
   getModelProviderFamilySpec,
-  zcodeProviderAccountAccessSchema,
   type OfficialMcpAuthFailureReason,
   type ZCodeAccountAccess,
   type ZCodeProviderAccountAccess,
 } from "@zcode/shared";
 import type { ModelSelectionView } from "@zcode/provider";
 import { createServiceLogger } from "#src/logger/serviceLogger.js";
+import {
+  officialCloudInvocationScope,
+  type OfficialCloudConnectionHost,
+} from "./officialCloudConnectionService.js";
+import { resolveSelectedPlan, resolveSelectedProvider } from "./officialMcpPlanSelection.js";
 
 const log = createServiceLogger("official-mcp");
 
@@ -101,6 +105,15 @@ interface OfficialMcpCredentialResolverDeps {
   };
 }
 
+type OfficialMcpCredentialInput =
+  | OfficialMcpCredentialResolverDeps
+  | {
+      officialCloudHost: Pick<
+        OfficialCloudConnectionHost,
+        "resolveCredentials" | "isCurrent" | "captureOwnerFence" | "captureRequestFence"
+      >;
+    };
+
 export type OfficialMcpPlanScope =
   | { targetType: "PERSONAL" }
   | { targetType: "TEAM"; organizationId: string; projectId: string };
@@ -120,91 +133,19 @@ export interface OfficialMcpCredentialSnapshot {
   planScope: OfficialMcpPlanScope | null;
   /** 实际发往 Server MCP 的身份头 scope；ZAI Team 与 Off-Peak 一致为 null。 */
   wireScope: OfficialMcpWireScope;
+  /** XCODE: 仅非秘密代际摘要可经 worker 协议传递。 */
+  invocationScope?: string;
 }
 
 export type OfficialMcpCredentialOutcome =
   | { ok: true; snapshot: OfficialMcpCredentialSnapshot }
   | { ok: false; reason: OfficialMcpAuthFailureReason };
 
-type SelectedPlan = {
-  providerFamily: "zai" | "bigmodel";
-  providerId: string;
-  planScope: OfficialMcpPlanScope | null;
-  wireScope: OfficialMcpWireScope;
-};
-
-type SelectedProvider = {
-  providerId: string;
-  access: ZCodeProviderAccountAccess;
-};
-
 function fail(reason: OfficialMcpAuthFailureReason): {
   ok: false;
   reason: OfficialMcpAuthFailureReason;
 } {
   return { ok: false, reason };
-}
-
-/**
- * 从 Registry 判定当前启用的 Coding Plan Provider；动态套餐和 Team scope 随后由账号服务解析。
- * 禁止从静态 Provider Config 读取或伪造当前 Team scope。
- */
-function resolveSelectedProvider(
-  registry: ModelSelectionView,
-): { ok: true; provider: SelectedProvider } | { ok: false; reason: OfficialMcpAuthFailureReason } {
-  const candidates = registry.providers.flatMap((provider) => {
-    const parsed = zcodeProviderAccountAccessSchema.safeParse(provider.config.access);
-    return parsed.success &&
-      (parsed.data.mode === "individual-coding-plan" || parsed.data.mode === "team-coding-plan")
-      ? [{ providerId: provider.providerId, access: parsed.data }]
-      : [];
-  });
-  if (candidates.length !== 1) {
-    return fail("official_auth_plan_required");
-  }
-  return { ok: true, provider: candidates[0]! };
-}
-
-function resolveSelectedPlan(
-  selectedProvider: SelectedProvider,
-  access: ZCodeAccountAccess | null,
-): { ok: true; plan: SelectedPlan } | { ok: false; reason: OfficialMcpAuthFailureReason } {
-  if (
-    !access ||
-    access.family !== selectedProvider.access.accountType ||
-    (selectedProvider.access.mode === "team-coding-plan"
-      ? access.planKind !== "team-coding-plan"
-      : access.planKind !== "individual-coding-plan")
-  ) {
-    return fail("official_auth_plan_required");
-  }
-  const { providerId } = selectedProvider;
-  const providerFamily = access.family;
-  if (access.planKind === "team-coding-plan") {
-    const teamScope: OfficialMcpPlanScope = {
-      organizationId: access.organizationId,
-      projectId: access.projectId,
-      targetType: "TEAM",
-    };
-    return {
-      ok: true,
-      plan: {
-        providerFamily,
-        providerId,
-        planScope: teamScope,
-        wireScope: providerFamily === "bigmodel" ? teamScope : null,
-      },
-    };
-  }
-  return {
-    ok: true,
-    plan: {
-      providerFamily,
-      providerId,
-      planScope: { targetType: "PERSONAL" },
-      wireScope: { targetType: "PERSONAL" },
-    },
-  };
 }
 
 /** 非秘密的选择指纹，用于解析前后比对，防止把切换前后的两代凭证拼进同一请求。 */
@@ -282,8 +223,40 @@ function identityOnlyOutcome(identity: OfficialMcpIdentitySnapshot): OfficialMcp
  * 也包括"旧 JWT + 新 JWT"（同 family 的 token 轮换）。两轮仍不稳定则按不可用返回。
  */
 export async function resolveOfficialMcpCredentials(
-  deps: OfficialMcpCredentialResolverDeps,
+  deps: OfficialMcpCredentialInput,
 ): Promise<OfficialMcpCredentialOutcome> {
+  if ("officialCloudHost" in deps) {
+    // Explicit Native mode has no legacy/global fallback, including when locked or disconnected.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const credentials = await deps.officialCloudHost.resolveCredentials();
+      if (!credentials) return fail("official_auth_unavailable");
+      const access = credentials.access;
+      const planScope: OfficialMcpPlanScope | null =
+        access?.planKind === "team-coding-plan"
+          ? {
+              targetType: "TEAM",
+              organizationId: access.organizationId,
+              projectId: access.projectId,
+            }
+          : access?.planKind === "individual-coding-plan"
+            ? { targetType: "PERSONAL" }
+            : null;
+      if (!(await deps.officialCloudHost.isCurrent(credentials))) continue;
+      return {
+        ok: true,
+        snapshot: {
+          jwt: credentials.jwt,
+          ...(planScope ? { codingPlanAuthorization: credentials.accessToken } : {}),
+          invocationScope: officialCloudInvocationScope(credentials),
+          providerFamily: credentials.family,
+          planScope,
+          wireScope:
+            credentials.family === "zai" && planScope?.targetType === "TEAM" ? null : planScope,
+        },
+      };
+    }
+    return fail("official_auth_unavailable");
+  }
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const identity = await readIdentitySnapshot(deps);
     if (!identity.ok) {
@@ -416,26 +389,28 @@ export function buildOfficialMcpAuthHeaders(
   return headers;
 }
 
-/** host handler 透传的请求上下文；不参与凭证选择。 */
+/** XCODE: Host 请求上下文冻结一次调用的 owner/官方连接代际。 */
 interface OfficialMcpAuthHeadersRequestContext {
   mcpKey: string;
   pluginId: string;
   targetOrigin: string;
   workspace: { workspaceIdentity?: string; workspaceKey: string; workspacePath: string };
+  scope?: string;
+  captureOnly?: boolean;
+  validateOnly?: boolean;
 }
 
 type OfficialMcpAuthHeadersOutcome =
-  | { ok: true; headers: Record<string, string> }
+  | { ok: true; headers: Record<string, string>; scope?: string }
   | { ok: false; reason: OfficialMcpAuthFailureReason };
 
 /**
- * 身份头解析入口，带 in-flight 去重。
- *
- * 只合并**并发**请求：已有解析在飞时后来者复用同一 Promise；settle 后立即丢弃，
- * 下一个请求重新完整解析。不做任何时间维度缓存，因此不存在"读到已被替换的旧凭证"的窗口。
- * 作用域为 host 全局——凭证是全局状态，按 plugin/mcpKey/workspace 分桶只会削弱去重、不增隔离。
+ * XCODE: Native 每个请求独立核对捕获 scope，不能共享另一 owner 的 in-flight 结果。
+ * 非私有宿主仍只合并并发的全局凭据解析，settle 后立即清空，不做时间缓存。
  */
-export function createOfficialMcpAuthHeadersResolver(deps: OfficialMcpCredentialResolverDeps): {
+export function createOfficialMcpAuthHeadersResolver(deps: OfficialMcpCredentialInput): {
+  captureOwnerFence(): { isCurrent(): boolean };
+  validateInvocationScope(scope: string): Promise<boolean>;
   resolveHeaders(
     request?: OfficialMcpAuthHeadersRequestContext,
   ): Promise<OfficialMcpAuthHeadersOutcome>;
@@ -443,10 +418,36 @@ export function createOfficialMcpAuthHeadersResolver(deps: OfficialMcpCredential
   let pending: Promise<OfficialMcpAuthHeadersOutcome> | null = null;
 
   return {
-    // request 仅为契约对齐（host handler 已在此之前完成可信校验，见 zcodeAgentService）；
-    // 凭据是 host 全局状态，**不**按 plugin/mcpKey/workspace 分桶——分桶只会削弱 in-flight
-    // 去重而不增加隔离。参数保留是为了将来审计需要时不必再改接口。
-    resolveHeaders(_request?: OfficialMcpAuthHeadersRequestContext) {
+    captureOwnerFence: () =>
+      "officialCloudHost" in deps
+        ? deps.officialCloudHost.captureOwnerFence()
+        : { isCurrent: () => true },
+    async validateInvocationScope(scope) {
+      if (!("officialCloudHost" in deps)) return false;
+      const fence = await deps.officialCloudHost.captureRequestFence();
+      return fence.scope === scope && (await fence.isCurrent());
+    },
+    async resolveHeaders(request?: OfficialMcpAuthHeadersRequestContext) {
+      // XCODE: 每次解析都比对调用最初的非秘密 scope，不能把 B 当前有效当作 A 准入。
+      if ("officialCloudHost" in deps) {
+        const ownerFence = deps.officialCloudHost.captureOwnerFence();
+        const outcome = await resolveOfficialMcpCredentials(deps);
+        if (!ownerFence.isCurrent() || !outcome.ok) return fail("official_auth_scope_changed");
+        const scope = outcome.snapshot.invocationScope;
+        if (!scope || (request?.scope ? request.scope !== scope : !request?.captureOnly)) {
+          return fail("official_auth_scope_changed");
+        }
+        return {
+          ok: true,
+          scope,
+          headers:
+            request?.captureOnly || request?.validateOnly
+              ? {}
+              : buildOfficialMcpAuthHeaders(outcome.snapshot),
+        };
+      }
+      if (request?.scope) return fail("official_auth_scope_changed");
+      if (request?.captureOnly || request?.validateOnly) return { ok: true, headers: {} };
       if (pending) return pending;
       const inFlight = (async (): Promise<OfficialMcpAuthHeadersOutcome> => {
         const outcome = await resolveOfficialMcpCredentials(deps);

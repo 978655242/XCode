@@ -46,6 +46,7 @@ import {
   ZCODE_SESSION_RUNTIME_PREFERENCES_REQUEST_TIMEOUT_MS,
   zcodeProtocolErrorCodes,
   zcodeProtocolMethods,
+  zcodeOfficialInvocationScopeValidationResultSchema,
   zcodeSessionCancelBackgroundTaskParamsSchema,
   zcodeSessionCompactParamsSchema,
   zcodeSessionCloseParamsSchema,
@@ -1000,6 +1001,7 @@ async function persistImportedSessionHistory(params: {
   record: ZCodeProtocolSessionRecord;
   sessionId: SessionId;
   createParams: ZCodeSessionCreateParams;
+  assertCurrent?: () => void;
 }): Promise<void> {
   const importedHistory = params.createParams.importedHistory;
   const sessionStore = params.context.deps.sessionStore;
@@ -1039,6 +1041,7 @@ async function persistImportedSessionHistory(params: {
       importedHistory.provenance.contextId ?? `legacy-shared-context-${params.sessionId}`;
     const contextStatus = importedHistory.provenance.status ?? "pending";
     await sessionStore.commitSharedContextImportBundle({
+      ...(params.assertCurrent ? { assertCurrent: params.assertCurrent } : {}),
       session: {
         id: params.sessionId,
         projectID: projectIdFromDirectory(workspace.workspacePath),
@@ -1245,6 +1248,30 @@ async function createSessionWithProjection<T>(
   ) => Promise<{ value: T; phaseDurationsMs?: SnapshotPhaseDurationsMs; messageCount?: number }>,
 ): Promise<T> {
   const params = parseParams(zcodeSessionCreateParamsSchema, rawParams);
+  const sessionId = (params.sessionId ?? createSessionId()) as SessionId;
+  let sharedImportCommitted = false;
+  const scope = params.officialInvocationScope;
+  const assertCurrent = scope ? () => {
+    if (context.deps.isAccountScopeCurrent?.(scope) !== true)
+      throw new ProtocolRequestError(-32003, "Official import owner changed",
+        { sharedImportCommit: { sessionId, committed: false } });
+  } : undefined;
+  const validateOwner = async () => {
+    if (!scope) return;
+    const result = await context.requestClient(
+      zcodeProtocolMethods.interactionValidateOfficialInvocationScope,
+      { workspace: params.workspace, scope },
+      zcodeOfficialInvocationScopeValidationResultSchema,
+    );
+    if (!result.ok) throw new ProtocolRequestError(-32003, "Official import owner changed",
+      { sharedImportCommit: { sessionId, committed: false } });
+    assertCurrent?.();
+  };
+  if (scope) {
+    if (params.importedHistory?.source !== "sharedContext")
+      throw new ProtocolRequestError(-32602, "Official scope requires shared context import");
+    await validateOwner();
+  }
   const startedAt = Date.now();
   if (params.sessionId && !params.importedHistory) {
     // 普通 session/create 若允许外部指定 id，会覆盖 context.sessions 里的 active record，
@@ -1254,7 +1281,6 @@ async function createSessionWithProjection<T>(
       "sessionId is only supported for imported history creates",
     );
   }
-  const sessionId = (params.sessionId ?? createSessionId()) as SessionId;
   const workspace = params.workspace;
   context.logger?.info("XWork Protocol session/create started", {
     event: "zcode_protocol.session_create.started",
@@ -1278,6 +1304,14 @@ async function createSessionWithProjection<T>(
     trace,
   );
   const recordCreateDurationMs = Date.now() - recordStartedAt;
+  if (scope) {
+    try { await validateOwner(); }
+    catch (error) {
+      // XCODE: 物化等待中换号时，仅关闭未提交 runtime，不能发布或写入旧分享。
+      await record.app.close?.();
+      throw error;
+    }
+  }
   context.assertServing?.();
   context.sessions.set(sessionId, record);
   let setInitialModelDurationMs: number | undefined;
@@ -1323,12 +1357,15 @@ async function createSessionWithProjection<T>(
       // 历史导入过去只写 legacy snapshot，taskId 不是真实 protocol sessionId，
       // setModel/sendPrompt 会打到不存在的 runtime。这里在创建期把历史写入 sessionStore 并 resume，
       // 让导入结果从第一刻起就是可续聊、可切模型的 ZCode session。
+      if (scope) await validateOwner();
       await persistImportedSessionHistory({
         context,
         record,
         sessionId,
         createParams: params,
+        ...(assertCurrent ? { assertCurrent } : {}),
       });
+      sharedImportCommitted = params.importedHistory.source === "sharedContext";
       await record.app.resume();
       record.stateRevision++;
     }
@@ -1390,6 +1427,11 @@ async function createSessionWithProjection<T>(
     }
     // 内存 event store 随 record 释放。
     await record.eventStore.deleteSession(sessionId as SessionId).catch(() => undefined);
+    // XCODE: 事务已提交但 resume/投影失败时，Host 必须保留会话已引用的附件。
+    if (params.importedHistory?.source === "sharedContext")
+      throw new ProtocolRequestError(error instanceof ProtocolRequestError ? error.code : -32003,
+        error instanceof Error ? error.message : "Shared import failed",
+        { sharedImportCommit: { sessionId, committed: sharedImportCommitted } });
     throw error;
   }
 }

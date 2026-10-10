@@ -84,6 +84,7 @@ import { decodeCustomModelValue, encodeCustomModelValue } from "@/lib/zcodeCusto
 import { buildRegistryModelSelectGroups } from "@/lib/modelSelectionGroups.js";
 import {
   buildCodingPlanUsageSources,
+  buildNativeCodingPlanUsageSource,
   type CodingPlanUsageSource,
 } from "@/lib/codingPlanUsageSources.js";
 import {
@@ -394,6 +395,20 @@ function V4ComposerModelControlsImpl({
   const providerSettingsView =
     providerSettingsRead.state.status === "ready" ? providerSettingsRead.state.view : null;
   const providerSourcesLoading = providerSettingsRead.state.status !== "ready";
+  const nativeSource = useMemo(
+    () => buildNativeCodingPlanUsageSource(providerSettingsView),
+    [providerSettingsView],
+  );
+  const nativeEntitlement = useUsageEntitlement({
+    enabled: Boolean(nativeSource),
+    includeSubscription: true,
+    preferredProviderId: nativeSource?.providerId,
+    accountAccess: nativeSource?.accountAccess,
+    allowDisabledPreferredProvider: true,
+    requirePreferredProvider: true,
+    allowEnvApiKey: false,
+    refreshOnMount: false,
+  });
   // 配置面存活服务读（过渡归宿 = 配置面 v4 化）：连接方式选中键喂 BigModel Team Plan 门控豁免。
   const { settings: sharedSettings } = useSettings();
   const {
@@ -428,16 +443,19 @@ function V4ComposerModelControlsImpl({
     [onConfigPickerOpenChange],
   );
 
-  const modelOption = modelSelectionView?.providers.some((provider) => provider.models.length > 0)
-    ? ({
-        id: "model",
-        name: "Model",
-        category: "model",
-        type: "select",
-        currentValue: "",
-        options: [],
-      } satisfies ZCodeConfigOption)
-    : undefined;
+  const modelOption =
+    modelSelectionView &&
+    (modelSelectionView.providers.some((provider) => provider.models.length > 0) ||
+      modelSelectionView.catalogIssues?.length)
+      ? ({
+          id: "model",
+          name: "Model",
+          category: "model",
+          type: "select",
+          currentValue: "",
+          options: [],
+        } satisfies ZCodeConfigOption)
+      : undefined;
 
   // 空模型/档位曾被 Session 旧值补回，界面显示与实际不可提交状态矛盾。
   // 初始化已经由 Composer owner 完成；显示层只消费它，不能再次补值。
@@ -712,10 +730,54 @@ function V4ComposerModelControlsImpl({
     providerSourcesLoading,
     refreshTaskEntitlements,
   ]);
+  const {
+    snapshot: nativeSnapshot,
+    loading: nativeLoading,
+    error: nativeError,
+    refresh: refreshNativeEntitlement,
+  } = nativeEntitlement;
+  const nativeUsageRemainingConfig = useMemo<ChatCodingPlanUsageRemainingConfig | undefined>(
+    () =>
+      nativeSource
+        ? {
+            availableProviders: [
+              {
+                providerId: nativeSource.providerId,
+                accountAccess: nativeSource.accountAccess,
+                label: nativeSource.label,
+              },
+            ],
+            entitlements: [
+              {
+                sourceId: nativeSource.id,
+                providerId: nativeSource.providerId,
+                accountAccess: nativeSource.accountAccess,
+                snapshot: nativeSnapshot,
+                loading: nativeLoading,
+                error: nativeError,
+              },
+            ],
+            modelProvidersLoading: providerSourcesLoading,
+            onEntitlementRefresh: () => refreshNativeEntitlement({ force: true, silent: true }),
+            onAccess: () => refreshNativeEntitlement({ silent: true, reason: "access" }),
+            onUsageClick: () => handleOpenUsageDetails(nativeSource.id),
+            selectedProviderId: nativeSource.id,
+          }
+        : undefined,
+    [
+      nativeSource,
+      nativeSnapshot,
+      nativeLoading,
+      nativeError,
+      refreshNativeEntitlement,
+      providerSourcesLoading,
+      handleOpenUsageDetails,
+    ],
+  );
+  const usageRemainingConfig = nativeUsageRemainingConfig ?? codingPlanUsageRemainingConfig;
   const codingPlanUsageRemaining =
-    codingPlanUsageRemainingConfig &&
-    hasChatCodingPlanUsageRemaining(codingPlanUsageRemainingConfig)
-      ? codingPlanUsageRemainingConfig
+    usageRemainingConfig && hasChatCodingPlanUsageRemaining(usageRemainingConfig)
+      ? usageRemainingConfig
       : undefined;
 
   // 高频交互排障只走 debug，避免生产日志量随每次选择增长。

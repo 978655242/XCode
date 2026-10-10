@@ -226,6 +226,7 @@ async function loadBatchPreviewWithStaticProducts(
   staticProducts: CodingPlanStaticProduct[],
 ): Promise<CodingPlanProductsSnapshot> {
   const previewSnapshot = await service.batchPreview({ providerId });
+  if ("source" in previewSnapshot) throw new Error("XCODE_NATIVE_PLAN_READ_REQUIRES_HANDOFF");
   const previewByProductId = new Map(
     previewSnapshot.productList.map((product) => [product.productId, product]),
   );
@@ -382,6 +383,8 @@ async function loadCodingPlanStaticProductListForTest(
       typeof service.getStartPlanPreview === "function"
         ? await service.getStartPlanPreview()
         : null;
+    if (startPlanPreview && "source" in startPlanPreview)
+      throw new Error("XCODE_NATIVE_PLAN_READ_REQUIRES_HANDOFF");
     if (!startPlanPreview) {
       // 体验套餐是否存在由 client/configs.startPlanPreview 决定。
       // 后端缺字段时不能再用本地硬编码兜底，否则会展示已经被配置关闭的体验套餐。
@@ -435,7 +438,10 @@ async function loadCodingPlanStaticProductsConfig(
 
   // 静态套餐来自远端 client/configs，但只有用户真正查看套餐列表时才需要请求；
   // 这里做一天内存缓存和进行中请求合并，避免设置页重渲染或多个 provider 卡片重复拉配置。
-  const request = service.getStaticProducts();
+  const request = service.getStaticProducts().then((config) => {
+    if ("source" in config) throw new Error("XCODE_NATIVE_PLAN_READ_REQUIRES_HANDOFF");
+    return config;
+  });
   staticProductsConfigRequest = request;
   try {
     const config = await request;

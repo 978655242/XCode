@@ -26,6 +26,7 @@ function projectProviderSettingsProviders(
     models: provider.models.map((model) => ({
       kind: model.kind,
       modelId: model.modelId,
+      displayName: model.displayName,
       builtin: model.builtin,
       inheritedConfig: structuredClone(model.effectiveBuiltinConfig),
       personalConfig: structuredClone(model.personalExactConfig ?? {}),

@@ -8,6 +8,7 @@ import type {
 } from "@zcode/shared";
 import {
   DesktopCommandIds,
+  NEW_API_PROVIDER_ID,
   resolveProviderFamilyDomainFromOAuthProvider,
   ZCODE_JWT_INVALID_BROADCAST_CHANNEL,
 } from "@zcode/shared";
@@ -26,6 +27,7 @@ import { applyCachedOAuthSessionRestoreResult } from "@/root/oauthCachedSessionR
 import { markZcodeJwtInvalidRestart } from "@/root/zcodeJwtInvalidRestartMarker.js";
 import { shouldApplyOAuthPollingFailure } from "@/root/oauthLoginAttemptGuard.js";
 import { useAccountConnectionLossNotification } from "@/root/useAccountConnectionLossNotification.js";
+import { OFFICIAL_CLOUD_CONNECTION_CHANGED_CHANNEL } from "@/hooks/useOfficialCloudConnection.js";
 
 export { refreshRestoredOAuthProviderFamilyAfterStartup } from "@/root/oauthProviderFamilySelectionRefresh.js";
 
@@ -131,9 +133,7 @@ export function useRootOAuthEffects({
       logger.info("[Root] 后台启动 OAuth 本地会话恢复");
       let hasRestoredUser = false;
       try {
-        // zai / bigmodel 的 OAuth token 生命周期较短，启动时如果仍走远端校验，
-        // 用户会在 token 过期后被立刻打回“未登录”，和“已完成登录但未主动退出”的产品语义冲突。
-        // 这里改为只读取登录成功时缓存的 user_info，展示态由“是否主动退出”决定，而不是由短 token 决定。
+        // XCODE: Native恢复须由远端Me确认；503不能冒充成功或清除可恢复凭据。
         const result = await services.oauthService.restoreCachedSessionState();
 
         if (disposed) {
@@ -145,11 +145,19 @@ export function useRootOAuthEffects({
           setUser,
           requestAlert,
           onReauthenticationRequired,
-          copy: {
-            title: intl.formatMessage({ id: "login.expired.title" }),
-            description: intl.formatMessage({ id: "login.expired.description" }),
-            actionLabel: intl.formatMessage({ id: "login.expired.action" }),
-          },
+          copy:
+            result.status === "unavailable" && result.reason === "credential-recovery-required"
+              ? {
+                  title: intl.formatMessage({ id: "login.privateCredentialRecovery.title" }),
+                  description: intl.formatMessage({
+                    id: "login.privateCredentialRecovery.description",
+                  }),
+                }
+              : {
+                  title: intl.formatMessage({ id: "login.expired.title" }),
+                  description: intl.formatMessage({ id: "login.expired.description" }),
+                  actionLabel: intl.formatMessage({ id: "login.expired.action" }),
+                },
         });
       } catch (error) {
         logger.error("[Root] 恢复 OAuth 本地登录态失败:", error);
@@ -199,6 +207,37 @@ export function useRootOAuthEffects({
     setIsRestoringOAuthSession,
     setUser,
   ]);
+
+  useEffect(() => {
+    let disposed = false;
+    let request = 0;
+    let subscription: { dispose(): void } | undefined;
+    void services.oauthService
+      .getProviders()
+      .then((providers) => {
+        if (disposed || !providers.some((provider) => provider.id === NEW_API_PROVIDER_ID)) return;
+        const reconcileIdentity = () => {
+          const current = ++request;
+          void services.oauthService
+            .getActiveProvider()
+            .then((provider) => {
+              if (!disposed && current === request && provider !== NEW_API_PROVIDER_ID)
+                setUser(null);
+            })
+            .catch(() => {
+              if (!disposed && current === request) setUser(null);
+            });
+        };
+        subscription = services.providerSettingsService.onDidChange(reconcileIdentity);
+        reconcileIdentity();
+      })
+      .catch((error) => logger.warn("[Root] Native identity observer unavailable", { error }));
+    return () => {
+      disposed = true;
+      request++;
+      subscription?.dispose();
+    };
+  }, [services, setUser]);
 
   useEffect(() => {
     let disposed = false;
@@ -320,8 +359,39 @@ export function useRootOAuthEffects({
   ]);
 
   useEffect(() => {
-    const disposeOAuth = platform.onOAuthCallback(async (url) => {
+    const disposeOAuth = platform.onOAuthCallback(async (event) => {
       try {
+        const { url, provider: callbackProvider, purpose } = event;
+        const providers = await services.oauthService.getProviders();
+        const nativeMode = providers.some((provider) => provider.id === NEW_API_PROVIDER_ID);
+        if (purpose === "official-cloud") {
+          if (!nativeMode || (callbackProvider !== "bigmodel" && callbackProvider !== "zai"))
+            return;
+          try {
+            const cloud = await services.officialCloudConnectionService?.handleCallback(url);
+            if (cloud) {
+              await services.broadcastService.send({
+                channel: OFFICIAL_CLOUD_CONNECTION_CHANGED_CHANNEL,
+                payload: { status: "changed" },
+              });
+            }
+          } catch {
+            logger.warn("[Root] Official cloud callback failed; primary identity unchanged");
+            // XCODE: broadcast不回送当前Renderer；复用本机Alert而不写主账号oauthError。
+            void requestAlert({
+              title: intl.formatMessage({ id: "login.oauth.loginFailure" }),
+            }).catch(() => logger.warn("[Root] Official cloud failure dialog unavailable"));
+            await services.broadcastService
+              .send({
+                channel: OFFICIAL_CLOUD_CONNECTION_CHANGED_CHANNEL,
+                payload: { status: "failed" },
+              })
+              .catch(() => logger.warn("[Root] Official cloud UI invalidation failed"));
+          }
+          return;
+        }
+        if (purpose !== "primary-account") return;
+        if (nativeMode && callbackProvider !== NEW_API_PROVIDER_ID) return;
         const result = await services.oauthService.handleCallback(url);
         // 取消或切换 flow 会使已接收的回调失效，正常空结果不能被当作登录异常。
         if (!result) {
@@ -397,6 +467,7 @@ export function useRootOAuthEffects({
     };
   }, [
     intl,
+    requestAlert,
     platform,
     refreshAppSettings,
     refreshProviderState,

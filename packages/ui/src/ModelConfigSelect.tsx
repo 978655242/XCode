@@ -46,6 +46,7 @@ import {
 } from "@/lib/pickerFocus.js";
 import { RollingToolbarLabel } from "@/chat-input-toolbar/RollingToolbarLabel.js";
 import { ModelInputCapabilityBadge } from "@/components/ModelInputCapabilityBadge.js";
+import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 
 export interface ModelSelectGroupItem {
   key: string;
@@ -74,6 +75,8 @@ export interface ModelSelectGroup {
   selectedOptionKey?: string;
   connectionOptions?: ModelSelectConnectionOption[];
   items: ModelSelectGroupItem[];
+  /** Catalog issues have no value/ref and never enter the radio selection path. */
+  catalogIssues?: readonly { modelId: string; displayName: string; code: string }[];
 }
 
 export interface ModelSelectFooterAction {
@@ -225,10 +228,15 @@ export const ModelConfigSelect = memo(function ModelConfigSelectComponent({
   leadingItems,
   triggerBadge,
 }: ModelConfigSelectProps) {
+  const { intl } = useZCodeIntl();
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const open = controlledOpen ?? uncontrolledOpen;
   const lastOpenRequestKeyRef = useRef(openRequestKey);
-  const hasSelectableModel = modelGroups.length > 0;
+  const selectableGroups = useMemo(
+    () => modelGroups.filter((group) => group.items.length > 0),
+    [modelGroups],
+  );
+  const hasSelectableModel = selectableGroups.length > 0;
   // 闲时任务白名单只有一层模型值；只要存在 group 就强制展示 provider 层的话，
   // 下方已有的扁平模型分支永远不可达，也无法复用 New Task 模型选择器。
   const shouldShowProviderLevel = showProviderLevel ?? shouldShowModelProviderLevel(modelGroups);
@@ -575,9 +583,9 @@ export const ModelConfigSelect = memo(function ModelConfigSelectComponent({
             </>
           ) : null}
           {hasSelectableModel && shouldShowProviderLevel
-            ? modelGroups.map((group, index) => {
+            ? selectableGroups.map((group, index) => {
                 const groupSeparator = shouldRenderModelGroupSeparator(
-                  modelGroups[index - 1],
+                  selectableGroups[index - 1],
                   group,
                 ) ? (
                   <DropdownMenuSeparator />
@@ -636,6 +644,25 @@ export const ModelConfigSelect = memo(function ModelConfigSelectComponent({
             : hasSelectableModel
               ? renderModelItems(modelGroups[0]?.items ?? [])
               : null}
+          {modelGroups
+            .flatMap((group) => group.catalogIssues ?? [])
+            .map((issue) => (
+              <div
+                key={`catalog-issue:${issue.modelId}`}
+                role="note"
+                className="px-2 py-1 text-ui-sm text-foreground-subtle"
+              >
+                <span className="break-words font-medium">
+                  {issue.displayName || issue.modelId}
+                </span>
+                <span className="block break-words">
+                  {intl.formatMessage(
+                    { id: "settings.modelProvider.native.catalogIssue" },
+                    { reason: issue.code },
+                  )}
+                </span>
+              </div>
+            ))}
           {renderedFooterActions.length > 0 ? (
             <div className="sticky bottom-0 z-10 bg-menu after:absolute after:left-0 after:top-full after:h-1 after:w-full after:bg-menu after:content-['']">
               {hasSelectableModel ? <DropdownMenuSeparator /> : null}

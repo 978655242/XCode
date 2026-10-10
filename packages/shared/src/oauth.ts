@@ -66,6 +66,9 @@ export interface OAuthProviderMeta {
   order: number;
 }
 
+// XCODE: 主身份和独立官方连接共享回调通道，但不共享身份 owner。
+export type OAuthPurpose = "primary-account" | "official-cloud";
+
 /** 发起 OAuth 请求 */
 export interface OAuthStartRequest {
   provider: OAuthProviderId;
@@ -74,6 +77,7 @@ export interface OAuthStartRequest {
 /** 发起 OAuth 返回 */
 export interface OAuthStartResponse {
   provider: OAuthProviderId;
+  purpose: OAuthPurpose;
   authorizeUrl: string;
   state: string;
 }
@@ -112,7 +116,14 @@ export type OAuthCallbackResult =
 /** Main 进程路由 deep link 时使用的 state 上报结构 */
 export interface OAuthStateRegistration {
   state: string;
-  provider?: OAuthProviderId;
+  provider: OAuthProviderId;
+  purpose: OAuthPurpose;
+}
+
+export interface OAuthCallbackEvent {
+  url: string;
+  provider: OAuthProviderId;
+  purpose: OAuthPurpose;
 }
 
 /** 归一化后的回调参数 */
@@ -147,7 +158,8 @@ export interface UserInfo {
 export type OAuthCachedSessionRestoreResult =
   | { status: "authenticated"; userInfo: UserInfo }
   | { status: "signed-out" }
-  | { status: "reauthentication-required"; reason: "jwt-expired" };
+  | { status: "reauthentication-required"; reason: "jwt-expired" }
+  | { status: "unavailable"; reason: "credential-recovery-required" | "backend-unavailable" };
 
 /** Host 在检测到 ZCode JWT 失效后通知 Renderer 展示确认并重启。 */
 export const ZCODE_JWT_INVALID_BROADCAST_CHANNEL = "auth:zcode-jwt-invalid";

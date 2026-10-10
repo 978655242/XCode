@@ -8,6 +8,8 @@ import type {
 import type { IUsageStatsService } from "@zcode/services";
 import { useOptionalBaseWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
 import { useStableAccountAccess } from "@/hooks/useStableAccountAccess.js";
+import { useUsageAccountScope } from "@/hooks/useUsageAccountScope.js";
+import { selectUsageAccountState } from "@/lib/usageAccountScope.js";
 import { logger } from "@/logger.js";
 import {
   readCachedUsageEntitlementSnapshot,
@@ -31,12 +33,14 @@ import {
 } from "@/lib/usageEntitlementRefreshPolicy.js";
 
 interface UsageEntitlementState {
+  scopeKey: string | null;
   snapshot: UsageEntitlementSnapshot | null;
   loading: boolean;
   error: string | null;
 }
 
 const INITIAL_STATE: UsageEntitlementState = {
+  scopeKey: null,
   snapshot: null,
   loading: false,
   error: null,
@@ -160,7 +164,11 @@ export function useUsageEntitlementWithService(
   const latestSnapshotRef = useRef<UsageEntitlementSnapshot | null>(null);
   // Web/SSR 场景可能只渲染侧栏或设置入口，没有挂载 ServiceProvider。
   // 这里降级为空快照，避免 Usage banner 因服务上下文缺失阻断整棵 UI。
-  const enabled = (options.enabled ?? true) && Boolean(usageStatsService);
+  const accountScope = useUsageAccountScope(options.preferredProviderId, options.accountAccess);
+  const enabled =
+    (options.enabled ?? true) &&
+    Boolean(usageStatsService) &&
+    (!accountScope.native || Boolean(accountScope.ownerKey));
   const includeSubscription = options.includeSubscription ?? false;
   const preferredProviderId = options.preferredProviderId;
   // Provider Settings schema 每次解析会产生等值新对象，不能因引用变化重启权益请求。
@@ -168,7 +176,8 @@ export function useUsageEntitlementWithService(
   const allowDisabledPreferredProvider = options.allowDisabledPreferredProvider === true;
   const requirePreferredProvider = options.requirePreferredProvider === true;
   const allowEnvApiKey = options.allowEnvApiKey;
-  const cacheKey = options.cacheKey?.trim() ?? "";
+  // XCODE: Native 不读写旧的无 owner localStorage；其短期缓存只存在当前主登录命名空间。
+  const cacheKey = accountScope.native ? "" : (options.cacheKey?.trim() ?? "");
   const refreshOnMount = options.refreshOnMount ?? false;
   const mountRefreshReason = options.mountRefreshReason ?? "initial";
   const requestOptions = useMemo(
@@ -195,13 +204,23 @@ export function useUsageEntitlementWithService(
       buildEntitlementFreshnessKey({
         cacheKey,
         options: requestOptions,
+        ownerKey: accountScope.ownerKey,
       }),
-    [cacheKey, requestOptions],
+    [cacheKey, requestOptions, accountScope.ownerKey],
   );
+  const activeScopeRef = useRef<string | null>(null);
+  const activeServiceRef = useRef(usageStatsService);
+  activeScopeRef.current = enabled ? freshnessKey : null;
+  activeServiceRef.current = usageStatsService;
 
   const refresh = useCallback(
     async (refreshOptions: UsageEntitlementRefreshOptions = {}) => {
-      if (!enabled || !usageStatsService) {
+      if (
+        !enabled ||
+        !usageStatsService ||
+        activeScopeRef.current !== freshnessKey ||
+        activeServiceRef.current !== usageStatsService
+      ) {
         return;
       }
       const reason = refreshOptions.reason ?? "manual";
@@ -227,6 +246,7 @@ export function useUsageEntitlementWithService(
               : null;
       if (sharedSnapshot) {
         setState({
+          scopeKey: freshnessKey,
           snapshot: sharedSnapshot,
           loading: false,
           error: null,
@@ -285,10 +305,14 @@ export function useUsageEntitlementWithService(
         freshnessKey,
       });
       setState((current) => ({
-        snapshot: current.snapshot,
+        snapshot: current.scopeKey === freshnessKey ? current.snapshot : null,
+        scopeKey: freshnessKey,
         // Plan Card 已有短 TTL 缓存时，进入 provider 只需要后台校正权益。
         // 继续把 loading 置 true 会让卡片从缓存态跳回 checking，用户每次进入都像重新加载。
-        loading: refreshOptions.silent && current.snapshot ? false : true,
+        loading:
+          refreshOptions.silent && current.scopeKey === freshnessKey && current.snapshot
+            ? false
+            : true,
         error: null,
       }));
 
@@ -301,7 +325,12 @@ export function useUsageEntitlementWithService(
               ? { ...requestOptions, invalidateBalanceCache: true }
               : requestOptions,
         });
-        if (requestVersionRef.current !== requestVersion || !sharedRequest.isCurrent()) {
+        if (
+          requestVersionRef.current !== requestVersion ||
+          !sharedRequest.isCurrent() ||
+          activeScopeRef.current !== freshnessKey ||
+          activeServiceRef.current !== usageStatsService
+        ) {
           return;
         }
         publishSharedEntitlementSnapshot({
@@ -320,13 +349,19 @@ export function useUsageEntitlementWithService(
         });
         latestSnapshotRef.current = snapshot;
         setState({
+          scopeKey: freshnessKey,
           snapshot,
           loading: false,
           error: null,
         });
         writeCachedUsageEntitlementSnapshot({ cacheKey, snapshot });
       } catch (error) {
-        if (requestVersionRef.current !== requestVersion || !sharedRequest.isCurrent()) {
+        if (
+          requestVersionRef.current !== requestVersion ||
+          !sharedRequest.isCurrent() ||
+          activeScopeRef.current !== freshnessKey ||
+          activeServiceRef.current !== usageStatsService
+        ) {
           return;
         }
         recordSharedEntitlementFailure({
@@ -346,10 +381,12 @@ export function useUsageEntitlementWithService(
         }
         setState((current) => {
           if (
+            current.scopeKey === freshnessKey &&
             current.snapshot &&
             (refreshOptions.silent || current.snapshot.subscription?.details.length)
           ) {
             return {
+              scopeKey: freshnessKey,
               // 后台刷新或已确认订阅的手动刷新失败时，保留上次成功结果。
               // 否则网络抖动会把 Plan Card 从可用状态打回空态/错误态。
               snapshot: current.snapshot,
@@ -358,6 +395,7 @@ export function useUsageEntitlementWithService(
             };
           }
           return {
+            scopeKey: freshnessKey,
             // 切换 BigModel/Z.AI 后如果新 provider 查询失败，继续保留旧 snapshot 会让 banner/浮窗显示上一家供应商。
             // 出错时清空快照，避免用过期品牌和额度误导用户。
             snapshot: null,
@@ -378,8 +416,14 @@ export function useUsageEntitlementWithService(
       usageStatsService,
       freshnessKey,
       listener: (snapshot, error) => {
+        if (
+          activeScopeRef.current !== freshnessKey ||
+          activeServiceRef.current !== usageStatsService
+        )
+          return;
         latestSnapshotRef.current = snapshot;
         setState({
+          scopeKey: freshnessKey,
           snapshot,
           loading: false,
           error: error ?? null,
@@ -390,7 +434,9 @@ export function useUsageEntitlementWithService(
 
   useEffect(() => {
     if (!enabled) {
+      requestVersionRef.current += 1;
       setState({
+        scopeKey: null,
         // Coding Plan 缺少 API Key 或切换供应商时会临时禁用查询。
         // 保留上一轮 snapshot 会让 UI 继续显示旧账号的套餐状态，并诱发无 key 的入口被误判为可查。
         snapshot: null,
@@ -423,6 +469,7 @@ export function useUsageEntitlementWithService(
       // 先用同 provider 指纹下的短 TTL 缓存回显，再由 refresh 后台校正真实权益。
       setState({
         snapshot: initialSnapshot,
+        scopeKey: freshnessKey,
         loading: false,
         error:
           usageStatsService && hasSharedEntitlementFailure({ usageStatsService, freshnessKey })
@@ -450,9 +497,7 @@ export function useUsageEntitlementWithService(
   ]);
 
   return {
-    snapshot: state.snapshot,
-    loading: state.loading,
-    error: state.error,
+    ...selectUsageAccountState(state, freshnessKey, enabled),
     refresh,
   };
 }

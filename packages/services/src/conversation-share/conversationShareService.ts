@@ -32,6 +32,7 @@ import {
 import { Emitter } from "@zcode/rpc";
 
 import type { IZCodeAgentService } from "../zcode-agent/zcodeAgent.js";
+import { sessionCreateAdmission } from "../zcode-agent/zcodeAgent.js";
 import type { IZCodeSessionService } from "#src/zcode-session/zcodeSession.js";
 import { getConversationWorkspaceDir } from "#src/paths.js";
 import { createServiceLogger, type ServiceLogger } from "#src/logger/serviceLogger.js";
@@ -1321,13 +1322,19 @@ export class ConversationShareService implements IConversationShareService {
     input: ImportConversationShareInput,
     operationId: string,
   ): Promise<ImportConversationShareResult> {
+    const { client, scope, assertCurrentSync, assertCurrentOwner } =
+      await this.client.captureOperation();
     await this.completedImportsLoaded;
+    await assertCurrentOwner();
+    assertCurrentSync?.();
     const workspaceKey = workspaceKeyOf(input.targetWorkspacePath, input.targetWorkspaceIdentity);
     const workspaceKeyedShare = importDedupeKey(input.shareCode, workspaceKey);
     const key = `${workspaceKeyedShare}\u0000${input.clientRequestId}`;
     const completed =
       this.completedImports.get(key) ?? this.completedImportsByWorkspace.get(workspaceKeyedShare);
     if (completed) {
+      await assertCurrentOwner();
+      assertCurrentSync?.();
       this.logger.info(undefined, "conversation share import reused", {
         operationId,
         phase: "complete",
@@ -1337,15 +1344,31 @@ export class ConversationShareService implements IConversationShareService {
     const inFlight =
       this.inFlightImports.get(key) ?? this.inFlightImportsByWorkspace.get(workspaceKeyedShare);
     if (inFlight) {
-      return inFlight;
+      const result = await inFlight;
+      await assertCurrentOwner();
+      assertCurrentSync?.();
+      return result;
     }
-    const promise = this.importShareInternal(input, operationId)
-      .then((result) => {
+    const promise = this.importShareInternal(
+      input,
+      operationId,
+      client,
+      scope,
+      assertCurrentSync,
+      assertCurrentOwner,
+    )
+      .then(async (result) => {
+        await assertCurrentOwner();
+        assertCurrentSync?.();
         this.completedImports.set(key, result);
         this.completedImportsByWorkspace.set(workspaceKeyedShare, result);
         return this.persistCompletedImportIndex()
           .catch(() => undefined)
-          .then(() => result);
+          .then(async () => {
+            await assertCurrentOwner();
+            assertCurrentSync?.();
+            return result;
+          });
       })
       .finally(() => {
         this.inFlightImports.delete(key);
@@ -1370,6 +1393,10 @@ export class ConversationShareService implements IConversationShareService {
   private async importShareInternal(
     input: ImportConversationShareInput,
     operationId: string,
+    client: ConversationShareHttpClient,
+    scope: string | undefined,
+    assertCurrentSync: (() => void) | undefined,
+    assertCurrentOwner: () => Promise<void>,
   ): Promise<ImportConversationShareResult> {
     if (!this.zcodeSessionService) {
       throwServiceError("feature_disabled", "Conversation share import is unavailable");
@@ -1377,7 +1404,11 @@ export class ConversationShareService implements IConversationShareService {
     // 两个摘要已在 ConversationShareHttpClient.getContinuation 里对服务端原样发来的值复核过。
     // 不能在这里拿解析产物重算：zod 默认剥掉未知字段，那样发布端加一个 optional 字段就会让
     // 所有老客户端算出不同的哈希，把纯 additive 的演进误报成「分享文件校验失败」。
-    const continuation = await this.getContinuation(input);
+    const continuation = await client.getContinuation(input.shareCode, {
+      schema_version: 1,
+      client_request_id: input.clientRequestId,
+    });
+    await assertCurrentOwner();
 
     const remoteTarget =
       input.targetWorkspaceKind === "remote" || Boolean(input.targetWorkspaceIdentity);
@@ -1400,6 +1431,8 @@ export class ConversationShareService implements IConversationShareService {
     // sharedContextImportV2StateSchema 只接受规范的 /cn/share/<code>；durable 记录也不该
     // 存随界面语言变化的值（用户之后切语言，存的就错了）。本地化只在展示时做。
     const shareUrl = `${this.shareWebUrl}/${encodeURIComponent(input.shareCode)}`;
+    await assertCurrentOwner();
+    assertCurrentSync?.();
     await mkdir(shareRoot, { recursive: true });
     try {
       const existingMarker = JSON.parse(await readFile(markerPath, "utf8")) as Record<
@@ -1411,7 +1444,9 @@ export class ConversationShareService implements IConversationShareService {
         typeof existingMarker.sessionId === "string" &&
         existingMarker.sessionId.startsWith("share-import-")
       ) {
+        await assertCurrentOwner();
         const sessions = await this.zcodeSessionService.listSessions({ workspacePath, limit: 100 });
+        await assertCurrentOwner();
         const existingSession = sessions.find(
           (item) => item.sessionId === existingMarker.sessionId,
         );
@@ -1430,15 +1465,19 @@ export class ConversationShareService implements IConversationShareService {
             reused: true,
           };
         }
+        assertCurrentSync?.();
         await rm(importRoot, { recursive: true, force: true });
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof ConversationShareClientError) throw error;
       // 没有 marker 或 marker 不完整时继续创建；非本次 share 的目录不会被删除。
     }
+    await assertCurrentOwner();
     // 语义是「失败时是否还允许删 importRoot」，不是「我创建了它」：session 一旦提交
     // 就必须解除武装（见下方 createSession 之后）。
     let importRootCleanupArmed = false;
     try {
+      assertCurrentSync?.();
       await mkdir(importRoot);
       importRootCleanupArmed = true;
     } catch (error) {
@@ -1448,6 +1487,8 @@ export class ConversationShareService implements IConversationShareService {
       throw error;
     }
     try {
+      await assertCurrentOwner();
+      assertCurrentSync?.();
       await writeFile(
         markerPath,
         JSON.stringify({
@@ -1469,6 +1510,8 @@ export class ConversationShareService implements IConversationShareService {
       throw error;
     }
     try {
+      await assertCurrentOwner();
+      assertCurrentSync?.();
       await mkdir(stagingPath);
       const installedArtifacts: Array<{
         artifactId: string;
@@ -1480,6 +1523,8 @@ export class ConversationShareService implements IConversationShareService {
       const usedNames = new Set<string>();
       let completedArtifacts = 0;
       this.reportImportProgress(operationId, "downloading", 0, continuation.artifacts.length);
+      await assertCurrentOwner();
+      assertCurrentSync?.();
       await writeFile(
         markerPath,
         JSON.stringify({
@@ -1497,7 +1542,10 @@ export class ConversationShareService implements IConversationShareService {
         "utf8",
       );
       for (const artifact of continuation.artifacts) {
+        await assertCurrentOwner();
+        assertCurrentSync?.();
         const { bytes, responseMimeType } = await this.downloadArtifactBytes(artifact);
+        await assertCurrentOwner();
         const sha256 = createHash("sha256").update(bytes).digest("hex");
         if (bytes.byteLength !== artifact.size_bytes || sha256 !== artifact.sha256) {
           throw new ConversationShareServiceError(
@@ -1543,6 +1591,8 @@ export class ConversationShareService implements IConversationShareService {
           artifact.artifact_id,
           usedNames,
         );
+        await assertCurrentOwner();
+        assertCurrentSync?.();
         await writeFile(join(stagingPath, fileName), bytes);
         installedArtifacts.push({
           artifactId: artifact.artifact_id,
@@ -1559,12 +1609,14 @@ export class ConversationShareService implements IConversationShareService {
           continuation.artifacts.length,
         );
       }
+      await assertCurrentOwner();
       this.reportImportProgress(
         operationId,
         "installing",
         completedArtifacts,
         continuation.artifacts.length,
       );
+      assertCurrentSync?.();
       await writeFile(
         markerPath,
         JSON.stringify({
@@ -1581,12 +1633,16 @@ export class ConversationShareService implements IConversationShareService {
         }),
         "utf8",
       );
+      await assertCurrentOwner();
+      assertCurrentSync?.();
       await rename(stagingPath, finalArtifactsPath);
       // 只读块要能永久离线打开：分享可能过期或尚未上线，渲染时不能回源，
       // 所以把公开 rows 与结果物元数据一起落在 importRoot 内，随失败清理一起删除。
       //
       // 写 rawRows 而不是解析产物：本端认不出的行和字段照样存下来，用户升级之后就能看到，
       // 不会因为导入当天的版本较旧而被永久抹掉。
+      await assertCurrentOwner();
+      assertCurrentSync?.();
       await writeFile(
         conversationPath,
         JSON.stringify({
@@ -1623,6 +1679,8 @@ export class ConversationShareService implements IConversationShareService {
         completedArtifacts,
         continuation.artifacts.length,
       );
+      await assertCurrentOwner();
+      assertCurrentSync?.();
       await writeFile(
         markerPath,
         JSON.stringify({
@@ -1639,7 +1697,21 @@ export class ConversationShareService implements IConversationShareService {
         }),
         "utf8",
       );
+      await assertCurrentOwner();
       const snapshot = await this.zcodeSessionService.createSession({
+        // XCODE: 栅栏随导入进入实际 worker 准入；提交后错误不能删除会话引用的附件。
+        [sessionCreateAdmission]: {
+          assertCurrent: assertCurrentOwner,
+          scope,
+          assertCurrentSync,
+          onCommitted: () => {
+            importRootCleanupArmed = false;
+          },
+          // XCODE: RPC 断链不能证明未提交，保留 import-owned 附件而不伪造成功。
+          onPersistenceUncertain: () => {
+            importRootCleanupArmed = false;
+          },
+        },
         workspacePath,
         ...(workspaceIdentity ? { workspaceIdentity } : {}),
         sessionId,
@@ -1672,6 +1744,8 @@ export class ConversationShareService implements IConversationShareService {
       // 用户就拿到一个引用缺失文件的会话。失败半径必须止于 createSession 之前，
       // 所以这里立刻解除清理武装；marker 是纯痕迹文件，删不掉也不该让导入失败。
       importRootCleanupArmed = false;
+      await assertCurrentOwner();
+      assertCurrentSync?.();
       await rm(markerPath, { force: true }).catch(() => undefined);
       this.reportImportProgress(
         operationId,
@@ -1840,6 +1914,7 @@ export class ConversationShareService implements IConversationShareService {
     operationId: string,
     agentService: ConversationShareAgentService,
   ) {
+    const { client, assertCurrentSync, assertCurrentOwner } = await this.client.captureOperation();
     this.logger.info(undefined, "conversation share publish started", {
       operationId,
       accessMode: input.accessMode,
@@ -1847,7 +1922,15 @@ export class ConversationShareService implements IConversationShareService {
       remoteWorkspace: Boolean(input.workspaceIdentity || input.remoteSessionId),
     });
     try {
-      const result = await this.publishInternal(input, operationId, agentService);
+      const result = await this.publishInternal(
+        input,
+        operationId,
+        agentService,
+        client,
+        assertCurrentOwner,
+      );
+      await assertCurrentOwner();
+      assertCurrentSync?.();
       this.logger.info(undefined, "conversation share publish completed", {
         operationId,
         phase: "complete",
@@ -1886,8 +1969,10 @@ export class ConversationShareService implements IConversationShareService {
 
   private async publishInternal(
     input: PublishTextConversationInput,
-    operationId?: string,
-    agentService: ConversationShareAgentService = this.zcodeAgentService,
+    operationId: string,
+    agentService: ConversationShareAgentService,
+    client: ConversationShareHttpClient,
+    assertCurrentOwner: () => Promise<void>,
   ): Promise<ConversationShareRecord> {
     const report = (
       phase: ConversationSharePublishProgress["phase"],
@@ -1929,12 +2014,14 @@ export class ConversationShareService implements IConversationShareService {
       throwServiceError("invalid_selection", "At least one conversation row must be selected");
     }
 
-    const capabilities = await this.client.getCapabilities();
+    await assertCurrentOwner();
+    const capabilities = await client.getCapabilities();
     if (!capabilities.access_modes.includes(input.accessMode)) {
       throwServiceError("feature_disabled", "Requested share access mode is unavailable");
     }
 
     const conversation = await this.loadAllRows(input, agentService);
+    await assertCurrentOwner();
     const selected = selectRows(conversation.rows, input.selection);
     // 无法公开承载的已定稿结构先降级：删字段或丢整行，换成非阻断提示，
     // 后续所有投影与产物发现都基于这份 sanitized rows。
@@ -1990,6 +2077,7 @@ export class ConversationShareService implements IConversationShareService {
       preflightPreviewSnapshots,
       currentCapabilitiesFingerprint: capabilitiesFingerprint(capabilities),
     });
+    await assertCurrentOwner();
     if (artifactSnapshot.issues.length > 0) {
       throw new ConversationShareServiceError(
         "artifact_not_allowed",
@@ -2059,7 +2147,8 @@ export class ConversationShareService implements IConversationShareService {
     }
 
     const payloadSha256 = sha256ConversationShareJson(confirmRequest);
-    const preparation = await this.client.createPreparation({
+    await assertCurrentOwner();
+    const preparation = await client.createPreparation({
       client_request_id: input.clientRequestId,
       title: input.title.trim(),
       schema_version: 1,
@@ -2067,6 +2156,7 @@ export class ConversationShareService implements IConversationShareService {
       payload_sha256: payloadSha256,
       artifact_count: publicProjection.artifacts.length,
     });
+    await assertCurrentOwner();
     if (preparation.status === "confirmed") {
       report("complete", publicProjection.artifacts.length, publicProjection.artifacts.length);
       return localizePublishedShare(preparation.share, input.locale);
@@ -2081,13 +2171,15 @@ export class ConversationShareService implements IConversationShareService {
           "Conversation artifact bytes are missing from the publication snapshot",
         );
       }
-      const upload = await this.client.uploadArtifact(
+      await assertCurrentOwner();
+      const upload = await client.uploadArtifact(
         preparation.preparation_id,
         artifact.descriptor,
         new Blob([Uint8Array.from(bytes).buffer], {
           type: artifact.descriptor.mime_type,
         }),
       );
+      await assertCurrentOwner();
       if (
         upload.artifact_id !== artifact.descriptor.artifact_id ||
         upload.size_bytes !== artifact.descriptor.size_bytes ||
@@ -2116,7 +2208,8 @@ export class ConversationShareService implements IConversationShareService {
       report("uploading", uploadedArtifacts, publicProjection.artifacts.length);
     }
     report("checking", uploadedArtifacts, publicProjection.artifacts.length);
-    const share = await this.confirmUntilReady(preparation.preparation_id, confirmRequest);
+    const share = await this.confirmUntilReady(preparation.preparation_id, confirmRequest, client);
+    await assertCurrentOwner();
     report("complete", uploadedArtifacts, publicProjection.artifacts.length);
     // 服务端目前不接收 locale，只能把下发的链接改写到界面语言对应的站点；
     // localizeConversationShareUrl 只认已知分享路径形状，其它形状原样保留。
@@ -2330,6 +2423,7 @@ export class ConversationShareService implements IConversationShareService {
   private async confirmUntilReady(
     preparationId: string,
     request: ConversationShareConfirmRequest,
+    client: ConversationShareHttpClient,
   ): Promise<ConversationShareRecord> {
     let deadline: number | undefined;
     let lastRequestId: string | undefined;
@@ -2337,7 +2431,7 @@ export class ConversationShareService implements IConversationShareService {
     let lastCode: number | undefined;
     while (true) {
       try {
-        return await this.client.confirm(preparationId, request);
+        return await client.confirm(preparationId, request);
       } catch (error) {
         if (
           !(error instanceof ConversationShareClientError) ||

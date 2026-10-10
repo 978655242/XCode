@@ -7,7 +7,7 @@ import type {
   MigrateLegacyCommonMcpResult,
   SaveCliMcpToUserDirectoryRequest,
 } from "./index.js";
-import type { OAuthStateRegistration } from "./oauth.js";
+import type { OAuthCallbackEvent, OAuthStateRegistration } from "./oauth.js";
 import type { AppSettings, Locale } from "./protocol.js";
 import type { StorageCleanRequest, StorageCleanResult, StorageUsageSnapshot } from "./storage.js";
 import type {
@@ -114,6 +114,7 @@ export const ServiceChannels = {
   UsageStats: "usage-stats",
   /** Coding Plan 订阅购买服务 */
   CodingPlanSubscription: "coding-plan-subscription",
+  OfficialCloudConnection: "official-cloud-connection",
   ClientConfig: "client-config",
   /** ZCode 客户端场景配置服务 */
   ClientScenes: "client-scenes",
@@ -557,6 +558,8 @@ export const HostMessageTypes = {
   BrowserExecuteResult: "browser-execute-result",
   /** main → host：本地视频 canonical path 授权结果 */
   LocalMediaPreviewPathAuthorizeResult: "local-media-preview-path-authorize-result",
+  /** XCODE: Main → Host：精确私有 handoff 已登记后才能交给 Renderer。 */
+  PrivatePlanWebHandoffAuthorizeResult: "private-plan-web-handoff-authorize-result",
   /** Main → Host：全局前台 ZCode 窗口派生的 producer focus fact。 */
   CuaPipFocusChanged: "cua-pip-focus-changed",
   /** main → host：要求 Host 现读本地 Source，并同步指定 Remote Environment。 */
@@ -569,6 +572,10 @@ export const HostMessageTypes = {
 /** host process → main process 的反馈消息类型 */
 export const HostResponseTypes = {
   DatabaseStartupState: "database-startup-state",
+  /** Host → Main：非秘密主身份分区生命周期；Renderer 不能发布。 */
+  PrivateAccountOwnerChanged: "private-account-owner-changed",
+  /** XCODE: Host → Main：登记当前 owner 的一次性只读 URL，不授权 Renderer 自行登记。 */
+  PrivatePlanWebHandoffAuthorizeRequest: "private-plan-web-handoff-authorize-request",
   /** window Host → main：按 requestId 上报远程连接过程日志 */
   RemoteWorkspaceConnectionLog: "remote-workspace-connection-log",
   /** window Host → main：远程 logical session 已建立 */
@@ -901,7 +908,7 @@ export interface PlatformChannelMap {
     response: void;
   };
   [PlatformChannels.OAuthCallback]: {
-    request: string;
+    request: OAuthCallbackEvent;
     response: void;
   };
   [PlatformChannels.PaymentCallback]: {

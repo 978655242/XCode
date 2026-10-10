@@ -534,6 +534,7 @@ export class BigModelUsageQuotaProvider {
     );
     const data = readCodingPlanResetEnvelopeData(payload, codingPlanResetStatusDataSchema);
     return {
+      mode: "official-windows",
       availableFiveHourResets: data.available_five_hour_resets.map((item) => ({
         expireAt: item.expire_at,
       })),

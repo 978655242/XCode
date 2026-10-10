@@ -17,9 +17,11 @@ import {
   NodePersonalProviderConfigRepository,
   type PersonalProviderConfigRecoveryEvent,
 } from "./personal-provider-config-repository.js";
+import { createNewApiProviderAnchors } from "./new-api-provider-anchors.js";
 
 export interface NodeProviderConfigRuntimeOptions {
   readonly zcodeBuiltinFilePath: string;
+  readonly newApiOrigin?: string;
   readonly zcodeBuiltinActiveFilePath?: string;
   readonly zcodeBuiltinRemote?: Omit<ZCodeBuiltinRemoteSynchronizerOptions, "source">;
   readonly zcodeBuiltinEnvironment?: Omit<
@@ -83,8 +85,24 @@ export class NodeProviderConfigRuntime {
           }
         : {}),
     });
+    const builtinSource = this.#zcodeBuiltinSource;
+    const anchors = options.newApiOrigin
+      ? createNewApiProviderAnchors(options.newApiOrigin)
+      : undefined;
     this.configService = new ProviderConfigService({
-      zcodeBuiltinSource: this.#zcodeBuiltinSource,
+      zcodeBuiltinSource: anchors
+        ? {
+            read: async () => {
+              const snapshot = await builtinSource.read();
+              return {
+                ...snapshot,
+                revision: `${snapshot.revision}:native:${options.newApiOrigin}`,
+                providers: snapshot.providers.overlay(anchors),
+              };
+            },
+            onDidChange: (listener) => builtinSource.onDidChange(listener),
+          }
+        : builtinSource,
       personalRepository: this.#personalRepository,
     });
   }

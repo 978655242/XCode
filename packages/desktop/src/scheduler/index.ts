@@ -13,6 +13,7 @@ import {
   computeAutomationNextRunAt,
   isOneShotAutomation,
   OffPeakTaskRepo,
+  type OffPeakOwnerFence,
 } from "@zcode/services/node";
 import {
   resolveWorkspaceKey,
@@ -24,6 +25,11 @@ import {
 import type { MainToSchedulerMessage, SchedulerToMainMessage } from "./schedulerProtocol.js";
 import { settleManualClaimForDispatchResult } from "./manualClaimRelease.js";
 import { settleOffPeakDispatchResult } from "./offPeakDispatchSettlement.js";
+import {
+  captureOffPeakOwnerFence,
+  requiresOffPeakOwnerAdmission,
+  updateOffPeakOwnerAdmission,
+} from "./offPeakOwnerAdmission.js";
 import {
   startSchedulerResourceTelemetry,
   type SchedulerResourceTelemetry,
@@ -50,12 +56,13 @@ const repo = new AutomationRepo();
 const inFlight = new Map<string, InFlight>();
 
 // ---- 闲时任务（off-peak）----
-const offPeakRepo = new OffPeakTaskRepo();
+const offPeakRepo = new OffPeakTaskRepo(undefined, undefined, async () =>
+  captureOffPeakOwnerFence(),
+);
 /** 进程内退避表：offPeakTaskId → 下次允许派发时间/已失败次数。scheduler 重启即重置，无害。 */
 const offPeakRetryAt = new Map<string, number>();
 const offPeakRetryAttempts = new Map<string, number>();
-/** 在途派发集合：仅用于退出时释放认领；迟到结果凭 offPeakTaskId 即可结算，不依赖它。 */
-const offPeakInFlight = new Set<string>();
+const offPeakInFlight = new Map<string, OffPeakOwnerFence>();
 
 let ticking = false;
 let tickRequested = false;
@@ -100,8 +107,10 @@ async function tick(): Promise<void> {
         for (const manualRun of manualRuns) {
           await handleClaimedManual(manualRun.automation, manualRun.run);
         }
-        const offPeakClaimed = await offPeakRepo.claimDue(now);
+        const offPeakFence = captureOffPeakOwnerFence();
+        const offPeakClaimed = await offPeakRepo.claimDue(now, offPeakFence);
         for (const task of offPeakClaimed) {
+          offPeakFence.assertCurrentSync?.();
           await handleOffPeakClaimed(task, now);
         }
         // keep-awake：上报执行中计数，main 据此 + 设置决定 powerSaveBlocker。
@@ -238,15 +247,20 @@ async function reportOffPeakActiveCount(): Promise<void> {
  * 两次写，任务数小、WAL 下开销可忽略——若退避任务成规模再把退避下沉进 claimDue）。
  */
 async function handleOffPeakClaimed(task: ZCodeOffPeakTask, now: number): Promise<void> {
+  const ownerKey = await offPeakRepo.getNativeOwnerKey(task.offPeakTaskId);
+  const fence = captureOffPeakOwnerFence(ownerKey);
+  await offPeakRepo.assertTaskOwner(task.offPeakTaskId, fence);
+  fence.assertCurrentSync?.();
   const retryAt = offPeakRetryAt.get(task.offPeakTaskId) ?? 0;
   if (retryAt > now) {
-    await offPeakRepo.releaseClaim(task.offPeakTaskId, { now });
+    await offPeakRepo.releaseClaim(task.offPeakTaskId, { now, assertCurrent: fence });
     return;
   }
-  offPeakInFlight.add(task.offPeakTaskId);
+  offPeakInFlight.set(task.offPeakTaskId, fence);
   const request: SchedulerToMainMessage = {
     type: "offpeak-dispatch-request",
     offPeakTaskId: task.offPeakTaskId,
+    ...(ownerKey ? { nativeOwnerKey: ownerKey } : {}),
     prompt: task.prompt,
     permissionMode: task.permissionMode,
     modelSelection: task.modelSelection,
@@ -256,6 +270,7 @@ async function handleOffPeakClaimed(task: ZCodeOffPeakTask, now: number): Promis
     workspacePath: task.workspacePath,
     ...(task.workspaceIdentity ? { workspaceIdentity: task.workspaceIdentity } : {}),
   };
+  fence.assertCurrentSync?.();
   parentPort?.postMessage(request);
   log("info", `off-peak dispatch requested task=${task.offPeakTaskId}`);
 }
@@ -344,9 +359,9 @@ async function dispose(): Promise<void> {
     }
   }
   inFlight.clear();
-  for (const offPeakTaskId of offPeakInFlight) {
+  for (const [offPeakTaskId, fence] of offPeakInFlight) {
     try {
-      await offPeakRepo.releaseClaim(offPeakTaskId);
+      await offPeakRepo.releaseClaim(offPeakTaskId, { assertCurrent: fence });
     } catch {
       // 忽略：退出路径尽力而为。
     }
@@ -388,6 +403,8 @@ parentPort?.on("message", (event: Electron.MessageEvent) => {
     return;
   }
   if (msg.type === "offpeak-dispatch-result") {
+    const fence = offPeakInFlight.get(msg.offPeakTaskId);
+    if (requiresOffPeakOwnerAdmission() && !fence) return;
     offPeakInFlight.delete(msg.offPeakTaskId);
     void settleOffPeakDispatchResult(
       {
@@ -396,6 +413,7 @@ parentPort?.on("message", (event: Electron.MessageEvent) => {
         retryAttempts: offPeakRetryAttempts,
         now: Date.now,
         log,
+        assertCurrent: fence,
       },
       msg,
     ).catch((error) => {
@@ -407,6 +425,7 @@ parentPort?.on("message", (event: Electron.MessageEvent) => {
     return;
   }
   if (msg.type === "scheduler-wake") {
+    updateOffPeakOwnerAdmission(msg.nativeOwnerKeys);
     log("info", `manual run wake requested automation=${msg.automationId}`);
     requestTick();
   }

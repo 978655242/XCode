@@ -46,6 +46,10 @@ import {
 } from "./resourceManagerWindow.js";
 import { resolveHostResourceUsageResult } from "./resourceManagerHostSampling.js";
 import {
+  authorizeNativePlanWebHandoff,
+  setNativePlanWebviewOwner,
+} from "./nativePlanWebviewManager.js";
+import {
   buildHostProcessEnv,
   hostModulePath,
   resolveBundledGlmBinaryPath,
@@ -157,6 +161,8 @@ export function spawnHostProcess(
   initMessage: HostInitMessage,
   dependencies: {
     hostProcessLocalEnv: Record<string, string>;
+    /** XCODE: Main safeStorage解锁，只定向传给该窗口Local Host。 */
+    privateCredentialSecret?: string;
     /** Main 进程已完成服务端灰度裁决；Host 只消费这个快照，不自行请求或分桶。 */
     desktopContextPromptEnabled?: () => boolean;
     logger: {
@@ -229,7 +235,10 @@ export function spawnHostProcess(
     /** host 中 manual run 落库后请求 main 立即唤醒 scheduler。 */
     onCronSchedulerWakeRequested?: (automationId: string) => void;
     /** host 中闲时任务翻 schedulable 后请求 main 立即唤醒 scheduler。 */
-    onOffPeakSchedulerWakeRequested?: (offPeakTaskId?: string) => void;
+    onOffPeakSchedulerWakeRequested?: (
+      offPeakTaskId?: string,
+      nativeOwnerKey?: string | null,
+    ) => void;
     // browser-use：main 用 WebContentsView+CDP 执行一条命令。实现由宿主注入；缺省则 backend_unavailable。
     handleBrowserExecuteRequest?: (params: {
       win: BrowserWindow;
@@ -251,6 +260,13 @@ export function spawnHostProcess(
   },
   options?: SpawnHostProcessOptions,
 ): ElectronUtilityProcess {
+  if (initMessage.type === HostMessageTypes.InitLocal) {
+    // XCODE: 新 Host 的 generation 可重新从零开始，替换前先同步撤销旧窗口交接准入。
+    void setNativePlanWebviewOwner(win.id, null).catch(() => {
+      dependencies.logger.warn("[native-plan-webview] Previous Host partition cleanup failed");
+    });
+    dependencies.onOffPeakSchedulerWakeRequested?.(undefined, null);
+  }
   const hostId = randomUUID();
   const glmBinaryPath = resolveBundledGlmBinaryPath();
   const execArgv = [
@@ -263,6 +279,9 @@ export function spawnHostProcess(
     env: {
       ...buildHostProcessEnv(dependencies.hostProcessLocalEnv),
       ...buildHostE2ECoverageEnv(),
+      ...(initMessage.type === HostMessageTypes.InitLocal && dependencies.privateCredentialSecret
+        ? { XCODE_PRIVATE_CREDENTIAL_SECRET: dependencies.privateCredentialSecret }
+        : {}),
       ZCODE_PROCESS_LABEL: label,
       // macOS-only: the Computer Use Helper launcher runs inside this forked host utilityProcess, whose
       // code-signing identity is a nested Electron helper (NOT dev.zcode.app). Publish THIS (main
@@ -313,6 +332,25 @@ export function spawnHostProcess(
 
     if (result.data.type === HostResponseTypes.DatabaseStartupState) {
       databaseStartupRelay.receive(result.data.state);
+      return;
+    }
+    if (result.data.type === HostResponseTypes.PrivateAccountOwnerChanged) {
+      if (dependencies.windowHostProcessMap.get(win.webContents.id) !== child) return;
+      void setNativePlanWebviewOwner(win.id, result.data.owner).catch(() => {
+        dependencies.logger.warn("[new-api] failed to clear private plan WebView partition");
+      });
+      return;
+    }
+    if (result.data.type === HostResponseTypes.PrivatePlanWebHandoffAuthorizeRequest) {
+      const request = result.data;
+      const ok =
+        dependencies.windowHostProcessMap.get(win.webContents.id) === child &&
+        authorizeNativePlanWebHandoff(win.id, request.handoff);
+      child.postMessage({
+        type: HostMessageTypes.PrivatePlanWebHandoffAuthorizeResult,
+        requestId: request.requestId,
+        ok,
+      });
       return;
     }
 
@@ -527,6 +565,7 @@ export function spawnHostProcess(
     }
 
     if (result.data.type === HostResponseTypes.OffPeakRunResult) {
+      if (dependencies.windowHostProcessMap.get(windowId) !== child) return;
       dependencies.onOffPeakRunResult?.({
         offPeakTaskId: result.data.offPeakTaskId,
         ok: result.data.ok,
@@ -544,7 +583,11 @@ export function spawnHostProcess(
     }
 
     if (result.data.type === HostResponseTypes.OffPeakSchedulerWakeRequest) {
-      dependencies.onOffPeakSchedulerWakeRequested?.(result.data.offPeakTaskId);
+      if (dependencies.windowHostProcessMap.get(windowId) !== child) return;
+      dependencies.onOffPeakSchedulerWakeRequested?.(
+        result.data.offPeakTaskId,
+        result.data.nativeOwnerKey,
+      );
       return;
     }
 
@@ -568,7 +611,6 @@ export function spawnHostProcess(
       });
       return;
     }
-
 
     if (result.data.type === HostResponseTypes.BotRemoteWorkspaceReconnectRequest) {
       const request = result.data;
@@ -752,8 +794,16 @@ export function spawnHostProcess(
 
   registerHostProcess(label, child);
 
+  win.once("closed", () => {
+    void setNativePlanWebviewOwner(win.id, null).catch(() => undefined);
+    dependencies.onOffPeakSchedulerWakeRequested?.(undefined, null);
+  });
   child.on("exit", (code) => {
     exitedHostProcesses.add(child);
+    if (dependencies.windowHostProcessMap.get(windowId) === child) {
+      void setNativePlanWebviewOwner(win.id, null).catch(() => undefined);
+      dependencies.onOffPeakSchedulerWakeRequested?.(undefined, null);
+    }
     // Host exit 是 fail-hidden 权威边界；不能依赖即将退出的 Host 再补发 inactive。
     dependencies.onCuaOperationStateSourceExited?.(child);
     hostLogRelay.flushRawLogs();

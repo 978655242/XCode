@@ -44,6 +44,8 @@ interface ZCodeProtocolClientRequestOptions {
   signal?: AbortSignal;
   trace?: ZCodeProtocolTrace;
   timeoutMs?: number;
+  /** XCODE: Host-only 同步准入/派发观察；storage/abort 准备失败不得标记已发送。 */
+  onDispatch?(): void;
 }
 
 const DEFAULT_ZCODE_PROTOCOL_REQUEST_TIMEOUT_MS = 3 * 60_000;
@@ -203,6 +205,7 @@ export class ZCodeProtocolClient implements IDisposable {
     }
 
     try {
+      options?.onDispatch?.();
       await this.transport.send({
         id,
         method,

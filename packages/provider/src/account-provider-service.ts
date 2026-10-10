@@ -1,4 +1,9 @@
-import { ProviderConfigMap } from "./config/index.js";
+import {
+  ProviderConfigMap,
+  ProviderConfig,
+  NewApiAccountAccessConfig,
+  ZhipuAccountAccessConfig,
+} from "./config/index.js";
 import type { AccountProviderStates } from "./account-provider-state.js";
 import {
   createFailClosedAccountProviderConfigSnapshot,
@@ -18,7 +23,12 @@ export interface AccountProviderResolveInput {
 
 export type AccountProviderResolver = (
   input: AccountProviderResolveInput,
-) => Promise<{ readonly providers: ProviderConfigMap; readonly states: AccountProviderStates }>;
+) => Promise<
+  { readonly providers: ProviderConfigMap; readonly states: AccountProviderStates } & Pick<
+    AccountProviderConfigSnapshot,
+    "modelConfigs" | "catalogIssues" | "owner" | "catalogRevision" | "authorizationRevision"
+  > & { readonly revision?: string }
+>;
 
 export interface AccountProviderServiceDependencies {
   readonly configSource: ProviderSource<ProviderConfigSnapshot>;
@@ -74,6 +84,73 @@ export class AccountProviderService implements ProviderSource<AccountProviderCon
     this.#assertNotDisposed();
     this.#ensureStarted();
     return this.#requestRefresh(reason);
+  }
+
+  /** Native read errors preserve independent cloud facts; primary owner changes revoke both. */
+  invalidateNative(ownerChanged = false): void {
+    this.#requestedGeneration++;
+    if (!this.#snapshot) return;
+    const snapshot = this.#snapshot;
+    this.#snapshot = createAccountProviderConfigSnapshot(
+      snapshot.basedOnZCodeBuiltinRevision,
+      snapshot.providers.mapConfigs((config) =>
+        config.access?.type === "new-api-account"
+          ? new ProviderConfig({
+              access: new NewApiAccountAccessConfig({ entitled: false }),
+              builtinModelIds: [],
+            })
+          : ownerChanged && config.access?.type === "zhipu-account"
+            ? new ProviderConfig({
+                access: new ZhipuAccountAccessConfig({ entitled: false }),
+                builtinModelIds: [],
+              })
+            : config,
+      ),
+      Object.fromEntries(
+        Object.entries(snapshot.states ?? {}).map(([id, state]) => {
+          const access = snapshot.providers.get(id)?.access;
+          return access?.type === "new-api-account" ||
+            (ownerChanged && access?.type === "zhipu-account")
+            ? [id, { availability: "unavailable", entitled: false, current: false }]
+            : [id, state];
+        }),
+      ),
+      {
+        owner: null,
+        modelConfigs: {},
+        catalogIssues: [],
+        revision: `${snapshot.revision}:native-invalidated:${ownerChanged ? "primary" : "catalog"}`,
+      },
+    );
+    for (const listener of this.#changeListeners) listener("native-owner-invalidated");
+  }
+  /** XCODE: 官方连接变更先撤销旧闲时执行，不等待 Native/官方目录网络读取。 */
+  invalidateOfficial(): void {
+    this.#requestedGeneration++;
+    if (!this.#snapshot) return;
+    // XCODE: Account 层是 entitled-only overlay，不含 mode；按账号类型撤销，不能漏掉官方旧 scope。
+    const snapshot = this.#snapshot;
+    this.#snapshot = Object.freeze({
+      ...snapshot,
+      revision: `${snapshot.revision}:official-invalidated:${this.#requestedGeneration}`,
+      providers: snapshot.providers.mapConfigs((config) =>
+        config.access?.type === "zhipu-account"
+          ? new ProviderConfig({
+              access: new ZhipuAccountAccessConfig({ entitled: false }),
+              builtinModelIds: [],
+            })
+          : config,
+      ),
+      states: Object.fromEntries(
+        Object.entries(snapshot.states ?? {}).map(([id, state]) => {
+          const access = snapshot.providers.get(id)?.access;
+          return access?.type === "zhipu-account"
+            ? [id, { availability: "unavailable", entitled: false, current: false }]
+            : [id, state];
+        }),
+      ),
+    });
+    for (const listener of this.#changeListeners) listener("official-owner-invalidated");
   }
 
   onDidChange(listener: (reason: string) => void): () => void {
@@ -156,7 +233,7 @@ export class AccountProviderService implements ProviderSource<AccountProviderCon
       try {
         config = await this.#configSource.read();
         const configuredProviders = config.zcodeBuiltinProviders;
-        const { providers, states } = await this.#resolve({
+        const { providers, states, ...details } = await this.#resolve({
           configRevision: config.zcodeBuiltinRevision,
           configuredProviders,
           previousProviders: latest?.providers ?? ProviderConfigMap.empty(),
@@ -172,6 +249,7 @@ export class AccountProviderService implements ProviderSource<AccountProviderCon
         this.#assertNotDisposed();
         if (
           this.#pendingReasons.size > 0 ||
+          generation !== this.#requestedGeneration ||
           currentConfig.zcodeBuiltinRevision !== config.zcodeBuiltinRevision
         ) {
           this.#pendingReasons.add("superseded-resolution");
@@ -182,6 +260,7 @@ export class AccountProviderService implements ProviderSource<AccountProviderCon
           basedOnZCodeBuiltinRevision,
           providers,
           states,
+          details,
         );
         const revision = next.revision;
         if (latest?.revision === revision) {
@@ -197,8 +276,20 @@ export class AccountProviderService implements ProviderSource<AccountProviderCon
           for (const listener of this.#changeListeners) listener(changeReason);
         }
       } catch (error) {
+        // XCODE: 旧 refresh 的异常不能复活 logout/disconnect 前的授权，也不能覆盖新 owner。
+        if (generation !== this.#requestedGeneration) {
+          latest = this.#snapshot;
+          if (latest) this.#resolveRefreshWaiters(generation, latest);
+          else this.#pendingReasons.add("superseded-resolution");
+          continue;
+        }
+        latest = this.#snapshot;
         const event = Object.freeze({ error, reasons: Object.freeze(reasons) });
         for (const listener of this.#errorListeners) listener(event);
+        if (latest?.owner) {
+          this.invalidateNative();
+          latest = this.#snapshot;
+        }
         if (!latest && config) {
           // 首次账号网络/凭据解析失败被当成整个 Registry 的 ready barrier，
           // 连不依赖账号的 API/Personal Provider 也无法启动。账号未知只应显式 fail-closed。

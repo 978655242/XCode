@@ -1,4 +1,34 @@
 /* eslint-disable max-lines -- 模型供应商 schema、迁移和运行时投影 helper 需要共享同一套类型边界，暂时集中在单文件避免契约分散。 */
+import { z } from "zod";
+
+export const NEW_API_MODEL_PROVIDER_IDS = {
+  "anthropic-messages": "account:new-api-anthropic-messages",
+  "openai-chat-completions": "account:new-api-openai-chat-completions",
+  "openai-responses": "account:new-api-openai-responses",
+} as const;
+
+export function isNewApiModelProviderId(id: string): boolean {
+  return Object.values(NEW_API_MODEL_PROVIDER_IDS).some((value) => value === id);
+}
+
+export const newApiCatalogIssueSchema = z
+  .object({
+    source: z.literal("new-api"),
+    modelId: z.string().min(1),
+    displayName: z.string(),
+    code: z.string().min(1),
+  })
+  .strict();
+export type NewApiCatalogIssue = z.infer<typeof newApiCatalogIssueSchema>;
+
+export const newApiRegistryOwnerSchema = z
+  .object({
+    origin: z.string().url(),
+    userId: z.string().regex(/^[1-9]\d*$/),
+    sid: z.string().min(1),
+    authGeneration: z.number().int().nonnegative(),
+  })
+  .strict();
 export const BUILTIN_PROVIDER_TEMPLATE_IDS = {
   zai: "zai-api",
   bigmodel: "bigmodel-api",

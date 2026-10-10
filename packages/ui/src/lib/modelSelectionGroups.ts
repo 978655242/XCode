@@ -35,7 +35,7 @@ export function buildRegistryModelSelectGroups(
   view: ModelSelectionView,
   labels: ModelProviderGroupLabelOptions = {},
 ): ModelSelectGroup[] {
-  return view.providers.flatMap((provider) => {
+  const groups: ModelSelectGroup[] = view.providers.flatMap((provider) => {
     if (!supportsRegistryApiFormat(selectedProvider, provider.config.api?.type)) {
       return [];
     }
@@ -48,13 +48,16 @@ export function buildRegistryModelSelectGroups(
     return [
       {
         key: `registry-provider:${provider.providerId}`,
-        label: accountPresentation?.label || provider.providerName?.trim() || provider.providerId,
+        label:
+          accountAccess.success && accountAccess.data.type === "new-api-account"
+            ? provider.providerName?.trim() || provider.providerId
+            : accountPresentation?.label || provider.providerName?.trim() || provider.providerId,
         ...(accountPresentation?.labelBadge ? { labelBadge: accountPresentation.labelBadge } : {}),
         ...(accountPresentation ? { directItems: true } : {}),
-        items: provider.models.map(({ modelId, config }) => ({
+        items: provider.models.map(({ modelId, displayName, config }) => ({
           key: `registry-provider:${provider.providerId}:${modelId}`,
           value: encodeCustomModelValue(provider.providerId, modelId),
-          name: modelId,
+          name: displayName ?? modelId,
           ...(shouldShowModelVisionBadge(
             modelId,
             config.properties?.inputFormat?.supportsImage,
@@ -66,6 +69,15 @@ export function buildRegistryModelSelectGroups(
       },
     ];
   });
+  if (view.catalogIssues?.length) {
+    groups.push({
+      key: "native-catalog-issues",
+      label: "New API",
+      items: [],
+      catalogIssues: view.catalogIssues,
+    });
+  }
+  return groups;
 }
 
 function getRegistryAccountProviderGroupPresentation(
@@ -74,6 +86,7 @@ function getRegistryAccountProviderGroupPresentation(
   labels: ModelProviderGroupLabelOptions,
 ): Pick<ModelSelectGroup, "label" | "labelBadge"> {
   const familySpec = resolveModelProviderFamilySpecByProviderId(providerId);
+  if (access.type === "new-api-account") return { label: "New API", labelBadge: "Native" };
   const label = familySpec?.label ?? providerId;
   if (access.mode === "start-plan") {
     return { label: "Start Plan", labelBadge: labels.startPlanBadgeLabel ?? "Free" };

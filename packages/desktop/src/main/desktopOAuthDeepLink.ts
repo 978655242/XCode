@@ -6,8 +6,10 @@ import type { WebContents } from "electron";
 import {
   type Locale,
   type OAuthProviderId,
+  type OAuthPurpose,
   type OAuthStateRegistration,
   PlatformChannels,
+  parseNewApiAuthorizationCallback,
 } from "@zcode/shared";
 import {
   extractWorkspaceOpenPath,
@@ -36,12 +38,14 @@ export interface ExternalWorkspaceOpenDialogCopy {
 
 interface OAuthRouteTarget {
   windowId: number;
-  provider?: OAuthProviderId;
+  provider: OAuthProviderId;
+  purpose: OAuthPurpose;
 }
 
 const oauthStateToWindow = new Map<string, OAuthRouteTarget>();
 const rendererReadyWebContentsIds = new Set<number>();
-let pendingDeepLinkUrl: string | null = null;
+// XCODE: 仅缓存已登记且未 ready 的目标窗口，未知回调绝不能落入全局槽。
+const pendingOAuthCallbacks = new Map<string, { url: string; target: OAuthRouteTarget }>();
 let pendingPaymentDeepLinkUrl: string | null = null;
 let pendingOpenWorkspaceRequest: {
   path: string;
@@ -78,19 +82,27 @@ export function parseOAuthStateRegistration(payload: unknown): OAuthStateRegistr
   const candidate = payload as {
     state?: unknown;
     provider?: unknown;
+    purpose?: unknown;
   };
 
-  if (typeof candidate.state !== "string" || candidate.state.trim() === "") {
+  if (typeof candidate.state !== "string" || !/^[A-Za-z0-9._~-]{1,256}$/.test(candidate.state)) {
     return null;
   }
 
-  if (candidate.provider != null && typeof candidate.provider !== "string") {
+  if (
+    typeof candidate.provider !== "string" ||
+    !["new-api", "bigmodel", "zai"].includes(candidate.provider) ||
+    (candidate.purpose !== "primary-account" && candidate.purpose !== "official-cloud") ||
+    (candidate.provider === "new-api" && candidate.purpose !== "primary-account") ||
+    (candidate.provider === "new-api" && candidate.state.length < 22)
+  ) {
     return null;
   }
 
   return {
-    state: candidate.state.trim(),
-    ...(typeof candidate.provider === "string" ? { provider: candidate.provider } : {}),
+    state: candidate.state,
+    provider: candidate.provider,
+    purpose: candidate.purpose,
   };
 }
 
@@ -248,7 +260,7 @@ export function handleDeepLink(
   try {
     parsedUrl = new URL(url);
   } catch {
-    logger.warn("[deep-link] 无法解析 URL:", url);
+    logger.warn("[deep-link] 无法解析 URL");
     return false;
   }
 
@@ -368,32 +380,57 @@ export function handleDeepLink(
   }
 
   const routeTarget = oauthStateToWindow.get(state);
-  const targetWindow = routeTarget
-    ? BrowserWindow.getAllWindows().find((window) => window.webContents.id === routeTarget.windowId)
-    : null;
-  const shouldCompleteOAuthRoute = hasOAuthAuthorizationCode(parsedUrl);
-
-  if (targetWindow) {
-    targetWindow.webContents.send(PlatformChannels.OAuthCallback, url);
-    if (shouldCompleteOAuthRoute) {
-      oauthStateToWindow.delete(state);
-    }
+  // XCODE: 官方旧回调允许省略 provider；只采用已登记 state 的身份，不猜当前账号/窗口。
+  const providers = parsedUrl.searchParams.getAll("provider");
+  const purposes = parsedUrl.searchParams.getAll("purpose");
+  if (
+    !routeTarget ||
+    parsedUrl.searchParams.getAll("state").length !== 1 ||
+    parsedUrl.username ||
+    parsedUrl.password ||
+    parsedUrl.hash ||
+    providers.length > 1 ||
+    purposes.length > 1 ||
+    (providers.length === 1 && providers[0] !== routeTarget.provider) ||
+    (purposes.length === 1 && purposes[0] !== routeTarget.purpose) ||
+    (routeTarget.provider === "new-api" && providers[0] !== "new-api")
+  ) {
+    logger.warn("[deep-link] 未匹配已登记 OAuth 身份或用途，忽略此次回调");
+    return false;
+  }
+  if (routeTarget.provider === "new-api" && !parseNewApiAuthorizationCallback(url)) {
+    logger.warn("[deep-link] 拒绝非canonical原生授权回调");
+    return false;
+  }
+  const targetWindow = BrowserWindow.getAllWindows().find(
+    (window) => window.webContents.id === routeTarget.windowId,
+  );
+  if (!targetWindow) {
+    oauthStateToWindow.delete(state);
+    pendingOAuthCallbacks.delete(state);
+    return false;
+  }
+  if (!rendererReadyWebContentsIds.has(routeTarget.windowId)) {
+    pendingOAuthCallbacks.set(state, { url, target: routeTarget });
     focusDeepLinkTargetWindow(targetWindow);
-    logger.info("[deep-link] OAuth 回调路由成功", {
-      state,
-      windowId: targetWindow.webContents.id,
-      provider: routeTarget?.provider,
-      completed: shouldCompleteOAuthRoute,
-    });
     return true;
   }
-
-  pendingDeepLinkUrl = url;
-  logger.warn("[deep-link] OAuth 回调未命中目标窗口，先缓存等待 renderer ready", {
-    state,
-    hasRouteTarget: Boolean(routeTarget),
+  const completed = hasOAuthAuthorizationCode(parsedUrl);
+  if (completed) oauthStateToWindow.delete(state);
+  pendingOAuthCallbacks.delete(state);
+  targetWindow.webContents.send(PlatformChannels.OAuthCallback, {
+    url,
+    provider: routeTarget.provider,
+    purpose: routeTarget.purpose,
   });
-  return false;
+  focusDeepLinkTargetWindow(targetWindow);
+  logger.info("[deep-link] OAuth 回调路由成功", {
+    windowId: routeTarget.windowId,
+    provider: routeTarget.provider,
+    purpose: routeTarget.purpose,
+    completed,
+  });
+  return true;
 }
 
 export function registerDeepLinkProtocol(
@@ -445,18 +482,30 @@ export function registerDeepLinkProtocol(
 }
 
 export function registerOAuthState(windowId: number, registration: OAuthStateRegistration): void {
-  oauthStateToWindow.set(registration.state, {
-    windowId,
-    provider: registration.provider,
-  });
-
-  setTimeout(() => oauthStateToWindow.delete(registration.state), 5 * 60 * 1000);
+  if (oauthStateToWindow.has(registration.state)) return;
+  // XCODE: 新flow退休同窗口同purpose的旧state，不触碰其他窗口/用途。
+  for (const [state, target] of oauthStateToWindow) {
+    if (target.windowId === windowId && target.purpose === registration.purpose) {
+      oauthStateToWindow.delete(state);
+      pendingOAuthCallbacks.delete(state);
+    }
+  }
+  const target = { windowId, provider: registration.provider, purpose: registration.purpose };
+  oauthStateToWindow.set(registration.state, target);
+  setTimeout(
+    () => {
+      if (oauthStateToWindow.get(registration.state) !== target) return;
+      oauthStateToWindow.delete(registration.state);
+      pendingOAuthCallbacks.delete(registration.state);
+    },
+    5 * 60 * 1000,
+  ).unref();
 }
 
 export function deliverPendingDeepLink(webContents: WebContents): boolean {
   rendererReadyWebContentsIds.add(webContents.id);
 
-  const hasPendingOAuthCallback = pendingDeepLinkUrl != null;
+  let hasPendingOAuthCallback = false;
   // pending share import 绑定目标窗口后，只投递给目标窗口（或冷启动时未绑定目标的
   // 条目）；非目标窗口 ready 时保留条目，否则导入会写进错误窗口的 workspace。
   const undeliveredShareImports: typeof pendingShareImports = [];
@@ -468,9 +517,20 @@ export function deliverPendingDeepLink(webContents: WebContents): boolean {
     }
   }
   pendingShareImports.push(...undeliveredShareImports);
-  if (hasPendingOAuthCallback) {
-    webContents.send(PlatformChannels.OAuthCallback, pendingDeepLinkUrl);
-    pendingDeepLinkUrl = null;
+  for (const [state, pending] of pendingOAuthCallbacks) {
+    if (oauthStateToWindow.get(state) !== pending.target) {
+      pendingOAuthCallbacks.delete(state);
+      continue;
+    }
+    if (pending.target.windowId !== webContents.id) continue;
+    pendingOAuthCallbacks.delete(state);
+    if (hasOAuthAuthorizationCode(new URL(pending.url))) oauthStateToWindow.delete(state);
+    webContents.send(PlatformChannels.OAuthCallback, {
+      url: pending.url,
+      provider: pending.target.provider,
+      purpose: pending.target.purpose,
+    });
+    hasPendingOAuthCallback = true;
   }
   if (pendingPaymentDeepLinkUrl) {
     webContents.send(PlatformChannels.PaymentCallback, pendingPaymentDeepLinkUrl);
@@ -503,6 +563,7 @@ export function clearOAuthRoutesForWindow(windowId: number): void {
   for (const [state, routeTarget] of oauthStateToWindow) {
     if (routeTarget.windowId === windowId) {
       oauthStateToWindow.delete(state);
+      pendingOAuthCallbacks.delete(state);
     }
   }
 }

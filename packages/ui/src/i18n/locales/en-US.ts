@@ -1,6 +1,61 @@
 // XCODE: 仅统一产品展示文案，保留语言资源键与协议标识。
 /** English translations */
 const enUS: Record<string, string> = {
+  "login.privateCredentialRecovery.title": "Private credentials need recovery",
+  "login.privateCredentialRecovery.description":
+    "Unlock your OS credential store or restore your XWork credential backup, then restart. Existing credentials have not been deleted; no alternative key or official account will be used.",
+  "settings.modelProvider.native.viewReset": "Period details · read only",
+  "settings.modelProvider.native.viewPlans": "View subscription",
+  "settings.usage.nativeAuthorization.active": "Active authorization",
+  "settings.usage.nativeAuthorization.exhausted": "Quota exhausted",
+  "settings.usage.nativeAuthorization.expired": "Authorization expired",
+  "settings.usage.nativeAuthorization.revoked": "Authorization revoked",
+  "settings.usage.nativeAuthorization.unassigned": "No subscription assigned",
+  "settings.usage.nativePeriod.never": "No automatic reset",
+  "settings.usage.nativePeriod.daily": "Daily",
+  "settings.usage.nativePeriod.weekly": "Weekly",
+  "settings.usage.nativePeriod.monthly": "Monthly",
+  "settings.usage.nativePeriod.custom": "Custom period",
+  "login.oauth.button.native": "Sign in to New API",
+  "settings.modelProvider.native.planTitle": "Subscription · read only",
+  "settings.modelProvider.native.manualGrant":
+    "Plans and quota are assigned by your administrator. This page cannot purchase or change a subscription.",
+  "settings.modelProvider.native.handoffFailed":
+    "Could not open the read-only plan page. Sign in again or retry.",
+  "settings.modelProvider.native.catalogIssue":
+    "Not selectable — {reason}. Ask your administrator to correct the model metadata.",
+  "chat.error.noNativeModel":
+    "No New API model is available. Ask your administrator to check the assigned subscription and model access, or configure a custom model.",
+  "settings.modelProvider.native.officialCloud": "Official cloud · independent connection",
+  "settings.modelProvider.native.disconnectCloud": "Disconnect official cloud",
+  "settings.modelProvider.native.cloudFailed":
+    "Official cloud connection failed. Retry the connection.",
+  "settings.usage.native.currentPeriod": "Current subscription period",
+  "settings.usage.nativeOfficialScope": "Official cloud · {family} · {name} (independently billed)",
+  "settings.usage.nativeOfficialConnectDescription":
+    "Official MCP quota is separate from your private subscription. Connect an official account to read its real quota.",
+  "settings.usage.nativeOfficialConnect": "Connect {family}",
+  "settings.usage.nativeAccount": "New API account usage — all recorded keys and funding sources",
+  "settings.usage.nativeLoadingDescription": "Reading recorded usage for the New API account.",
+  "settings.usage.nativeStartDate": "Start date",
+  "settings.usage.nativeEndDate": "End date",
+  "settings.usage.nativeQuotaPeriod": "Private subscription · {period}",
+  "settings.usage.nativeAdminReset":
+    "Read-only quota. Reset, renew or replace through your administrator.",
+  "settings.usage.nativeUnlimited": "Unlimited",
+  "settings.usage.nativeQuotaAmounts": "Used {used} · Total {total} · Remaining {remaining} quota",
+  "settings.usage.nativeUnavailable": "Not provided by this source",
+  "settings.usage.nativeConsumptionRecords": "Consumption records",
+  "settings.usage.native.charged_quota": "Charged quota",
+  "settings.usage.native.refunded_quota": "Refunded quota",
+  "settings.usage.native.net_quota": "Net quota (may be negative)",
+  "settings.usage.nativePrecision":
+    "Exact quota counts, not currency. Charts use approximate display precision; cache, reasoning, tools and Agent duration are not provided.",
+  "settings.usage.nativeHeatmapCell": "{date}: {tokens} tokens, {records} consumption records",
+  "settings.usage.nativeHeatmapWeeklyCell":
+    "Week ending {date}: {tokens} tokens, {records} consumption records",
+  "settings.usage.nativeHeatmapCumulativeCell":
+    "Through {date}: {tokens} tokens, {records} consumption records",
   "startPlan.recommendation.subagentDescription":
     "Your Start Plan has quota available for {model}. Switch this subagent’s model to the Start Plan?",
   "startPlan.recommendation.preferenceSaveFailed":

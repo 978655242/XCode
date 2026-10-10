@@ -3,9 +3,26 @@ import {
   ProviderConfigMap,
   ProviderTemplateMap,
   ZhipuAccountAccessConfig,
+  NewApiAccountAccessConfig,
   type ModelConfigRules,
 } from "./config/index.js";
 import type { AccountProviderStates } from "./account-provider-state.js";
+import type { z } from "zod";
+import type { completeModelConfigDataSchema } from "@zcode/shared/model-config";
+import type { NewApiOwner } from "@zcode/shared/new-api";
+import type { NewApiCatalogIssue } from "@zcode/shared/model-provider-types";
+
+export type AccountModelConfigs = Readonly<
+  Record<
+    string,
+    Readonly<
+      Record<
+        string,
+        z.infer<typeof completeModelConfigDataSchema> & { readonly displayName?: string }
+      >
+    >
+  >
+>;
 
 export interface ProviderSource<TSnapshot> {
   read(): Promise<TSnapshot>;
@@ -29,6 +46,11 @@ export interface AccountProviderConfigSnapshot {
   readonly basedOnZCodeBuiltinRevision: string;
   readonly providers: ProviderConfigMap;
   readonly states?: AccountProviderStates;
+  readonly modelConfigs?: AccountModelConfigs;
+  readonly catalogIssues?: readonly NewApiCatalogIssue[];
+  readonly catalogRevision?: string;
+  readonly authorizationRevision?: string;
+  readonly owner?: NewApiOwner | null;
 }
 
 /** 首次 Account 事实尚未到达时，基于当前 Built-in 生成可发布的 fail-closed Overlay。 */
@@ -37,31 +59,55 @@ export function createFailClosedAccountProviderConfigSnapshot(
 ): AccountProviderConfigSnapshot {
   const unentitledProviders = new ProviderConfigMap(
     config.zcodeBuiltinProviders.entries().flatMap(([providerId, provider]) =>
-      provider.access?.type === "zhipu-account"
+      provider.access?.type === "zhipu-account" || provider.access?.type === "new-api-account"
         ? ([
             [
               providerId,
               new ProviderConfig({
-                access: new ZhipuAccountAccessConfig({ entitled: false }),
+                access:
+                  provider.access.type === "new-api-account"
+                    ? new NewApiAccountAccessConfig({ entitled: false })
+                    : new ZhipuAccountAccessConfig({ entitled: false }),
               }),
             ],
           ] as const)
         : [],
     ),
   );
-  return createAccountProviderConfigSnapshot(config.zcodeBuiltinRevision, unentitledProviders);
+  return createAccountProviderConfigSnapshot(
+    config.zcodeBuiltinRevision,
+    unentitledProviders,
+    undefined,
+    { owner: null, modelConfigs: {}, catalogIssues: [] },
+  );
 }
 
 export function createAccountProviderConfigSnapshot(
   basedOnZCodeBuiltinRevision: string,
   providers: ProviderConfigMap,
   states?: AccountProviderStates,
+  details: Pick<
+    AccountProviderConfigSnapshot,
+    "modelConfigs" | "catalogIssues" | "owner" | "catalogRevision" | "authorizationRevision"
+  > & { readonly revision?: string } = {},
 ): AccountProviderConfigSnapshot {
+  const { revision, ...snapshotDetails } = details;
+  const native = providers
+    .entries()
+    .some(([, config]) => config.access?.type === "new-api-account");
+  // XCODE: Native owner 只进 Host/worker 信封，不能经 revision 的 JSON 被投影或写入日志。
+  if (snapshotDetails.owner && !/^account:sha256:[a-f0-9]{64}$/.test(revision ?? ""))
+    throw new Error("Native Account snapshot requires an opaque Host revision");
   return Object.freeze({
-    revision: `account:${JSON.stringify([basedOnZCodeBuiltinRevision, providers.toJSON(), states])}`,
+    revision:
+      revision ??
+      (native
+        ? "account:native-unavailable"
+        : `account:${JSON.stringify([basedOnZCodeBuiltinRevision, providers.toJSON(), states, snapshotDetails])}`),
     basedOnZCodeBuiltinRevision,
     providers,
     ...(states ? { states } : {}),
+    ...snapshotDetails,
   });
 }
 
@@ -82,6 +128,11 @@ export class MutableAccountProviderConfigSource implements ProviderSource<Accoun
   #snapshot: AccountProviderConfigSnapshot = EMPTY_ACCOUNT_PROVIDER_CONFIG_SNAPSHOT;
 
   async read(): Promise<AccountProviderConfigSnapshot> {
+    return this.#snapshot;
+  }
+
+  /** XCODE: 原子写入/网络发送需同步读取同一快照，不能等待 Registry 的异步刷新。 */
+  getSnapshot(): AccountProviderConfigSnapshot {
     return this.#snapshot;
   }
 
@@ -106,5 +157,12 @@ function freezeAccountProviderConfigSnapshot(
     basedOnZCodeBuiltinRevision: snapshot.basedOnZCodeBuiltinRevision,
     providers: snapshot.providers,
     ...(snapshot.states ? { states: snapshot.states } : {}),
+    ...(snapshot.modelConfigs ? { modelConfigs: snapshot.modelConfigs } : {}),
+    ...(snapshot.catalogIssues ? { catalogIssues: snapshot.catalogIssues } : {}),
+    ...(snapshot.owner !== undefined ? { owner: snapshot.owner } : {}),
+    ...(snapshot.catalogRevision ? { catalogRevision: snapshot.catalogRevision } : {}),
+    ...(snapshot.authorizationRevision
+      ? { authorizationRevision: snapshot.authorizationRevision }
+      : {}),
   });
 }

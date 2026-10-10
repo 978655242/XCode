@@ -2,7 +2,7 @@ import type { ModelRequestAuth } from "@zcode/contracts";
 import type { CommandPayloadMap } from "@zcode/shared/zcode-protocol-v4";
 import type { SendInputOptions } from "../app/types.js";
 
-/** 两种输入协议共用执行材料投影；不把 Secret/Ticket 放入可持久化的 intent。 */
+/** XCODE: 执行鉴权与非秘密官方代际一同投影；Secret/Ticket 不进入持久化 intent。 */
 export function createModelExecutionContext(
   input: NonNullable<CommandPayloadMap["sendText"]["modelExecution"]>,
 ): NonNullable<SendInputOptions["modelExecution"]> {
@@ -12,7 +12,10 @@ export function createModelExecutionContext(
     selectionScope: "execution",
     ...(requestAuth
       ? {
-          requestDependencies: { requestAuth: { source: { resolve: async () => requestAuth } } },
+          requestDependencies: { requestAuth: {
+            source: { resolve: async () => requestAuth },
+            ...(input.requestAuth?.executionIdentity ? { executionIdentity: input.requestAuth.executionIdentity } : {}),
+          } },
         }
       : {}),
     ...(input.subagents ? { subagents: input.subagents } : {}),

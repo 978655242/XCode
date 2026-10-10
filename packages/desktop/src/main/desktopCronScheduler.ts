@@ -39,7 +39,7 @@ interface CronSchedulerDeps {
     error: (...args: unknown[]) => void;
   };
   /** 选一个能执行本地 workspace 派发的 host；无可用 host 时返回 null（scheduler 会退避重试）。 */
-  resolveDispatchHost: () => ElectronUtilityProcess | null;
+  resolveDispatchHost: (nativeOwnerKey?: string) => ElectronUtilityProcess | null;
   /** 闲时任务执行中计数变化（keep-awake：main 据此 + 设置切 powerSaveBlocker）。 */
   onOffPeakActiveCountChanged?: (count: number) => void;
 }
@@ -50,7 +50,7 @@ export interface CronSchedulerHandle {
   /** host 回报闲时任务派发结果时调用，转交给 scheduler 结算。 */
   handleOffPeakRunResult: (result: OffPeakRunResultPayload) => void;
   /** manual run 落库后立即唤醒 scheduler，不等待下一次轮询。 */
-  wake: (automationId: string) => void;
+  wake: (automationId: string, nativeOwnerKeys?: readonly string[]) => void;
   /** app 退出前优雅收尾（通知 scheduler 释放认领 + 关库，兜底强杀）。 */
   dispose: () => Promise<void>;
 }
@@ -154,7 +154,7 @@ export function spawnCronScheduler(deps: CronSchedulerDeps): CronSchedulerHandle
     }
 
     if (msg.type === "offpeak-dispatch-request") {
-      const host = deps.resolveDispatchHost();
+      const host = isDisposing ? null : deps.resolveDispatchHost(msg.nativeOwnerKey);
       if (!host) {
         // 无可用 host：transient 回执，scheduler 按 off-peak 独立退避重试（顺延不丢弃）。
         postToScheduler({
@@ -204,9 +204,9 @@ export function spawnCronScheduler(deps: CronSchedulerDeps): CronSchedulerHandle
     handleOffPeakRunResult(result) {
       postToScheduler({ type: "offpeak-dispatch-result", ...result });
     },
-    wake(automationId) {
+    wake(automationId, nativeOwnerKeys) {
       if (isDisposing) return;
-      postToScheduler({ type: "scheduler-wake", automationId });
+      postToScheduler({ type: "scheduler-wake", automationId, nativeOwnerKeys });
     },
     dispose() {
       if (disposePromise) return disposePromise;

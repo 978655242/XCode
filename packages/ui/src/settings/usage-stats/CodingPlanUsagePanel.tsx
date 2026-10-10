@@ -10,6 +10,7 @@ import type {
   CodingPlanUsageSnapshot,
   UsageQuotaLimit,
   UsageQuotaSnapshot,
+  ZCodeAccountAccess,
 } from "@zcode/shared";
 import { LocalizedCodingPlanQuotaResetAction } from "@/components/coding-plan-quota-reset/CodingPlanQuotaResetAction.js";
 import { CodingPlanQuotaResetOpportunity } from "@/components/coding-plan-quota-reset/CodingPlanQuotaResetOpportunity.js";
@@ -17,11 +18,12 @@ import { buildCodingPlanQuotaResetDialogConfig } from "@/components/coding-plan-
 import { Button } from "@/components/ui/button.js";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
-import { BUILTIN_MODEL_PROVIDER_IDS } from "@zcode/shared";
+import { BUILTIN_MODEL_PROVIDER_IDS, getModelProviderFamilySpec } from "@zcode/shared";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useUsageEntitlement } from "@/hooks/useUsageEntitlement.js";
 import { useCodingPlanQuotaResetUi } from "@/hooks/useCodingPlanQuotaResetUi.js";
 import { useCodingPlanUsageStats } from "@/hooks/useUsageStats.js";
+import { useOfficialCloudConnection } from "@/hooks/useOfficialCloudConnection.js";
 import { buildUsageEntitlementCacheKey } from "@/lib/usageEntitlementCache.js";
 import {
   findCodingPlanQuotaLimit,
@@ -91,7 +93,7 @@ const CODING_PLAN_DETAIL_SERIES_COLORS = [
 ] as const;
 const MAX_SELECTED_CODING_PLAN_DETAIL_SERIES = 3;
 const CODING_PLAN_USAGE_TRENDS_SECTION_ID = "coding-plan-usage-trends";
-type CodingPlanUsageTrendRange = Extract<CodingPlanUsageRange, "7d" | "30d">;
+type CodingPlanUsageTrendRange = CodingPlanUsageRange;
 
 export function CodingPlanUsagePanel({
   loadingSources,
@@ -106,9 +108,12 @@ export function CodingPlanUsagePanel({
 }) {
   const { intl } = useZCodeIntl();
   const [range, setRange] = useState<CodingPlanUsageTrendRange>("7d");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
   void workspaceIdentity;
   void workspacePath;
   const effectiveSource = selectedSource ?? null;
+  const nativeSource = effectiveSource?.accountAccess.type === "new-api-account";
   const effectiveProviderId = effectiveSource?.providerId;
   const effectiveSourceIsTeamPlan = Boolean(
     effectiveSource &&
@@ -176,11 +181,21 @@ export function CodingPlanUsagePanel({
   });
   // 原 zai providerId 一律走 zaiEntitlement（个人），把 team plan 漏掉。
   // 改为先判 team plan，命中走 teamEntitlement；否则按 providerId 走个人分支。
-  const effectiveEntitlement = effectiveSourceIsTeamPlan
-    ? teamEntitlement
-    : effectiveProviderId === BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan
-      ? zaiEntitlement
-      : bigmodelEntitlement;
+  const nativeEntitlement = useUsageEntitlement({
+    enabled: !loadingSources && nativeSource,
+    preferredProviderId: effectiveProviderId,
+    accountAccess: effectiveSource?.accountAccess,
+    includeSubscription: true,
+    requirePreferredProvider: true,
+    allowEnvApiKey: false,
+  });
+  const effectiveEntitlement = nativeSource
+    ? nativeEntitlement
+    : effectiveSourceIsTeamPlan
+      ? teamEntitlement
+      : effectiveProviderId === BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan
+        ? zaiEntitlement
+        : bigmodelEntitlement;
   const effectiveEntitlementSnapshot = effectiveEntitlement.snapshot;
   const effectiveEntitlementRefresh = effectiveEntitlement.refresh;
   const handleResetEntitlementRefresh = useCallback(async () => {
@@ -192,11 +207,14 @@ export function CodingPlanUsagePanel({
     error,
     refresh: refreshCodingPlanUsage,
   } = useCodingPlanUsageStats(range, {
-    enabled: !loadingSources && Boolean(effectiveProviderId),
+    enabled:
+      !loadingSources &&
+      Boolean(effectiveProviderId) &&
+      (range !== "custom" || Boolean(customStartDate && customEndDate)),
     preferredProviderId: effectiveProviderId,
     accountAccess: effectiveSource?.accountAccess,
-    customStartDate: null,
-    customEndDate: null,
+    customStartDate,
+    customEndDate,
   });
   const handleUsageStatsRefresh = useCallback(async () => {
     await Promise.all([
@@ -219,7 +237,9 @@ export function CodingPlanUsagePanel({
       <UsageEmptyState
         title={intl.formatMessage({ id: "settings.usage.loadingTitle" })}
         description={intl.formatMessage({
-          id: "settings.usage.codingPlanLoadingDescription",
+          id: nativeSource
+            ? "settings.usage.nativeLoadingDescription"
+            : "settings.usage.codingPlanLoadingDescription",
         })}
       />
     );
@@ -240,6 +260,42 @@ export function CodingPlanUsagePanel({
 
   return (
     <div className="space-y-5">
+      {nativeSource ? (
+        <p className="text-ui-base text-foreground-subtle">
+          {intl.formatMessage({ id: "settings.usage.nativeAccount" })}
+          {effectiveEntitlementSnapshot?.authorizationStatus ? (
+            <>
+              {" · "}
+              {intl.formatMessage({
+                id: `settings.usage.nativeAuthorization.${effectiveEntitlementSnapshot.authorizationStatus}`,
+              })}
+            </>
+          ) : null}
+        </p>
+      ) : null}
+      <CodingPlanRangeSelector range={range} onRangeChange={setRange} />
+      {range === "custom" ? (
+        <div className="flex flex-wrap gap-3">
+          <label className="text-ui-base">
+            {intl.formatMessage({ id: "settings.usage.nativeStartDate" })}
+            <input
+              className="ml-2 rounded border bg-background px-2 py-1"
+              type="date"
+              value={customStartDate}
+              onChange={(event) => setCustomStartDate(event.target.value)}
+            />
+          </label>
+          <label className="text-ui-base">
+            {intl.formatMessage({ id: "settings.usage.nativeEndDate" })}
+            <input
+              className="ml-2 rounded border bg-background px-2 py-1"
+              type="date"
+              value={customEndDate}
+              onChange={(event) => setCustomEndDate(event.target.value)}
+            />
+          </label>
+        </div>
+      ) : null}
       {error ? <UsageStatsErrorNotice error={error} /> : null}
 
       {loading && !snapshot ? (
@@ -247,7 +303,9 @@ export function CodingPlanUsagePanel({
         <UsageEmptyState
           title={intl.formatMessage({ id: "settings.usage.loadingTitle" })}
           description={intl.formatMessage({
-            id: "settings.usage.codingPlanLoadingDescription",
+            id: nativeSource
+              ? "settings.usage.nativeLoadingDescription"
+              : "settings.usage.codingPlanLoadingDescription",
           })}
         />
       ) : snapshot ? (
@@ -262,15 +320,110 @@ export function CodingPlanUsagePanel({
             onEntitlementRefresh={handleResetEntitlementRefresh}
             onUsageStatsRefresh={handleUsageStatsRefresh}
           />
+          {nativeSource ? <NativeOfficialMcpCard /> : null}
           <CodingPlanActivitySection snapshot={snapshot} />
-          <CodingPlanUsageTrendsSection
-            range={range}
-            snapshot={snapshot}
-            onRangeChange={setRange}
-          />
+          <CodingPlanUsageTrendsSection snapshot={snapshot} />
         </>
       ) : null}
     </div>
+  );
+}
+
+function NativeOfficialMcpCard() {
+  const { intl, locale } = useZCodeIntl();
+  const cloud = useOfficialCloudConnection();
+  const connection = cloud.snapshot?.status === "connected" ? cloud.snapshot : null;
+  const accountAccess = useMemo<ZCodeAccountAccess | undefined>(() => {
+    if (!connection?.planScope) return undefined;
+    const scope = connection.planScope;
+    return scope.targetType === "TEAM"
+      ? {
+          type: "zhipu-account",
+          family: connection.family,
+          planKind: "team-coding-plan",
+          productId: scope.productId,
+          organizationId: scope.organizationId,
+          projectId: scope.projectId,
+        }
+      : { type: "zhipu-account", family: connection.family, planKind: "individual-coding-plan" };
+  }, [connection]);
+  const providerId = connection
+    ? connection.planScope?.targetType === "TEAM"
+      ? getModelProviderFamilySpec(connection.family).teamCodingPlanProviderId
+      : getModelProviderFamilySpec(connection.family).individualCodingPlanProviderId
+    : undefined;
+  const usage = useUsageEntitlement({
+    enabled: Boolean(connection && accountAccess),
+    accountAccess,
+    preferredProviderId: providerId,
+    allowEnvApiKey: false,
+    requirePreferredProvider: true,
+    cacheKey: connection
+      ? `official-mcp:${connection.connectionKey}:${connection.credentialGeneration}`
+      : undefined,
+    // XCODE: 官方 MCP 卡首次挂载及凭据换代必须读取真实额度，不能只等待手动刷新。
+    refreshOnMount: true,
+  });
+  const limit = resolveMcpQuotaLimit(usage.snapshot);
+  return (
+    <section className="space-y-3">
+      <h3 className="text-ui-lg font-medium">
+        {intl.formatMessage({ id: "settings.usage.entitlementServerMcpUsage" })}
+      </h3>
+      <div className="rounded-xl bg-surface/70 p-4">
+        {connection ? (
+          <>
+            <p className="text-ui-base text-foreground-subtle">
+              {intl.formatMessage(
+                { id: "settings.usage.nativeOfficialScope" },
+                {
+                  family: connection.family,
+                  name: connection.identity.displayName,
+                },
+              )}
+            </p>
+            <p className="mt-1 text-ui-xl font-semibold">
+              {limit
+                ? formatQuotaRemainingPercentage(locale, limit)
+                : intl.formatMessage({ id: "settings.usage.nativeUnavailable" })}
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                void usage.refresh({ force: true });
+              }}
+            >
+              {intl.formatMessage({ id: "settings.usage.refresh" })}
+            </Button>
+          </>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <p className="w-full text-ui-base text-foreground-subtle">
+              {intl.formatMessage({ id: "settings.usage.nativeOfficialConnectDescription" })}
+            </p>
+            {(["zai", "bigmodel"] as const).map((family) => (
+              <Button
+                key={family}
+                variant="secondary"
+                size="sm"
+                disabled={cloud.loading}
+                onClick={() => {
+                  void cloud.startOAuth(family);
+                }}
+              >
+                {intl.formatMessage({ id: "settings.usage.nativeOfficialConnect" }, { family })}
+              </Button>
+            ))}
+          </div>
+        )}
+        {cloud.error || usage.error ? (
+          <p role="alert" className="mt-2 text-ui-sm text-destructive">
+            {cloud.error ?? usage.error}
+          </p>
+        ) : null}
+      </div>
+    </section>
   );
 }
 
@@ -281,7 +434,7 @@ function CodingPlanRangeSelector({
   range: CodingPlanUsageTrendRange;
   onRangeChange: (range: CodingPlanUsageTrendRange) => void;
 }) {
-  const options: CodingPlanUsageTrendRange[] = ["7d", "30d"];
+  const options: CodingPlanUsageTrendRange[] = ["today", "7d", "30d", "custom"];
   return (
     <div className="flex flex-wrap items-center gap-2">
       <SegmentedTabs
@@ -326,6 +479,7 @@ function CodingPlanQuotaCards({
     onEntitlementRefresh,
   });
   const limits = quota?.limits ?? [];
+  const nativeLimit = limits.find((limit) => limit.native) ?? null;
   const fiveHourLimit = resolveCodingPlanQuotaResetLimit(
     findCodingPlanQuotaLimit(limits, "TOKENS_LIMIT", 3, 5),
     resetUi.entry,
@@ -351,6 +505,23 @@ function CodingPlanQuotaCards({
     },
   ]);
   const cards = [
+    ...(nativeLimit
+      ? [
+          {
+            key: "native",
+            label: intl.formatMessage(
+              { id: "settings.usage.nativeQuotaPeriod" },
+              {
+                period: intl.formatMessage({
+                  id: `settings.usage.nativePeriod.${nativeLimit.native!.period}`,
+                }),
+              },
+            ),
+            limit: nativeLimit,
+            progressColor: "var(--color-usage-chart-1)",
+          },
+        ]
+      : []),
     {
       key: "fiveHour",
       label: intl.formatMessage({
@@ -456,10 +627,32 @@ function CodingPlanQuotaCards({
           </Button>
         </div>
       </div>
+      {nativeLimit ? (
+        <p className="text-ui-base text-foreground-subtle">
+          {intl.formatMessage({ id: "settings.usage.nativeAdminReset" })}
+          {" · "}
+          {nativeLimit.native!.resetTimeZone}
+        </p>
+      ) : null}
       <div className={quotaCardsLayoutClass}>
         {cards.map((card) => {
           const percentage = getQuotaRemainingPercentage(card.limit) ?? 0;
-          const resetTime = formatUsageStatsQuotaResetTime(locale, card.limit.nextResetTime);
+          const native = card.limit.native;
+          const resetTime =
+            native?.nextResetTime != null
+              ? new Intl.DateTimeFormat(locale, {
+                  timeZone: native.resetTimeZone === "server-local" ? "UTC" : native.resetTimeZone,
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                }).format(
+                  new Date(
+                    native.nextResetTime +
+                      (native.resetTimeZone === "server-local"
+                        ? native.resetUtcOffsetSeconds * 1000
+                        : 0),
+                  ),
+                )
+              : formatUsageStatsQuotaResetTime(locale, card.limit.nextResetTime);
           return (
             <div key={card.key} className="min-w-0 flex-1 rounded-xl bg-surface/70 p-4">
               {/* min-h 与重置动作(h-5)对齐:没有动作的额度卡也保持同高,避免同排数值/进度条错位。 */}
@@ -510,23 +703,39 @@ function CodingPlanQuotaCards({
               </div>
               <div className="mt-1 flex min-w-0 items-baseline gap-1.5">
                 <span className="text-ui-xl font-semibold text-foreground">
-                  {formatQuotaRemainingPercentage(locale, card.limit)}
+                  {card.limit.native?.unlimited
+                    ? intl.formatMessage({ id: "settings.usage.nativeUnlimited" })
+                    : formatQuotaRemainingPercentage(locale, card.limit)}
                 </span>
                 {resetTime ? (
                   <span className="min-w-0 truncate text-ui-base text-foreground-subtle">
                     {resetTime}
                   </span>
                 ) : null}
+                {card.limit.native ? (
+                  <p className="mt-1 text-ui-sm text-foreground-subtle">
+                    {intl.formatMessage(
+                      { id: "settings.usage.nativeQuotaAmounts" },
+                      {
+                        used: card.limit.native.used,
+                        total: card.limit.native.total ?? "∞",
+                        remaining: card.limit.native.remaining ?? "∞",
+                      },
+                    )}
+                  </p>
+                ) : null}
               </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-background">
-                <div
-                  className="min-w-2 h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
-                  style={{
-                    width: `${percentage}%`,
-                    backgroundColor: card.progressColor,
-                  }}
-                />
-              </div>
+              {!card.limit.native?.unlimited ? (
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-background">
+                  <div
+                    className="min-w-2 h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
+                    style={{
+                      width: `${percentage}%`,
+                      backgroundColor: card.progressColor,
+                    }}
+                  />
+                </div>
+              ) : null}
             </div>
           );
         })}
@@ -535,15 +744,7 @@ function CodingPlanQuotaCards({
   );
 }
 
-function CodingPlanUsageTrendsSection({
-  range,
-  snapshot,
-  onRangeChange,
-}: {
-  range: CodingPlanUsageTrendRange;
-  snapshot: CodingPlanUsageSnapshot;
-  onRangeChange: (range: CodingPlanUsageTrendRange) => void;
-}) {
+function CodingPlanUsageTrendsSection({ snapshot }: { snapshot: CodingPlanUsageSnapshot }) {
   const { intl } = useZCodeIntl();
   return (
     <section id={CODING_PLAN_USAGE_TRENDS_SECTION_ID} className="space-y-5">
@@ -552,7 +753,9 @@ function CodingPlanUsageTrendsSection({
           {intl.formatMessage({ id: "settings.usage.trendsTitle" })}
         </h3>
         <div className="flex flex-wrap items-center gap-2">
-          <CodingPlanRangeSelector range={range} onRangeChange={onRangeChange} />
+          <span className="text-ui-sm text-foreground-subtle">
+            {snapshot.rangeStartDate} – {snapshot.rangeEndDate}
+          </span>
         </div>
       </div>
       <CodingPlanUsageDetailSection snapshot={snapshot} />
@@ -567,7 +770,9 @@ function CodingPlanActivitySection({ snapshot }: { snapshot: CodingPlanUsageSnap
   const items = [
     {
       label: intl.formatMessage({ id: "settings.usage.lifetimeTotalTokens" }),
-      value: formatSummaryCompactTokenUsage(locale, summary.totalTokens),
+      value: snapshot.native
+        ? BigInt(snapshot.native.summary.total_tokens).toLocaleString(locale)
+        : formatSummaryCompactTokenUsage(locale, summary.totalTokens),
     },
     {
       // 日期直接拼进标签会在窄卡片中被截断；固定标题保持可读，日期改由信息图标按需展示。
@@ -579,7 +784,10 @@ function CodingPlanActivitySection({ snapshot }: { snapshot: CodingPlanUsageSnap
       // 修复回归：CodingPlanActivitySummary 只有 totalUsageDurationMs（累计使用时长），
       // longestSessionMs 是 App Usage 侧的字段，不能使用“最长聊天时长”标签。
       label: intl.formatMessage({ id: "settings.usage.totalUsageDuration" }),
-      value: formatAppUsageDuration(summary.totalUsageDurationMs, intl),
+      value:
+        summary.totalUsageDurationMs === null
+          ? intl.formatMessage({ id: "settings.usage.nativeUnavailable" })
+          : formatAppUsageDuration(summary.totalUsageDurationMs, intl),
     },
     {
       label: intl.formatMessage({ id: "settings.usage.currentStreak" }),
@@ -593,6 +801,14 @@ function CodingPlanActivitySection({ snapshot }: { snapshot: CodingPlanUsageSnap
         id: "settings.usage.duration.day",
       })}`,
     },
+    ...(snapshot.consumptionRecordCount !== undefined
+      ? [
+          {
+            label: intl.formatMessage({ id: "settings.usage.nativeConsumptionRecords" }),
+            value: BigInt(snapshot.consumptionRecordCount).toLocaleString(locale),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -631,7 +847,7 @@ function CodingPlanActivitySection({ snapshot }: { snapshot: CodingPlanUsageSnap
           locale={locale}
           intl={intl}
           weeks={snapshot.activity.heatmap.weeks}
-          countMetric="tools"
+          countMetric={snapshot.source === "new-api" ? "records" : "tools"}
         />
       ) : null}
     </section>
@@ -644,6 +860,9 @@ function CodingPlanUsageDetailSection({ snapshot }: { snapshot: CodingPlanUsageS
   const [subject, setSubject] = useState<CodingPlanUsageDetailSubject>("model");
   const [selectedSeriesNames, setSelectedSeriesNames] = useState<string[]>([]);
   const activeSummary = subject === "model" ? snapshot.detail.model : snapshot.detail.tool;
+  // XCODE: 未提供的工具统计不是已确认零次，图表与总计使用同一 availability。
+  const toolUsageUnavailable =
+    subject === "tool" && snapshot.toolUsage.availability === "not-supported";
   const hasCreditUsageData = hasCodingPlanCreditUsageData({
     summary: activeSummary,
     modelDataList: snapshot.modelUsage.modelDataList,
@@ -738,6 +957,23 @@ function CodingPlanUsageDetailSection({ snapshot }: { snapshot: CodingPlanUsageS
   return (
     <section className="space-y-4">
       {showDetailSummary ? <CodingPlanUsageDetailSummary summary={activeSummary} /> : null}
+      {snapshot.native ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          {(["charged_quota", "refunded_quota", "net_quota"] as const).map((field) => (
+            <div key={field} className="rounded-xl bg-surface/70 p-4">
+              <div className="text-ui-lg font-medium">
+                {BigInt(snapshot.native!.summary[field]).toLocaleString(locale)}
+              </div>
+              <div className="text-ui-base text-foreground-subtle">
+                {intl.formatMessage({ id: `settings.usage.native.${field}` })}
+              </div>
+            </div>
+          ))}
+          <p className="text-ui-sm text-foreground-subtle sm:col-span-3">
+            {intl.formatMessage({ id: "settings.usage.nativePrecision" })}
+          </p>
+        </div>
+      ) : null}
       <div className="rounded-xl bg-surface/70 p-3">
         <div className="flex flex-wrap items-center gap-2">
           {hasCreditUsageData ? (
@@ -776,7 +1012,9 @@ function CodingPlanUsageDetailSection({ snapshot }: { snapshot: CodingPlanUsageS
             </span>
             <span className="flex items-baseline gap-1 text-foreground">
               <span className="font-mono font-medium">
-                {formatCodingPlanDetailValue(locale, totalValue, valueMetric, subject)}
+                {toolUsageUnavailable
+                  ? intl.formatMessage({ id: "settings.usage.nativeUnavailable" })
+                  : formatCodingPlanDetailValue(locale, totalValue, valueMetric, subject)}
               </span>
               {detailUnit ? <span className="text-foreground-subtle">{detailUnit}</span> : null}
             </span>
@@ -828,14 +1066,19 @@ function CodingPlanUsageDetailSection({ snapshot }: { snapshot: CodingPlanUsageS
               subject,
             ]}
             loadingDescription={intl.formatMessage({
-              id: "settings.usage.codingPlanLoadingDescription",
+              id:
+                snapshot.source === "new-api"
+                  ? "settings.usage.nativeLoadingDescription"
+                  : "settings.usage.codingPlanLoadingDescription",
             })}
           >
             <CodingPlanUsageBarChart
               xTime={activeChartMeta.xTime}
               granularity={activeChartMeta.granularity}
               emptyDescription={intl.formatMessage({
-                id: "settings.usage.emptyDescription",
+                id: toolUsageUnavailable
+                  ? "settings.usage.nativeUnavailable"
+                  : "settings.usage.emptyDescription",
               })}
               series={visibleSeries}
               valueKind={valueKind}
@@ -923,12 +1166,18 @@ function CodingPlanUsageDetailSummary({
     {
       label: intl.formatMessage({ id: "settings.usage.creditsTotal" }),
       trend: summary.totalCreditsTrend,
-      value: formatCompactNumber(locale, summary.totalCredits),
+      value:
+        summary.totalCredits === null
+          ? intl.formatMessage({ id: "settings.usage.nativeUnavailable" })
+          : formatCompactNumber(locale, summary.totalCredits),
     },
     {
       label: intl.formatMessage({ id: "settings.usage.averageDailyCredits" }),
       trend: summary.averageDailyCreditsTrend,
-      value: formatCompactNumber(locale, summary.averageDailyCredits),
+      value:
+        summary.averageDailyCredits === null
+          ? intl.formatMessage({ id: "settings.usage.nativeUnavailable" })
+          : formatCompactNumber(locale, summary.averageDailyCredits),
     },
   ];
 
@@ -958,17 +1207,25 @@ function CodingPlanUsageDetailSummary({
 function CodingPlanHealthSection({ snapshot }: { snapshot: CodingPlanUsageSnapshot }) {
   const { intl } = useZCodeIntl();
   const healthSeries = useMemo(
-    () => [
-      {
-        name: intl.formatMessage({ id: "settings.usage.healthProMaxDecode" }),
-        values: snapshot.health.proMaxDecodeSpeed,
-      },
-      {
-        name: intl.formatMessage({ id: "settings.usage.healthLiteDecode" }),
-        values: snapshot.health.liteDecodeSpeed,
-      },
+    () =>
+      snapshot.health.availability === "not-supported"
+        ? []
+        : [
+            {
+              name: intl.formatMessage({ id: "settings.usage.healthProMaxDecode" }),
+              values: snapshot.health.proMaxDecodeSpeed,
+            },
+            {
+              name: intl.formatMessage({ id: "settings.usage.healthLiteDecode" }),
+              values: snapshot.health.liteDecodeSpeed,
+            },
+          ],
+    [
+      snapshot.health.availability,
+      snapshot.health.liteDecodeSpeed,
+      snapshot.health.proMaxDecodeSpeed,
+      intl,
     ],
-    [snapshot.health.liteDecodeSpeed, snapshot.health.proMaxDecodeSpeed, intl],
   );
 
   return (
@@ -978,7 +1235,9 @@ function CodingPlanHealthSection({ snapshot }: { snapshot: CodingPlanUsageSnapsh
           {intl.formatMessage({ id: "settings.usage.healthTitle" })}
         </h3>
         <span className="text-ui-sm text-foreground-subtle">
-          {intl.formatMessage({ id: "settings.usage.healthRange.7d" })}
+          {snapshot.source === "new-api"
+            ? `${snapshot.rangeStartDate} – ${snapshot.rangeEndDate}`
+            : intl.formatMessage({ id: "settings.usage.healthRange.7d" })}
         </span>
       </div>
       <div className="rounded-xl bg-surface/70 p-3">
@@ -986,14 +1245,20 @@ function CodingPlanHealthSection({ snapshot }: { snapshot: CodingPlanUsageSnapsh
           scope="settings.usage.coding-plan-health-chart"
           resetKeys={[snapshot.sourceProvider.id, snapshot.generatedAt]}
           loadingDescription={intl.formatMessage({
-            id: "settings.usage.codingPlanLoadingDescription",
+            id:
+              snapshot.source === "new-api"
+                ? "settings.usage.nativeLoadingDescription"
+                : "settings.usage.codingPlanLoadingDescription",
           })}
         >
           <CodingPlanUsageLineChart
             xTime={snapshot.health.xTime}
             granularity="day"
             emptyDescription={intl.formatMessage({
-              id: "settings.usage.emptyDescription",
+              id:
+                snapshot.health.availability === "not-supported"
+                  ? "settings.usage.nativeUnavailable"
+                  : "settings.usage.emptyDescription",
             })}
             series={healthSeries}
             valueKind="speed"

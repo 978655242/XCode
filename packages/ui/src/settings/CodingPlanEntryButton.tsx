@@ -13,7 +13,12 @@ export function useCodingPlanEntryGate() {
       : intl.formatMessage({
           id: status === "loading" ? "purchase.entry.loading" : "purchase.entry.retry",
         });
-  return { status, label, retry: dialog?.inventory?.retry };
+  return {
+    status,
+    label,
+    retry: dialog?.inventory?.retry,
+    native: dialog?.inventory?.native === true,
+  };
 }
 
 /** 各入口共享同一查询状态；失败时按钮只重试，不继续执行购买动作。 */

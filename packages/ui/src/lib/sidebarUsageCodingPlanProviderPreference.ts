@@ -1,7 +1,12 @@
-import { BUILTIN_MODEL_PROVIDER_IDS } from "@zcode/shared";
+import {
+  BUILTIN_MODEL_PROVIDER_IDS,
+  NEW_API_MODEL_PROVIDER_IDS,
+  isNewApiModelProviderId,
+} from "@zcode/shared";
 import { logger } from "@/logger.js";
 
 export type SidebarUsageCodingPlanProviderId =
+  | (typeof NEW_API_MODEL_PROVIDER_IDS)[keyof typeof NEW_API_MODEL_PROVIDER_IDS]
   | typeof BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan
   | typeof BUILTIN_MODEL_PROVIDER_IDS.zaiTeamCodingPlan
   | typeof BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan
@@ -20,8 +25,9 @@ const SIDEBAR_USAGE_CODING_PLAN_PROVIDER_IDS: SidebarUsageCodingPlanProviderId[]
 function isSidebarUsageCodingPlanProviderId(
   providerId: string | null | undefined,
 ): providerId is SidebarUsageCodingPlanProviderId {
-  return SIDEBAR_USAGE_CODING_PLAN_PROVIDER_IDS.includes(
-    providerId as SidebarUsageCodingPlanProviderId,
+  return (
+    isNewApiModelProviderId(providerId ?? "") ||
+    SIDEBAR_USAGE_CODING_PLAN_PROVIDER_IDS.includes(providerId as SidebarUsageCodingPlanProviderId)
   );
 }
 

@@ -1,6 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 import { atomicWritePrivateTextFile, backupCorruptFile, withFileLock } from "@zcode/shared/node";
 import {
   credentialKeySchema,
@@ -61,7 +62,7 @@ async function readAll(credentialsFile = getCredentialsFile()): Promise<Record<s
       throw new Error(formatZodError(result.error));
     }
     return result.data;
-  } catch (error) {
+  } catch {
     // 把损坏 JSON/schema 当成空 store 后继续 save 会清空其他 OAuth 与登录凭据。
     // 保留损坏文件证据并向上传递错误，禁止自动覆盖。
     const backupPath = await backupCorruptFile(credentialsFile).catch(() => undefined);
@@ -71,7 +72,9 @@ async function readAll(credentialsFile = getCredentialsFile()): Promise<Record<s
       backupPath,
       credentialsFile,
     });
-    throw new Error(`XWork credentials are corrupt: ${credentialsFile}`, { cause: error });
+    throw Object.assign(new Error("XWork credentials require manual storage recovery"), {
+      code: CREDENTIAL_DECRYPT_ERROR_CODE,
+    });
   }
 }
 
@@ -108,20 +111,36 @@ export interface HostCredentialStoreDependencies {
 }
 
 // XCODE: 此 standalone Host port 不注册为 RPC，私有密文与旧官方密文使用不同 key。
-export async function readHostCredentialRecord(
-  key: string,
+export async function readHostCredentialRecords<T>(
+  read: (load: (key: string) => string | null) => T,
   dependencies: HostCredentialStoreDependencies = {},
-): Promise<string | null> {
-  assertHostCredentialKey(key);
+): Promise<T> {
   const records = await readAll(dependencies.credentialsFile ?? getCredentialsFile());
-  const encrypted = records[key];
-  if (encrypted === undefined) return null;
-  if (!encrypted.startsWith("enc:v1:")) {
-    throw Object.assign(new Error("Private credentials require encrypted storage recovery"), {
-      code: CREDENTIAL_DECRYPT_ERROR_CODE,
-    });
-  }
-  return (dependencies.cipherProvider ?? createPrivateCredentialCipherProvider()).decrypt(encrypted);
+  let cipher = dependencies.cipherProvider;
+  return read((key) => {
+    assertHostCredentialKey(key);
+    const encrypted = records[key];
+    if (encrypted === undefined) return null;
+    if (!encrypted.startsWith("enc:v1:")) {
+      throw Object.assign(new Error("Private credentials require encrypted storage recovery"), {
+        code: CREDENTIAL_DECRYPT_ERROR_CODE,
+      });
+    }
+    cipher ??= createPrivateCredentialCipherProvider();
+    return cipher.decrypt(encrypted);
+  });
+}
+
+// XCODE: 同SID跨窗口的 refresh 必须覆盖HTTP与CAS，不能丢弃服务端最后轮换的secret。
+export async function withHostCredentialRefreshLease<T>(
+  key: string,
+  run: () => Promise<T>,
+  dependencies: HostCredentialStoreDependencies = {},
+): Promise<T> {
+  assertHostCredentialKey(key);
+  const credentialsFile = dependencies.credentialsFile ?? getCredentialsFile();
+  const ownerKey = createHash("sha256").update(key).digest("hex");
+  return withFileLock(`${credentialsFile}.refresh-${ownerKey}`, run);
 }
 
 export async function updateHostCredentialRecords<T>(
@@ -160,7 +179,6 @@ export async function updateHostCredentialRecords<T>(
     return result;
   });
 }
-
 
 export function createCredentialService(
   dependencies: CredentialServiceDependencies = {},

@@ -166,9 +166,20 @@ function freezeView(revision: number, providers: readonly Provider[]): ProviderR
       providerName: provider.providerName,
       templateId: provider.templateId,
       config: provider.config,
+      // XCODE: owner/revision/官方连接代际只留在内部 Registry，公开 facade 投影无身份 DTO。
+      ...(provider.accountOwner
+        ? { accountOwner: provider.accountOwner, accountRevision: provider.accountRevision }
+        : {}),
+      ...(provider.accountConnectionKey
+        ? { accountConnectionKey: provider.accountConnectionKey }
+        : {}),
       models: Object.freeze(
         provider.models.map((model) =>
-          Object.freeze({ modelId: model.modelId, config: model.config }),
+          Object.freeze({
+            modelId: model.modelId,
+            ...(model.displayName !== undefined ? { displayName: model.displayName } : {}),
+            config: model.config,
+          }),
         ),
       ),
     }),

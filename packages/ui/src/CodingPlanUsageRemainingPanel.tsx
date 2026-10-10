@@ -1,14 +1,11 @@
 /* eslint-disable max-lines -- Coding Plan 用量视图集中维护来源选择、额度投影和重置入口；本阶段只迁移 Account Access，不拆分既有 UI 结构。 */
-import type {
-  UsageEntitlementSnapshot,
-  ZCodeAccountAccess,
-  ZCodeProviderAccountAccess,
-} from "@zcode/shared";
 import {
   BIGMODEL_PROVIDER_ID,
   BUILTIN_MODEL_PROVIDER_IDS,
   type OAuthProviderId,
   ZAI_PROVIDER_ID,
+  NEW_API_PROVIDER_ID,
+  isNewApiModelProviderId,
 } from "@zcode/shared";
 import { ChevronRightIcon, Loader2 } from "lucide-react";
 import { useMemo } from "react";
@@ -25,39 +22,11 @@ import type {
   SidebarUsageCodingPlanProviderId,
   SidebarUsageCodingPlanSourceId,
 } from "@/lib/sidebarUsageCodingPlanProviderPreference.js";
-
-export interface CodingPlanUsageRemainingEntitlement {
-  sourceId?: SidebarUsageCodingPlanSourceId;
-  providerId: SidebarUsageCodingPlanProviderId;
-  accountAccess: ZCodeProviderAccountAccess | ZCodeAccountAccess;
-  label?: string;
-  snapshot: UsageEntitlementSnapshot | null;
-  loading: boolean;
-  error: string | null;
-}
-
-export interface CodingPlanUsageAvailableProvider {
-  providerId: SidebarUsageCodingPlanProviderId;
-  accountAccess: ZCodeProviderAccountAccess | ZCodeAccountAccess;
-  label: string;
-}
-
-export interface CodingPlanUsageRemainingState {
-  activeProviderId?: SidebarUsageCodingPlanSourceId;
-  displayedEntitlement: CodingPlanUsageRemainingEntitlement | null;
-  displayedProviderId?: SidebarUsageCodingPlanSourceId;
-  hasAnyActiveCodingPlan: boolean;
-  loading: boolean;
-  providerEntitlements: CodingPlanUsageRemainingEntitlement[];
-  tabProviders: CodingPlanUsageRemainingTabProvider[];
-  visibleSnapshot: UsageEntitlementSnapshot | null;
-}
-
-interface CodingPlanUsageRemainingTabProvider {
-  id: SidebarUsageCodingPlanSourceId;
-  providerId: SidebarUsageCodingPlanProviderId;
-  label: string;
-}
+import {
+  resolveCodingPlanUsageRemainingState,
+  type CodingPlanUsageAvailableProvider,
+  type CodingPlanUsageRemainingEntitlement,
+} from "@/lib/codingPlanUsageSources.js";
 
 function UsageLimitRow({
   label,
@@ -103,111 +72,11 @@ function UsageDetailsButton({ label, onUsageClick }: { label: string; onUsageCli
 }
 
 function resolveCodingPlanTabProviderIcon(providerId: string): OAuthProviderId {
+  if (isNewApiModelProviderId(providerId)) return NEW_API_PROVIDER_ID;
   if (providerId === BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan) {
     return ZAI_PROVIDER_ID;
   }
   return BIGMODEL_PROVIDER_ID;
-}
-
-function formatCodingPlanProviderTabAriaLabel(providerId: string): string {
-  return providerId === BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan
-    ? "Z.ai Coding Plan"
-    : "BigModel Coding Plan";
-}
-
-function getEntitlementSourceId(
-  entitlement: Pick<CodingPlanUsageRemainingEntitlement, "providerId" | "sourceId">,
-): SidebarUsageCodingPlanSourceId {
-  return entitlement.sourceId ?? entitlement.providerId;
-}
-
-export function hasActiveCodingPlanSnapshot(
-  snapshot: UsageEntitlementSnapshot | null,
-  providerId: string,
-): boolean {
-  return (
-    snapshot?.provider?.id === providerId &&
-    snapshot.unavailableReason !== "no_plan" &&
-    Boolean(snapshot.subscription?.details.length)
-  );
-}
-
-export function resolveCodingPlanUsageRemainingState(params: {
-  availableProviders: CodingPlanUsageAvailableProvider[];
-  entitlements: CodingPlanUsageRemainingEntitlement[];
-  modelProvidersLoading: boolean;
-  selectedProviderId?: SidebarUsageCodingPlanSourceId;
-}): CodingPlanUsageRemainingState | null {
-  const providerEntitlements = params.entitlements.filter(
-    (entitlement) =>
-      getEntitlementSourceId(entitlement).startsWith("team:") ||
-      params.availableProviders.some((provider) => provider.providerId === entitlement.providerId),
-  );
-  const selectedEntitlement = providerEntitlements.find(
-    (entitlement) => getEntitlementSourceId(entitlement) === params.selectedProviderId,
-  );
-  const activeEntitlement =
-    (selectedEntitlement &&
-    hasActiveCodingPlanSnapshot(selectedEntitlement.snapshot, selectedEntitlement.providerId)
-      ? selectedEntitlement
-      : undefined) ??
-    providerEntitlements.find((entitlement) =>
-      hasActiveCodingPlanSnapshot(entitlement.snapshot, entitlement.providerId),
-    );
-  const displayedEntitlement =
-    activeEntitlement ?? selectedEntitlement ?? providerEntitlements[0] ?? null;
-  const activeProviderId = activeEntitlement
-    ? getEntitlementSourceId(activeEntitlement)
-    : undefined;
-  const displayedProviderId = activeProviderId ?? params.selectedProviderId;
-  const loading =
-    params.modelProvidersLoading || providerEntitlements.some((entitlement) => entitlement.loading);
-  const visibleSnapshot =
-    displayedEntitlement &&
-    hasActiveCodingPlanSnapshot(displayedEntitlement.snapshot, displayedEntitlement.providerId)
-      ? displayedEntitlement.snapshot
-      : null;
-  const activeCodingPlanProviderIds = providerEntitlements
-    .filter((entitlement) =>
-      hasActiveCodingPlanSnapshot(entitlement.snapshot, entitlement.providerId),
-    )
-    .map((entitlement) => getEntitlementSourceId(entitlement));
-  const hasAnyActiveCodingPlan = Boolean(activeEntitlement);
-  const tabProviders = providerEntitlements
-    .filter((entitlement) =>
-      activeCodingPlanProviderIds.includes(getEntitlementSourceId(entitlement)),
-    )
-    .map((entitlement): CodingPlanUsageRemainingTabProvider => {
-      const provider = params.availableProviders.find(
-        (item) => item.providerId === entitlement.providerId,
-      );
-      return {
-        id: getEntitlementSourceId(entitlement),
-        providerId: entitlement.providerId,
-        label:
-          entitlement.label ??
-          provider?.label ??
-          formatCodingPlanProviderTabAriaLabel(entitlement.providerId),
-      };
-    });
-
-  if (
-    (!params.modelProvidersLoading && providerEntitlements.length === 0) ||
-    (!loading && !hasAnyActiveCodingPlan)
-  ) {
-    return null;
-  }
-
-  return {
-    activeProviderId,
-    displayedEntitlement,
-    displayedProviderId,
-    hasAnyActiveCodingPlan,
-    loading,
-    providerEntitlements,
-    tabProviders,
-    visibleSnapshot,
-  };
 }
 
 export function CodingPlanUsageRemainingPanel({
@@ -249,6 +118,8 @@ export function CodingPlanUsageRemainingPanel({
   const remaining = state.visibleSnapshot?.remaining;
   const unavailableReason = state.visibleSnapshot?.unavailableReason;
   const limits = state.visibleSnapshot?.quota?.limits ?? [];
+  const nativeQuotaLimit = limits.find((limit) => limit.native);
+  const nativeAccount = state.displayedEntitlement?.accountAccess.type === "new-api-account";
   const fiveHourTokenLimit = findCodingPlanQuotaLimit(limits, "TOKENS_LIMIT", 3, 5);
   const weeklyTokenLimit = findCodingPlanQuotaLimit(limits, "TOKENS_LIMIT", 6);
   const monthlyToolLimit = findCodingPlanQuotaLimit(limits, "TIME_LIMIT", 5, 1);
@@ -302,10 +173,12 @@ export function CodingPlanUsageRemainingPanel({
             <div className="flex min-w-0 items-center gap-1.5">
               <div className="min-w-0 truncate text-ui-base font-medium text-foreground">
                 {intl.formatMessage({
-                  id: "sidebar.usage.plan.codingPlanTitle",
+                  id: nativeAccount
+                    ? "settings.modelProvider.native.planTitle"
+                    : "sidebar.usage.plan.codingPlanTitle",
                 })}
               </div>
-              {audience ? (
+              {audience && !nativeAccount ? (
                 <span className="shrink-0 rounded-full border border-border bg-surface px-2 py-0.5 text-ui-xs font-medium leading-none text-foreground-subtle">
                   {intl.formatMessage({
                     id:
@@ -363,6 +236,14 @@ export function CodingPlanUsageRemainingPanel({
         </div>
       </div>
       <div className="px-3 py-2">
+        {state.visibleSnapshot?.source === "new-api" &&
+        state.visibleSnapshot.authorizationStatus ? (
+          <p className="px-3 pt-2 text-ui-base text-foreground-subtle">
+            {intl.formatMessage({
+              id: `settings.usage.nativeAuthorization.${state.visibleSnapshot.authorizationStatus}`,
+            })}
+          </p>
+        ) : null}
         {state.loading && !state.visibleSnapshot ? (
           <div className="flex items-center gap-2 p-2 text-ui-base text-foreground-subtle">
             <Loader2 className="size-3.5 animate-spin" />
@@ -378,6 +259,17 @@ export function CodingPlanUsageRemainingPanel({
           </div>
         ) : (
           <>
+            {nativeQuotaLimit ? (
+              <UsageLimitRow
+                label={intl.formatMessage({ id: "settings.usage.native.currentPeriod" })}
+                value={formatQuotaRemainingPercentage(locale, nativeQuotaLimit)}
+                resetTime={formatQuotaResetTime({
+                  locale,
+                  value: nativeQuotaLimit.native?.nextResetTime,
+                  format: "dateTime",
+                })}
+              />
+            ) : null}
             {fiveHourTokenLimit ? (
               <UsageLimitRow
                 label={intl.formatMessage({

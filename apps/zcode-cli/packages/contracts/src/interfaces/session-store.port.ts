@@ -786,6 +786,8 @@ export interface SharedContextImportCommitBundle {
   session: CreateSessionInput;
   contextMessage: MessageWithParts;
   provenance: SessionEntryInfo;
+  /** XCODE: 原子事务提交前的同步 owner 栅栏；不是序列化 wire 或补偿删除。 */
+  assertCurrent?: () => void;
 }
 
 export type SharedContextImportStatus = "pending" | "reserved" | "attached" | "discarded";

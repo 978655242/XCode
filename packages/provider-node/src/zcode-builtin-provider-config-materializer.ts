@@ -5,10 +5,12 @@ import {
   decodeZCodeBuiltinRelease,
   serializeZCodeBuiltinRelease,
 } from "./zcode-builtin-release.js";
+import { createNewApiProviderAnchors } from "./new-api-provider-anchors.js";
 
 export interface MaterializeZCodeBuiltinProviderConfigOptions {
   readonly environmentConfigRoot: string;
   readonly content: string;
+  readonly newApiOrigin?: string;
 }
 
 /**
@@ -18,8 +20,19 @@ export interface MaterializeZCodeBuiltinProviderConfigOptions {
 export async function materializeZCodeBuiltinProviderConfig(
   options: MaterializeZCodeBuiltinProviderConfigOptions,
 ): Promise<string> {
+  const release = decodeZCodeBuiltinRelease(JSON.parse(options.content));
   const content = `${serializeZCodeBuiltinRelease(
-    decodeZCodeBuiltinRelease(JSON.parse(options.content)),
+    options.newApiOrigin
+      ? {
+          ...release,
+          config: {
+            ...release.config,
+            providers: release.config.providers.overlay(
+              createNewApiProviderAnchors(options.newApiOrigin),
+            ),
+          },
+        }
+      : release,
   )}\n`;
   const filePath = join(
     options.environmentConfigRoot,

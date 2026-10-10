@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- 本期全部本机启动、部署、访问；显式 `NEW_API_BASE_URL=http://127.0.0.1:3001`，HTTP 仅允许本机 loopback，不能从 metadata/server_address 推导 origin。
+- 本期全部本机启动、部署、访问；显式 `NEW_API_BASE_URL=http://127.0.0.1:3001` 才启用本机桌面私有组合，HTTP 仅允许本机 loopback，不能从 metadata/server_address 推导 origin。未配置的非私有宿主及独立 Web/远程路径保留；私有链路失败不回退。
 - 普通 BigModel/Z.ai 个人、企业、Start Plan 全部 clean cutover；自配 Provider/key/模型、历史 ref 与现有远程/Web功能不删除。
 - 旧官方 Plan 选择一律要求用户重选，即使 model_id 相同。私有 Provider 固定三个 anchor，group 为 `new-api-family`，不是按套餐生成 ID。
 - 不做已有 New API 用户/订阅迁移绑定、企业组织权限、Start 独立余额、线上购买、额外 reset 机会或新增遥测采集。
@@ -27,9 +27,9 @@
 
 ## 0. 当前证据与实施前置门槛
 
-本次仅计划编写。已观察：客户端设计与 canonical 均为“待实现”；`sources.ts` 的 Account snapshot 只有 providers/states，尚无完整 modelConfigs；OAuth adapter context 尚无 PKCE/purpose；套餐支付读方法仍直接返回旧 DTO；升级弹窗仍有官方购买完成语义。因此不能以现有接口 status 成功宣称已集成。
+2026-10-09 已开始实施。当前主身份、wire、安全库与 Main 路由已进入回归；目录/worker、套餐/用量、WebView/UI、独立官方连接按互不共享写入的切片实施，shared/node/Main 接线由集成执行者统一负责。实际完成与验收证据记录在 `.superpowers/sdd/2026-10-08-new-api-integration/progress.md`；本计划任务未验收前不勾选。
 
-2026-10-08 工作区 freshness 检查通过；功能分支没有远端跟踪分支。当前桌面开发 bundle/Host 文件存在无关本地修改，`.v2c/`、server `.v2c/` 及客户端 specs 为未跟踪内容；实施保留，不恢复、不纳入任务提交。实际执行每个任务前重新检查状态，不沿用本文作为实时状态。
+开工 freshness 与架构基线通过；保留功能分支 `feature/private-server-technical-design` 的既有提交、追踪分支和用户本地修改。现有 3001 为旧二进制且新接口 404，不重启、不改其业务库；33519 隔离服务为 dirty build，不能作为当前源码部署/发布证据。已有隔离数据库矩阵及源码测试不替代本次桌面、SDK 和官方账号验收。
 
 | Gate       | New API 必须交付的真实前提                                                                                            | 放行客户端任务                               | 未满足时行为                                                    |
 | ---------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------------- |
@@ -301,8 +301,8 @@ mise exec -- pnpm architecture:check --changed
 
 ## 4. 完成定义与交接
 
-当前任务状态全部未执行。本计划没有修改业务代码、数据库、凭据或运行服务，没有声称任何未来测试通过。
+T01–T09 的可达客户端实现与确定性回归已经落地，T10 已执行隔离后端、三 SDK 与真实 Desktop Agent/主账号/只读页面联调。实际任务状态、源码/二进制来源、回归与审查证据见 `.superpowers/sdd/2026-10-08-new-api-integration/progress.md` 和 [运行手册](../../xcode/new-api-integration-runbook.md)。未提交、推送、发布或重启既有 3001 服务，未修改其业务数据库。
 
-执行从T01开始；New API后端按canonical N1→N2/N3→N4交付真实前提，资金隔离未建立时不得先放开客户端登录。每任务review可独立拒绝：身份任务看owner/秘密，目录任务看权限/能力，控制面看真实语义，官方任务看身份/来源，最终任务看真实消费者行为。
+**未完成正式发布验收。** G1 全资金/跨周期/Redis/三数据库矩阵、G4 真实官方 Plan/MCP/闲时/分享、目标 OS 安全库和 G5 完整 clean release deployment 均不能以合成上游或源码检查代替。当前隔离构建 `vcs.modified=true`；实际消费证明只覆盖明确记录的受控上游。同一任务包含未满足的 live acceptance 时，不批量勾选步骤、不将其记为完整验收。
 
 存在外部依赖时继续完成可达实现与确定性回归，但blocked任务不记完成，也不偷偷缩减三transport、官方云或保留UI的验收范围。执行方式可选同会话逐任务或subagent切片；无论方式都必须统一shared/node集成owner并遵守上述完成门槛。

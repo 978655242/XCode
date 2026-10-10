@@ -159,6 +159,7 @@ export function applyCodingPlanQuotaResetStatus(
   manualStartedAt: number | null = null,
   resetType: CodingPlanResetType = "FIVE_HOUR",
 ): CodingPlanQuotaResetUiEntry | null {
+  if (status.mode === "native-single-period") return null;
   const availableResets =
     resetType === "WEEK" ? status.availableWeekResets : status.availableFiveHourResets;
   const latestUsedAt =

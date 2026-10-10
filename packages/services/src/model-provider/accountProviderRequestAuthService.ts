@@ -6,6 +6,9 @@ import {
   type ZCodeProviderAccountAccess,
   ZAI_PROVIDER_ID,
 } from "@zcode/shared";
+import type { NewApiAccountService } from "../new-api/newApiAccountService.js";
+import type { AccountProviderConfigSnapshot, ProviderSource } from "@zcode/provider";
+import { isNewApiModelProviderId, isBuiltinModelProviderId } from "@zcode/shared";
 
 export interface AccountRequestAuthMaterial {
   apiKey?: string;
@@ -67,6 +70,8 @@ class AccountProviderRequestAuthService implements AccountRequestAuthResolver {
 
   async resolveCurrent(input: AccountRequestAuthInput): Promise<AccountRequestAuthMaterial> {
     const providerId = input.providerId.trim();
+    if (input.accountAccess.type === "new-api-account")
+      throw new Error("XCODE_PRIVATE_REQUEST_AUTH_UNCONFIGURED");
     const access = await this.#resolveAccess(input.accountAccess);
     if (!access) throw new AccountRequestCredentialUnavailableError(providerId);
 
@@ -93,6 +98,7 @@ class AccountProviderRequestAuthService implements AccountRequestAuthResolver {
   #resolveAccess(
     access: ZCodeProviderAccountAccess | ZCodeAccountAccess,
   ): Promise<ZCodeAccountAccess | null> {
+    if (access.type === "new-api-account") return Promise.resolve(null);
     return "mode" in access
       ? this.#options.resolveCurrentAccountAccess(access)
       : Promise.resolve(access);
@@ -115,4 +121,69 @@ export function createAccountProviderRequestAuthService(
   options: AccountProviderRequestAuthServiceOptions,
 ): AccountProviderRequestAuthService {
   return new AccountProviderRequestAuthService(options);
+}
+
+/** Request-period Native credentials are bound to the exact accepted account snapshot. */
+export function createNewApiAccountRequestAuthResolver(options: {
+  account: Pick<NewApiAccountService, "isCurrent" | "getRelayCredential">;
+  accountSource: ProviderSource<AccountProviderConfigSnapshot>;
+  official: AccountRequestAuthResolver;
+}): AccountRequestAuthResolver {
+  const assertNative = async (input: AccountAccessIdentityInput) => {
+    const access = input.accountAccess;
+    if (access.type !== "new-api-account")
+      throw new AccountRequestCredentialUnavailableError(input.providerId);
+    const snapshot = await options.accountSource.read();
+    const providerAccess = snapshot.providers.get(input.providerId)?.access;
+    if (
+      !isNewApiModelProviderId(input.providerId) ||
+      !access.owner ||
+      !access.accountRevision ||
+      !options.account.isCurrent(access.owner) ||
+      !snapshot.owner ||
+      !options.account.isCurrent(snapshot.owner) ||
+      access.accountRevision !== snapshot.revision ||
+      providerAccess?.type !== "new-api-account" ||
+      providerAccess.entitled !== true ||
+      snapshot.states?.[input.providerId]?.current !== true
+    ) {
+      throw new AccountRequestCredentialUnavailableError(input.providerId);
+    }
+    return { snapshot, owner: access.owner };
+  };
+  return {
+    resolveAccessCurrent: (access) => {
+      if (access.type === "new-api-account") throw new Error("XCODE_PRIVATE_REMOTE_UNSUPPORTED");
+      return options.official.resolveAccessCurrent(access);
+    },
+    assertCurrent: async (input) => {
+      if (input.accountAccess.type === "new-api-account") {
+        await assertNative(input);
+        return;
+      }
+      await options.official.assertCurrent(input);
+    },
+    resolveCurrent: async (input) => {
+      if (input.accountAccess.type !== "new-api-account") {
+        if (input.reason === "model-request" && isBuiltinModelProviderId(input.providerId))
+          throw new Error("XCODE_LEGACY_OFFICIAL_SELECTION_RESELECT_REQUIRED");
+        return options.official.resolveCurrent(input);
+      }
+      if (input.reason !== "model-request")
+        throw new Error(
+          `XCODE_PRIVATE_${input.reason === "off-peak" ? "OFF_PEAK" : "USAGE_AUTH"}_UNSUPPORTED`,
+        );
+      const { snapshot, owner } = await assertNative(input);
+      if (
+        !input.modelId ||
+        !snapshot.providers.get(input.providerId)?.builtinModelIds?.includes(input.modelId) ||
+        snapshot.modelConfigs?.[input.providerId]?.[input.modelId]?.enabled !== true
+      )
+        throw new AccountRequestCredentialUnavailableError(input.providerId);
+      const credential = await options.account.getRelayCredential(owner);
+      // A logout/config publication can cross the await; no stale secret is released.
+      await assertNative(input);
+      return { apiKey: credential.token };
+    },
+  };
 }

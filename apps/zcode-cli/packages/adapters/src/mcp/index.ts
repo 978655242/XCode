@@ -444,6 +444,37 @@ class NodeMcpAdapter implements McpPort {
       options.timeoutMs ?? initialRecord?.config.timeoutMs ?? DEFAULT_MCP_TIMEOUT_MS;
     const deadline = createMcpDeadline(timeoutMs);
     const timeoutMessage = `MCP tool ${request.serverName}/${request.toolName} timed out after ${timeoutMs}ms`;
+    // XCODE: 整个调用冻结 scope；SDK 排队、重连和 HTTP 401 均不得重新认领给新 owner。
+    const initialConfig = initialRecord?.config;
+    const official = initialConfig && (initialConfig.type === "http" || initialConfig.type === "stdio") &&
+      isOfficialAuthConfig(initialConfig) ? initialConfig.official : undefined;
+    const authRequest = official && this.officialMcpAuth?.resolveZCodeApiOrigin ? {
+      pluginId: official.pluginId, mcpKey: official.mcpKey,
+      targetOrigin: initialRecord?.config.type === "http" ? new URL(initialRecord.config.url).origin : this.officialMcpAuth.resolveZCodeApiOrigin(),
+      workspacePath: this.workingDirectory, workspaceIdentity: this.officialMcpAuth.workspaceIdentity,
+      signal: options.signal,
+    } : undefined;
+    const pendingCapture = authRequest && this.officialMcpAuth?.authHeadersPort?.resolveHeaders({ ...authRequest, captureOnly: true });
+    const captured = pendingCapture ? await waitWithinMcpDeadline(pendingCapture, deadline, timeoutMessage, options.signal) : undefined;
+    if (captured && !captured.ok && captured.reason === "official_auth_scope_changed") {
+      throw new OfficialMcpAuthError("official_auth_scope_changed", "official MCP invocation owner changed");
+    }
+    const scope = captured && captured.ok ? captured.scope : undefined;
+    const scopedRequest = scope ? { ...request, officialInvocationScope: scope } : request;
+    const assertCurrentSync = (): void => {
+      if (scope && this.officialMcpAuth?.authHeadersPort?.isScopeCurrent &&
+        !this.officialMcpAuth.authHeadersPort.isScopeCurrent(scope)) {
+        throw new OfficialMcpAuthError("official_auth_scope_changed", "official MCP invocation owner changed");
+      }
+    };
+    const assertCurrent = async (): Promise<void> => {
+      if (!scope || !authRequest) return;
+      const pendingCheck = this.officialMcpAuth?.authHeadersPort?.resolveHeaders({ ...authRequest, scope, validateOnly: true });
+      const checked = pendingCheck ? await waitWithinMcpDeadline(pendingCheck, deadline, timeoutMessage, options.signal) : undefined;
+      if (!checked?.ok || checked.scope !== scope) {
+        throw new OfficialMcpAuthError("official_auth_scope_changed", "official MCP invocation owner changed");
+      }
+    };
     const pending = initialRecord?.connecting;
     if (pending) {
       // connecting 是 adapter 持有的共享连接/OAuth 恢复任务。过去这里裸 await，
@@ -472,27 +503,35 @@ class NodeMcpAdapter implements McpPort {
     }
 
     try {
-      return await this.callToolOnClient(
+      await assertCurrent();
+      assertCurrentSync();
+      const result = await this.callToolOnClient(
         record.client,
-        request,
+        scopedRequest,
         remainingMcpDeadlineMs(deadline, timeoutMessage),
         options.signal,
       );
+      await assertCurrent();
+      assertCurrentSync();
+      return result;
     } catch (error) {
       // 连接建立后 token 过期、被撤销或 scope 不足时，
       // 过去这些认证错误原样冒泡，用户看到裸错误且永远不会自愈——OAuth 自愈只存在于
       // startup connect 路径。现在运行期与建连期共用同一套 Phase 2 → Phase 1 编排。
       const trigger = classifyInteractiveAuthorizationTrigger(error);
       if (trigger && record.config.type !== "stdio") {
-        return await this.recoverToolCallAuthorization({
+        const result = await this.recoverToolCallAuthorization({
           error,
           record,
-          request,
+          request: scopedRequest,
           deadline,
           timeoutMessage,
           trigger,
           ...(options.signal ? { signal: options.signal } : {}),
         });
+        await assertCurrent();
+        assertCurrentSync();
+        return result;
       }
       // 防 onclose 尚未派发的竞态：SDK 在 transport 已断时抛裸 "Not connected"。
       // 只对这一种确定的断连错误重连重试一次，其余错误原样冒泡。
@@ -515,12 +554,17 @@ class NodeMcpAdapter implements McpPort {
       }
       const revived = this.records.get(request.serverName);
       if (!revived?.client || revived.status.status !== "connected") throw error;
-      return await this.callToolOnClient(
+      await assertCurrent();
+      assertCurrentSync();
+      const result = await this.callToolOnClient(
         revived.client,
-        request,
+        scopedRequest,
         remainingMcpDeadlineMs(deadline, timeoutMessage),
         options.signal,
       );
+      await assertCurrent();
+      assertCurrentSync();
+      return result;
     }
   }
 
@@ -570,6 +614,7 @@ class NodeMcpAdapter implements McpPort {
     serverName: string,
     config: McpServerConfig,
     signal: AbortSignal | undefined,
+    invocationScope?: string,
   ): Promise<OfficialMcpAuthMetaPayload | undefined> {
     if (config.type !== "stdio" || !isOfficialAuthConfig(config) || !config.official) {
       return undefined;
@@ -639,17 +684,27 @@ class NodeMcpAdapter implements McpPort {
       return fail("official_mcp_origin_untrusted");
     }
 
-    const resolved = await authHeadersPort.resolveHeaders({
-      mcpKey: official.mcpKey,
-      pluginId: official.pluginId,
-      targetOrigin,
-      ...(this.officialMcpAuth?.workspaceIdentity
-        ? { workspaceIdentity: this.officialMcpAuth.workspaceIdentity }
-        : {}),
+    const authRequest = {
+      mcpKey: official.mcpKey, pluginId: official.pluginId, targetOrigin,
+      ...(this.officialMcpAuth?.workspaceIdentity ? { workspaceIdentity: this.officialMcpAuth.workspaceIdentity } : {}),
       ...(this.workingDirectory ? { workspacePath: this.workingDirectory } : {}),
       ...(signal ? { signal } : {}),
-    });
-    if (!resolved.ok) return fail(resolved.reason);
+    };
+    const captured = invocationScope ? undefined : await authHeadersPort.resolveHeaders({ ...authRequest, captureOnly: true });
+    if (captured && !captured.ok) {
+      if (captured.reason === "official_auth_scope_changed") {
+        throw new OfficialMcpAuthError("official_auth_scope_changed", "official MCP invocation owner changed");
+      }
+      return fail(captured.reason);
+    }
+    const scope = invocationScope ?? (captured?.ok ? captured.scope : undefined);
+    const resolved = await authHeadersPort.resolveHeaders({ ...authRequest, ...(scope ? { scope } : {}) });
+    if (!resolved.ok) {
+      if (scope || resolved.reason === "official_auth_scope_changed") {
+        throw new OfficialMcpAuthError("official_auth_scope_changed", "official MCP invocation owner changed");
+      }
+      return fail(resolved.reason);
+    }
 
     // 只记 header 名与套餐维度，绝不记 header 值——日志留存周期不受控。
     this.logger?.debug("Official MCP stdio auth headers attached", {
@@ -667,7 +722,7 @@ class NodeMcpAdapter implements McpPort {
 
   private async callToolOnClient(
     client: McpClient,
-    request: McpCallToolRequest,
+    request: McpCallToolRequest & { officialInvocationScope?: string },
     timeoutMs: number,
     signal: AbortSignal | undefined,
   ): Promise<McpToolCallResult> {
@@ -693,8 +748,9 @@ class NodeMcpAdapter implements McpPort {
         {
           name: request.toolName,
           arguments: request.arguments ?? {},
-          ...((request.trace || request.runtimeScope || request.workspaceKey || request.workspacePath)
-            ? { _meta: mcpRequestMeta(request) }
+          ...((request.trace || request.runtimeScope || request.workspaceKey || request.workspacePath || request.officialInvocationScope)
+            ? { _meta: { ...mcpRequestMeta(request),
+                ...(request.officialInvocationScope ? { officialInvocationScope: request.officialInvocationScope } : {}) } }
             : {}),
         },
         {
@@ -1427,11 +1483,14 @@ class NodeMcpAdapter implements McpPort {
           stderr: "pipe",
           ...(isOfficialAuthConfig(config) && config.official
             ? {
-                requestMetaProvider: async () => {
+                requestMetaProvider: async (message) => {
                   const authMeta = await this.resolveOfficialStdioAuthMeta(
                     serverName,
                     config,
                     signal,
+                    "params" in message && isRecord(message.params) && isRecord(message.params._meta) &&
+                      typeof message.params._meta.officialInvocationScope === "string"
+                      ? message.params._meta.officialInvocationScope : undefined,
                   );
                   return authMeta ? { [OFFICIAL_MCP_AUTH_META_KEY]: authMeta } : undefined;
                 },

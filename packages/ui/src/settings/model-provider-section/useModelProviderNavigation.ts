@@ -91,8 +91,10 @@ export function useModelProviderNavigation({
 
   const codingPlanItems = useMemo(
     () =>
-      CODING_PLAN_PROVIDER_SPECS.filter((spec) =>
-        shouldShowCodingPlanForProviderFamilyDomain(spec.oauthProviderId, providerFamilyDomain),
+      CODING_PLAN_PROVIDER_SPECS.filter(
+        (spec) =>
+          !modelProviders.some((provider) => provider.config.group === "new-api-family") &&
+          shouldShowCodingPlanForProviderFamilyDomain(spec.oauthProviderId, providerFamilyDomain),
       ).map((spec) => {
         const provider = modelProviders.find((item) => item.providerId === spec.id) ?? null;
         const accountEntitled = entitledAccountProviderIds.has(spec.id);
@@ -183,30 +185,43 @@ export function useModelProviderNavigation({
         id: "preset",
         title: intl.formatMessage({ id: "settings.modelProvider.presetTitle" }),
         items: [
-          ...presetProviders.map(({ id, displayName, provider }) => {
-            const statusProvider = resolvePresetFamilyStatusProvider({
-              presetId: id,
+          ...modelProviders
+            .filter((provider) => provider.config.group === "new-api-family")
+            .map((provider) => ({
+              key: createCustomProviderNodeKey(provider.providerId),
+              type: "custom" as const,
+              label: getProviderFormLabel(provider),
               provider,
-              connectionModeItems: connectionModeCodingPlanItems,
-              connectionSelections,
-              modelProviders,
-            });
-            return {
-              key: createPresetProviderNodeKey(id),
-              type: "preset" as const,
-              presetId: id,
-              label: displayName,
-              logo: modelProviders.find(
-                (candidate) =>
-                  candidate.providerId ===
-                  resolveModelProviderFamilySpecByProviderId(id)?.individualCodingPlanProviderId,
-              )?.config.logo,
-              provider,
-              displayName,
-              statusProvider,
-              statusActive: statusProvider?.executable === true,
-            };
-          }),
+              statusActive: provider.executable === true,
+            })),
+          ...presetProviders
+            .filter(
+              () => !modelProviders.some((provider) => provider.config.group === "new-api-family"),
+            )
+            .map(({ id, displayName, provider }) => {
+              const statusProvider = resolvePresetFamilyStatusProvider({
+                presetId: id,
+                provider,
+                connectionModeItems: connectionModeCodingPlanItems,
+                connectionSelections,
+                modelProviders,
+              });
+              return {
+                key: createPresetProviderNodeKey(id),
+                type: "preset" as const,
+                presetId: id,
+                label: displayName,
+                logo: modelProviders.find(
+                  (candidate) =>
+                    candidate.providerId ===
+                    resolveModelProviderFamilySpecByProviderId(id)?.individualCodingPlanProviderId,
+                )?.config.logo,
+                provider,
+                displayName,
+                statusProvider,
+                statusActive: statusProvider?.executable === true,
+              };
+            }),
           ...codingPlanItems.filter((item) => isStartPlanModelProviderId(item.presetId)),
         ],
       },

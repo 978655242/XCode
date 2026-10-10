@@ -15,6 +15,7 @@ import type { ICuaPermissionService } from "./cua-permission-broker/cuaPermissio
 import type { IBotsService } from "./bots/bots.js";
 import type { IFileWatcherService } from "./fileWatcher/fileWatcher.js";
 import type { IOAuthService } from "./oauth/oauth.js";
+import type { IOfficialCloudConnectionService } from "./official-mcp/officialCloudConnection.js";
 import type {
   IModelSelectionService,
   IProviderSettingsService,
@@ -64,6 +65,8 @@ export interface IServiceAccessor {
   readonly botsService: IBotsService;
   readonly fileWatcherService: IFileWatcherService;
   readonly oauthService: IOAuthService;
+  /** 仅桌面 Native owner 的独立官方云连接；独立 Web/remote 不提供私有身份面。 */
+  readonly officialCloudConnectionService?: IOfficialCloudConnectionService;
   /** 当前 Environment 的 Provider 配置与设置视图。 */
   readonly providerSettingsService: IProviderSettingsService;
   /** 当前 Environment Registry 发布的唯一模型选择 View。 */

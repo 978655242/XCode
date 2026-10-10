@@ -2,6 +2,7 @@ import { ModelSelectionFacade, type ProviderRegistryFacadeSource } from "@zcode/
 import {
   isBuiltinModelProviderId,
   isStartPlanModelProviderId,
+  isNewApiModelProviderId,
   OFF_PEAK_PROVIDER_IDS,
 } from "@zcode/shared";
 import { resolveLegacyReasoningLevel } from "./legacy-reasoning-level.js";
@@ -13,9 +14,13 @@ export function createNodeModelSelectionFacade(
   return new ModelSelectionFacade(
     source,
     (providerId) => {
-      // Start 按真实 ID 解析；不能参与付费连接唯一性判断或被映射到付费额度。
+      // Native mode never remaps historical official refs; non-private account behavior is unchanged.
+      const native = source
+        .getSnapshot()
+        ?.resolution.effectiveBuiltinProviders.keys()
+        .some(isNewApiModelProviderId);
       if (isStartPlanModelProviderId(providerId)) return "ordinary";
-      if (isBuiltinModelProviderId(providerId)) return "account-plan";
+      if (isBuiltinModelProviderId(providerId)) return native ? "ordinary" : "account-plan";
       if (Object.values(OFF_PEAK_PROVIDER_IDS).some((id) => id === providerId))
         return "account-offpeak";
       return "ordinary";

@@ -490,12 +490,14 @@ export class SqliteSessionStore
     }
     this.db.exec("begin immediate");
     try {
+      bundle.assertCurrent?.();
       const existing = sessionRepository.getSession(this.db, session.id);
       if (existing) {
         const entry = sessionEntryRepository
           .sessionEntries(this.db, { sessionID: session.id, type: provenance.type })
           .find((candidate) => candidate.id === provenance.id);
         if (!entry) throw new Error("Shared context import session is incomplete");
+        bundle.assertCurrent?.();
         this.db.exec("commit");
         return existing;
       }
@@ -505,6 +507,8 @@ export class SqliteSessionStore
         await messageRepository.savePart(this.db, part);
       }
       sessionEntryRepository.saveSessionEntry(this.db, provenance);
+      // XCODE: saveMessage/savePart 可让出执行权；owner 已换则回滚整个导入，不留下半条会话。
+      bundle.assertCurrent?.();
       this.db.exec("commit");
       return persisted;
     } catch (error) {

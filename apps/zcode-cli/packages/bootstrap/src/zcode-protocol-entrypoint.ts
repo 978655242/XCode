@@ -163,7 +163,6 @@ export async function runZCodeProtocolAgent(
     options.lifecycle?.signal.throwIfAborted();
     logger.info("Worker Provider Registry 已就绪", {
       accountRevision: providerRegistryRuntime.snapshot.sourceRevisions.account,
-      configRevision: providerRegistryRuntime.snapshot.sourceRevisions.config,
       event: "zcode_protocol.provider_registry.ready",
       module: "bootstrap.zcode_protocol",
       providerCount: providerRegistryRuntime.snapshot.registry.providers.length,
@@ -201,6 +200,8 @@ export async function runZCodeProtocolAgent(
     const officialMcpAuth = {
       authHeadersPort: createOfficialMcpAuthHeadersPort({
         resolveContext: () => officialMcpAuthContext,
+        // XCODE: Source 已失效而 Registry 仍刷新时，也不能发送或消费旧代际。
+        isScopeCurrent: (scope) => providerRegistryRuntime?.isAccountScopeCurrent(scope) === true,
         // workspaceKey 必须遵守仓库约定 `workspaceIdentity?.trim() || workspacePath`，
         // 否则同路径不同 identity 的远端 workspace 在审计上下文里无法区分。
         // 注意：agent 进程当前没有 identity 来源，因此实际多为 undefined，key 退化为 path；
@@ -289,6 +290,7 @@ export async function runZCodeProtocolAgent(
       mcpTelemetry: mcpTelemetryTracker,
       sessionStore,
       syncAccountProviderConfig: activeProviderRegistryRuntime.syncAccountProviderConfig,
+      isAccountScopeCurrent: activeProviderRegistryRuntime.isAccountScopeCurrent,
       refreshProviderRegistry: async (reason) => {
         await activeProviderRegistryRuntime.runtime.registryService.refresh(reason);
       },

@@ -145,14 +145,22 @@ export function useEnterpriseCodingPlanProducts({
             ? Promise.resolve<EnterpriseCodingPlanPricingResponse>({ productList: [] })
             : service.getEnterprisePricing({ authenticated, family }),
         ]);
+        if (
+          (staticResult.status === "fulfilled" && "source" in staticResult.value) ||
+          (pricingResult.status === "fulfilled" && "source" in pricingResult.value)
+        ) {
+          throw new Error("XCODE_NATIVE_PLAN_READ_REQUIRES_HANDOFF");
+        }
         const staticProducts =
-          staticResult.status === "fulfilled"
+          staticResult.status === "fulfilled" && !("source" in staticResult.value)
             ? Object.prototype.hasOwnProperty.call(staticResult.value, codingPlanProviderId)
               ? staticResult.value[codingPlanProviderId]
               : undefined
             : undefined;
         const raw: EnterpriseCodingPlanPricingResponse =
-          pricingResult.status === "fulfilled" ? pricingResult.value : { productList: [] };
+          pricingResult.status === "fulfilled" && !("source" in pricingResult.value)
+            ? pricingResult.value
+            : { productList: [] };
         const pricingError = pricingResult.status === "rejected" ? pricingResult.reason : null;
         if (pricingError) {
           const message = normalizeErrorMessage(pricingError);

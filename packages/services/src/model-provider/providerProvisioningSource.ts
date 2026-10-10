@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
   isProviderProvisioningAccountCredentialKey,
   providerProvisioningEnvelopeSchema,
+  isNewApiModelProviderId,
   type ProviderProvisioningCredentialEntry,
   type ProviderProvisioningEnvelope,
 } from "@zcode/shared";
@@ -55,6 +56,24 @@ export function createProviderProvisioningSource(
       ]);
       // 默认与规则来自同一份持锁读取，不能把两次读取的值拼成不存在的配置版本。
       const personalConfig = encodeProviderConfigFile(personal).config;
+      // Private managed selection is local-only; unrelated custom/official remote config still syncs.
+      personalConfig.providerConfigRules.providerRules =
+        personalConfig.providerConfigRules.providerRules.filter(
+          (rule) => !isNewApiModelProviderId(rule.providerId),
+        );
+      personalConfig.modelConfigRules.providerModelRules =
+        personalConfig.modelConfigRules.providerModelRules.filter(
+          (rule) => !isNewApiModelProviderId(rule.providerId),
+        );
+      personalConfig.modelConfigRules.manualProviderModelRules =
+        personalConfig.modelConfigRules.manualProviderModelRules.filter(
+          (rule) => !isNewApiModelProviderId(rule.providerId),
+        );
+      if (
+        personalConfig.defaultModelSelection &&
+        isNewApiModelProviderId(personalConfig.defaultModelSelection.providerId)
+      )
+        delete personalConfig.defaultModelSelection;
       const accountSettings = {
         providerFamilyDomain: settings.providerFamilyDomain ?? null,
         providerFamilyConnectionSelections: settings.providerFamilyConnectionSelections ?? {},

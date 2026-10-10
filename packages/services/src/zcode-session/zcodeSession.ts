@@ -18,6 +18,10 @@ import type {
   ZCodeWorkspacePresentation,
 } from "@zcode/shared";
 import { createServiceDescriptor } from "#src/descriptors.js";
+import {
+  sessionCreateAdmission,
+  type ZCodeAgentCreateSessionParams,
+} from "#src/zcode-agent/zcodeAgent.js";
 
 export interface ZCodeSessionWorkspaceTarget {
   workspacePath: string;
@@ -42,6 +46,8 @@ export interface ZCodeSessionCreateParams extends ZCodeSessionWorkspaceTarget {
   thoughtLevel?: string;
   mcpServers?: ZCodeAgentMcpServer[];
   importedHistory?: ZCodeSessionImportHistory;
+  // XCODE: 仅 Host 本地导入携带提交栅栏，Symbol 不进入 renderer RPC 或 wire JSON。
+  [sessionCreateAdmission]?: ZCodeAgentCreateSessionParams[typeof sessionCreateAdmission];
 }
 
 export interface ZCodeSessionResumeParams extends ZCodeTaskTarget {

@@ -157,6 +157,18 @@ export function useModelSelectionServiceView(
       else {
         // 公共事件没有某个调用者的原意图；只能用它触发当前输入重读，不能直接接管结果。
         latestRevision = Math.max(latestRevision, candidate.revision);
+        if (
+          candidate.providers.some((provider) => provider.config.access?.type === "new-api-account")
+        ) {
+          // Native owner/catalog changes cannot keep the previous owner's candidates visible.
+          setOwned({
+            service: normalizedService,
+            enabled,
+            unavailableReason,
+            inputKey,
+            state: { status: "loading" },
+          });
+        }
         read();
       }
     });

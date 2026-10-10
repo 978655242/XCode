@@ -1,5 +1,5 @@
 import type { UsageEntitlementSnapshot } from "@zcode/shared";
-import { hasActiveCodingPlanSnapshot } from "@/CodingPlanUsageRemainingPanel.js";
+import { hasActiveCodingPlanSnapshot } from "@/lib/codingPlanUsageSources.js";
 
 type SidebarFooterProfilePlanBadge =
   | {
@@ -53,6 +53,7 @@ export function resolveSidebarFooterPlanBadgeLabel(
   if (!rawLabel) {
     return null;
   }
+  if (snapshot.source === "new-api") return rawLabel;
 
   const withoutPrefix = rawLabel.replace(/^glm\s+coding\s+/i, "").trim();
   const normalized = withoutPrefix || rawLabel;

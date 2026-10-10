@@ -10,6 +10,7 @@ import {
   providerProvisioningEnvelopeSchema,
   providerProvisioningResultSchema,
   isProviderProvisioningAccountCredentialKey,
+  isNewApiModelProviderId,
   type ProviderProvisioningEnvelope,
   type ProviderProvisioningResult,
 } from "@zcode/shared";
@@ -55,6 +56,24 @@ export function createProviderProvisioningTarget(
   return {
     async apply(input: ProviderProvisioningEnvelope): Promise<ProviderProvisioningResult> {
       const envelope = providerProvisioningEnvelopeSchema.parse(input);
+      const personal = parsePersonalConfig(envelope);
+      if (
+        personal.providers.keys().some(isNewApiModelProviderId) ||
+        (personal.defaultModelSelection &&
+          isNewApiModelProviderId(personal.defaultModelSelection.providerId)) ||
+        envelope.credentials.some(
+          ({ key }) => key.startsWith("new-api:") || key.includes("new-api-"),
+        )
+      ) {
+        return {
+          syncId: envelope.syncId,
+          status: "unsupported",
+          personalProviderCount: 0,
+          credentialCount: 0,
+          errorMessage: "XCODE_PRIVATE_REMOTE_UNSUPPORTED",
+          rolledBack: false,
+        };
+      }
       return withFileLock(options.stateFilePath, async () => {
         const previousState = await readStateFile(options.stateFilePath);
         const previousResult = previousState?.records.find(

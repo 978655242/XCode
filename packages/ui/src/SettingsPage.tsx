@@ -62,7 +62,10 @@ import {
   buildCodingPlanUsageSources,
   type CodingPlanUsageSource,
 } from "@/settings/usage-stats/CodingPlanUsagePanel.js";
-import { buildPersonalCodingPlanUsageSource } from "@/lib/codingPlanUsageSources.js";
+import {
+  buildNativeCodingPlanUsageSource,
+  buildPersonalCodingPlanUsageSource,
+} from "@/lib/codingPlanUsageSources.js";
 import { SubagentsSection } from "@/settings/SubagentsSection.js";
 import { AutomationsSection } from "@/settings/AutomationsSection.js";
 import { SegmentPill } from "@/settings/PluginStoreListView.js";
@@ -204,6 +207,7 @@ function resolveSettingsUsageCodingPlanTabLabel({
   index: number;
   source: CodingPlanUsageSource;
 }): string {
+  if (source.accountAccess.type === "new-api-account") return source.label;
   if (isTeamCodingPlanUsageSource(source)) {
     return source.label.replace(/^BigModel\s*-\s*/i, "").trim() || source.label;
   }
@@ -453,6 +457,8 @@ export function SettingsPage({
   });
   const usagePersonalCodingPlanSources = useMemo(() => {
     const sources: CodingPlanUsageSource[] = [];
+    const native = buildNativeCodingPlanUsageSource(usageProviderSettingsView);
+    if (native) return [native];
     if (
       usageZaiProviderAccess &&
       hasActiveCodingPlanSnapshot(
@@ -491,6 +497,7 @@ export function SettingsPage({
     usageZaiEntitlement.snapshot,
     usageZaiProvider,
     usageZaiProviderAccess,
+    usageProviderSettingsView,
   ]);
   const usageTeamCodingPlanSources = useMemo(
     () =>

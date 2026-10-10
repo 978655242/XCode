@@ -1,6 +1,9 @@
 /* oxlint-disable max-lines -- 热力图在同一文件内维护每日、每周、累计三种展示计算，拆分会割裂共享列模型。 */
 import { useState } from "react";
-import type { AppUsageHeatmapCell, AppUsageHeatmapWeek } from "@zcode/shared";
+import type {
+  CodingPlanActivityHeatmapCell as AppUsageHeatmapCell,
+  CodingPlanActivityHeatmapWeek as AppUsageHeatmapWeek,
+} from "@zcode/shared";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import {
@@ -34,7 +37,7 @@ interface HeatmapMonthLabel {
   span: number;
 }
 
-type HeatmapCountMetric = "turns" | "tools";
+type HeatmapCountMetric = "turns" | "tools" | "records";
 
 function renderHeatmapTooltipTitle(
   locale: string,
@@ -44,13 +47,19 @@ function renderHeatmapTooltipTitle(
 ): string {
   return intl.formatMessage(
     {
-      id: countMetric === "tools" ? "settings.usage.heatmapToolCell" : "settings.usage.heatmapCell",
+      id:
+        countMetric === "records"
+          ? "settings.usage.nativeHeatmapCell"
+          : countMetric === "tools"
+            ? "settings.usage.heatmapToolCell"
+            : "settings.usage.heatmapCell",
     },
     {
       date: formatFullDay(locale, cell.date),
       tokens: formatCompactTokenUsage(locale, cell.totalTokens),
-      turns: formatCompactNumber(locale, cell.turnCount),
-      tools: formatCompactNumber(locale, cell.toolCallCount),
+      turns: cell.turnCount === null ? "--" : formatCompactNumber(locale, cell.turnCount),
+      tools: cell.toolCallCount === null ? "--" : formatCompactNumber(locale, cell.toolCallCount),
+      records: BigInt(cell.consumptionRecordCount ?? "0").toLocaleString(locale),
     },
   );
 }
@@ -66,15 +75,18 @@ function renderWeeklyHeatmapTooltipTitle(
   return intl.formatMessage(
     {
       id:
-        countMetric === "tools"
-          ? "settings.usage.heatmapWeeklyToolCell"
-          : "settings.usage.heatmapWeeklyCell",
+        countMetric === "records"
+          ? "settings.usage.nativeHeatmapWeeklyCell"
+          : countMetric === "tools"
+            ? "settings.usage.heatmapWeeklyToolCell"
+            : "settings.usage.heatmapWeeklyCell",
     },
     {
       date: formatFullDay(locale, date),
       tokens: formatCompactTokenUsage(locale, totalTokens),
       turns: formatCompactNumber(locale, count),
       tools: formatCompactNumber(locale, count),
+      records: formatCompactNumber(locale, count),
     },
   );
 }
@@ -90,15 +102,18 @@ function renderCumulativeHeatmapTooltipTitle(
   return intl.formatMessage(
     {
       id:
-        countMetric === "tools"
-          ? "settings.usage.heatmapCumulativeToolCell"
-          : "settings.usage.heatmapCumulativeCell",
+        countMetric === "records"
+          ? "settings.usage.nativeHeatmapCumulativeCell"
+          : countMetric === "tools"
+            ? "settings.usage.heatmapCumulativeToolCell"
+            : "settings.usage.heatmapCumulativeCell",
     },
     {
       date: formatFullDay(locale, date),
       tokens: formatCompactTokenUsage(locale, totalTokens),
       turns: formatCompactNumber(locale, count),
       tools: formatCompactNumber(locale, count),
+      records: formatCompactNumber(locale, count),
     },
   );
 }
@@ -222,7 +237,12 @@ function buildWeeklyLikeHeatmapColumns(
   const weeklyCounts = weeks.map((week) =>
     week.days.reduce(
       (sum, cell) =>
-        sum + (countMetric === "tools" ? (cell?.toolCallCount ?? 0) : (cell?.turnCount ?? 0)),
+        sum +
+        (countMetric === "records"
+          ? Number(cell?.consumptionRecordCount ?? "0")
+          : countMetric === "tools"
+            ? (cell?.toolCallCount ?? 0)
+            : (cell?.turnCount ?? 0)),
       0,
     ),
   );

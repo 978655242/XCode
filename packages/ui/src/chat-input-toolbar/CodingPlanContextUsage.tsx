@@ -6,13 +6,15 @@ import {
   type CodingPlanUsageRemainingEntitlement,
   type CodingPlanUsageAvailableProvider,
   resolveCodingPlanUsageRemainingState,
-} from "@/CodingPlanUsageRemainingPanel.js";
+} from "@/lib/codingPlanUsageSources.js";
 import { cn } from "@/components/lib/utils.js";
+import { Button } from "@/components/ui/button.js";
 import { LocalizedCodingPlanQuotaResetAction } from "@/components/coding-plan-quota-reset/CodingPlanQuotaResetAction.js";
 import { CodingPlanUsageHeaderAction } from "@/chat-input-toolbar/CodingPlanUsageHeaderAction.js";
 import { CodingPlanUsageNotice } from "@/chat-input-toolbar/CodingPlanUsageNotice.js";
 import { CodingPlanQuotaResetOpportunity } from "@/components/coding-plan-quota-reset/CodingPlanQuotaResetOpportunity.js";
 import { buildCodingPlanQuotaResetDialogConfig } from "@/components/coding-plan-quota-reset/buildCodingPlanQuotaResetDialogConfig.js";
+import { CodingPlanQuotaResetDialog } from "@/components/coding-plan-quota-reset/CodingPlanQuotaResetDialog.js";
 import { useCodingPlanQuotaResetUi } from "@/hooks/useCodingPlanQuotaResetUi.js";
 import type { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import {
@@ -156,15 +158,17 @@ function ChatCodingPlanUsageMeter({
           ) : null}
         </div>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-surface-hover">
-        <div
-          className={cn(
-            "h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none",
-            boundedPercentage > 0 ? "min-w-1.5" : undefined,
-          )}
-          style={{ backgroundColor: color, width: `${boundedPercentage}%` }}
-        />
-      </div>
+      {Number.isFinite(percentage) ? (
+        <div className="h-1.5 overflow-hidden rounded-full bg-surface-hover">
+          <div
+            className={cn(
+              "h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none",
+              boundedPercentage > 0 ? "min-w-1.5" : undefined,
+            )}
+            style={{ backgroundColor: color, width: `${boundedPercentage}%` }}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -260,7 +264,35 @@ export function ChatCodingPlanUsageRemainingPanel({
           ? intl.formatMessage({ id: "sidebar.usage.plan.noPlan" })
           : intl.formatMessage({ id: "sidebar.usage.plan.unavailable" });
   const unavailable = !state.loading && !remaining && limits.length === 0 && !planLevel;
+  const nativeQuotaLimit = limits.find((limit) => limit.native);
+  const nativePeriod = nativeQuotaLimit?.native;
+  // XCODE: Native 周期按服务端时区展示；server-local 使用权威 offset，不借用用户电脑时区。
+  const nativeResetTime =
+    nativePeriod?.nextResetTime != null
+      ? new Intl.DateTimeFormat(locale, {
+          timeZone:
+            nativePeriod.resetTimeZone === "server-local" ? "UTC" : nativePeriod.resetTimeZone,
+          dateStyle: "medium",
+          timeStyle: "short",
+        }).format(
+          new Date(
+            nativePeriod.nextResetTime +
+              (nativePeriod.resetTimeZone === "server-local"
+                ? nativePeriod.resetUtcOffsetSeconds * 1000
+                : 0),
+          ),
+        )
+      : undefined;
   const quotaMeters = [
+    nativeQuotaLimit
+      ? {
+          color: "var(--color-usage-chart-1)",
+          key: "nativePeriod",
+          label: intl.formatMessage({ id: "settings.usage.native.currentPeriod" }),
+          limit: nativeQuotaLimit,
+          resetTime: nativeResetTime,
+        }
+      : null,
     fiveHourTokenLimit
       ? {
           color: "var(--color-usage-chart-1)",
@@ -305,21 +337,27 @@ export function ChatCodingPlanUsageRemainingPanel({
   const primaryQuotaMeters = quotaMeters.filter((meter) => meter.key !== "mcp");
   const mcpQuotaMeter = quotaMeters.find((meter) => meter.key === "mcp");
   const quotaGridCount = Math.min(primaryQuotaMeters.length + (mcpQuotaMeter ? 1 : 0), 3);
-  const quotaResetDialog = buildCodingPlanQuotaResetDialogConfig({
-    fiveHourEnabled: Boolean(fiveHourTokenLimit),
-    fiveHourQuotaFull,
-    resetUi,
-    usageItems: quotaMeters.map((meter) => ({
-      color: meter.color,
-      id: meter.key,
-      label: meter.label,
-      percentage: getQuotaRemainingPercentage(meter.limit),
-      resetTime: meter.resetTime,
-      value: formatQuotaRemainingPercentage(locale, meter.limit),
-    })),
-    weekEnabled: Boolean(weeklyTokenLimit),
-    weekQuotaFull: weeklyQuotaFull,
-  });
+  const quotaResetDialog = {
+    ...buildCodingPlanQuotaResetDialogConfig({
+      fiveHourEnabled: !nativePeriod && Boolean(fiveHourTokenLimit),
+      fiveHourQuotaFull,
+      resetUi,
+      usageItems: (nativePeriod
+        ? quotaMeters.filter((meter) => meter.key === "nativePeriod")
+        : quotaMeters
+      ).map((meter) => ({
+        color: meter.color,
+        id: meter.key,
+        label: meter.label,
+        percentage: getQuotaRemainingPercentage(meter.limit),
+        resetTime: meter.resetTime,
+        value: formatQuotaRemainingPercentage(locale, meter.limit),
+      })),
+      weekEnabled: !nativePeriod && Boolean(weeklyTokenLimit),
+      weekQuotaFull: weeklyQuotaFull,
+    }),
+    nativePeriod,
+  };
 
   return (
     <div className={separated ? "border-t border-border pt-2" : undefined}>
@@ -358,6 +396,13 @@ export function ChatCodingPlanUsageRemainingPanel({
           onUsageClick={config.onUsageClick}
         />
       </div>
+      {state.visibleSnapshot?.source === "new-api" && state.visibleSnapshot.authorizationStatus ? (
+        <p className="mb-2 text-ui-base text-foreground-subtle">
+          {intl.formatMessage({
+            id: `settings.usage.nativeAuthorization.${state.visibleSnapshot.authorizationStatus}`,
+          })}
+        </p>
+      ) : null}
       <div className={cn("grid gap-2", getContextQuotaMeterGridClass(quotaGridCount))}>
         {state.loading && !state.visibleSnapshot ? (
           <div className="flex items-center gap-2 p-2 text-ui-base text-foreground-subtle">
@@ -390,11 +435,15 @@ export function ChatCodingPlanUsageRemainingPanel({
               label={meter.label}
               action={
                 // 额度标题旁入口只打开统一弹窗；真正核销由弹窗内对应类型按钮触发。
-                meter.key === "fiveHour" &&
-                resetUi.entry &&
-                ((resetUi.opportunityVisible && !fiveHourQuotaFull) ||
-                  resetUi.processing ||
-                  resetUi.entry.status === "completed") ? (
+                meter.key === "nativePeriod" ? (
+                  <Button size="sm" variant="ghost" onClick={() => setQuotaResetDialogOpen(true)}>
+                    {intl.formatMessage({ id: "settings.modelProvider.native.viewReset" })}
+                  </Button>
+                ) : meter.key === "fiveHour" &&
+                  resetUi.entry &&
+                  ((resetUi.opportunityVisible && !fiveHourQuotaFull) ||
+                    resetUi.processing ||
+                    resetUi.entry.status === "completed") ? (
                   <LocalizedCodingPlanQuotaResetAction
                     autoCelebrateCompletedAt={autoCelebrateArm?.FIVE_HOUR ?? null}
                     completedAt={resetUi.entry.completedAt}
@@ -437,6 +486,14 @@ export function ChatCodingPlanUsageRemainingPanel({
           />
         ) : null}
       </div>
+      {/* XCODE: Native 没有官方重置机会，周期详情弹窗必须独立挂载且只能读取单周期。 */}
+      {nativePeriod ? (
+        <CodingPlanQuotaResetDialog
+          config={quotaResetDialog}
+          open={resolvedQuotaResetDialogOpen}
+          onOpenChange={setQuotaResetDialogOpen}
+        />
+      ) : null}
     </div>
   );
 }

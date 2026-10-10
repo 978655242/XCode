@@ -12,6 +12,7 @@ import {
   UsageEmptyState,
   formatCompactNumber,
   formatCompactTokenUsage,
+  formatDay,
 } from "@/settings/usage-stats/usageStatsUiParts.js";
 
 const CODING_PLAN_BAR_CHART_MARGIN = { top: 8, right: 24, left: 24 } as const;
@@ -58,17 +59,11 @@ function formatChartTime(
   value: string,
   granularity: CodingPlanUsageGranularity,
 ): string {
+  // XCODE: 自然日不能按客户端时区改日；DST 回拨小时须保留服务端 offset。
   if (granularity === "hour") {
-    return value.slice(0, 5);
+    return /\s[+-]\d{2}:\d{2}$/.test(value) ? value : value.slice(0, 5);
   }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return new Intl.DateTimeFormat(locale, {
-    month: "short",
-    day: "numeric",
-  }).format(date);
+  return formatDay(locale, value);
 }
 
 function shouldShowXAxisLabel(index: number, total: number): boolean {

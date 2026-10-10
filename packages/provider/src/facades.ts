@@ -1,5 +1,6 @@
 /* oxlint-disable eslint(max-lines) -- Settings/Selection Facade 共享同一套 Registry 投影与写入边界。 */
 import type { ConfigValidationIssue } from "./config-overlay.js";
+import type { NewApiCatalogIssue } from "@zcode/shared/model-provider-types";
 import type { ProviderModelMembership } from "./config-service.js";
 import type {
   ModelConfig,
@@ -106,6 +107,7 @@ export interface ProviderSettingsMutationTarget {
 export interface ProviderSettingsModelCandidateView {
   readonly kind: "candidate";
   readonly modelId: ModelId;
+  readonly displayName?: string;
   readonly builtin: boolean;
   readonly effectiveBuiltinConfig: ModelConfigObject;
   readonly personalExactConfig?: ModelConfigObject;
@@ -173,6 +175,7 @@ export interface ProviderSettingsView {
   readonly providerTemplates: readonly ProviderSettingsTemplateView[];
   readonly providerOrder: readonly ProviderId[];
   readonly providers: readonly ProviderSettingsProviderView[];
+  readonly catalogIssues?: readonly NewApiCatalogIssue[];
 }
 
 export interface ProviderSettingsCreationResult {
@@ -182,6 +185,7 @@ export interface ProviderSettingsCreationResult {
 
 export interface ModelSelectionModelView {
   readonly modelId: ModelId;
+  readonly displayName?: string;
   readonly config: RegistryModelConfigObject;
 }
 
@@ -202,6 +206,7 @@ export interface ModelSelectionView extends Partial<EffectiveModelSelectionResul
   readonly revision: number;
   readonly providers: readonly ModelSelectionProviderView[];
   readonly preferredSelection?: ModelSelection;
+  readonly catalogIssues?: readonly NewApiCatalogIssue[];
 }
 
 export class ProviderSettingsFacade {
@@ -224,6 +229,7 @@ export class ProviderSettingsFacade {
       personalModels: snapshot.config.personalModels,
       resolution: snapshot.resolution,
       accountStates: snapshot.account.states,
+      catalogIssues: snapshot.account.catalogIssues,
     });
   }
 
@@ -544,6 +550,7 @@ export class ModelSelectionFacade {
     });
     return Object.freeze({
       revision: revision ?? registry.revision,
+      catalogIssues: snapshot?.account.catalogIssues ?? [],
       providers: Object.freeze(
         registry.providers
           .filter((provider) => provider.config.visibility !== "hidden")
@@ -580,6 +587,7 @@ export function projectModelSelectionProviderView(
       provider.models.map((model) =>
         Object.freeze({
           modelId: model.modelId,
+          ...(model.displayName !== undefined ? { displayName: model.displayName } : {}),
           config: serializeRegistryModelConfig(model.config),
         }),
       ),
@@ -610,6 +618,7 @@ function createProviderSettingsView(input: {
   personalModels: ProviderRegistryServiceSnapshot["config"]["personalModels"];
   resolution: ProviderConfigResolution;
   accountStates?: import("./account-provider-state.js").AccountProviderStates;
+  catalogIssues?: readonly NewApiCatalogIssue[];
 }): ProviderSettingsView {
   const executableProviderIds = new Set(
     input.resolution.registryProviders.map((provider) => provider.providerId),
@@ -645,6 +654,7 @@ function createProviderSettingsView(input: {
           return Object.freeze({
             kind: model.kind,
             modelId: model.modelId,
+            ...(model.displayName !== undefined ? { displayName: model.displayName } : {}),
             builtin: model.source === "builtin",
             effectiveBuiltinConfig: model.effectiveBuiltinConfig.toJSON(),
             ...(personalModelConfig ? { personalExactConfig: personalModelConfig.toJSON() } : {}),
@@ -667,6 +677,7 @@ function createProviderSettingsView(input: {
   const configuredProviders = visibleProviders;
   return Object.freeze({
     revision: input.revision,
+    catalogIssues: input.catalogIssues ?? [],
     providerTemplates: Object.freeze(
       (input.zcodeBuiltinProviderTemplates ?? ProviderTemplateMap.empty())
         .entries()

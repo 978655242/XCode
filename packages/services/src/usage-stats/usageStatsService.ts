@@ -14,8 +14,11 @@ import type {
   UsageEntitlementSnapshot,
   UsageStatsRequest,
   UsageStatsSnapshot,
+  NewApiAccountUsageSnapshot,
+  CodingPlanResetHistoryReadResult,
+  NewApiOwner,
 } from "@zcode/shared";
-import { isCodingPlanModelProviderId } from "@zcode/shared";
+import { isCodingPlanModelProviderId, isNewApiModelProviderId } from "@zcode/shared";
 import type { ICredentialService } from "../credential/credential.js";
 import type { IAccountRequestAuthService } from "../model-provider/accountRequestAuthService.js";
 import type { IZCodeAgentService } from "../zcode-agent/zcodeAgent.js";
@@ -26,8 +29,24 @@ import {
   type UsageApiAuthorization,
 } from "./providers/bigmodelUsageQuotaProvider.js";
 import type { OfficialMcpCredentialSource } from "./providers/zcodeMcpQuotaProvider.js";
+import type { NewApiAccountService } from "../new-api/newApiAccountService.js";
+import type { NewApiClient } from "../new-api/newApiClient.js";
+import {
+  mapNewApiAccountUsage,
+  mapNewApiEntitlement,
+  mapNewApiResetStatus,
+  mapNewApiUsage,
+  validateNewApiUsageRequest,
+} from "../new-api/newApiUsageMapper.js";
+import { rejectNewApiSelfService } from "../new-api/newApiSubscriptionReadAdapter.js";
+import type { OfficialCloudConnectionHost } from "../official-mcp/officialCloudConnectionService.js";
 
-interface UsageStatsServiceDependencies {
+export interface UsageStatsServiceDependencies {
+  officialCloudHost?: Pick<OfficialCloudConnectionHost, "withCredentials">;
+  native?: {
+    account: Pick<NewApiAccountService, "withControlSession">;
+    client: Pick<NewApiClient, "getUsage" | "getEntitlements">;
+  };
   apiClient: ApiClient;
   accountRequestAuthService: Pick<
     IAccountRequestAuthService,
@@ -54,16 +73,81 @@ function isCodingPlanProviderId(providerId: string | undefined): boolean {
 export function createUsageStatsService(
   dependencies: UsageStatsServiceDependencies,
 ): IUsageStatsService {
-  const quotaProvider = new BigModelUsageQuotaProvider({
-    apiClient: dependencies.apiClient,
-    accountRequestAuthService: dependencies.accountRequestAuthService,
-    resolveApiAuthorization: dependencies.resolveApiAuthorization,
-    credentialService: dependencies.credentialService,
-    env: dependencies.env,
-    ...(dependencies.officialMcpCredentialSource
-      ? { officialMcpCredentialSource: dependencies.officialMcpCredentialSource }
-      : {}),
-  });
+  const createQuotaProvider = () =>
+    new BigModelUsageQuotaProvider({
+      apiClient: dependencies.apiClient,
+      accountRequestAuthService: dependencies.accountRequestAuthService,
+      resolveApiAuthorization: dependencies.resolveApiAuthorization,
+      credentialService: dependencies.credentialService,
+      env: dependencies.env,
+      ...(dependencies.officialMcpCredentialSource
+        ? { officialMcpCredentialSource: dependencies.officialMcpCredentialSource }
+        : {}),
+    });
+  const quotaProvider = createQuotaProvider();
+  const officialRead = async <T>(
+    request: UsageEntitlementRequest | UsageStatsRequest,
+    operation: (provider: BigModelUsageQuotaProvider) => Promise<T>,
+  ): Promise<T> => {
+    const host = dependencies.officialCloudHost;
+    if (!host) {
+      if (dependencies.native) throw new Error("official_cloud_connection_required");
+      return operation(quotaProvider);
+    }
+    return host.withCredentials(async (credentials) => {
+      const requested = request.accountAccess;
+      const access = credentials.access;
+      if (!requested || !access || requested.type !== "zhipu-account")
+        throw new Error("official_cloud_scope_required");
+      if ("planKind" in requested) {
+        if (
+          requested.family !== access.family ||
+          requested.planKind !== access.planKind ||
+          (requested.planKind === "team-coding-plan" &&
+            (access.planKind !== "team-coding-plan" ||
+              requested.productId !== access.productId ||
+              requested.organizationId !== access.organizationId ||
+              requested.projectId !== access.projectId))
+        ) {
+          throw new Error("official_cloud_scope_required");
+        }
+      } else if (requested.accountType !== access.family || requested.mode !== access.planKind) {
+        throw new Error("official_cloud_scope_required");
+      }
+      return operation(createQuotaProvider());
+    });
+  };
+  const native = dependencies.native;
+  const usesNative = (request: UsageEntitlementRequest | UsageStatsRequest) =>
+    request.accountAccess?.type === "new-api-account" ||
+    Boolean(request.preferredProviderId && isNewApiModelProviderId(request.preferredProviderId)) ||
+    Boolean(native && !request.preferredProviderId);
+  const assertNativeRequestOwner = (
+    request: UsageEntitlementRequest | UsageStatsRequest,
+    owner: NewApiOwner,
+  ) => {
+    const expected =
+      request.accountAccess?.type === "new-api-account" ? request.accountAccess.owner : undefined;
+    if (
+      expected &&
+      (expected.origin !== owner.origin ||
+        expected.userId !== owner.userId ||
+        expected.sid !== owner.sid ||
+        expected.authGeneration !== owner.authGeneration)
+    ) {
+      throw new Error("XCODE_STALE_OWNER");
+    }
+  };
+  const readNativeEntitlement = (request: UsageEntitlementRequest) => {
+    if (!native) throw new Error("XCODE_NATIVE_ACCOUNT_REQUIRED");
+    return native.account.withControlSession(async (token, owner) => {
+      assertNativeRequestOwner(request, owner);
+      return mapNewApiEntitlement(
+        await native.client.getEntitlements(token),
+        request.preferredProviderId ?? "account:new-api-anthropic-messages",
+      );
+    });
+  };
 
   return {
     async getAppUsageSnapshot(request: AppUsageRequest): Promise<AppUsageSnapshot> {
@@ -77,52 +161,118 @@ export function createUsageStatsService(
     async getCodingPlanUsageSnapshot(
       request: CodingPlanUsageRequest,
     ): Promise<CodingPlanUsageSnapshot> {
+      if (usesNative(request)) {
+        if (!native) throw new Error("XCODE_NATIVE_ACCOUNT_REQUIRED");
+        validateNewApiUsageRequest(request);
+        return native.account.withControlSession(async (token, owner) => {
+          assertNativeRequestOwner(request, owner);
+          const [usage, entitlement] = await Promise.all([
+            native.client.getUsage(token, {
+              range: request.range,
+              time_zone: request.timeZone,
+              ...(request.range === "custom"
+                ? { start_date: request.customStartDate!, end_date: request.customEndDate! }
+                : {}),
+            }),
+            native.client.getEntitlements(token),
+          ]);
+          return mapNewApiUsage(usage, request.range, request.preferredProviderId, entitlement);
+        });
+      }
       if (!isCodingPlanProviderId(request.preferredProviderId)) {
         // Coding Plan 页面只允许预置的 Z.AI/BigModel Coding Plan 账号。
         // 普通 provider id 不能进入 monitor 链路，避免误读 API Key 或环境变量。
         throw new Error("no_bigmodel_api_key");
       }
-      return quotaProvider.getCodingPlanUsageSnapshot(request);
+      return officialRead(request, (provider) => provider.getCodingPlanUsageSnapshot(request));
     },
     async getCodingPlanResetStatus(
       request: CodingPlanResetScopeRequest,
     ): Promise<CodingPlanResetStatusSnapshot> {
+      if (usesNative(request)) {
+        if (!native) throw new Error("XCODE_NATIVE_ACCOUNT_REQUIRED");
+        return native.account.withControlSession(async (token, owner) => {
+          assertNativeRequestOwner(request, owner);
+          return mapNewApiResetStatus(await native.client.getEntitlements(token));
+        });
+      }
       if (!isCodingPlanProviderId(request.preferredProviderId)) {
         throw new Error("no_bigmodel_api_key");
       }
-      return quotaProvider.getCodingPlanResetStatus(request);
+      return officialRead(request, (provider) => provider.getCodingPlanResetStatus(request));
     },
     async requestCodingPlanResetOpportunity(
       request: CodingPlanResetOpportunityRequest,
     ): Promise<CodingPlanResetOpportunityResult> {
+      if (usesNative(request)) return rejectNewApiSelfService();
       if (!isCodingPlanProviderId(request.preferredProviderId)) {
         throw new Error("no_bigmodel_api_key");
       }
-      return quotaProvider.requestCodingPlanResetOpportunity(request);
+      return officialRead(request, (provider) =>
+        provider.requestCodingPlanResetOpportunity(request),
+      );
     },
     async useCodingPlanReset(
       request: CodingPlanResetUseRequest,
     ): Promise<CodingPlanResetUseResult> {
+      if (usesNative(request)) return rejectNewApiSelfService();
       if (!isCodingPlanProviderId(request.preferredProviderId)) {
         throw new Error("no_bigmodel_api_key");
       }
-      return quotaProvider.useCodingPlanReset(request);
+      return officialRead(request, (provider) => provider.useCodingPlanReset(request));
     },
-    async markCodingPlanResetHistoryRead(request: CodingPlanResetScopeRequest): Promise<void> {
+    async markCodingPlanResetHistoryRead(
+      request: CodingPlanResetScopeRequest,
+    ): Promise<CodingPlanResetHistoryReadResult> {
+      if (usesNative(request)) {
+        if (!native) throw new Error("XCODE_NATIVE_ACCOUNT_REQUIRED");
+        return native.account.withControlSession(
+          async (_token, owner): Promise<CodingPlanResetHistoryReadResult> => {
+            assertNativeRequestOwner(request, owner);
+            return { availability: "not-supported", reason: "native-history-not-provided" };
+          },
+        );
+      }
       if (!isCodingPlanProviderId(request.preferredProviderId)) {
         throw new Error("no_bigmodel_api_key");
       }
-      await quotaProvider.markCodingPlanResetHistoryRead(request);
+      await officialRead(request, (provider) => provider.markCodingPlanResetHistoryRead(request));
+      return { availability: "available" };
     },
-    async getSnapshot(request: UsageStatsRequest): Promise<UsageStatsSnapshot> {
+    async getSnapshot(
+      request: UsageStatsRequest,
+    ): Promise<UsageStatsSnapshot | NewApiAccountUsageSnapshot> {
+      if (request.dataSource === "local") throw new Error("XCODE_USAGE_SOURCE_UNSUPPORTED");
+      const requestedNative =
+        request.accountAccess?.type === "new-api-account" ||
+        Boolean(
+          request.preferredProviderId && isNewApiModelProviderId(request.preferredProviderId),
+        );
+      if (request.dataSource === "new-api" || requestedNative) {
+        if (request.dataSource === "monitor") throw new Error("XCODE_USAGE_SOURCE_MISMATCH");
+        if (!native) throw new Error("XCODE_NATIVE_ACCOUNT_REQUIRED");
+        if (request.range === "all") throw new Error("XCODE_USAGE_REQUEST_INVALID");
+        const range = request.range;
+        validateNewApiUsageRequest({ range, timeZone: request.timeZone });
+        return native.account.withControlSession(async (token, owner) => {
+          assertNativeRequestOwner(request, owner);
+          return mapNewApiAccountUsage(
+            await native.client.getUsage(token, { range, time_zone: request.timeZone }),
+            range,
+          );
+        });
+      }
+      if (native && !request.preferredProviderId && !request.accountAccess)
+        throw new Error("XCODE_USAGE_SOURCE_REQUIRED");
       // App Usage 已迁移到 getAppUsageSnapshot（agent 数据库）。getSnapshot 仅服务 Coding Plan monitor 链路。
       // 任何 monitor 失败都不能回退本地数据，保持数据源隔离。
-      return quotaProvider.getUsageStatsSnapshot(request);
+      return officialRead(request, (provider) => provider.getUsageStatsSnapshot(request));
     },
     async getEntitlementSnapshot(
       request: UsageEntitlementRequest = {},
     ): Promise<UsageEntitlementSnapshot> {
-      return quotaProvider.getSnapshotForRequest(request);
+      if (usesNative(request)) return readNativeEntitlement(request);
+      return officialRead(request, (provider) => provider.getSnapshotForRequest(request));
     },
   };
 }

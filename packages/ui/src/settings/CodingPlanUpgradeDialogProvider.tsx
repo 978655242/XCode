@@ -74,7 +74,7 @@ export function CodingPlanUpgradeDialogProvider({ children }: { children: ReactN
             funnelContext: { ...nextTarget.funnelContext, entryPlanList },
           }
         : nextTarget;
-      if (nextTarget.funnelContext) {
+      if (nextTarget.funnelContext && !inventoryRef.current.native) {
         void reportCodingPlanUpgradeClick(platform, nextTarget.funnelContext);
       }
       setTarget(nextTarget);

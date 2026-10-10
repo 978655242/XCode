@@ -246,7 +246,7 @@ export interface McpCallToolOptions {
 export type OfficialMcpAuthFailureReason = OfficialMcpAuthPortFailureReason;
 
 export type OfficialMcpAuthHeadersResult =
-  | { ok: true; headers: Record<string, string> }
+  | { ok: true; headers: Record<string, string>; scope?: string }
   | { ok: false; reason: OfficialMcpAuthFailureReason };
 
 /**
@@ -254,14 +254,19 @@ export type OfficialMcpAuthHeadersResult =
  * adapter 不直接依赖 `packages/services`；Agent 进程经该端口向 host 索取本次请求的身份头。
  *
  * 失败必须走返回值而非抛异常，调用方禁止从错误文本解析原因。
- * `workspaceIdentity` / `workspacePath` / `pluginId` / `mcpKey` / `targetOrigin`
- * 仅用于路由、二次校验与审计，**不参与凭证选择**——凭证是 host 全局状态。
+ * XCODE: scope 由 Host 捕获，绑定原生 owner 与官方连接代际，禁止重试切换身份。
+ * captureOnly/validateOnly 只返回非秘密准入结果，不读取其他 owner 的身份头。
  */
 export interface OfficialMcpAuthHeadersPort {
+  /** XCODE: 当前 worker Registry 的同步代际检查，覆盖 Host 回包后的微任务间隙。 */
+  isScopeCurrent?(scope: string): boolean;
   resolveHeaders(input: {
     pluginId: string;
     mcpKey: string;
     targetOrigin: string;
+    scope?: string;
+    captureOnly?: boolean;
+    validateOnly?: boolean;
     workspaceIdentity?: string;
     workspacePath?: string;
     signal?: AbortSignal;

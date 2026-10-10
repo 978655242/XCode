@@ -39,12 +39,14 @@ export type OfficialMcpAuthRequestContext = Pick<
  */
 export function createOfficialMcpAuthHeadersPort(input: {
   resolveContext: () => OfficialMcpAuthRequestContext | undefined;
+  isScopeCurrent?: (scope: string) => boolean;
   resolveWorkspace: (input: {
     workspaceIdentity?: string;
     workspacePath?: string;
   }) => ZCodeWorkspaceRef | undefined;
 }): OfficialMcpAuthHeadersPort {
   return {
+    ...(input.isScopeCurrent ? { isScopeCurrent: input.isScopeCurrent } : {}),
     async resolveHeaders(request) {
       const context = input.resolveContext();
       const workspace = input.resolveWorkspace({
@@ -63,6 +65,9 @@ export function createOfficialMcpAuthHeadersPort(input: {
             pluginId: request.pluginId,
             requestId: `official-mcp-auth:${requestSequence}`,
             targetOrigin: request.targetOrigin,
+            ...(request.scope ? { scope: request.scope } : {}),
+            ...(request.captureOnly ? { captureOnly: true } : {}),
+            ...(request.validateOnly ? { validateOnly: true } : {}),
             workspace,
           },
           zcodeOfficialMcpAuthHeadersResponseSchema,

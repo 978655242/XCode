@@ -19,6 +19,9 @@ type DesktopBrowserPlatformBridge = Pick<
   | "browserViewUpdateViewport"
   | "importChromeBrowserData"
   | "clearEmbeddedBrowserData"
+  | "prepareNativePlanWebview"
+  | "closeNativePlanWebview"
+  | "onNativePlanWebviewInvalidated"
   | "getPathForFile"
   | "saveFile"
   | "printPageToPdf"
@@ -27,6 +30,15 @@ type DesktopBrowserPlatformBridge = Pick<
 // Rebase 集成：browser bridge 若继续内联在 renderer 入口，会让入口越过 max-lines 门禁。
 // 独立对象只做 preload 委托与旧 bridge 兼容兜底，不持有 Browser 业务状态。
 export const desktopBrowserPlatformBridge = {
+  prepareNativePlanWebview: window.zcode.prepareNativePlanWebview
+    ? (request) => window.zcode.prepareNativePlanWebview!(request)
+    : undefined,
+  closeNativePlanWebview: window.zcode.closeNativePlanWebview
+    ? (partition) => window.zcode.closeNativePlanWebview!(partition)
+    : undefined,
+  onNativePlanWebviewInvalidated: window.zcode.onNativePlanWebviewInvalidated
+    ? (callback) => window.zcode.onNativePlanWebviewInvalidated!(callback)
+    : undefined,
   getPathForFile: (file) => window.zcode.getPathForFile?.(file) ?? null,
   saveFile: (payload) =>
     window.zcode.saveFile?.(payload) ?? Promise.resolve({ success: false, error: "not_supported" }),

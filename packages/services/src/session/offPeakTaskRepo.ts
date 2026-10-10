@@ -22,6 +22,8 @@ import {
 } from "@zcode/shared";
 import { getTasksIndexDatabasePath } from "#src/paths.js";
 import { runTasksDatabaseMigrations } from "#src/session/tasksDatabase/migrations.js";
+import type { OffPeakOwnerFence } from "./offPeakServerClient.js";
+import { OffPeakCodingPlanUnavailableError } from "./offPeakRuntimeModel.js";
 
 const require = createRequire(import.meta.url);
 const { DatabaseSync } = require("node:sqlite") as typeof import("node:sqlite");
@@ -37,6 +39,7 @@ const TERMINAL_SQL_LIST = OFF_PEAK_TERMINAL_STATUSES.map((s) => `'${s}'`).join("
 interface OffPeakTaskRow {
   off_peak_task_id: string;
   server_ticket_id: string | null;
+  native_owner_key: string | null;
   title: string;
   conversation_id: string | null;
   session_id: string | null;
@@ -164,6 +167,7 @@ export class OffPeakTaskRepo {
   constructor(
     dbPath?: string,
     private readonly startupBusyTimeoutMs = 5000,
+    private readonly captureOwnerFence?: () => Promise<OffPeakOwnerFence>,
   ) {
     this.resolvedDbPath = dbPath?.trim() || null;
   }
@@ -247,6 +251,41 @@ export class OffPeakTaskRepo {
 
   // ---- 管理 CRUD ----
 
+  /** Private row ownership never enters rowToTask/RPC. Missing Native bindings fail closed. */
+  async ownsTask(offPeakTaskId: string, fence: OffPeakOwnerFence): Promise<boolean> {
+    await this.ensureReady();
+    await fence();
+    fence.assertCurrentSync?.();
+    const row = this.getRow(offPeakTaskId);
+    return row !== null && this.isOwnerAdmitted(row, fence);
+  }
+
+  async assertTaskOwner(offPeakTaskId: string, fence: OffPeakOwnerFence): Promise<void> {
+    if (!(await this.ownsTask(offPeakTaskId, fence)))
+      throw new OffPeakCodingPlanUnavailableError("selection_changed");
+    this.assertTaskOwnerSync(offPeakTaskId, fence);
+  }
+
+  /** Trusted scheduler routing only; the public task projection excludes this digest. */
+  async getNativeOwnerKey(offPeakTaskId: string): Promise<string | null> {
+    await this.ensureReady();
+    return this.getRow(offPeakTaskId)?.native_owner_key ?? null;
+  }
+
+  private assertTaskOwnerSync(offPeakTaskId: string, fence?: OffPeakOwnerFence): void {
+    fence?.assertCurrentSync?.();
+    const row = this.getRow(offPeakTaskId);
+    if (row && !this.isOwnerAdmitted(row, fence)) {
+      throw new OffPeakCodingPlanUnavailableError("selection_changed");
+    }
+  }
+
+  private isOwnerAdmitted(row: OffPeakTaskRow, fence?: OffPeakOwnerFence): boolean {
+    return fence?.ownerKeys !== undefined
+      ? row.native_owner_key !== null && fence.ownerKeys.includes(row.native_owner_key)
+      : (row.native_owner_key ?? undefined) === fence?.ownerKey;
+  }
+
   /**
    * 创建即入队（status=queued）。取号在 service 层先行（POST /ticket 成功才落库），
    * 取号结果经 options 一并写入；mock 先行阶段允许不带服务端字段。
@@ -263,25 +302,31 @@ export class OffPeakTaskRepo {
       registeredAt?: number;
       /** 取号即 ready（低峰空闲时服务端可直接晋级）时随建随派。 */
       schedulable?: boolean;
+      /** XCODE: await 初始化后、SQL 提交前继续校验官方 owner/generation。 */
+      assertCurrent?: OffPeakOwnerFence;
+      /** Host-only digest; immutable after creation, never part of the public task. */
+      ownerKey?: string;
     },
   ): Promise<ZCodeOffPeakTask> {
     await this.ensureReady();
+    await options?.assertCurrent?.();
     const now = options?.now ?? Date.now();
     const offPeakTaskId = options?.offPeakTaskId ?? `offpeak-${randomUUID()}`;
     const workspaceKey = resolveWorkspaceKey({
       workspacePath: params.workspacePath,
       workspaceIdentity: params.workspaceIdentity,
     });
+    options?.assertCurrent?.assertCurrentSync?.();
     this.getDatabase()
       .prepare(
         `INSERT INTO off_peak_tasks (
-          off_peak_task_id, server_ticket_id, title, conversation_id, session_id,
+          off_peak_task_id, server_ticket_id, native_owner_key, title, conversation_id, session_id,
           prompt, permission_mode, model, thought_level, model_selection,
           workspace_key, workspace_path, workspace_identity,
           status, queued_at, registered_at, schedulable, queue_position,
           claim_running, attempt_count, created_at, updated_at
         ) VALUES (
-          @off_peak_task_id, @server_ticket_id, @title, NULL, @session_id,
+          @off_peak_task_id, @server_ticket_id, @native_owner_key, @title, NULL, @session_id,
           @prompt, @permission_mode, @model, @thought_level, @model_selection,
           @workspace_key, @workspace_path, @workspace_identity,
           'queued', @queued_at, @registered_at, @schedulable, @queue_position,
@@ -291,6 +336,7 @@ export class OffPeakTaskRepo {
       .run({
         off_peak_task_id: offPeakTaskId,
         server_ticket_id: options?.serverTicketId ?? null,
+        native_owner_key: options?.ownerKey ?? options?.assertCurrent?.ownerKey ?? null,
         title: params.title,
         // 会话内创建绑定当前会话；conversation_id 仍等首跑回填（非空 = 已跑过）。
         session_id: params.boundSessionId ?? null,
@@ -395,8 +441,11 @@ export class OffPeakTaskRepo {
   }
 
   /** 卡片 Delete：任何状态均可删（非终态删除的服务端核销由 service 层先行取消处理）。 */
-  async delete(offPeakTaskId: string): Promise<void> {
+  async delete(offPeakTaskId: string, assertCurrent?: OffPeakOwnerFence): Promise<void> {
+    const fence = assertCurrent ?? (await this.captureOwnerFence?.());
     await this.ensureReady();
+    await fence?.();
+    this.assertTaskOwnerSync(offPeakTaskId, fence);
     this.getDatabase()
       .prepare(`DELETE FROM off_peak_tasks WHERE off_peak_task_id = ?`)
       .run(offPeakTaskId);
@@ -471,9 +520,12 @@ export class OffPeakTaskRepo {
       permissionMode?: string;
       modelSelection?: ZCodeOffPeakTask["modelSelection"] | null;
     },
-    options?: { now?: number },
+    options?: { now?: number; assertCurrent?: OffPeakOwnerFence },
   ): Promise<ZCodeOffPeakTask | null> {
+    const fence = options?.assertCurrent ?? (await this.captureOwnerFence?.());
     await this.ensureReady();
+    await fence?.();
+    this.assertTaskOwnerSync(offPeakTaskId, fence);
     const row = this.getRow(offPeakTaskId);
     if (!row) return null;
     if (row.status !== "queued" && row.status !== "paused") return null;
@@ -514,11 +566,14 @@ export class OffPeakTaskRepo {
       serverTicketId?: string;
       registeredAt?: number;
       now?: number;
+      assertCurrent?: OffPeakOwnerFence;
     },
   ): Promise<void> {
     await this.ensureReady();
+    await patch.assertCurrent?.();
     const row = this.getRow(offPeakTaskId);
     if (!row) return;
+    this.assertTaskOwnerSync(offPeakTaskId, patch.assertCurrent);
     this.getDatabase()
       .prepare(
         `UPDATE off_peak_tasks SET
@@ -549,16 +604,30 @@ export class OffPeakTaskRepo {
    * 原子 claim_running 0→1。FIFO 序按 queued_at（权威序由服务端取号顺序保证）。
    * 同时回收认领超时（claimed_at 过期）的僵尸认领。
    */
-  async claimDue(now: number): Promise<ZCodeOffPeakTask[]> {
+  async claimDue(now: number, fence?: OffPeakOwnerFence): Promise<ZCodeOffPeakTask[]> {
+    if (!fence && this.captureOwnerFence) {
+      try {
+        fence = await this.captureOwnerFence();
+      } catch {
+        return [];
+      }
+    }
     await this.ensureReady();
+    await fence?.();
+    fence?.assertCurrentSync?.();
     const db = this.getDatabase();
     db.exec("BEGIN IMMEDIATE");
     try {
       db.prepare(
         `UPDATE off_peak_tasks
         SET claim_running = 0, claimed_at = NULL
-        WHERE claim_running = 1 AND claimed_at IS NOT NULL AND claimed_at <= @stale`,
-      ).run({ stale: now - OFF_PEAK_CLAIM_STALE_MS });
+        WHERE claim_running = 1 AND claimed_at IS NOT NULL AND claimed_at <= @stale
+          AND ((native_owner_key IS NULL AND @legacy = 1) OR native_owner_key IN (SELECT value FROM json_each(@owner_keys)))`,
+      ).run({
+        stale: now - OFF_PEAK_CLAIM_STALE_MS,
+        legacy: fence?.ownerKeys === undefined && fence?.ownerKey === undefined ? 1 : 0,
+        owner_keys: JSON.stringify(fence?.ownerKeys ?? (fence?.ownerKey ? [fence.ownerKey] : [])),
+      });
       const dueRows = db
         .prepare(
           `SELECT * FROM off_peak_tasks
@@ -576,11 +645,14 @@ export class OffPeakTaskRepo {
         // 历史行可能没有 Provider 身份；它们必须留在列表等待修复，但不能被
         // scheduler 认领。逐行跳过还能保证一条旧记录不阻塞后续健康任务。
         if (!readOffPeakModelSelection(row)) continue;
+        if (!this.isOwnerAdmitted(row, fence)) continue;
+        fence?.assertCurrentSync?.();
         const res = claim.run({ id: row.off_peak_task_id, now });
         if (res.changes === 1) {
           claimed.push(rowToTask({ ...row, claim_running: 1, claimed_at: now }));
         }
       }
+      fence?.assertCurrentSync?.();
       db.exec("COMMIT");
       return claimed;
     } catch (error) {
@@ -601,9 +673,13 @@ export class OffPeakTaskRepo {
       conversationId?: string;
       sessionId?: string;
       serverTicketId?: string;
+      assertCurrent?: OffPeakOwnerFence;
     },
   ): Promise<ZCodeOffPeakTask | null> {
+    const fence = options.assertCurrent ?? (await this.captureOwnerFence?.());
     await this.ensureReady();
+    await fence?.();
+    this.assertTaskOwnerSync(offPeakTaskId, fence);
     const res = this.getDatabase()
       .prepare(
         `UPDATE off_peak_tasks
@@ -641,9 +717,13 @@ export class OffPeakTaskRepo {
       filesChanged?: number;
       /** scheduler 派发阶段的确定性错误；存在时原子累计一次派发尝试并留 last_error。 */
       dispatchError?: string;
+      assertCurrent?: OffPeakOwnerFence;
     },
   ): Promise<ZCodeOffPeakTask | null> {
+    const fence = options.assertCurrent ?? (await this.captureOwnerFence?.());
     await this.ensureReady();
+    await fence?.();
+    this.assertTaskOwnerSync(offPeakTaskId, fence);
     const res = this.getDatabase()
       .prepare(
         `UPDATE off_peak_tasks
@@ -679,9 +759,12 @@ export class OffPeakTaskRepo {
   async setPaused(
     offPeakTaskId: string,
     paused: boolean,
-    options?: { now?: number },
+    options?: { now?: number; assertCurrent?: OffPeakOwnerFence },
   ): Promise<ZCodeOffPeakTask | null> {
     await this.ensureReady();
+    await options?.assertCurrent?.();
+    if (!paused || options?.assertCurrent)
+      this.assertTaskOwnerSync(offPeakTaskId, options?.assertCurrent);
     const res = this.getDatabase()
       .prepare(
         `UPDATE off_peak_tasks
@@ -704,9 +787,11 @@ export class OffPeakTaskRepo {
    */
   async releaseClaim(
     offPeakTaskId: string,
-    options?: { error?: string; now?: number },
+    options?: { error?: string; now?: number; assertCurrent?: OffPeakOwnerFence },
   ): Promise<void> {
     await this.ensureReady();
+    await options?.assertCurrent?.();
+    if (options?.assertCurrent) this.assertTaskOwnerSync(offPeakTaskId, options.assertCurrent);
     this.getDatabase()
       .prepare(
         `UPDATE off_peak_tasks
@@ -762,9 +847,11 @@ export class OffPeakTaskRepo {
    */
   async requeueForContinuation(
     offPeakTaskId: string,
-    options?: { now?: number },
+    options?: { now?: number; assertCurrent?: OffPeakOwnerFence },
   ): Promise<ZCodeOffPeakTask | null> {
     await this.ensureReady();
+    await options?.assertCurrent?.();
+    this.assertTaskOwnerSync(offPeakTaskId, options?.assertCurrent);
     const res = this.getDatabase()
       .prepare(
         `UPDATE off_peak_tasks
@@ -793,8 +880,14 @@ export class OffPeakTaskRepo {
   // ---- 终态核销 outbox----
 
   /** settle 服务端 ack 后回填；仅终态行可核销（幂等，重复回填覆盖为最新 ack 时间）。 */
-  async markSettled(offPeakTaskId: string, settledAt: number): Promise<void> {
+  async markSettled(
+    offPeakTaskId: string,
+    settledAt: number,
+    assertCurrent?: OffPeakOwnerFence,
+  ): Promise<void> {
     await this.ensureReady();
+    await assertCurrent?.();
+    this.assertTaskOwnerSync(offPeakTaskId, assertCurrent);
     this.getDatabase()
       .prepare(
         `UPDATE off_peak_tasks

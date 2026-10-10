@@ -25,7 +25,7 @@ import { Progress } from "@/components/ui/progress.js";
 import { useOptionalTabStore } from "@/store/TabStoreProvider.js";
 import { isSettingsTab } from "@/store/tabStore.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
-import { resolveCodingPlanUsageRemainingState } from "@/CodingPlanUsageRemainingPanel.js";
+import { resolveCodingPlanUsageRemainingState } from "@/lib/codingPlanUsageSources.js";
 import { CodingPlanQuotaResetStatusContent } from "@/components/coding-plan-quota-reset/CodingPlanQuotaResetStatus.js";
 import { useCodingPlanQuotaResetUi } from "@/hooks/useCodingPlanQuotaResetUi.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";

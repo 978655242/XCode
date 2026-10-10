@@ -136,22 +136,45 @@ interface OffPeakServerClientDeps {
 
 const REQUEST_TIMEOUT_MS = 10_000;
 
+/** Process-local publication guard; never part of the public task projection. */
+export type OffPeakOwnerFence = (() => Promise<void>) & {
+  assertCurrentSync?: () => void;
+  ownerKey?: string;
+  /** Trusted scheduler admission across live Hosts; empty means Native fail-closed. */
+  ownerKeys?: readonly string[];
+};
 export interface OffPeakServerClient {
-  getTakeNumberAvailability(): Promise<OffPeakTakeNumberAvailability>;
-  takeTicket(taskId: string): Promise<OffPeakTakeTicketResult>;
-  batchStatus(ticketIds: string[]): Promise<OffPeakBatchStatusResult>;
-  settle(ticketId: string): Promise<void>;
+  captureOwnerFence(): Promise<OffPeakOwnerFence>;
+  getTakeNumberAvailability(
+    assertCurrent?: OffPeakOwnerFence,
+  ): Promise<OffPeakTakeNumberAvailability>;
+  takeTicket(taskId: string, assertCurrent?: OffPeakOwnerFence): Promise<OffPeakTakeTicketResult>;
+  batchStatus(
+    ticketIds: string[],
+    assertCurrent?: OffPeakOwnerFence,
+  ): Promise<OffPeakBatchStatusResult>;
+  settle(ticketId: string, assertCurrent?: OffPeakOwnerFence): Promise<void>;
 }
 
 export function createOffPeakServerClient(deps: OffPeakServerClientDeps): OffPeakServerClient {
   const fetchImpl = deps.fetchImpl ?? fetch;
 
-  async function request(method: "GET" | "POST", path: string, body?: unknown): Promise<unknown> {
+  async function request(
+    method: "GET" | "POST",
+    path: string,
+    body?: unknown,
+    assertCurrent?: OffPeakOwnerFence,
+  ): Promise<unknown> {
     const credentials = await deps.resolveCredentials();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
       const origin = await deps.resolveOrigin();
+      // XCODE: origin 与响应读取均可能跨账号/解绑/凭据刷新，发送和消费必须同代。
+      await credentials.assertCurrent?.();
+      await assertCurrent?.();
+      credentials.assertCurrentSync?.();
+      assertCurrent?.assertCurrentSync?.();
       // 该 client 直接使用 fetch，过去绕过 NodeApiClient 的来源头与 request id 注入；
       // test 服务端只能看到 user_agent=node，且客户端日志无法关联 2007/裸 429 的服务端请求。
       // 这里只补标准非敏感来源头和链路 id，JWT/API Key 仍禁止进入日志。
@@ -169,6 +192,10 @@ export function createOffPeakServerClient(deps: OffPeakServerClientDeps): OffPea
         signal: controller.signal,
       });
       const text = await response.text();
+      await credentials.assertCurrent?.();
+      await assertCurrent?.();
+      credentials.assertCurrentSync?.();
+      assertCurrent?.assertCurrentSync?.();
       const json: unknown = text ? safeJsonParse(text) : {};
       if (!response.ok) {
         const parsed = errorBodySchema.safeParse(json);
@@ -210,8 +237,19 @@ export function createOffPeakServerClient(deps: OffPeakServerClientDeps): OffPea
   }
 
   return {
-    async getTakeNumberAvailability() {
-      const raw = await request("GET", "/ticket/availability");
+    async captureOwnerFence() {
+      const credentials = await deps.resolveCredentials();
+      credentials.assertCurrentSync?.();
+      return Object.assign(
+        async () => {
+          await credentials.assertCurrent?.();
+          credentials.assertCurrentSync?.();
+        },
+        { assertCurrentSync: credentials.assertCurrentSync, ownerKey: credentials.ownerKey },
+      );
+    },
+    async getTakeNumberAvailability(assertCurrent) {
+      const raw = await request("GET", "/ticket/availability", undefined, assertCurrent);
       const parsed = takeNumberAvailabilityResponseSchema.parse(raw);
       // 缺少恢复时间的 false 快照会让 UI 无法安排重查，再次形成永久灰态。
       // 契约要求 false 必带 next_take_at；脏响应按查询失败处理，由 UI fail-open、POST /ticket 兜底。
@@ -223,8 +261,8 @@ export function createOffPeakServerClient(deps: OffPeakServerClientDeps): OffPea
         ...(parsed.next_take_at !== undefined ? { nextTakeAt: parsed.next_take_at } : {}),
       };
     },
-    async takeTicket(taskId) {
-      const raw = await request("POST", "/ticket", { task_id: taskId });
+    async takeTicket(taskId, assertCurrent) {
+      const raw = await request("POST", "/ticket", { task_id: taskId }, assertCurrent);
       const parsed = takeTicketResponseSchema.parse(raw);
       deps.logger.info(
         undefined,
@@ -240,7 +278,7 @@ export function createOffPeakServerClient(deps: OffPeakServerClientDeps): OffPea
         registeredAt: Date.now(),
       };
     },
-    async batchStatus(ticketIds) {
+    async batchStatus(ticketIds, assertCurrent) {
       if (ticketIds.length === 0) return { tickets: [] };
       // 契约上限 ≤100；调用方 listNonTerminal 规模远小于此，超限截断并警告而非拆包。
       // 单用户非终态任务数达到 100 前，服务端取号上限早就先挡住了。
@@ -248,9 +286,14 @@ export function createOffPeakServerClient(deps: OffPeakServerClientDeps): OffPea
       if (limited.length < ticketIds.length) {
         deps.logger.warn(`off-peak batch status truncated ${ticketIds.length} -> 100`);
       }
-      const raw = await request("POST", "/ticket/status", {
-        ticket_ids: limited,
-      });
+      const raw = await request(
+        "POST",
+        "/ticket/status",
+        {
+          ticket_ids: limited,
+        },
+        assertCurrent,
+      );
       const parsed = batchStatusResponseSchema.parse(raw);
       return {
         ...(parsed.next_poll_after !== undefined
@@ -264,9 +307,14 @@ export function createOffPeakServerClient(deps: OffPeakServerClientDeps): OffPea
         })),
       };
     },
-    async settle(ticketId) {
+    async settle(ticketId, assertCurrent) {
       // 幂等：重复上报/未知票一律 2xx；无 body。
-      const raw = await request("POST", `/ticket/${encodeURIComponent(ticketId)}/settle`);
+      const raw = await request(
+        "POST",
+        `/ticket/${encodeURIComponent(ticketId)}/settle`,
+        undefined,
+        assertCurrent,
+      );
       settleResponseSchema.parse(raw);
       deps.logger.info(undefined, `off-peak settle acked ticket=${ticketId}`);
     },

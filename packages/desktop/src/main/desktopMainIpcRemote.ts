@@ -261,7 +261,7 @@ export function registerRemoteIpcHandlers(options: {
   ipcMain.on(PlatformChannels.OAuthRegisterState, (event, payload: unknown) => {
     const registration = parseOAuthStateRegistration(payload);
     if (!registration) {
-      options.logger.warn("[oauth-register-state] invalid payload", payload);
+      options.logger.warn("[oauth-register-state] invalid registration");
       return;
     }
 

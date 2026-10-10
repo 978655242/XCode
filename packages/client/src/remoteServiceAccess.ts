@@ -18,6 +18,7 @@ import {
   IBotsService,
   IFileWatcherService,
   IOAuthService,
+  IOfficialCloudConnectionService,
   IModelSelectionService,
   IProviderSettingsService,
   IProviderProvisioningTargetService,
@@ -70,6 +71,7 @@ export class RemoteServiceAccess implements IServiceAccessor {
   readonly botsService: IBotsService;
   readonly fileWatcherService: IFileWatcherService;
   readonly oauthService: IOAuthService;
+  readonly officialCloudConnectionService: IOfficialCloudConnectionService;
   readonly providerSettingsService: IProviderSettingsService;
   readonly modelSelectionService: IModelSelectionService;
   /** Host-only target proxy；不属于 IServiceAccessor，避免向 Renderer 暴露 Secret 写入接口。 */
@@ -152,6 +154,9 @@ export class RemoteServiceAccess implements IServiceAccessor {
     );
     this.oauthService = ProxyChannel.toService<IOAuthService>(
       channelClient.getChannel(IOAuthService.channelName),
+    );
+    this.officialCloudConnectionService = ProxyChannel.toService<IOfficialCloudConnectionService>(
+      channelClient.getChannel(IOfficialCloudConnectionService.channelName),
     );
     this.providerSettingsService = ProxyChannel.toService<IProviderSettingsService>(
       channelClient.getChannel(IProviderSettingsService.channelName),

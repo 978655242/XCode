@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { OAuthProviderId, OAuthProviderMeta } from "@zcode/shared";
 import {
   BIGMODEL_PROVIDER_ID,
+  NEW_API_PROVIDER_ID,
   isCredentialDecryptError,
   resolveSafeTelemetryHostname,
   ZAI_PROVIDER_ID,
@@ -80,13 +81,16 @@ export function useOAuth() {
           authorizeUrl,
           state,
           provider: startedProvider,
-        } = await oauthService.startOAuthWithPolling(provider);
+          purpose,
+        } = provider === NEW_API_PROVIDER_ID
+          ? await oauthService.startOAuth(provider)
+          : await oauthService.startOAuthWithPolling(provider);
 
         if (loginAttemptRef.current !== loginAttempt) {
           return;
         }
 
-        platform.registerOAuthState({ state, provider: startedProvider });
+        platform.registerOAuthState({ state, provider: startedProvider, purpose });
         setOAuthPollingActive(
           startedProvider === ZAI_PROVIDER_ID || startedProvider === BIGMODEL_PROVIDER_ID,
         );

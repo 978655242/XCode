@@ -249,8 +249,9 @@ export function ModelRowInput({
           <span
             data-testid={inputTestId}
             className="min-w-0 truncate font-mono text-ui-base text-foreground"
+            title={model.modelId}
           >
-            {model.modelId}
+            {model.displayName || model.modelId}
           </span>
           <span
             className="inline-flex h-5 max-w-20 shrink-0 items-center truncate rounded-md border border-border bg-surface px-1.5 font-mono text-ui-sm text-foreground-subtle"
@@ -287,34 +288,36 @@ export function ModelRowInput({
             {testIcon}
           </Button>
         ) : null}
-        <ProviderModelMetadataDialog
-          onRestore={() => {
-            setDraftErrorField(null);
-            setCommitErrorMessage(null);
-            void editor
-              .restore()
-              .catch((error) =>
-                setCommitErrorMessage(error instanceof Error ? error.message : String(error)),
-              );
-          }}
-          mode="edit"
-          open={metadataDialogOpen}
-          draft={draft}
-          draftErrorMessage={draftErrorMessage}
-          draftErrorField={draftErrorField}
-          overrideFields={editor.overrides}
-          inheritedConfig={editor.inheritedConfig}
-          onOpenChange={handleMetadataDialogOpenChange}
-          onDraftChange={updateDraft}
-          onCommit={handleMetadataDialogCommit}
-          saving={metadataSaving}
-          modelConfigResolutionPending={editor.pending}
-          modelDefaultsLoaded={editor.defaultsLoaded}
-          onModelIdBlur={() => {
-            void editor.flush().catch(() => undefined);
-          }}
-          modelIdReadOnly={model.builtin}
-        />
+        {providerAccess?.type !== "new-api-account" ? (
+          <ProviderModelMetadataDialog
+            onRestore={() => {
+              setDraftErrorField(null);
+              setCommitErrorMessage(null);
+              void editor
+                .restore()
+                .catch((error) =>
+                  setCommitErrorMessage(error instanceof Error ? error.message : String(error)),
+                );
+            }}
+            mode="edit"
+            open={metadataDialogOpen}
+            draft={draft}
+            draftErrorMessage={draftErrorMessage}
+            draftErrorField={draftErrorField}
+            overrideFields={editor.overrides}
+            inheritedConfig={editor.inheritedConfig}
+            onOpenChange={handleMetadataDialogOpenChange}
+            onDraftChange={updateDraft}
+            onCommit={handleMetadataDialogCommit}
+            saving={metadataSaving}
+            modelConfigResolutionPending={editor.pending}
+            modelDefaultsLoaded={editor.defaultsLoaded}
+            onModelIdBlur={() => {
+              void editor.flush().catch(() => undefined);
+            }}
+            modelIdReadOnly={model.builtin}
+          />
+        ) : null}
         {onDelete ? (
           <Button
             type="button"

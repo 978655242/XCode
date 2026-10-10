@@ -1,5 +1,5 @@
-import { useCallback } from "react";
-import { resolveModelProviderFamilyIdByProviderId } from "@zcode/shared";
+import { useCallback, useEffect, useState } from "react";
+import { NEW_API_PROVIDER_ID, resolveModelProviderFamilyIdByProviderId } from "@zcode/shared";
 import { useProviderSettingsView } from "@/hooks/useProviderSettingsView.js";
 import { useServices } from "@/hooks/useServices.js";
 import { type CodingPlanProviderId } from "@/settings/model-provider-section/constants.js";
@@ -13,6 +13,9 @@ import {
 } from "@/settings/codingPlanUpgradeLoginRecovery.js";
 import { CodingPlanEmbeddedWebviewDialog } from "@/settings/CodingPlanEmbeddedWebviewDialog.js";
 import { logger } from "@/logger.js";
+import { NativePlanEmbeddedWebviewDialog } from "@/settings/NativePlanEmbeddedWebviewDialog.js";
+import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { Button } from "@/components/ui/button.js";
 
 export { isCodingPlanPurchaseAuthPending } from "@/settings/model-provider-section/codingPlanPurchaseAuth.js";
 export {
@@ -63,7 +66,7 @@ async function closeAndRefreshCodingPlanUpgradeFromWebview(params: {
   }
 }
 
-export function CodingPlanUpgradeDialog({
+function OfficialCodingPlanUpgradeDialog({
   target,
   onClose,
   onOpenResult,
@@ -149,4 +152,48 @@ export function CodingPlanUpgradeDialog({
       }}
     />
   );
+}
+
+// XCODE: Private mode is a Host fact; a failed mode read must never open the official site.
+export function CodingPlanUpgradeDialog(props: CodingPlanUpgradeDialogProps) {
+  const { oauthService } = useServices();
+  const { intl } = useZCodeIntl();
+  const [mode, setMode] = useState<"native" | "official" | "error" | null>(null);
+  useEffect(() => {
+    let active = true;
+    void oauthService.getProviders().then(
+      (providers) => {
+        if (active)
+          setMode(
+            providers.some((entry) => entry.id === NEW_API_PROVIDER_ID) ? "native" : "official",
+          );
+      },
+      () => {
+        if (active) setMode("error");
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [oauthService]);
+  if (!props.target) return null;
+  if (mode === "native")
+    return (
+      <NativePlanEmbeddedWebviewDialog onClose={props.onClose} onOpenResult={props.onOpenResult} />
+    );
+  if (mode === "official") return <OfficialCodingPlanUpgradeDialog {...props} />;
+  if (mode === "error")
+    return (
+      <div
+        role="dialog"
+        aria-label={intl.formatMessage({ id: "settings.modelProvider.native.planTitle" })}
+        className="fixed inset-4 z-50 flex flex-col items-center justify-center gap-4 rounded-xl border border-border bg-background"
+      >
+        <p role="alert">
+          {intl.formatMessage({ id: "settings.modelProvider.native.handoffFailed" })}
+        </p>
+        <Button onClick={props.onClose}>{intl.formatMessage({ id: "common.close" })}</Button>
+      </div>
+    );
+  return null;
 }

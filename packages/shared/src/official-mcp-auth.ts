@@ -75,12 +75,13 @@ export function findOfficialMcpReservedHeaders(
 export type OfficialMcpTargetType = "PERSONAL" | "TEAM";
 
 /**
- * 端口/协议层的失败分类（"不发任何请求"的两类）。
+ * XCODE: 端口/协议层身份解析或调用代际失败，不授予另一 owner 的重试凭据。
  * 网络层失败（401/403/3xx）由 MCP adapter 在收到响应后自行分类，不经过该枚举。
  */
 export const OFFICIAL_MCP_AUTH_FAILURE_REASONS = [
   "official_auth_unavailable",
   "official_auth_plan_required",
+  "official_auth_scope_changed",
 ] as const;
 
 export type OfficialMcpAuthFailureReason = (typeof OFFICIAL_MCP_AUTH_FAILURE_REASONS)[number];

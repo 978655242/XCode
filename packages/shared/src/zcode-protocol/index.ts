@@ -24,7 +24,11 @@ import { z } from "zod";
 export * from "../process-diagnostic.js";
 import { errorAttributionSchema } from "../zcode-protocol-v4/snapshot.js";
 import { modelSelectionSchema } from "../model-selection.js";
-import { completeModelPropertiesDataSchema } from "../model-config.js";
+import {
+  completeModelPropertiesDataSchema,
+  completeModelConfigDataSchema,
+} from "../model-config.js";
+import { newApiCatalogIssueSchema, newApiRegistryOwnerSchema } from "../model-provider-types.js";
 import { accountProviderUnavailableReasonSchema } from "../account-provider-state.js";
 import { modelExecutionSchema } from "../model-execution.js";
 import { APP_USAGE_RANGES, appUsageSnapshotSchema } from "../usage-stats.js";
@@ -838,14 +842,26 @@ export const zcodeAccountAccessSchema = z.discriminatedUnion("planKind", [
 export type ZCodeAccountAccess = z.infer<typeof zcodeAccountAccessSchema>;
 
 /** Active Model 固定的账号访问类别；当前商品和 Team scope 由账号服务在请求期解析。 */
-export const zcodeProviderAccountAccessSchema = z
-  .object({
-    type: z.literal("zhipu-account"),
-    accountType: z.enum(["zai", "bigmodel"]),
-    mode: z.enum(["start-plan", "individual-coding-plan", "team-coding-plan", "off-peak"]),
-    entitled: z.boolean(),
-  })
-  .strict();
+export const zcodeProviderAccountAccessSchema = z.union([
+  z
+    .object({
+      type: z.literal("zhipu-account"),
+      accountType: z.enum(["zai", "bigmodel"]),
+      mode: z.enum(["start-plan", "individual-coding-plan", "team-coding-plan", "off-peak"]),
+      entitled: z.boolean(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("new-api-account"),
+      accountType: z.literal("new-api"),
+      mode: z.literal("private-subscription"),
+      entitled: z.boolean(),
+      owner: newApiRegistryOwnerSchema.optional(),
+      accountRevision: z.string().min(1).optional(),
+    })
+    .strict(),
+]);
 export type ZCodeProviderAccountAccess = z.infer<typeof zcodeProviderAccountAccessSchema>;
 
 export type ZCodeSessionMode = z.infer<typeof zcodeSessionModeSchema>;
@@ -1570,6 +1586,8 @@ export const zcodeSessionCreateParamsSchema = z
     toolAllowlist: z.array(nonEmptyString).optional(),
     toolDenylist: z.array(nonEmptyString).optional(),
     importedHistory: zcodeSessionImportHistorySchema.optional(),
+    // XCODE: 导入提交绑定最初 owner/官方代际，旧 worker 不可忽略此准入。
+    officialInvocationScope: nonEmptyString.optional(),
     // host 只按本地服务装配/远程/端形态决定是否注册工具，不读取灰度；
     // 缺省不下发 = 不注册；灰度与套餐准入在实际创建的 Host handler 校验。
     offPeakToolEnabled: z.boolean().optional(),
@@ -2151,6 +2169,21 @@ export const zcodeProviderUpdateAccountConfigParamsSchema = z
     basedOnZCodeBuiltinRevision: nonEmptyString,
     // Provider Config 的字段校验由 @zcode/provider 负责；协议层只约束可传输信封。
     providers: z.record(z.string(), z.unknown()),
+    owner: newApiRegistryOwnerSchema.nullable().optional(),
+    modelConfigs: z
+      .record(
+        z.string(),
+        z.record(
+          z.string(),
+          completeModelConfigDataSchema.extend({
+            displayName: z.string().optional(),
+          }),
+        ),
+      )
+      .optional(),
+    catalogIssues: z.array(newApiCatalogIssueSchema).readonly().optional(),
+    catalogRevision: z.string().min(1).optional(),
+    authorizationRevision: z.string().min(1).optional(),
     // 账号状态与 Overlay 必须一起传递，否则 Worker 会丢失非当前套餐的执行门禁。
     states: z.record(
       z.string(),
@@ -2443,6 +2476,10 @@ export const zcodeOfficialMcpAuthHeadersRequestParamsSchema = z
     pluginId: nonEmptyString,
     mcpKey: nonEmptyString,
     targetOrigin: nonEmptyString,
+    // XCODE: 不透明 owner/官方连接代际贯穿整个调用，不含凭据或原生身份。
+    scope: nonEmptyString.optional(),
+    captureOnly: z.boolean().optional(),
+    validateOnly: z.boolean().optional(),
   })
   .strict();
 export type ZCodeOfficialMcpAuthHeadersRequestParams = z.infer<
@@ -2465,6 +2502,7 @@ export const zcodeOfficialMcpAuthHeadersResponseSchema = z.discriminatedUnion("o
     .object({
       ok: z.literal(true),
       headers: z.record(z.string(), z.string()),
+      scope: nonEmptyString.optional(),
     })
     .strict(),
   z
@@ -2477,6 +2515,17 @@ export const zcodeOfficialMcpAuthHeadersResponseSchema = z.discriminatedUnion("o
 export type ZCodeOfficialMcpAuthHeadersResponse = z.infer<
   typeof zcodeOfficialMcpAuthHeadersResponseSchema
 >;
+
+// XCODE: 仅提交期 owner 准入，不授予插件鉴权能力，也不返回任何身份头。
+export const zcodeOfficialInvocationScopeValidationParamsSchema = z
+  .object({
+    workspace: zcodeWorkspaceRefSchema,
+    scope: nonEmptyString,
+  })
+  .strict();
+export const zcodeOfficialInvocationScopeValidationResultSchema = z
+  .object({ ok: z.boolean() })
+  .strict();
 
 // ── Plugin management (list + enable/disable) ──
 // 镜像 @zcode/contracts 的 PluginMetadata, 仅保留 UI 需要的可序列化字段。
@@ -3661,6 +3710,7 @@ export const zcodeProtocolMethods = {
   interactionRequestUserInput: "interaction/requestUserInput",
   interactionRequestProviderRuntimeHeaders: "interaction/requestProviderRuntimeHeaders",
   interactionRequestOfficialMcpAuthHeaders: "interaction/requestOfficialMcpAuthHeaders",
+  interactionValidateOfficialInvocationScope: "interaction/validateOfficialInvocationScope",
   // browser-use 反向请求由 agent 发起，host 转给 main 中的 CDP executor。
   interactionBrowserList: "interaction/browserList",
   interactionBrowserExecute: "interaction/browserExecute",

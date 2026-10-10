@@ -28,6 +28,7 @@ import type {
   ApplicationIconRequest,
   Locale,
   OAuthStateRegistration,
+  OAuthCallbackEvent,
   PostUpdateReleaseNotesPayload,
   RemoteConnectionRuntimeLog,
   RemoteSessionClosedEvent,
@@ -56,6 +57,12 @@ import type {
 declare global {
   interface Window {
     zcode: {
+      prepareNativePlanWebview?(request: {
+        url: string;
+        ownerGeneration: number;
+      }): Promise<{ partition: string }>;
+      closeNativePlanWebview?(partition: string): Promise<void>;
+      onNativePlanWebviewInvalidated?(callback: (partition: string) => void): () => void;
       connectRemote(
         options: RemoteTarget,
         requestId?: string,
@@ -204,7 +211,7 @@ declare global {
       /** 上报 OAuth state 用于 deep link 路由 */
       registerOAuthState(payload: OAuthStateRegistration): void;
       /** 注册 OAuth deep link 回调，返回 disposer */
-      onOAuthCallback(cb: (url: string) => void): () => void;
+      onOAuthCallback(cb: (event: OAuthCallbackEvent) => void): () => void;
       /** 注册支付 deep link 回调，返回 disposer */
       onPaymentCallback(cb: (url: string) => void): () => void;
       /** 通知 main process renderer 已就绪 */

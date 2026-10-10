@@ -187,7 +187,7 @@ function toModelOption(provider: Provider, model: ProviderModel): ZCodeModelOpti
   const reasoning = optionSpecs.reasoningLevel;
   return {
     ref: { providerId: provider.providerId, modelId: model.modelId },
-    label: model.modelId,
+    label: model.displayName ?? model.modelId,
     providerLabel: provider.providerName ?? provider.providerId,
     contextWindow: properties.contextWindow,
     maxOutputTokens: optionSpecs.maxOutputTokens.max,

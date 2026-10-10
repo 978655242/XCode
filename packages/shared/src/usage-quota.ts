@@ -8,11 +8,26 @@
 
 export interface UsageQuotaSnapshot {
   level: string | null;
+  source?: "new-api";
   limits: UsageQuotaLimit[];
 }
 
 export interface UsageQuotaLimit {
   type: string;
+  /** Exact Native quota facts; numeric fields below are display-only. */
+  native?: {
+    unlimited: boolean;
+    total: string | null;
+    used: string;
+    remaining: string | null;
+    usedPercentage: number | null;
+    period: "never" | "daily" | "weekly" | "monthly" | "custom";
+    resetCustomSeconds: string;
+    lastResetTime: number | null;
+    nextResetTime: number | null;
+    resetTimeZone: string;
+    resetUtcOffsetSeconds: number;
+  };
   /** Start Plan 服务端额度桶及周期身份；周期时间为毫秒，供提醒去重。 */
   bucketId?: string;
   userPlanId?: string;

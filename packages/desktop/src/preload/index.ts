@@ -50,6 +50,7 @@ import type {
   EmbeddedBrowserOpenUrlRequest,
   Locale,
   OAuthStateRegistration,
+  OAuthCallbackEvent,
   OpenInEditorOptions,
   RemoteTarget,
   TaskNotificationPayload,
@@ -605,7 +606,7 @@ contextBridge.exposeInMainWorld("zcode", {
   registerOAuthState: (payload: OAuthStateRegistration) =>
     ipcRenderer.send(PlatformChannels.OAuthRegisterState, payload),
   /** 注册 OAuth deep link 回调，返回 disposer */
-  onOAuthCallback: (cb: (url: string) => void): (() => void) => {
+  onOAuthCallback: (cb: (event: OAuthCallbackEvent) => void): (() => void) => {
     const handler = createOAuthCallbackHandler(cb, () => {
       ipcRenderer.send(PlatformChannels.OAuthCallbackHandled);
     });
@@ -719,6 +720,15 @@ contextBridge.exposeInMainWorld("zcode", {
   /** 清理内置浏览器缓存或全部站点数据。 */
   clearEmbeddedBrowserData: (mode: "cache" | "all") =>
     ipcRenderer.invoke(PlatformChannels.ClearEmbeddedBrowserData, mode),
+  prepareNativePlanWebview: (request: { url: string; ownerGeneration: number }) =>
+    ipcRenderer.invoke("zcode:native-plan-webview-prepare", request),
+  closeNativePlanWebview: (partition: string) =>
+    ipcRenderer.invoke("zcode:native-plan-webview-close", partition),
+  onNativePlanWebviewInvalidated: (callback: (partition: string) => void) => {
+    const handler = (_event: unknown, partition: string) => callback(partition);
+    ipcRenderer.on("zcode:native-plan-webview-invalidated", handler);
+    return () => ipcRenderer.removeListener("zcode:native-plan-webview-invalidated", handler);
+  },
   /** 读取开发态 stdio tap proxy 开关状态 */
   getZCodeStdioTapDevState: (): Promise<ZCodeStdioTapDevState> =>
     ipcRenderer.invoke(PlatformChannels.GetZCodeStdioTapDevState),

@@ -10,6 +10,7 @@ export const providerGroupDataSchema = z.enum([
   "standard-personal",
   "zai-family",
   "bigmodel-family",
+  "new-api-family",
 ]);
 export const zhipuAccountModeDataSchema = z.enum([
   "start-plan",
@@ -52,13 +53,24 @@ export const zhipuAccountAccessDataSchema = z
     type: completeZhipuAccountAccessDataSchema.shape.type,
   })
   .strict();
+export const completeNewApiAccountAccessDataSchema = z
+  .object({
+    type: z.literal("new-api-account"),
+    accountType: z.literal("new-api"),
+    mode: z.literal("private-subscription"),
+    entitled: z.boolean(),
+  })
+  .strict();
+export const newApiAccountAccessDataSchema = completeNewApiAccountAccessDataSchema;
 export const providerAccessDataSchema = z.discriminatedUnion("type", [
   apiKeyAccessDataSchema,
   zhipuAccountAccessDataSchema,
+  newApiAccountAccessDataSchema,
 ]);
 const completeProviderAccessDataSchema = z.discriminatedUnion("type", [
   completeApiKeyAccessDataSchema,
   completeZhipuAccountAccessDataSchema,
+  completeNewApiAccountAccessDataSchema,
 ]);
 
 export const completeProviderApiDataSchema = z

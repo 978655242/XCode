@@ -9,6 +9,8 @@ export const modelExecutionSchema = z
       .object({
         apiKey: z.string().min(1).optional(),
         headers: z.record(z.string().min(1), z.string().min(1)).optional(),
+        // XCODE: 官方执行冻结非秘密 owner/connection 代际，不把 Native key 借给闲时模型。
+        executionIdentity: z.string().min(1).optional(),
       })
       .strict()
       .optional(),

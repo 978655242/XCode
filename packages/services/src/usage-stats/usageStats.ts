@@ -13,6 +13,8 @@ import type {
   UsageEntitlementSnapshot,
   UsageStatsRequest,
   UsageStatsSnapshot,
+  NewApiAccountUsageSnapshot,
+  CodingPlanResetHistoryReadResult,
 } from "@zcode/shared";
 import { ServiceChannels } from "@zcode/shared";
 import { createServiceDescriptor } from "../descriptors.js";
@@ -27,8 +29,10 @@ export interface IUsageStatsService {
     request: CodingPlanResetOpportunityRequest,
   ): Promise<CodingPlanResetOpportunityResult>;
   useCodingPlanReset(request: CodingPlanResetUseRequest): Promise<CodingPlanResetUseResult>;
-  markCodingPlanResetHistoryRead(request: CodingPlanResetScopeRequest): Promise<void>;
-  getSnapshot(request: UsageStatsRequest): Promise<UsageStatsSnapshot>;
+  markCodingPlanResetHistoryRead(
+    request: CodingPlanResetScopeRequest,
+  ): Promise<CodingPlanResetHistoryReadResult>;
+  getSnapshot(request: UsageStatsRequest): Promise<UsageStatsSnapshot | NewApiAccountUsageSnapshot>;
   getEntitlementSnapshot(request?: UsageEntitlementRequest): Promise<UsageEntitlementSnapshot>;
 }
 

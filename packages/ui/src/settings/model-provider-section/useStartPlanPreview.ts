@@ -92,7 +92,10 @@ async function loadStartPlanPreview(
   }
 
   // 远端配置一天内变化频率低，未登录设置页可能反复挂载，合并请求避免重复打 client/configs。
-  previewRequest = service.getStartPlanPreview();
+  previewRequest = service.getStartPlanPreview().then((preview) => {
+    if (preview && "source" in preview) throw new Error("XCODE_NATIVE_PLAN_READ_REQUIRES_HANDOFF");
+    return preview;
+  });
   try {
     const preview = await previewRequest;
     previewCache = {

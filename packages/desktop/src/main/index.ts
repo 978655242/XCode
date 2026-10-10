@@ -62,6 +62,7 @@ import {
   normalizeRuntimeProcessEnv,
   setDataBaseDir,
 } from "@zcode/services/node";
+import { loadPrivateCredentialSecret } from "./privateCredentialKey.js";
 import {
   desktopMenuMessageIds,
   type Locale,
@@ -548,6 +549,12 @@ mainMemoryDiagnosticsRegistry.register("app", () => ({
   willDownloadListeners: session.defaultSession.listenerCount("will-download"),
 }));
 const hostProcessLocalEnv = loadHostProcessEnvFromLocalFiles();
+delete hostProcessLocalEnv.XCODE_PRIVATE_CREDENTIAL_SECRET;
+// XCODE: 与 Host 使用相同 dotenv→process 优先级，避免有私有服务但未加载 OS 加密密钥。
+const nativePrivateMode = Boolean(
+  (process.env.NEW_API_BASE_URL ?? hostProcessLocalEnv.NEW_API_BASE_URL)?.trim(),
+);
+let privateCredentialSecret: string | undefined;
 interface RuntimeProcessEnvPreparation {
   patchPromise: Promise<Record<string, string>>;
   fallbackPatch: Record<string, string>;
@@ -635,6 +642,7 @@ const windowsCuaOperationIndicator = createWindowsCuaOperationIndicator({
 
 // 常驻 cron scheduler 进程句柄；app ready 后拉起，退出前销毁。
 let cronScheduler: CronSchedulerHandle | null = null;
+const nativeOffPeakOwnerKeys = new Map<number, string>();
 // host → main 的定时任务派发结果，转交给 scheduler 结算。经模块变量转发以避免 spawn 顺序耦合。
 function forwardCronRunResult(
   result: Parameters<CronSchedulerHandle["handleCronRunResult"]>[0],
@@ -650,11 +658,22 @@ function wakeCronScheduler(automationId: string): void {
   cronScheduler?.wake(automationId);
 }
 function wakeOffPeakScheduler(offPeakTaskId?: string): void {
-  // 复用同一条 scheduler-wake 通道（tick 同时覆盖 cron 与 off-peak 分支），仅日志标签区分。
-  cronScheduler?.wake(`offpeak:${offPeakTaskId ?? "sync"}`);
+  cronScheduler?.wake(
+    `offpeak:${offPeakTaskId ?? "sync"}`,
+    nativePrivateMode ? [...nativeOffPeakOwnerKeys.values()] : undefined,
+  );
 }
 // 选一个本地 host 执行派发：本期本地 workspace 由任一本地窗口 host 的 createTask 按 path 拉起/复用 agent。
-function resolveCronDispatchHost(): ElectronUtilityProcess | null {
+function resolveCronDispatchHost(nativeOwnerKey?: string): ElectronUtilityProcess | null {
+  if (nativeOwnerKey) {
+    for (const [windowId, ownerKey] of nativeOffPeakOwnerKeys) {
+      if (ownerKey === nativeOwnerKey) {
+        const host = windowHostProcessMap.get(windowId);
+        if (host) return host;
+      }
+    }
+    return null;
+  }
   const first = windowHostProcessMap.values().next();
   return first.done ? null : first.value;
 }
@@ -1697,8 +1716,9 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
     windowHostProcessMap,
     onHostProcessReady: (windowKey) => cuaPipFocusRouter.refreshWindow(windowKey),
     awaitFirstHostSpawnDecision,
-    spawnHostProcess: (win, label, initMessage) =>
-      spawnHostProcess(
+    spawnHostProcess: (win, label, initMessage) => {
+      const webContentsId = win.webContents.id;
+      return spawnHostProcess(
         win,
         label,
         {
@@ -1708,7 +1728,9 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
           }),
         },
         {
+          // XCODE: 私有cipher key定向传窗口Host，通用env仍用于不含key的scheduler。
           hostProcessLocalEnv,
+          privateCredentialSecret,
           desktopContextPromptEnabled: resolveDesktopContextPromptEnabledForHost,
           logger,
           broadcastHub,
@@ -1732,7 +1754,13 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
           onCronRunResult: forwardCronRunResult,
           onOffPeakRunResult: forwardOffPeakRunResult,
           onCronSchedulerWakeRequested: wakeCronScheduler,
-          onOffPeakSchedulerWakeRequested: wakeOffPeakScheduler,
+          onOffPeakSchedulerWakeRequested: (offPeakTaskId, nativeOwnerKey) => {
+            if (nativeOwnerKey !== undefined) {
+              if (nativeOwnerKey === null) nativeOffPeakOwnerKeys.delete(webContentsId);
+              else nativeOffPeakOwnerKeys.set(webContentsId, nativeOwnerKey);
+            }
+            wakeOffPeakScheduler(offPeakTaskId);
+          },
           authorizeLocalMediaPreviewPath: localMediaPreviewPathRegistry.authorize,
           // Bugfix: bot service 运行在本地窗口 host 内，/reconnect 必须能从本地 host 请求 main 创建远端 session。
           handleBotRemoteWorkspaceReconnectRequest: async ({
@@ -1816,7 +1844,8 @@ function createWindowInstance(startupBootstrap: StartupWindowBootstrap = {}) {
             },
           },
         },
-      ),
+      );
+    },
     disposeHostProcess: (child, label, forceKillDelayMs) =>
       disposeHostProcess(
         child,
@@ -1955,6 +1984,17 @@ app.whenReady().then(async () => {
   } catch {
     // 读取失败不影响启动，使用默认 homedir
   }
+  // XCODE: 显式私有配置才访问 OS key；不可用时不降级旧 key，不影响非私有启动。
+  if (nativePrivateMode) {
+    try {
+      privateCredentialSecret = await loadPrivateCredentialSecret();
+    } catch {
+      privateCredentialSecret = undefined;
+      logger.warn(
+        "[private-credentials] Secure storage unavailable; private login requires recovery",
+      );
+    }
+  }
 
   // scheduler 也会打开 tasks-index；等 Host 完成统一准备，避免在启动页出现前抢先迁移。
   configureDatabaseStartupQuit(() => {
@@ -1970,6 +2010,7 @@ app.whenReady().then(async () => {
         // keep-awake 已改为纯设置驱动；计数上报保留给后续诊断/配额用途，不再联动 blocker。
         onOffPeakActiveCountChanged: () => {},
       });
+      wakeOffPeakScheduler();
     } catch (error) {
       logger.error("[cron-scheduler] failed to spawn scheduler process:", error);
     }

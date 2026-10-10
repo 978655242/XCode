@@ -189,7 +189,17 @@ export interface ZCodeAgentRuntimeLifecycleEvent extends ZCodeAgentWorkspaceTarg
 export type ZCodeAgentCuaPermissionObservation = CuaPermissionObservation &
   ZCodeAgentWorkspaceTarget;
 
+// XCODE: 仅 Host 内传递分享导入准入回调；Symbol 不会跨 Renderer/worker RPC 序列化。
+export const sessionCreateAdmission: unique symbol = Symbol("sessionCreateAdmission");
+
 export interface ZCodeAgentCreateSessionParams extends ZCodeAgentWorkspaceTarget {
+  [sessionCreateAdmission]?: {
+    scope?: string;
+    assertCurrent(): Promise<void>;
+    assertCurrentSync?(): void;
+    onCommitted(): void;
+    onPersistenceUncertain?(): void;
+  };
   sessionId?: string;
   sessionTraceId?: TraceId;
   parentSessionId?: string;

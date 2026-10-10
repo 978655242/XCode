@@ -203,7 +203,55 @@ export class ProviderRegistryService {
       this.#assertNotDisposed();
 
       if (account.basedOnZCodeBuiltinRevision !== config.zcodeBuiltinRevision) {
-        // Built-in 已变化但 Account 仍基于旧事实时，继续服务上一份完整 Registry。
+        if (
+          this.#snapshot &&
+          account.owner !== undefined &&
+          account.revision !== this.#snapshot.account.revision
+        ) {
+          const previous = this.#snapshot;
+          // XCODE: Built-in 错位也必须撤销旧私有/官方 owner，不能继续保留 A 的闲时 key。
+          const revokedOfficialIds = new Set<string>();
+          const providers = previous.resolution.registryProviders.filter((provider) => {
+            if (provider.config.access.type === "new-api-account") return false;
+            const state = account.states?.[provider.providerId];
+            if (
+              provider.accountConnectionKey?.startsWith("official-cloud:sha256:") &&
+              (state?.availability !== "available" ||
+                state.connectionKey !== provider.accountConnectionKey)
+            ) {
+              revokedOfficialIds.add(provider.providerId);
+              return false;
+            }
+            return true;
+          });
+          this.#registry.replace(providers, "native-owner-invalidated");
+          this.#snapshot = Object.freeze({
+            ...previous,
+            account: freezeAccountSnapshot({ ...account, modelConfigs: {}, catalogIssues: [] }),
+            resolution: Object.freeze({
+              ...previous.resolution,
+              registryProviders: Object.freeze(providers),
+              resolvedProviders: Object.freeze(
+                previous.resolution.resolvedProviders.map((provider) =>
+                  provider.config.access?.type === "new-api-account" ||
+                  revokedOfficialIds.has(provider.providerId)
+                    ? Object.freeze({
+                        ...provider,
+                        models: Object.freeze(
+                          provider.models.map((model) =>
+                            Object.freeze({ ...model, executable: false, selectable: false }),
+                          ),
+                        ),
+                      })
+                    : provider,
+                ),
+              ),
+            }),
+            registry: this.#registry.getView(),
+          });
+          this.#emitChanged(this.#snapshot, reasons);
+        }
+        // Built-in changes preserve non-private execution; private changes above revoke before admission.
         // 当前 generation 结束；等待 Account Source 的后续 change 再一次性发布最终组合。
         this.#completedGeneration = generation;
         if (this.#snapshot) this.#resolveRefreshWaiters(generation, this.#snapshot);
@@ -227,6 +275,9 @@ export class ProviderRegistryService {
           personalModels: config.personalModels,
           accountProviders: account.providers,
           accountStates: account.states,
+          accountModelConfigs: account.modelConfigs,
+          accountOwner: account.owner,
+          accountRevision: account.revision,
           personalProviderOrder: config.personalProviderOrder,
         });
         this.#registry.replace(resolution.registryProviders, [...reasons].join(","));
@@ -311,5 +362,12 @@ function freezeAccountSnapshot(
     basedOnZCodeBuiltinRevision: snapshot.basedOnZCodeBuiltinRevision,
     providers: snapshot.providers,
     ...(snapshot.states ? { states: snapshot.states } : {}),
+    ...(snapshot.modelConfigs ? { modelConfigs: snapshot.modelConfigs } : {}),
+    ...(snapshot.catalogIssues ? { catalogIssues: snapshot.catalogIssues } : {}),
+    ...(snapshot.owner !== undefined ? { owner: snapshot.owner } : {}),
+    ...(snapshot.catalogRevision ? { catalogRevision: snapshot.catalogRevision } : {}),
+    ...(snapshot.authorizationRevision
+      ? { authorizationRevision: snapshot.authorizationRevision }
+      : {}),
   });
 }

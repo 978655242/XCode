@@ -66,6 +66,8 @@ export interface ModelRequestDependencies {
   /** 属性存在表示当前 Model 必须取得请求级鉴权；Source 缺失同样 fail-closed。 */
   requestAuth?: {
     source?: ModelRequestAuthSource;
+    /** XCODE: Host 捕获的非秘密官方连接代际，worker Registry 更新时终止旧执行。 */
+    executionIdentity?: string;
   };
 }
 

@@ -68,6 +68,7 @@ declare global {
     executeJavaScript(code: string, userGesture?: boolean): Promise<unknown>;
     // guest webContents id：dom-ready 后有效，renderer 上报给 main 用于 CDP attach（<webview>+CDP-on-guest）。
     getWebContentsId(): number;
+    isLoading(): boolean;
     canGoBack(): boolean;
     canGoForward(): boolean;
     goBack(): void;

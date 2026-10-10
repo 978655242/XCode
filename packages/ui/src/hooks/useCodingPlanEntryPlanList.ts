@@ -12,6 +12,7 @@ export interface CodingPlanEntryInventory {
   entryPlanList: string;
   status: "loading" | "error" | "ready";
   retry: () => void;
+  native?: boolean;
 }
 
 export function useCodingPlanEntryPlanList(): CodingPlanEntryInventory {
@@ -38,6 +39,14 @@ export function useCodingPlanEntryPlanList(): CodingPlanEntryInventory {
   } | null>(null);
   useEffect(() => {
     if (!providerSettingsView) return;
+    if (
+      providerSettingsView.providers.some(
+        (provider) => provider.effectiveConfig.access?.type === "new-api-account",
+      )
+    ) {
+      setTeams({ user, view: providerSettingsView, generation, sources: [] });
+      return;
+    }
     let cancelled = false;
     // 团队订阅以 authenticated pricing 为准，不用静态商品目录推断已购套餐。
     void Promise.all([
@@ -52,6 +61,7 @@ export function useCodingPlanEntryPlanList(): CodingPlanEntryInventory {
               authenticated: true,
               family,
             });
+            if ("source" in result) throw new Error("XCODE_NATIVE_PLAN_READ_REQUIRES_HANDOFF");
             return { token, products: result.productList };
           } catch (error) {
             logger.warn("[purchaseTelemetry] 读取团队套餐失败", { family, error });
@@ -127,6 +137,10 @@ export function useCodingPlanEntryPlanList(): CodingPlanEntryInventory {
   return {
     status,
     retry,
+    native:
+      providerSettingsView?.providers.some(
+        (provider) => provider.effectiveConfig.access?.type === "new-api-account",
+      ) === true,
     entryPlanList:
       status === "ready"
         ? buildOwnedEntryPlanList({

@@ -50,6 +50,11 @@ export function readCachedUsageEntitlementSnapshot(params: {
     const parsed = JSON.parse(raw) as Partial<CachedUsageEntitlementSnapshot>;
     const cachedAt = typeof parsed.cachedAt === "number" ? parsed.cachedAt : 0;
     const snapshot = parsed.snapshot;
+    // XCODE: 升级前 Native 缓存没有 owner；禁止恢复到任何新登录账号并清掉该旧条目。
+    if (snapshot?.source === "new-api") {
+      storage?.removeItem(cacheKey);
+      return null;
+    }
     const currentTime = params.now?.() ?? Date.now();
     if (!snapshot || currentTime - cachedAt > (params.ttlMs ?? USAGE_ENTITLEMENT_CACHE_TTL_MS)) {
       storage?.removeItem(cacheKey);
@@ -68,7 +73,7 @@ export function writeCachedUsageEntitlementSnapshot(params: {
   now?: () => number;
 }): void {
   const cacheKey = params.cacheKey.trim();
-  if (!cacheKey) {
+  if (!cacheKey || params.snapshot.source === "new-api") {
     return;
   }
 

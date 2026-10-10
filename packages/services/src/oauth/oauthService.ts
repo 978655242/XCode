@@ -695,7 +695,7 @@ export class OAuthService implements IOAuthService {
       pollIntervalMs,
       provider,
     });
-    return { provider, authorizeUrl: authorizeUrl.toString(), state };
+    return { provider, purpose: "primary-account", authorizeUrl: authorizeUrl.toString(), state };
   }
 
   async pollPendingOAuth(): Promise<OAuthCallbackResult | null> {
@@ -858,6 +858,7 @@ export class OAuthService implements IOAuthService {
 
     return {
       provider: adapter.providerId,
+      purpose: "primary-account",
       authorizeUrl,
       state,
     };

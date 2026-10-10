@@ -1,11 +1,14 @@
 import {
   BUILTIN_MODEL_PROVIDER_IDS,
+  NEW_API_MODEL_PROVIDER_IDS,
+  isNewApiModelProviderId,
   getModelProviderFamilySpec,
   resolveModelProviderFamilySpecByProviderId,
   type ProviderFamilyConnectionSelectionSettings,
   type ProviderFamilyDomain,
   type ZCodeAccountAccess,
   type ZCodeProviderAccountAccess,
+  type UsageEntitlementSnapshot,
 } from "@zcode/shared";
 import {
   resolveEnterpriseCodingPlanProductFamily,
@@ -16,12 +19,47 @@ import type {
   SidebarUsageCodingPlanSourceId,
 } from "@/lib/sidebarUsageCodingPlanProviderPreference.js";
 import { formatTeamPlanDisplayName } from "@/lib/teamPlanDisplayName.js";
+import type { ProviderSettingsView } from "@zcode/services";
+import { resolveAccountProviderInspectionAccess } from "@/lib/accountProviderAccess.js";
 
 export interface CodingPlanUsageSource {
   id: SidebarUsageCodingPlanSourceId;
   providerId: SidebarUsageCodingPlanProviderId;
   label: string;
   accountAccess: ZCodeProviderAccountAccess | ZCodeAccountAccess;
+}
+
+export interface CodingPlanUsageRemainingEntitlement {
+  sourceId?: SidebarUsageCodingPlanSourceId;
+  providerId: SidebarUsageCodingPlanProviderId;
+  accountAccess: ZCodeProviderAccountAccess | ZCodeAccountAccess;
+  label?: string;
+  snapshot: UsageEntitlementSnapshot | null;
+  loading: boolean;
+  error: string | null;
+}
+
+export interface CodingPlanUsageAvailableProvider {
+  providerId: SidebarUsageCodingPlanProviderId;
+  accountAccess: ZCodeProviderAccountAccess | ZCodeAccountAccess;
+  label: string;
+}
+
+export interface CodingPlanUsageRemainingState {
+  activeProviderId?: SidebarUsageCodingPlanSourceId;
+  displayedEntitlement: CodingPlanUsageRemainingEntitlement | null;
+  displayedProviderId?: SidebarUsageCodingPlanSourceId;
+  hasAnyActiveCodingPlan: boolean;
+  loading: boolean;
+  providerEntitlements: CodingPlanUsageRemainingEntitlement[];
+  tabProviders: CodingPlanUsageRemainingTabProvider[];
+  visibleSnapshot: UsageEntitlementSnapshot | null;
+}
+
+interface CodingPlanUsageRemainingTabProvider {
+  id: SidebarUsageCodingPlanSourceId;
+  providerId: SidebarUsageCodingPlanProviderId;
+  label: string;
 }
 
 export function buildPersonalCodingPlanUsageSource({
@@ -40,10 +78,30 @@ export function buildPersonalCodingPlanUsageSource({
     accountAccess,
     label:
       normalizedLabel ||
-      (providerId === BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan
-        ? "Z.ai - Coding Plan"
-        : "BigModel - Coding Plan"),
+      (accountAccess.type === "new-api-account"
+        ? "New API"
+        : providerId === BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan
+          ? "Z.ai - Coding Plan"
+          : providerId === BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan
+            ? "BigModel - Coding Plan"
+            : providerId),
   };
+}
+
+/** Native usage belongs to the primary account, not the currently selected model transport. */
+export function buildNativeCodingPlanUsageSource(
+  view: ProviderSettingsView | null | undefined,
+): CodingPlanUsageSource | null {
+  const providerId = NEW_API_MODEL_PROVIDER_IDS["anthropic-messages"];
+  const resolved = resolveAccountProviderInspectionAccess(view, providerId);
+  // XCODE: 静态 Native anchor 退出后仍在，必须有 Host 的 opaque owner 才能成为当前账号用量来源。
+  if (
+    resolved?.access.type !== "new-api-account" ||
+    !view?.providers.find((provider) => provider.providerId === providerId)?.accountState
+      ?.connectionKey
+  )
+    return null;
+  return { id: providerId, providerId, label: "New API", accountAccess: resolved.access };
 }
 
 type CurrentSidebarCodingPlanUsageSource =
@@ -151,12 +209,21 @@ export function resolveSidebarCurrentCodingPlanUsageSource({
   selectedProviderId,
   accountAccesses,
   teamSources,
+  nativeSource,
 }: {
   selections?: ProviderFamilyConnectionSelectionSettings | null;
   selectedProviderId: string | null;
   accountAccesses: Partial<Record<ProviderFamilyDomain, ZCodeProviderAccountAccess>>;
   teamSources: CodingPlanUsageSource[];
+  nativeSource?: CodingPlanUsageSource | null;
 }): CurrentSidebarCodingPlanUsageSource | null {
+  if (nativeSource?.accountAccess.type === "new-api-account")
+    return {
+      audience: "individual",
+      providerId: nativeSource.providerId,
+      sourceId: nativeSource.id,
+      accountAccess: nativeSource.accountAccess,
+    };
   const family = selectedProviderId
     ? resolveModelProviderFamilySpecByProviderId(selectedProviderId)?.id
     : undefined;
@@ -215,4 +282,109 @@ function formatTeamUsageSourceLabel({
   // 按 product.family 取品牌前缀，与 codingPlanItem.providerName 对齐。
   const brandPrefix = `${getModelProviderFamilySpec(resolveEnterpriseCodingPlanProductFamily(product)).label} - `;
   return `${brandPrefix}${teamPlanName}`;
+}
+
+function formatCodingPlanProviderTabAriaLabel(providerId: string): string {
+  if (isNewApiModelProviderId(providerId)) return "New API";
+  return providerId === BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan
+    ? "Z.ai Coding Plan"
+    : "BigModel Coding Plan";
+}
+
+function getEntitlementSourceId(
+  entitlement: Pick<CodingPlanUsageRemainingEntitlement, "providerId" | "sourceId">,
+): SidebarUsageCodingPlanSourceId {
+  return entitlement.sourceId ?? entitlement.providerId;
+}
+
+export function hasActiveCodingPlanSnapshot(
+  snapshot: UsageEntitlementSnapshot | null,
+  providerId: string,
+): boolean {
+  return (
+    snapshot?.provider?.id === providerId &&
+    snapshot.unavailableReason !== "no_plan" &&
+    Boolean(snapshot.subscription?.details.length)
+  );
+}
+
+export function resolveCodingPlanUsageRemainingState(params: {
+  availableProviders: CodingPlanUsageAvailableProvider[];
+  entitlements: CodingPlanUsageRemainingEntitlement[];
+  modelProvidersLoading: boolean;
+  selectedProviderId?: SidebarUsageCodingPlanSourceId;
+}): CodingPlanUsageRemainingState | null {
+  const providerEntitlements = params.entitlements.filter(
+    (entitlement) =>
+      getEntitlementSourceId(entitlement).startsWith("team:") ||
+      params.availableProviders.some((provider) => provider.providerId === entitlement.providerId),
+  );
+  const selectedEntitlement = providerEntitlements.find(
+    (entitlement) => getEntitlementSourceId(entitlement) === params.selectedProviderId,
+  );
+  const activeEntitlement =
+    (selectedEntitlement &&
+    hasActiveCodingPlanSnapshot(selectedEntitlement.snapshot, selectedEntitlement.providerId)
+      ? selectedEntitlement
+      : undefined) ??
+    providerEntitlements.find((entitlement) =>
+      hasActiveCodingPlanSnapshot(entitlement.snapshot, entitlement.providerId),
+    );
+  const displayedEntitlement =
+    activeEntitlement ?? selectedEntitlement ?? providerEntitlements[0] ?? null;
+  const activeProviderId = activeEntitlement
+    ? getEntitlementSourceId(activeEntitlement)
+    : undefined;
+  const displayedProviderId = activeProviderId ?? params.selectedProviderId;
+  const loading =
+    params.modelProvidersLoading || providerEntitlements.some((entitlement) => entitlement.loading);
+  const visibleSnapshot =
+    displayedEntitlement &&
+    (hasActiveCodingPlanSnapshot(displayedEntitlement.snapshot, displayedEntitlement.providerId) ||
+      displayedEntitlement.snapshot?.source === "new-api")
+      ? displayedEntitlement.snapshot
+      : null;
+  const activeCodingPlanProviderIds = providerEntitlements
+    .filter((entitlement) =>
+      hasActiveCodingPlanSnapshot(entitlement.snapshot, entitlement.providerId),
+    )
+    .map((entitlement) => getEntitlementSourceId(entitlement));
+  const hasAnyActiveCodingPlan = Boolean(activeEntitlement);
+  const tabProviders = providerEntitlements
+    .filter((entitlement) =>
+      activeCodingPlanProviderIds.includes(getEntitlementSourceId(entitlement)),
+    )
+    .map((entitlement): CodingPlanUsageRemainingTabProvider => {
+      const provider = params.availableProviders.find(
+        (item) => item.providerId === entitlement.providerId,
+      );
+      return {
+        id: getEntitlementSourceId(entitlement),
+        providerId: entitlement.providerId,
+        label:
+          entitlement.label ??
+          provider?.label ??
+          formatCodingPlanProviderTabAriaLabel(entitlement.providerId),
+      };
+    });
+
+  if (
+    (!params.modelProvidersLoading && providerEntitlements.length === 0) ||
+    (!loading &&
+      !hasAnyActiveCodingPlan &&
+      displayedEntitlement?.accountAccess.type !== "new-api-account")
+  ) {
+    return null;
+  }
+
+  return {
+    activeProviderId,
+    displayedEntitlement,
+    displayedProviderId,
+    hasAnyActiveCodingPlan,
+    loading,
+    providerEntitlements,
+    tabProviders,
+    visibleSnapshot,
+  };
 }

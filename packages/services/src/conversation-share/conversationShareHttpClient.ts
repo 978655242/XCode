@@ -212,6 +212,13 @@ interface ConversationShareHttpClientOptions {
   apiClient: ApiClient;
   baseUrl: string;
   tokenProvider: () => Promise<string | null>;
+  /** Host official owner fence; public browser previews may keep their anonymous token provider. */
+  requestAuthProvider?: () => Promise<{
+    token: string | null;
+    scope?: string;
+    assertCurrentSync?(): void;
+    isCurrent(): Promise<boolean>;
+  }>;
   timeoutMs?: number;
   /** confirm 单次请求超时；缺省 2min。 */
   confirmTimeoutMs?: number;
@@ -229,6 +236,7 @@ export class ConversationShareHttpClient {
   private readonly apiClient: ApiClient;
   private readonly baseUrl: string;
   private readonly tokenProvider: () => Promise<string | null>;
+  private readonly requestAuthProvider?: ConversationShareHttpClientOptions["requestAuthProvider"];
   private readonly timeoutMs: number;
   private readonly confirmTimeoutMs: number;
 
@@ -236,8 +244,54 @@ export class ConversationShareHttpClient {
     this.apiClient = options.apiClient;
     this.baseUrl = options.baseUrl;
     this.tokenProvider = options.tokenProvider;
+    this.requestAuthProvider = options.requestAuthProvider;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.confirmTimeoutMs = options.confirmTimeoutMs ?? CONFIRM_TIMEOUT_MS;
+  }
+  // XCODE: 整次发布/导入冻结同一官方 owner；后续 HTTP 不能重新领取 B 的凭据。
+  async captureOperation() {
+    const fence = await this.requestAuthProvider?.();
+    const assertCurrentOwner = async () => {
+      if (fence && !(await fence.isCurrent())) {
+        throw new ConversationShareClientError({
+          kind: "authentication_required",
+          message: "Official cloud owner changed",
+          status: 401,
+        });
+      }
+      fence?.assertCurrentSync?.();
+    };
+    await assertCurrentOwner();
+    return {
+      assertCurrentOwner,
+      scope: fence?.scope,
+      assertCurrentSync: fence?.assertCurrentSync,
+      client: fence
+        ? new ConversationShareHttpClient({
+            apiClient: this.apiClient,
+            baseUrl: this.baseUrl,
+            tokenProvider: this.tokenProvider,
+            requestAuthProvider: async () => fence,
+            timeoutMs: this.timeoutMs,
+            confirmTimeoutMs: this.confirmTimeoutMs,
+          })
+        : this,
+    };
+  }
+
+  /** Host import lifecycle extends this fence through local staging and session commit. */
+  async captureOwnerFence(): Promise<() => Promise<void>> {
+    const fence = await this.requestAuthProvider?.();
+    return async () => {
+      if (fence && !(await fence.isCurrent())) {
+        throw new ConversationShareClientError({
+          kind: "authentication_required",
+          message: "Official cloud owner changed",
+          status: 401,
+        });
+      }
+      fence?.assertCurrentSync?.();
+    };
   }
 
   async getCapabilities(): Promise<ConversationShareCapabilities> {
@@ -328,6 +382,7 @@ export class ConversationShareHttpClient {
     shareCode: string,
     input: ConversationShareContinuationRequest,
   ): Promise<ConversationShareContinuation> {
+    const assertCurrentOwner = await this.captureOwnerFence();
     const body = conversationShareContinuationRequestSchema.parse(input);
     const wire = await this.requestData(
       `/shares/${encodeURIComponent(shareCode)}/continuation`,
@@ -353,6 +408,7 @@ export class ConversationShareHttpClient {
       });
     }
     const decoded = this.decodeRows(wire.rows, "continuation");
+    await assertCurrentOwner();
     return {
       ...wire,
       rows: decoded.rows,
@@ -409,7 +465,15 @@ export class ConversationShareHttpClient {
     auth: "required" | "optional",
     timeoutMsOverride?: number,
   ): Promise<T> {
-    const token = (await this.tokenProvider())?.trim() || null;
+    const fence = await this.requestAuthProvider?.();
+    const token = (fence ? fence.token : await this.tokenProvider())?.trim() || null;
+    if (fence && !(await fence.isCurrent())) {
+      throw new ConversationShareClientError({
+        kind: "authentication_required",
+        message: "Official cloud owner changed",
+        status: 401,
+      });
+    }
     if (auth === "required" && !token) {
       throw new ConversationShareClientError({
         kind: "authentication_required",
@@ -423,6 +487,7 @@ export class ConversationShareHttpClient {
     const headers = withRequestIdHeader(init.headers);
     if (token) headers.set("Authorization", `Bearer ${token}`);
     const url = joinUrl(this.baseUrl, path);
+    fence?.assertCurrentSync?.();
     let response: Response;
     try {
       response = await this.apiClient.request(url, {
@@ -440,6 +505,14 @@ export class ConversationShareHttpClient {
     }
 
     const text = await response.text();
+    if (fence && !(await fence.isCurrent())) {
+      throw new ConversationShareClientError({
+        kind: "authentication_required",
+        message: "Official cloud owner changed",
+        status: 401,
+      });
+    }
+    fence?.assertCurrentSync?.();
     const responseRequestId = normalizeRequestId(response.headers.get(REQUEST_ID_HEADER_NAME));
     if (!response.ok) {
       if (response.status === 401 && !text.trim()) {

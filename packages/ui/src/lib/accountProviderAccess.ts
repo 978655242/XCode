@@ -12,7 +12,10 @@ export function resolveEntitledAccountProviderAccess(
   providerId: string,
 ): EntitledAccountProviderAccess | null {
   const provider = view?.providers.find((entry) => entry.providerId === providerId);
-  if (provider?.effectiveConfig.access?.type !== "zhipu-account") {
+  if (
+    provider?.effectiveConfig.access?.type !== "zhipu-account" &&
+    provider?.effectiveConfig.access?.type !== "new-api-account"
+  ) {
     return null;
   }
 
@@ -46,6 +49,10 @@ export function resolveAccountProviderInspectionAccess(
 ): EntitledAccountProviderAccess | null {
   const provider = view?.providers.find((entry) => entry.providerId === providerId);
   if (!provider) return null;
+  if (provider.effectiveConfig.access?.type === "new-api-account") {
+    const parsed = zcodeProviderAccountAccessSchema.safeParse(provider.effectiveConfig.access);
+    return parsed.success ? { providerId, access: parsed.data } : null;
+  }
   // 明确无 Start 权益仍需只读查询过期原因；执行权限仍由 entitled 门禁控制。
   if (
     provider.accountState?.availability === "unavailable" &&

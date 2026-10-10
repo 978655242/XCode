@@ -1,4 +1,4 @@
-import type { OffPeakTaskRepo } from "@zcode/services/node";
+import type { OffPeakOwnerFence, OffPeakTaskRepo } from "@zcode/services/node";
 import type { MainToSchedulerMessage } from "./schedulerProtocol.js";
 
 const OFF_PEAK_DISPATCH_RETRY_BASE_MS = 30_000;
@@ -17,6 +17,7 @@ interface OffPeakDispatchSettlementDeps {
   retryAttempts: Map<string, number>;
   now: () => number;
   log: (level: "info" | "warn" | "error", message: string) => void;
+  assertCurrent?: OffPeakOwnerFence;
 }
 
 /**
@@ -30,6 +31,8 @@ export async function settleOffPeakDispatchResult(
   msg: OffPeakDispatchResult,
 ): Promise<void> {
   const now = deps.now();
+  await deps.assertCurrent?.();
+  deps.assertCurrent?.assertCurrentSync?.();
   if (msg.ok) {
     deps.retryAt.delete(msg.offPeakTaskId);
     deps.retryAttempts.delete(msg.offPeakTaskId);
@@ -37,9 +40,10 @@ export async function settleOffPeakDispatchResult(
       startedAt: now,
       ...(msg.conversationId ? { conversationId: msg.conversationId } : {}),
       ...(msg.sessionId ? { sessionId: msg.sessionId } : {}),
+      assertCurrent: deps.assertCurrent,
     });
     if (!updated) {
-      await deps.repo.releaseClaim(msg.offPeakTaskId, { now });
+      await deps.repo.releaseClaim(msg.offPeakTaskId, { now, assertCurrent: deps.assertCurrent });
       deps.log(
         "warn",
         `off-peak dispatch result dropped (task no longer queued) task=${msg.offPeakTaskId}`,
@@ -57,9 +61,10 @@ export async function settleOffPeakDispatchResult(
       endedAt: now,
       failureReason: error,
       dispatchError: error,
+      assertCurrent: deps.assertCurrent,
     });
     if (!failed) {
-      await deps.repo.releaseClaim(msg.offPeakTaskId, { now });
+      await deps.repo.releaseClaim(msg.offPeakTaskId, { now, assertCurrent: deps.assertCurrent });
       deps.log(
         "warn",
         `off-peak permanent dispatch result dropped (task already changed) task=${msg.offPeakTaskId}`,
@@ -77,7 +82,11 @@ export async function settleOffPeakDispatchResult(
     OFF_PEAK_DISPATCH_RETRY_CAP_MS,
   );
   deps.retryAt.set(msg.offPeakTaskId, now + backoff);
-  await deps.repo.releaseClaim(msg.offPeakTaskId, { error, now });
+  await deps.repo.releaseClaim(msg.offPeakTaskId, {
+    error,
+    now,
+    assertCurrent: deps.assertCurrent,
+  });
   deps.log(
     "warn",
     `off-peak dispatch failed task=${msg.offPeakTaskId} attempts=${attempts} retryIn=${backoff}ms: ${error}`,

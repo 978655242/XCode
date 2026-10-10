@@ -10,6 +10,7 @@ import {
   isBuiltinModelProviderId,
   resolveRuntimeZCodeEndpointOrigin,
   ZCODE_VERSION,
+  zcodeProviderUpdateAccountConfigParamsSchema,
 } from "@zcode/shared";
 import { dirname, join } from "node:path";
 import {
@@ -62,6 +63,7 @@ export async function startProcessProviderRegistryRuntime(
     : undefined;
   const runtime = new NodeProviderRegistryRuntime({
     ...paths,
+    newApiOrigin: env.NEW_API_BASE_URL,
     ...(bundledFile
       ? {
           zcodeBuiltinFilePath: bundledFile,
@@ -148,6 +150,14 @@ export async function startProcessProviderRegistryRuntime(
       const configuredDefaultModelSelection = await modelSelectionConfigRepository.read();
       return Object.freeze({
         accountSource: standaloneAccount ?? accountSource,
+        isAccountScopeCurrent(scope: string): boolean {
+          const states = accountSource.getSnapshot().states;
+          if (!states) return false;
+          for (const id in states) {
+            if (Object.hasOwn(states, id) && states[id]?.connectionKey === scope) return true;
+          }
+          return false;
+        },
         async syncAccountProviderConfig(next: AccountProviderConfigSnapshot): Promise<boolean> {
           if (standaloneAccount)
             throw new Error("Standalone Account 由本进程管理，不接收 Host 覆盖");
@@ -192,20 +202,23 @@ export async function startProcessProviderRegistryRuntime(
 }
 
 /** 把协议信封解析为进程 Registry 使用的第三层 Account Config Overlay。 */
-export function parseProcessAccountProviderConfigSnapshot(input: {
-  readonly revision: string;
-  readonly basedOnZCodeBuiltinRevision: string;
-  readonly providers: unknown;
-  readonly states?: AccountProviderStates;
-}): AccountProviderConfigSnapshot {
+export function parseProcessAccountProviderConfigSnapshot(raw: unknown): AccountProviderConfigSnapshot {
+  const input = zcodeProviderUpdateAccountConfigParamsSchema.parse(raw);
   const revision = input.revision.trim();
   if (!revision) throw new Error("Account Config revision 不能为空");
   const basedOnZCodeBuiltinRevision = input.basedOnZCodeBuiltinRevision.trim();
-  if (!basedOnZCodeBuiltinRevision) {
-    throw new Error("Account Config Built-in revision 不能为空");
-  }
+  if (!basedOnZCodeBuiltinRevision) throw new Error("Account Config Built-in revision 不能为空");
   const providers = parseAccountProviderConfigMap(input.providers);
   for (const [providerId, provider] of providers.entries()) {
+    if (provider.access?.type === "new-api-account") {
+      if (input.owner === undefined || !input.modelConfigs || !input.catalogIssues)
+        throw new Error(`Native Account snapshot missing complete fields: ${providerId}`);
+      if (provider.access.entitled && (!input.owner || input.states[providerId]?.current !== true))
+        throw new Error(`Native Account owner/current missing: ${providerId}`);
+      for (const modelId of provider.builtinModelIds ?? []) {
+        if (!input.modelConfigs[providerId]?.[modelId]) throw new Error(`Native complete model config missing: ${providerId}/${modelId}`);
+      }
+    }
     // 仅约束托管 Worker 的普通账号信封；独立 CLI、API 和闲时不需要 current。
     if (
       isBuiltinModelProviderId(providerId) &&
@@ -222,5 +235,10 @@ export function parseProcessAccountProviderConfigSnapshot(input: {
     providers,
     // 与 Overlay 属于同一快照；不能只更新 revision 却丢掉当前连接事实。
     ...(input.states ? { states: input.states } : {}),
+    ...(input.owner !== undefined ? { owner: input.owner } : {}),
+    ...(input.modelConfigs ? { modelConfigs: input.modelConfigs } : {}),
+    ...(input.catalogIssues ? { catalogIssues: input.catalogIssues } : {}),
+    ...(input.catalogRevision ? { catalogRevision: input.catalogRevision } : {}),
+    ...(input.authorizationRevision ? { authorizationRevision: input.authorizationRevision } : {}),
   });
 }

@@ -2,6 +2,7 @@
 // Vercel AI SDK model runner
 // ============================================================
 
+import type { ZCodeProviderAccountAccess } from "@zcode/shared";
 import {
   ModelErrorCode,
   ModelProtocolError,
@@ -75,6 +76,8 @@ export interface CreateAiSdkModelOptions {
   displayName?: string;
   options?: ModelOptions;
   requestDependencies?: ModelRequestDependencies;
+  accountAccess?: ZCodeProviderAccountAccess;
+  executionLifetimeSignal?: AbortSignal;
 }
 
 export class AiSdkModelAdapter {
@@ -147,8 +150,8 @@ export class AiSdkModelAdapter {
     const resolved = {
       ...boundResolution.resolved,
       properties,
-      ...(options.providerConfig.access.type === "zhipu-account"
-        ? { accountAccess: options.providerConfig.access }
+      ...(options.providerConfig.access.type === "zhipu-account" || options.providerConfig.access.type === "new-api-account"
+        ? { accountAccess: options.accountAccess ?? options.providerConfig.access }
         : {}),
     };
     const optionSpecs = options.modelConfig.optionSpecs;
@@ -178,7 +181,7 @@ export class AiSdkModelAdapter {
             }
             return { headersApplied: true, requestAuth };
           }
-        : options.providerConfig.access.type === "zhipu-account"
+        : options.providerConfig.access.type === "zhipu-account" || options.providerConfig.access.type === "new-api-account"
           ? (contextRefreshRuntimeHeadersBeforeAttempt ??
             (async () => {
               throw new ModelProtocolError(
@@ -191,7 +194,9 @@ export class AiSdkModelAdapter {
         messages: request.messages,
         tools: request.tools,
         responseJsonSchema: request.responseJsonSchema,
-        abortSignal: request.abortSignal,
+        abortSignal: options.executionLifetimeSignal
+          ? request.abortSignal ? AbortSignal.any([request.abortSignal, options.executionLifetimeSignal]) : options.executionLifetimeSignal
+          : request.abortSignal,
         maxOutputTokens: request.options.maxOutputTokens,
         ...invocationContext,
         ...(shouldAttachReasoningTelemetry
@@ -212,8 +217,8 @@ export class AiSdkModelAdapter {
               refreshRuntimeHeadersBeforeAttempt: (input) =>
                 refreshRuntimeHeadersBeforeAttempt({
                   ...input,
-                  ...(options.providerConfig.access.type === "zhipu-account"
-                    ? { accountAccess: options.providerConfig.access }
+                  ...(options.providerConfig.access.type === "zhipu-account" || options.providerConfig.access.type === "new-api-account"
+                    ? { accountAccess: options.accountAccess ?? options.providerConfig.access }
                     : {}),
                 }),
             }
@@ -238,8 +243,8 @@ export class AiSdkModelAdapter {
               }),
             ),
             properties,
-            ...(options.providerConfig.access.type === "zhipu-account"
-              ? { accountAccess: options.providerConfig.access }
+            ...(options.providerConfig.access.type === "zhipu-account" || options.providerConfig.access.type === "new-api-account"
+              ? { accountAccess: options.accountAccess ?? options.providerConfig.access }
               : {}),
           })
         : () => ({
@@ -250,8 +255,8 @@ export class AiSdkModelAdapter {
               },
             }),
             properties,
-            ...(options.providerConfig.access.type === "zhipu-account"
-              ? { accountAccess: options.providerConfig.access }
+            ...(options.providerConfig.access.type === "zhipu-account" || options.providerConfig.access.type === "new-api-account"
+              ? { accountAccess: options.accountAccess ?? options.providerConfig.access }
               : {}),
           });
     };

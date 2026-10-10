@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { NEW_API_MODEL_PROVIDER_IDS } from "@zcode/shared";
 import type {
   AppUsageRange,
   AppUsageSnapshot,
@@ -6,16 +7,20 @@ import type {
   CodingPlanUsageSnapshot,
   UsageStatsRange,
   UsageStatsSnapshot,
+  NewApiAccountUsageSnapshot,
   ZCodeAccountAccess,
   ZCodeProviderAccountAccess,
 } from "@zcode/shared";
 import { logger } from "@/logger.js";
 import { useServices } from "@/hooks/useServices.js";
 import { useStableAccountAccess } from "@/hooks/useStableAccountAccess.js";
+import { useUsageAccountScope } from "@/hooks/useUsageAccountScope.js";
+import { selectUsageAccountState } from "@/lib/usageAccountScope.js";
 import { USAGE_ENTITLEMENT_ACCESS_REFRESH_MS } from "@/lib/usageEntitlementRefreshPolicy.js";
 
 interface UsageStatsState {
-  snapshot: UsageStatsSnapshot | null;
+  scopeKey: string | null;
+  snapshot: UsageStatsSnapshot | NewApiAccountUsageSnapshot | null;
   loading: boolean;
   error: string | null;
 }
@@ -27,6 +32,7 @@ interface AppUsageStatsState {
 }
 
 interface CodingPlanUsageStatsState {
+  scopeKey: string | null;
   snapshot: CodingPlanUsageSnapshot | null;
   loading: boolean;
   error: string | null;
@@ -64,6 +70,7 @@ function getErrorMessage(error: unknown): string {
 }
 
 const INITIAL_STATE: UsageStatsState = {
+  scopeKey: null,
   snapshot: null,
   loading: false,
   error: null,
@@ -72,7 +79,7 @@ const INITIAL_STATE: UsageStatsState = {
 export function useUsageStats(
   range: UsageStatsRange,
   options: {
-    dataSource?: "local" | "monitor";
+    dataSource?: "local" | "monitor" | "new-api";
     enabled?: boolean;
     preferredProviderId?: string;
     accountAccess?: ZCodeProviderAccountAccess | ZCodeAccountAccess;
@@ -84,12 +91,19 @@ export function useUsageStats(
   const [state, setState] = useState<UsageStatsState>(INITIAL_STATE);
   const requestVersionRef = useRef(0);
   const dataSource = options.dataSource;
-  const enabled = options.enabled ?? true;
+  const accountScope = useUsageAccountScope(
+    options.preferredProviderId ??
+      (dataSource === "new-api" ? NEW_API_MODEL_PROVIDER_IDS["anthropic-messages"] : undefined),
+    options.accountAccess,
+  );
+  const enabled =
+    (options.enabled ?? true) && (!accountScope.native || Boolean(accountScope.ownerKey));
   const preferredProviderId = options.preferredProviderId;
   const accountAccess = useStableAccountAccess(options.accountAccess);
   const requirePreferredProvider = options.requirePreferredProvider === true;
   const allowEnvApiKey = options.allowEnvApiKey;
   const requestScope = [
+    accountScope.ownerKey,
     dataSource ?? "",
     preferredProviderId ?? "",
     JSON.stringify(accountAccess ?? null),
@@ -97,9 +111,11 @@ export function useUsageStats(
     allowEnvApiKey === false ? "no-env" : "env",
   ].join("|");
   const lastRequestScopeRef = useRef(requestScope);
+  const activeRequestScopeRef = useRef<string | null>(null);
+  activeRequestScopeRef.current = enabled ? requestScope : null;
 
   const refresh = useCallback(async () => {
-    if (!enabled) {
+    if (!enabled || activeRequestScopeRef.current !== requestScope) {
       return;
     }
 
@@ -110,9 +126,10 @@ export function useUsageStats(
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     setState((current) => ({
+      scopeKey: requestScope,
       // App Usage 与 Coding Plan 共用同一个 hook 实例。
       // 切 tab 后如果继续保留旧 snapshot，Coding Plan 请求期间或失败后会显示本地 App Usage 数据。
-      snapshot: keepPreviousSnapshot ? current.snapshot : null,
+      snapshot: keepPreviousSnapshot && current.scopeKey === requestScope ? current.snapshot : null,
       loading: true,
       error: null,
     }));
@@ -127,16 +144,23 @@ export function useUsageStats(
         allowEnvApiKey,
         timeZone,
       });
-      if (requestVersionRef.current !== requestVersion) {
+      if (
+        requestVersionRef.current !== requestVersion ||
+        activeRequestScopeRef.current !== requestScope
+      ) {
         return;
       }
       setState({
+        scopeKey: requestScope,
         snapshot,
         loading: false,
         error: null,
       });
     } catch (error) {
-      if (requestVersionRef.current !== requestVersion) {
+      if (
+        requestVersionRef.current !== requestVersion ||
+        activeRequestScopeRef.current !== requestScope
+      ) {
         return;
       }
       const message = getErrorMessage(error);
@@ -148,7 +172,8 @@ export function useUsageStats(
         error: message,
       });
       setState((current) => ({
-        snapshot: lastRequestScopeRef.current === requestScope ? current.snapshot : null,
+        scopeKey: requestScope,
+        snapshot: current.scopeKey === requestScope ? current.snapshot : null,
         loading: false,
         error: message,
       }));
@@ -167,7 +192,9 @@ export function useUsageStats(
 
   useEffect(() => {
     if (!enabled) {
+      requestVersionRef.current += 1;
       setState({
+        scopeKey: null,
         // Coding Plan provider 被移除或禁用后，使用统计查询会被关闭。
         // 这里清空旧快照，避免设置页继续显示上一家账号的用量数据。
         snapshot: null,
@@ -181,9 +208,7 @@ export function useUsageStats(
   }, [enabled, refresh]);
 
   return {
-    snapshot: state.snapshot,
-    loading: state.loading,
-    error: state.error,
+    ...selectUsageAccountState(state, requestScope, enabled),
     refresh,
   };
 }
@@ -251,7 +276,16 @@ export function useCodingPlanUsageStats(
   },
 ) {
   const { usageStatsService } = useServices();
+  const accountScope = useUsageAccountScope(options.preferredProviderId, options.accountAccess);
+  const preferredProviderId = options.preferredProviderId;
+  const accountAccess = useStableAccountAccess(options.accountAccess);
+  const requestIdentityKey = [
+    accountScope.ownerKey,
+    preferredProviderId ?? "",
+    JSON.stringify(accountAccess ?? null),
+  ].join("\0");
   const requestScopeKey = [
+    accountScope.ownerKey,
     range,
     options.preferredProviderId ?? "",
     JSON.stringify(options.accountAccess ?? null),
@@ -260,30 +294,30 @@ export function useCodingPlanUsageStats(
   ].join("\0");
   const cachedUsage = codingPlanUsageAccessCache.get(usageStatsService)?.get(requestScopeKey);
   const [state, setState] = useState<CodingPlanUsageStatsState>({
+    scopeKey: requestIdentityKey,
     snapshot: cachedUsage?.snapshot ?? null,
     loading: false,
     error: null,
   });
   const latestSnapshotRef = useRef<CodingPlanUsageSnapshot | null>(cachedUsage?.snapshot ?? null);
   const requestVersionRef = useRef(0);
-  const enabled = options.enabled ?? true;
-  const preferredProviderId = options.preferredProviderId;
-  const accountAccess = useStableAccountAccess(options.accountAccess);
+  const enabled =
+    (options.enabled ?? true) && (!accountScope.native || Boolean(accountScope.ownerKey));
   const customStartDate = options.customStartDate?.trim() || null;
   const customEndDate = options.customEndDate?.trim() || null;
-  const requestIdentityKey = [
-    preferredProviderId ?? "",
-    JSON.stringify(accountAccess ?? null),
-  ].join("\0");
   const lastRequestScopeKeyRef = useRef(requestIdentityKey);
+  const activeRequestScopeRef = useRef<string | null>(null);
+  activeRequestScopeRef.current = enabled ? requestIdentityKey : null;
 
   const refresh = useCallback(
     async (refreshOptions: { force?: boolean } = {}) => {
       if (!enabled || !preferredProviderId || !accountAccess) {
+        requestVersionRef.current += 1;
         latestSnapshotRef.current = null;
-        setState({ snapshot: null, loading: false, error: null });
+        setState({ scopeKey: null, snapshot: null, loading: false, error: null });
         return;
       }
+      if (activeRequestScopeRef.current !== requestIdentityKey) return;
       let serviceCache = codingPlanUsageAccessCache.get(usageStatsService);
       if (!serviceCache) {
         serviceCache = new Map();
@@ -302,6 +336,7 @@ export function useCodingPlanUsageStats(
       ) {
         latestSnapshotRef.current = cached?.snapshot ?? null;
         setState({
+          scopeKey: requestIdentityKey,
           snapshot: cached?.snapshot ?? null,
           loading: false,
           error: null,
@@ -331,15 +366,20 @@ export function useCodingPlanUsageStats(
         });
       }
       setState((current) => ({
+        scopeKey: requestIdentityKey,
         // 切换 Z.AI/BigModel 时不能保留上一家 Coding Plan 的 monitor 快照；
         // 但同一 provider 切换 today/7d/30d 时保留旧快照，避免 Quota Remaining 和趋势区域闪空。
-        snapshot: keepPreviousSnapshot ? current.snapshot : null,
+        snapshot:
+          keepPreviousSnapshot && current.scopeKey === requestIdentityKey ? current.snapshot : null,
         loading: true,
         error: null,
       }));
       try {
         const snapshot = await request;
-        if (requestVersionRef.current !== requestVersion) {
+        if (
+          requestVersionRef.current !== requestVersion ||
+          activeRequestScopeRef.current !== requestIdentityKey
+        ) {
           return;
         }
         if (serviceCache.get(requestScopeKey)?.inFlight === request) {
@@ -349,9 +389,12 @@ export function useCodingPlanUsageStats(
           });
         }
         latestSnapshotRef.current = snapshot;
-        setState({ snapshot, loading: false, error: null });
+        setState({ scopeKey: requestIdentityKey, snapshot, loading: false, error: null });
       } catch (error) {
-        if (requestVersionRef.current !== requestVersion) {
+        if (
+          requestVersionRef.current !== requestVersion ||
+          activeRequestScopeRef.current !== requestIdentityKey
+        ) {
           return;
         }
         const message = getErrorMessage(error);
@@ -367,7 +410,7 @@ export function useCodingPlanUsageStats(
           serviceCache.delete(requestScopeKey);
         }
         latestSnapshotRef.current = null;
-        setState({ snapshot: null, loading: false, error: message });
+        setState({ scopeKey: requestIdentityKey, snapshot: null, loading: false, error: message });
       }
     },
     [
@@ -387,5 +430,5 @@ export function useCodingPlanUsageStats(
     void refresh();
   }, [refresh]);
 
-  return { ...state, refresh };
+  return { ...selectUsageAccountState(state, requestIdentityKey, enabled), refresh };
 }

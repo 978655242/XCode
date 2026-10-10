@@ -65,6 +65,7 @@ import {
   createMemoryService,
   createRemoteConversationShareArtifactSource,
   OAuthCredentialRepo,
+  getOfficialCloudRequestAuthProvider,
 } from "@zcode/services/node";
 import {
   BIGMODEL_PROVIDER_ID,
@@ -179,12 +180,20 @@ export function createRemoteWorkspaceServiceCollection(params: {
   handleOAuthProviderLogout = createOAuthProviderLogoutHandler({
     accountProviderCredentialStore: localAccountProviderCredentialStore,
   });
+  const officialRequestAuthProvider = params.sourceServices
+    ? getOfficialCloudRequestAuthProvider(params.sourceServices)
+    : null;
+  const nativeSharing = Boolean(officialRequestAuthProvider || !params.sourceServices);
   const conversationShareClient = new ConversationShareHttpClient({
     // 远端 workspace 的分享也必须使用真实 API；本地 Mock 仅用于单测，不生成无法跨进程访问的链接。
     apiClient: localApiClient,
     baseUrl: buildRuntimeZCodeApiUrl(process.env, "/api/v1"),
+    // XCODE: remote HTTP 留在 Window Host；Native 模式无 Host 来源时仅允许匿名读取。
     tokenProvider: async () =>
-      (await localCredentialService.load(ZCODE_JWT_TOKEN_KEY))?.trim() || null,
+      nativeSharing
+        ? null
+        : (await localCredentialService.load(ZCODE_JWT_TOKEN_KEY))?.trim() || null,
+    ...(officialRequestAuthProvider ? { requestAuthProvider: officialRequestAuthProvider } : {}),
   });
   const conversationShareService = new ConversationShareService({
     zcodeAgentService: params.connectionServices.zcodeAgentService,

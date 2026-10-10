@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,29 +15,60 @@ const origin = "https://native.example";
 const initialTime = 1_800_000_000_000;
 function barrier<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => { resolve = done; });
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
   return { promise, resolve };
 }
-function bundle(id = "1", sid = "sid-1", refresh = "refresh-1", expires = initialTime + 60_000): NewApiSessionBundle {
-  const payload = Buffer.from(JSON.stringify({
-    iss: "new-api", aud: ["new-api-xcode"], token_use: "xcode_access",
-    sub: id, sid, exp: expires / 1000, uv: 1, sv: 1, nbf: initialTime / 1000 - 5,
-    iat: initialTime / 1000, scopes: ["profile:read", "wallet:read", "usage:read"],
-  })).toString("base64url");
+function bundle(
+  id = "1",
+  sid = "sid-1",
+  refresh = "refresh-1",
+  expires = initialTime + 60_000,
+): NewApiSessionBundle {
+  const payload = Buffer.from(
+    JSON.stringify({
+      iss: "new-api",
+      aud: ["new-api-xcode"],
+      token_use: "xcode_access",
+      sub: id,
+      sid,
+      exp: expires / 1000,
+      uv: 1,
+      sv: 1,
+      nbf: initialTime / 1000 - 5,
+      iat: initialTime / 1000,
+      scopes: ["profile:read", "wallet:read", "usage:read"],
+      jti: randomUUID(),
+    }),
+  ).toString("base64url");
   return {
-    schema_version: 1, server_time: initialTime, access_token: `${Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url")}.${payload}.${Buffer.alloc(32, 1).toString("base64url")}`,
-    access_expires_at: expires, refresh_token: refresh, refresh_expires_at: initialTime + 600_000,
-    token_type: "Bearer", session_id: sid,
+    schema_version: 1,
+    server_time: initialTime,
+    access_token: `${Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url")}.${payload}.${Buffer.alloc(32, 1).toString("base64url")}`,
+    access_expires_at: expires,
+    refresh_token: refresh,
+    refresh_expires_at: initialTime + 600_000,
+    token_type: "Bearer",
+    session_id: sid,
     user: { id, username: `user-${id}`, display_name: `User ${id}`, avatar_url: null },
     relay_credential: { token: `sk-relay-${sid}`, expires_at: initialTime + 600_000 },
   };
 }
-const success = (data: unknown) => new Response(JSON.stringify({ success: true, data }), {
-  headers: { "content-type": "application/json" },
-});
-const failure = (code: string, status: number) => new Response(JSON.stringify({
-  success: false, code, message: "Safe server failure", request_id: "test-request",
-}), { status, headers: { "content-type": "application/json" } });
+const success = (data: unknown) =>
+  new Response(JSON.stringify({ success: true, data }), {
+    headers: { "content-type": "application/json" },
+  });
+const failure = (code: string, status: number) =>
+  new Response(
+    JSON.stringify({
+      success: false,
+      code,
+      message: "Safe server failure",
+      request_id: "test-request",
+    }),
+    { status, headers: { "content-type": "application/json" } },
+  );
 
 async function fixture() {
   const dir = await mkdtemp(join(tmpdir(), "xcode-native-lifecycle-"));
@@ -46,51 +77,102 @@ async function fixture() {
     env: { ZCODE_CREDENTIAL_SECRET: randomBytes(32).toString("hex") },
   });
   const legacy = cipherProvider.encrypt("unowned-official-secret");
-  await writeFile(credentialsFile, JSON.stringify({ "official-cloud:unowned": legacy, zcodeJwtToken: legacy }));
+  await writeFile(
+    credentialsFile,
+    JSON.stringify({ "official-cloud:unowned": legacy, zcodeJwtToken: legacy }),
+  );
   let now = initialTime;
   let tokenSession = bundle();
   let exchange: (code: string) => Promise<NewApiSessionBundle> = async () => tokenSession;
-  let refresh: () => Promise<NewApiSessionBundle> = async () => bundle("1", "sid-1", "refresh-2", now + 60_000);
+  let refresh: () => Promise<NewApiSessionBundle> = async () =>
+    bundle("1", "sid-1", "refresh-2", now + 60_000);
   let meError: Response | null = null;
   let refreshCalls = 0;
   const revoked: string[] = [];
-  const client = new NewApiClient(origin, { now: () => now, fetch: async (input, init) => {
-    const url = new URL(String(input));
-    const body = init?.body ? JSON.parse(String(init.body)) : null;
-    if (url.pathname.endsWith("/auth/token")) {
-      tokenSession = await exchange(body.code);
-      return success(tokenSession);
-    }
-    if (url.pathname.endsWith("/auth/refresh")) {
-      refreshCalls++;
-      tokenSession = await refresh();
-      return success(tokenSession);
-    }
-    if (url.pathname.endsWith("/auth/logout")) {
-      revoked.push(body.session_id);
-      return success({ schema_version: 1, server_time: now, revoked: true });
-    }
-    if (url.pathname.endsWith("/me")) {
-      if (meError) return meError.clone();
-      const authorization = new Headers(init?.headers).get("authorization")!;
-      const claims = JSON.parse(Buffer.from(authorization.split(".")[1]!, "base64url").toString());
-      return success({ schema_version: 1, server_time: now, session_id: claims.sid,
-        user: { id: claims.sub, username: `user-${claims.sub}`, display_name: `User ${claims.sub}`, avatar_url: null },
-        authorization_revision: "0" });
-    }
-    throw new Error("Unexpected lifecycle endpoint");
-  } });
+  const sessions = new Map<string, NewApiSessionBundle>();
+  const client = new NewApiClient(origin, {
+    now: () => now,
+    fetch: async (input, init) => {
+      const url = new URL(String(input));
+      const body = init?.body ? JSON.parse(String(init.body)) : null;
+      if (url.pathname.endsWith("/auth/token")) {
+        tokenSession = await exchange(body.code);
+        sessions.set(tokenSession.session_id, tokenSession);
+        return success(tokenSession);
+      }
+      if (url.pathname.endsWith("/auth/refresh")) {
+        refreshCalls++;
+        tokenSession = await refresh();
+        sessions.set(tokenSession.session_id, tokenSession);
+        return success(tokenSession);
+      }
+      if (url.pathname.endsWith("/auth/logout")) {
+        if (sessions.get(body.session_id)?.refresh_token !== body.refresh_token)
+          return failure("XCODE_SESSION_INVALID", 401);
+        sessions.delete(body.session_id);
+        revoked.push(body.session_id);
+        return success({ schema_version: 1, server_time: now, revoked: true });
+      }
+      if (url.pathname.endsWith("/me")) {
+        if (meError) return meError.clone();
+        const authorization = new Headers(init?.headers).get("authorization")!;
+        const claims = JSON.parse(
+          Buffer.from(authorization.split(".")[1]!, "base64url").toString(),
+        );
+        return success({
+          schema_version: 1,
+          server_time: now,
+          session_id: claims.sid,
+          user: {
+            id: claims.sub,
+            username: `user-${claims.sub}`,
+            display_name: `User ${claims.sub}`,
+            avatar_url: null,
+          },
+          authorization_revision: "0",
+        });
+      }
+      throw new Error("Unexpected lifecycle endpoint");
+    },
+  });
   const repo = new NewApiSessionRepo(origin, { credentialsFile, cipherProvider });
   const owners: unknown[] = [];
-  const service = new NewApiAccountService({ adapter: new NewApiProviderAdapter(client), repo,
-    now: () => now, onOwnerChanged: (owner) => { owners.push(owner); } });
-  const callback = (state: string) => `zcode://oauth/callback?provider=new-api&state=${state}&code=${state}`;
-  return { service, repo, owners, revoked, callback, credentialsFile, legacy,
-    newService: () => new NewApiAccountService({ adapter: new NewApiProviderAdapter(client), repo, now: () => now }),
-    setExchange: (action: typeof exchange) => { exchange = action; },
-    setRefresh: (action: typeof refresh) => { refresh = action; },
-    setMeError: (response: Response | null) => { meError = response; },
-    advance: () => { now = initialTime + 61_000; },
+  const service = new NewApiAccountService({
+    adapter: new NewApiProviderAdapter(client),
+    repo,
+    now: () => now,
+    onOwnerChanged: (owner) => {
+      owners.push(owner);
+    },
+  });
+  const callback = (state: string) =>
+    `zcode://oauth/callback?provider=new-api&state=${state}&code=${state}`;
+  return {
+    service,
+    repo,
+    owners,
+    revoked,
+    callback,
+    credentialsFile,
+    legacy,
+    newService: () =>
+      new NewApiAccountService({
+        adapter: new NewApiProviderAdapter(client),
+        repo,
+        now: () => now,
+      }),
+    setExchange: (action: typeof exchange) => {
+      exchange = action;
+    },
+    setRefresh: (action: typeof refresh) => {
+      refresh = action;
+    },
+    setMeError: (response: Response | null) => {
+      meError = response;
+    },
+    advance: () => {
+      now = initialTime + 61_000;
+    },
     refreshCalls: () => refreshCalls,
     login: async () => {
       const start = await service.oauth.startOAuth("new-api");
@@ -107,7 +189,10 @@ test("late A exchange cannot publish or persist over B, and revokes the actual l
     const late = barrier<NewApiSessionBundle>();
     const a = await f.service.oauth.startOAuth("new-api");
     f.setExchange(async (code) => {
-      if (code === a.state) { arrived.resolve(); return late.promise; }
+      if (code === a.state) {
+        arrived.resolve();
+        return late.promise;
+      }
       return bundle("2", "sid-2", "refresh-b");
     });
     const pendingA = f.service.oauth.handleCallback(f.callback(a.state));
@@ -119,7 +204,9 @@ test("late A exchange cannot publish or persist over B, and revokes the actual l
     assert.equal(f.service.getOwner()?.userId, "2");
     assert.equal((await f.repo.loadActive())?.bundle.session_id, "sid-2");
     assert.deepEqual(f.revoked, ["sid-1"]);
-  } finally { await f.dispose(); }
+  } finally {
+    await f.dispose();
+  }
 });
 
 test("cancel after exchange and during atomic commit compensates persistence", async () => {
@@ -129,7 +216,9 @@ test("cancel after exchange and during atomic commit compensates persistence", a
     const release = barrier<void>();
     const commit = f.repo.commit.bind(f.repo);
     f.repo.commit = async (session: NewApiStoredSession) => {
-      await commit(session); entered.resolve(); await release.promise;
+      await commit(session);
+      entered.resolve();
+      await release.promise;
     };
     const start = await f.service.oauth.startOAuth("new-api");
     const callback = f.service.oauth.handleCallback(f.callback(start.state));
@@ -141,7 +230,9 @@ test("cancel after exchange and during atomic commit compensates persistence", a
     assert.equal(f.service.getOwner(), null);
     assert.equal(await f.repo.loadActive(), null);
     assert.deepEqual(f.revoked, ["sid-1"]);
-  } finally { await f.dispose(); }
+  } finally {
+    await f.dispose();
+  }
 });
 
 test("cancel before exchange completes revokes without writing credentials", async () => {
@@ -149,7 +240,10 @@ test("cancel before exchange completes revokes without writing credentials", asy
   try {
     const entered = barrier<void>();
     const release = barrier<NewApiSessionBundle>();
-    f.setExchange(async () => { entered.resolve(); return release.promise; });
+    f.setExchange(async () => {
+      entered.resolve();
+      return release.promise;
+    });
     const start = await f.service.oauth.startOAuth("new-api");
     const pending = f.service.oauth.handleCallback(f.callback(start.state));
     await entered.promise;
@@ -158,7 +252,9 @@ test("cancel before exchange completes revokes without writing credentials", asy
     assert.equal(await pending, null);
     assert.equal(await f.repo.loadActive(), null);
     assert.deepEqual(f.revoked, ["sid-1"]);
-  } finally { await f.dispose(); }
+  } finally {
+    await f.dispose();
+  }
 });
 
 test("concurrent refresh is single-flight, rotates encrypted secret and retains owner generation", async () => {
@@ -168,7 +264,10 @@ test("concurrent refresh is single-flight, rotates encrypted secret and retains 
     const owner = f.service.getOwner()!;
     const entered = barrier<void>();
     const release = barrier<NewApiSessionBundle>();
-    f.setRefresh(async () => { entered.resolve(); return release.promise; });
+    f.setRefresh(async () => {
+      entered.resolve();
+      return release.promise;
+    });
     f.advance();
     const a = f.service.withControlSession(async (_, current) => current);
     await entered.promise;
@@ -179,7 +278,9 @@ test("concurrent refresh is single-flight, rotates encrypted secret and retains 
     assert.equal(f.refreshCalls(), 1);
     assert.equal((await f.repo.loadActive())?.bundle.refresh_token, "refresh-rotated");
     assert.equal((await readFile(f.credentialsFile, "utf8")).includes("refresh-rotated"), false);
-  } finally { await f.dispose(); }
+  } finally {
+    await f.dispose();
+  }
 });
 
 for (const mutation of ["user", "sid", "key"] as const) {
@@ -187,14 +288,20 @@ for (const mutation of ["user", "sid", "key"] as const) {
     const f = await fixture();
     try {
       await f.login();
-      const changed = bundle(mutation === "user" ? "2" : "1", mutation === "sid" ? "sid-2" : "sid-1", "refresh-2");
+      const changed = bundle(
+        mutation === "user" ? "2" : "1",
+        mutation === "sid" ? "sid-2" : "sid-1",
+        "refresh-2",
+      );
       if (mutation === "key") changed.relay_credential.token = "sk-unexpected";
       f.setRefresh(async () => changed);
       await assert.rejects(f.service.oauth.refreshToken());
       assert.equal(f.service.getOwner(), null);
       assert.equal(await f.repo.loadActive(), null);
       assert.equal(f.owners.at(-1), null);
-    } finally { await f.dispose(); }
+    } finally {
+      await f.dispose();
+    }
   });
 }
 
@@ -214,7 +321,9 @@ test("503 restore preserves recoverable record, explicit session revocation remo
     const store = JSON.parse(await readFile(f.credentialsFile, "utf8"));
     assert.equal(store["official-cloud:unowned"], f.legacy);
     assert.equal(store.zcodeJwtToken, f.legacy);
-  } finally { await f.dispose(); }
+  } finally {
+    await f.dispose();
+  }
 });
 
 test("control expiry retries once, permission denial preserves owner, logout never clears official credentials", async () => {
@@ -223,31 +332,345 @@ test("control expiry retries once, permission denial preserves owner, logout nev
     await f.login();
     let calls = 0;
     const error = Object.assign(new Error("safe"), { code: "XCODE_ACCESS_EXPIRED", status: 401 });
-    await assert.rejects(f.service.withControlSession(async () => { calls++; throw error; }));
+    await assert.rejects(
+      f.service.withControlSession(async () => {
+        calls++;
+        throw error;
+      }),
+    );
     assert.equal(calls, 2);
     assert.equal(f.refreshCalls(), 1);
     const owner = f.service.getOwner();
-    await assert.rejects(f.service.withControlSession(async () => {
-      throw Object.assign(new Error("safe"), { code: "XCODE_PLAN_UNASSIGNED", status: 403 });
-    }));
+    await assert.rejects(
+      f.service.withControlSession(async () => {
+        throw Object.assign(new Error("safe"), { code: "XCODE_PLAN_UNASSIGNED", status: 403 });
+      }),
+    );
     assert.deepEqual(f.service.getOwner(), owner);
     await f.service.oauth.logoutAll();
     const store = JSON.parse(await readFile(f.credentialsFile, "utf8"));
     assert.equal(store["official-cloud:unowned"], f.legacy);
     assert.equal(store.zcodeJwtToken, f.legacy);
-  } finally { await f.dispose(); }
+  } finally {
+    await f.dispose();
+  }
 });
 
 test("Renderer OAuth projection exposes no Host session or private implementation functions", async () => {
   const f = await fixture();
   try {
     await f.login();
-    const approved = ["getProviders", "getActiveProvider", "restoreCachedSession", "restoreCachedSessionState", "restoreSession", "startOAuth", "startOAuthWithPolling", "pollPendingOAuth", "handleCallback", "refreshToken", "logout", "logoutAll", "cancelPending"];
+    const approved = [
+      "getProviders",
+      "getActiveProvider",
+      "restoreCachedSession",
+      "restoreCachedSessionState",
+      "restoreSession",
+      "startOAuth",
+      "startOAuthWithPolling",
+      "pollPendingOAuth",
+      "handleCallback",
+      "refreshToken",
+      "logout",
+      "logoutAll",
+      "cancelPending",
+    ];
     assert.deepEqual(Object.keys(f.service.oauth).sort(), approved.sort());
     assert.deepEqual(Object.keys(f.service), ["oauth"]);
     assert.equal(JSON.stringify(await f.service.oauth.restoreSession()).includes("sk-"), false);
     assert.equal(JSON.stringify(f.service).includes("refresh-1"), false);
-    await assert.rejects(f.service.oauth.pollPendingOAuth(), { code: "XCODE_PRIVATE_POLLING_UNSUPPORTED" });
-    await assert.rejects(f.service.oauth.startOAuthWithPolling("new-api"), { code: "XCODE_PRIVATE_POLLING_UNSUPPORTED" });
-  } finally { await f.dispose(); }
+    await assert.rejects(f.service.oauth.pollPendingOAuth(), {
+      code: "XCODE_PRIVATE_POLLING_UNSUPPORTED",
+    });
+    await assert.rejects(f.service.oauth.startOAuthWithPolling("new-api"), {
+      code: "XCODE_PRIVATE_POLLING_UNSUPPORTED",
+    });
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("B started during A commit fences A and publishes only B after compensation", async () => {
+  const f = await fixture();
+  try {
+    const entered = barrier<void>();
+    const release = barrier<void>();
+    const commit = f.repo.commit.bind(f.repo);
+    f.repo.commit = async (record) => {
+      await commit(record);
+      if (record.bundle.session_id === "sid-1") {
+        entered.resolve();
+        await release.promise;
+      }
+    };
+    const a = await f.service.oauth.startOAuth("new-api");
+    const pendingA = f.service.oauth.handleCallback(f.callback(a.state));
+    await entered.promise;
+    const pendingB = f.service.oauth.startOAuth("new-api");
+    release.resolve();
+    assert.equal(await pendingA, null);
+    const b = await pendingB;
+    f.setExchange(async () => bundle("2", "sid-2", "refresh-b"));
+    await f.service.oauth.handleCallback(f.callback(b.state));
+    assert.equal(f.service.getOwner()?.userId, "2");
+    assert.equal((await f.repo.loadActive())?.bundle.session_id, "sid-2");
+    assert.deepEqual(f.revoked, ["sid-1"]);
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("cold restore never publishes cached profile during 503, then refreshes an expired control token", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    const cold = f.newService();
+    f.setMeError(failure("XCODE_BACKEND_UNAVAILABLE", 503));
+    assert.equal((await cold.oauth.restoreCachedSessionState()).status, "unavailable");
+    assert.equal(cold.getOwner(), null);
+    assert.equal(await cold.oauth.getActiveProvider(), null);
+    assert.ok(await f.repo.loadActive());
+    f.setMeError(null);
+    f.advance();
+    assert.equal((await cold.oauth.restoreCachedSessionState()).status, "authenticated");
+    assert.equal(cold.getOwner()?.userId, "1");
+    assert.equal(f.refreshCalls(), 1);
+    assert.equal((await f.repo.loadActive())?.bundle.refresh_token, "refresh-2");
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("two Host runtimes refresh one shared SID once and both adopt its encrypted successor", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    const second = f.newService();
+    await second.oauth.restoreSession();
+    const ownerA = f.service.getOwner();
+    const ownerB = second.getOwner();
+    const entered = barrier<void>();
+    const release = barrier<NewApiSessionBundle>();
+    f.setRefresh(async () => {
+      entered.resolve();
+      return release.promise;
+    });
+    const a = f.service.oauth.refreshToken();
+    await entered.promise;
+    const b = second.oauth.refreshToken();
+    release.resolve(bundle("1", "sid-1", "cross-window-successor"));
+    await Promise.all([a, b]);
+    assert.equal(f.refreshCalls(), 1);
+    assert.deepEqual(f.service.getOwner(), ownerA);
+    assert.deepEqual(second.getOwner(), ownerB);
+    assert.equal((await f.repo.loadActive())?.bundle.refresh_token, "cross-window-successor");
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("late control result cannot cross account switch and accepted B revokes only this Host's A", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    const oldOwner = f.service.getOwner()!;
+    const entered = barrier<void>();
+    const release = barrier<void>();
+    const stale = f.service.withControlSession(async () => {
+      entered.resolve();
+      await release.promise;
+      return "A data";
+    });
+    await entered.promise;
+    f.setExchange(async () => bundle("2", "sid-2", "refresh-b"));
+    await f.login();
+    release.resolve();
+    await assert.rejects(stale, { code: "XCODE_STALE_OWNER" });
+    assert.equal(f.service.isCurrent(oldOwner), false);
+    await assert.rejects(f.service.getRelayCredential(oldOwner), { code: "XCODE_STALE_OWNER" });
+    assert.deepEqual(f.revoked, ["sid-1"]);
+    assert.equal((await f.repo.loadActive())?.bundle.session_id, "sid-2");
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("logout during refresh removes the actual rotated successor instead of resurrecting a predecessor", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    const entered = barrier<void>();
+    const release = barrier<NewApiSessionBundle>();
+    f.setRefresh(async () => {
+      entered.resolve();
+      return release.promise;
+    });
+    const pendingRefresh = f.service.oauth.refreshToken();
+    const rejected = assert.rejects(pendingRefresh, { code: "XCODE_STALE_OWNER" });
+    await entered.promise;
+    const logout = f.service.oauth.logout();
+    release.resolve(bundle("1", "sid-1", "logout-successor"));
+    await Promise.all([rejected, logout]);
+    assert.equal(f.service.getOwner(), null);
+    assert.equal(await f.repo.loadActive(), null);
+    assert.ok(f.revoked.includes("sid-1"));
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("opaque cached control token requires manual recovery without erasing encrypted or official data", async () => {
+  const f = await fixture();
+  try {
+    const stored: NewApiStoredSession = {
+      schemaVersion: 1,
+      origin,
+      bundle: { ...bundle(), access_token: "opaque" },
+    };
+    await f.repo.commit(stored);
+    const before = await readFile(f.credentialsFile, "utf8");
+    const cold = f.newService();
+    assert.deepEqual(await cold.oauth.restoreCachedSessionState(), {
+      status: "unavailable",
+      reason: "credential-recovery-required",
+    });
+    assert.equal(cold.getOwner(), null);
+    assert.equal(await cold.oauth.getActiveProvider(), null);
+    assert.equal(await readFile(f.credentialsFile, "utf8"), before);
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("refresh followed by Me 503 retains the rotated secret for recovery", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    const owner = f.service.getOwner();
+    f.setMeError(failure("XCODE_BACKEND_UNAVAILABLE", 503));
+    await assert.rejects(f.service.oauth.refreshToken(), { code: "XCODE_BACKEND_UNAVAILABLE" });
+    assert.deepEqual(f.service.getOwner(), owner);
+    assert.equal((await f.repo.loadActive())?.bundle.refresh_token, "refresh-2");
+    f.setMeError(null);
+    assert.equal((await f.service.oauth.restoreCachedSessionState()).status, "authenticated");
+    assert.equal(f.refreshCalls(), 1);
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("accepted switch never deletes or revokes another window's active owner", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    const other = f.newService();
+    f.setExchange(async () => bundle("3", "sid-3", "refresh-c"));
+    const c = await other.oauth.startOAuth("new-api");
+    await other.oauth.handleCallback(f.callback(c.state));
+    f.setExchange(async () => bundle("2", "sid-2", "refresh-b"));
+    await f.login();
+    assert.deepEqual(f.revoked, ["sid-1"]);
+    assert.equal(other.getOwner()?.userId, "3");
+    assert.equal((await other.getRelayCredential(other.getOwner()!)).token, "sk-relay-sid-3");
+    const records = JSON.parse(await readFile(f.credentialsFile, "utf8"));
+    assert.ok(Object.keys(records).some((key) => key.endsWith(":3:sid-3")));
+    assert.equal((await f.repo.loadActive())?.bundle.session_id, "sid-2");
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("server Me identity is mandatory before callback credentials can be published", async () => {
+  const f = await fixture();
+  try {
+    f.setMeError(
+      success({
+        schema_version: 1,
+        server_time: initialTime,
+        session_id: "sid-1",
+        user: { id: "2", username: "other", display_name: "Other", avatar_url: null },
+        authorization_revision: "0",
+      }),
+    );
+    await assert.rejects(f.login(), { code: "XCODE_SESSION_INVALID" });
+    assert.equal(f.service.getOwner(), null);
+    assert.equal(await f.repo.loadActive(), null);
+    assert.deepEqual(f.revoked, ["sid-1"]);
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("logout after another Host rotation revokes with the actual removed successor secret", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    const other = f.newService();
+    await other.oauth.restoreSession();
+    await other.oauth.refreshToken();
+    assert.equal((await f.repo.loadActive())?.bundle.refresh_token, "refresh-2");
+    await f.service.oauth.logout();
+    assert.equal(await f.repo.loadActive(), null);
+    assert.deepEqual(f.revoked, ["sid-1"]);
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("ciphertext corruption requires manual recovery without deleting private or official credentials", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    const records: Record<string, string> = JSON.parse(await readFile(f.credentialsFile, "utf8"));
+    const active = Object.keys(records).find(
+      (key) => key.startsWith("new-api:") && key.endsWith(":active"),
+    )!;
+    records[active] = "enc:v1:invalid";
+    await writeFile(f.credentialsFile, JSON.stringify(records));
+    const cold = f.newService();
+    assert.deepEqual(await cold.oauth.restoreCachedSessionState(), {
+      status: "unavailable",
+      reason: "credential-recovery-required",
+    });
+    assert.equal(await readFile(f.credentialsFile, "utf8"), JSON.stringify(records));
+    assert.equal(cold.getOwner(), null);
+    assert.equal(await cold.oauth.getActiveProvider(), null);
+    assert.deepEqual(f.revoked, []);
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("malformed refresh responses retain confirmed owner and encrypted session for manual recovery", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    const owner = f.service.getOwner();
+    const before = await readFile(f.credentialsFile, "utf8");
+    f.setRefresh(async () => ({ ...bundle(), access_token: "opaque" }));
+    await assert.rejects(f.service.oauth.refreshToken(), { code: "XCODE_PROTOCOL_INVALID" });
+    assert.deepEqual(f.service.getOwner(), owner);
+    assert.equal(await readFile(f.credentialsFile, "utf8"), before);
+    assert.deepEqual(f.revoked, []);
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("malformed credential files require manual recovery without replacing the stored bytes", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    await writeFile(f.credentialsFile, "{");
+    const cold = f.newService();
+    assert.deepEqual(await cold.oauth.restoreCachedSessionState(), {
+      status: "unavailable",
+      reason: "credential-recovery-required",
+    });
+    assert.equal(cold.getOwner(), null);
+    assert.equal(await readFile(f.credentialsFile, "utf8"), "{");
+    assert.deepEqual(f.revoked, []);
+  } finally {
+    await f.dispose();
+  }
 });

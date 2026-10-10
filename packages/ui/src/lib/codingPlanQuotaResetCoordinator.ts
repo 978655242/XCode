@@ -267,6 +267,7 @@ class CodingPlanQuotaResetPollingCoordinator {
 export function subscribeCodingPlanQuotaResetPolling(
   params: PollingSubscriptionParams,
 ): () => void {
+  if (params.scope.accountAccess.type === "new-api-account") return () => {};
   const coordinatorKey = buildCoordinatorKey(params.authSessionSeq, params.scope);
   const coordinators = getServiceMap(coordinatorsByService, params.service);
   let coordinator = coordinators.get(coordinatorKey);
@@ -280,6 +281,7 @@ export function subscribeCodingPlanQuotaResetPolling(
 export function requestCodingPlanResetOpportunityWhenDue(
   params: CoordinatorParams,
 ): Promise<CodingPlanResetOpportunityResult | null> {
+  if (params.scope.accountAccess.type === "new-api-account") return Promise.resolve(null);
   const coordinatorKey = buildCoordinatorKey(params.authSessionSeq, params.scope);
   const schedules = getServiceMap(opportunitySchedulesByService, params.service);
   let schedule = schedules.get(coordinatorKey);

@@ -134,7 +134,7 @@ export interface ZCodeState {
 
   /** 当前用户信息 */
   user: UserInfo | null;
-  /** 用户由未登录进入登录态时递增；连接额外 provider 不会误判为重新登录。 */
+  /** 主账号登录或换号时递增；同一用户连接额外 provider 不改变本轮身份。 */
   authSessionSeq: number;
   setUser: (user: UserInfo | null) => void;
 
@@ -317,7 +317,9 @@ export function createZCodeStore(
       set((state) => ({
         user,
         authSessionSeq:
-          state.user === null && user !== null ? state.authSessionSeq + 1 : state.authSessionSeq,
+          user !== null && (state.user === null || state.user.id !== user.id)
+            ? state.authSessionSeq + 1
+            : state.authSessionSeq,
       })),
 
     isRestoringOAuthSession: options.initialIsRestoringOAuthSession ?? false,

@@ -87,6 +87,7 @@ export function formatQuotaRemainingPercentage(
   locale: string,
   limit: UsageQuotaLimit | null,
 ): string {
+  if (limit?.native?.unlimited) return locale === "zh-CN" ? "无限制" : "Unlimited";
   const remainingPercentage = getQuotaRemainingPercentage(limit);
   if (remainingPercentage == null) {
     return "--";

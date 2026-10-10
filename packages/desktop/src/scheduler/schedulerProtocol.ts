@@ -21,6 +21,8 @@ export type SchedulerToMainMessage =
       // host createTask 新建 session；续跑/中断恢复带上两者 resume 同一会话。
       type: "offpeak-dispatch-request";
       offPeakTaskId: string;
+      /** Trusted Host principal digest for routing; never a credential or public task field. */
+      nativeOwnerKey?: string;
       prompt: string;
       permissionMode: string;
       modelSelection: ModelSelection;
@@ -60,7 +62,6 @@ export type MainToSchedulerMessage =
       failureKind?: "transient" | "permanent";
     }
   | {
-      // 闲时任务派发结果；迟到结果仅凭 offPeakTaskId 结算（无 inFlight 上下文也可，幂等）。
       type: "offpeak-dispatch-result";
       offPeakTaskId: string;
       ok: boolean;
@@ -77,4 +78,5 @@ export type MainToSchedulerMessage =
       // manual run 已提交，立即触发一次 tick；automationId 仅用于日志关联。
       type: "scheduler-wake";
       automationId: string;
+      nativeOwnerKeys?: readonly string[];
     };
