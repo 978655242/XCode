@@ -55,7 +55,7 @@ macOS/Windows 使用 Electron `safeStorage`；Linux 的 `basic_text`、无可用
 
 - 管理员在 New API 为用户授予 canonical 的 `xcode` 专用实例。托管 relay key 只消费指定实例；钱包/general/其他订阅不兜底。renew、replace、revoke、reset 通过当前管理员接口及 revision 执行，不在客户端造订单或修改原生账户关系。
 - 客户端模板价格、指定实例、额度单位和 `quota_per_unit` 来自真实 metadata；保持原始十进制字符串。Unlimited 与未知指标明确区分，不把 unknown/null 变成零。
-- 三个稳定 anchor：`account:new-api-openai-chat-completions`、`account:new-api-openai-responses`、`account:new-api-anthropic-messages`，同属 `new-api-family`。它们不是套餐生成的 Provider ID。
+- 前端仅展示 `account:new-api-openai-chat-completions`，名称为 `XWork·Plan`；模型设置、聊天选择和默认候选使用同一可见性规则。Responses/Messages anchor 保留底层协议与历史身份，但不向前端开放；旧选择须手动重选，不自动转换协议。管理员需将供 XWork 使用的模型配置为真实可用的 Chat Completions transport。
 - 管理员维护真实 transport、完整 model properties 与 option/CEL maps。缺失配置、非法 CEL、禁用模型或授权/catalog revision 不一致均不能获得可执行 ref；问题在目录 issue 投影中显示，不猜供应商默认能力。
 - 旧个人、企业、Start Plan ref 必须手动重选，即使 `model_id` 同名也不自动映射。保留历史消息/ref 与用户自配 Provider/key/模型，不批量改写用户配置。
 - 配置/能力变化需刷新目录并检查 Host→worker 同一快照；UI 标签更新不代表 worker 已执行新能力。当前私有链路仅本机 worker；远程私有 provisioning 明确 unsupported，原非私有远程功能不删除。

@@ -135,6 +135,8 @@ Native Provider 归类为 ordinary model-selection 行为，但 access 仍为 ma
 4. 私有模型完整 capabilities 最终由 account snapshot 取值；Personal/Template/manual model 规则不得覆盖管理员上下文/能力/协议。用户仍可选择允许的 reasoning level、输出上限，不可放宽其范围。
 5. `providerUpdateAccountConfig` 以及 worker 的 parseProcessAccountProviderConfigSnapshot 同步扩展 modelConfigs；Host 与本机 worker 同时更新，不能只改桌面 selector。
 6. Native source 出错、换号/撤销时先发布 fail-closed 的可执行权限，旧 Registry 在等待 revision 时也不得继续执行旧用户模型。保留缓存资料与允许请求是两回事。
+XWork 前端仅开放 `account:new-api-openai-chat-completions`，展示名称固定为 `XWork·Plan`。另两个 anchor 使用现有 `visibility: hidden`，不进入模型设置、聊天模型选择或默认候选；历史 ref 保留但不自动迁移，重新选择可见模型。底层协议契约与管理员模型归属不改，不把其他 transport 的模型移入 Chat Completions。可见入口即使目录为空也保留，按真实权限和配置显示不可用。用户自配 Provider 与独立官方云连接不受影响。
+
 
 完整能力依 canonical §7：contextWindow、全部 input/output flags、tool/JSON schema/native search/mid-system、reasoning values/map、output max/map。用现有 completeModelConfigDataSchema 和受限 CEL 编译器严格校验；无 reasoning 的 neutral 配置也来自服务器，不是客户端补默认值。
 
