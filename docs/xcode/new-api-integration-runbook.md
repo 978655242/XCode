@@ -95,6 +95,8 @@ pnpm fmt:check
 pnpm architecture:check --changed
 ```
 
+`newApiComposerContextElectron.mjs` 已纳入上述 Electron smoke 入口：真实 Composer/额度 hooks 验证自定义 API Key 空草稿不显示订阅、三个 Native transport 保留额度、Native 缓存切换到自定义模型后只展示上下文且 hover 不读取订阅、切回 Native/清空选择，以及触摸按下的上下文展示。全局侧栏与设置额度保持主账号来源；对话浮层跟随当前结构化模型选择。
+
 CLI/bootstrap 不包含在根 `typecheck` 入口内，需使用其当前包脚本另行校验并重建本机 Agent bundle，不能启动旧 bundle 就声称新 worker 行为通过。桌面必须实际操作登录、手动重选、真实套餐/用量页与只读升级页，并观察重启、退出、owner 变化和旧 worker 拒绝结果。
 
 2026-10-09 可达证据见 `.superpowers/sdd/2026-10-08-new-api-integration/progress.md`：隔离后端实际完成 Native PKCE、七 DTO、refresh/恢复、admin grant/renew/revoke、handoff 与用途隔离；之后重建 backend `web/dist` 和 Go embed 二进制，SHA-256 为 `9d1cb26a27babc08f93f6a774fae978800c586c423e37888c2c714706c745a0a`，源码 `46a74273cd3b3a88d01d0a5d5512375c1c719530`、`vcs.modified=true`，不是 clean release artifact。三 installed SDK 已经穿过真实 New API relay/adapter 到受控上游，指定实例扣费与日志 wallet deduction0 有真实证据；另有真实 full Desktop 主登录、macOS keystore 冷恢复、Host→CLI→Native 推理和只读套餐页证明。受控上游的 11/7 token 是 fixture，不是真供应商计量；没有以此声称正式供应商或完整资金矩阵通过。

@@ -12,7 +12,11 @@ const requireDesktop = createRequire(new URL("../package.json", import.meta.url)
 const electron = requireDesktop("electron");
 const temporary = await mkdtemp(join(tmpdir(), "xwork-native-electron-tests-"));
 try {
-  for (const name of ["newApiPeriodDetailsElectron", "newApiWebHandoffElectron"]) {
+  for (const name of [
+    "newApiComposerContextElectron",
+    "newApiPeriodDetailsElectron",
+    "newApiWebHandoffElectron",
+  ]) {
     const entry = new URL(`./${name}.mjs`, import.meta.url);
     const output = join(temporary, `${name}.mjs`);
     await build({

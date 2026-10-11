@@ -227,6 +227,15 @@ secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或
 
 Native 主权益的 mcpQuota 必须 null，不能暗示新私有套餐附带官方 quota；官方 MCP 卡通过真实官方连接读取其真实配额。布局容器保留，未独立连接显示连接操作，已连接显示官方来源标签。
 
+#### 对话上下文浮层的模型来源边界
+
+- Composer 的结构化 `modelSelection.providerId` 是当前模型展示的唯一来源；不借 Session 旧值或全局登录账号补值。
+- 仅当前选择属于 New API Registry 的模型时，对话浮层展示 Native 订阅额度、授权状态和只读周期入口。
+- 自定义 API Key、本地模型及其他非 Native 模型不得展示或通过 hover 查询 Native 订阅；官方 Coding/Start 模型继续沿原有各自来源读取。
+- 自定义模型复用接入 New API 前的 `ChatContextUsage` 布局：上下文总量/容量、占比进度条，以及运行时实际提供的组成和缓存命中率。没有真实用量的新对话不显示上下文触发器，不补假 0 或假 100%。
+- 切换 Native → 自定义模型或清空选择时，即使账号订阅已缓存，浮层也立即移除无关订阅；切回 Native 后保留其真实订阅展示。侧栏及设置中的主账号额度不受影响。
+- 验收：已连接 Native 账号且有缓存额度时选择自定义 DeepSeek，hover 只见真实上下文；覆盖空草稿、Native → DeepSeek → Native、清空选择，以及手机触摸打开。凭据、模型请求路由、计费和持久化均不改动。
+
 ### 7.3 reset 方法
 
 原 reset RPC 保留入口，但区分 native-single-period 与 official 双窗结构，不制造 FIVE_HOUR/WEEK机会：

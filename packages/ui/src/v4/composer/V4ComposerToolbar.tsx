@@ -19,6 +19,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BUILTIN_MODEL_PROVIDER_IDS,
   getModelProviderFamilySpec,
+  isNewApiModelProviderId,
   resolveModelProviderFamilySpecByProviderId,
   TID_V4_MODEL_CONFIG,
   TID_V4_COMPOSER_INPUT,
@@ -395,9 +396,18 @@ function V4ComposerModelControlsImpl({
   const providerSettingsView =
     providerSettingsRead.state.status === "ready" ? providerSettingsRead.state.view : null;
   const providerSourcesLoading = providerSettingsRead.state.status !== "ready";
+  // 空模型/档位曾被 Session 旧值补回，界面显示与实际不可提交状态矛盾。
+  // 初始化已经由 Composer owner 完成；显示层只消费它，不能再次补值。
+  const effectiveConfig = useMemo<SessionConfigState | null>(() => {
+    return resolveDraftDisplayedConfig(draftConfig ?? {});
+  }, [draftConfig]);
   const nativeSource = useMemo(
-    () => buildNativeCodingPlanUsageSource(providerSettingsView),
-    [providerSettingsView],
+    // XCODE: 全局登录不代表当前模型使用订阅；按 Composer 选择隔离，恢复 API Key 模型原有上下文 UI。
+    () =>
+      isNewApiModelProviderId(effectiveConfig?.provider ?? "")
+        ? buildNativeCodingPlanUsageSource(providerSettingsView)
+        : null,
+    [effectiveConfig?.provider, providerSettingsView],
   );
   const nativeEntitlement = useUsageEntitlement({
     enabled: Boolean(nativeSource),
@@ -456,12 +466,6 @@ function V4ComposerModelControlsImpl({
           options: [],
         } satisfies ZCodeConfigOption)
       : undefined;
-
-  // 空模型/档位曾被 Session 旧值补回，界面显示与实际不可提交状态矛盾。
-  // 初始化已经由 Composer owner 完成；显示层只消费它，不能再次补值。
-  const effectiveConfig = useMemo<SessionConfigState | null>(() => {
-    return resolveDraftDisplayedConfig(draftConfig ?? {});
-  }, [draftConfig]);
 
   const handleOpenStartPlanUpgrade = useCallback(
     (providerId: string) => {
