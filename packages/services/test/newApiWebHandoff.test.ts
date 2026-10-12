@@ -88,6 +88,15 @@ test("Native requests require a claimed current owner and keep resources same-or
   assert.equal(policy.canRequest(partition, handoff(1).url, true), true);
   assert.equal(policy.canRequest(partition, `${origin}/xcode/plans`, true), true);
   assert.equal(policy.canRequest(partition, `${origin}/assets/plan.css`, false), true);
+  assert.equal(policy.canRequest(partition, `${origin}/xcode-plan-display.js`, false), true);
+  assert.equal(policy.canRequest(partition, `${origin}/static/js/index.hash.js`, false), true);
+  assert.equal(policy.canRequest(partition, `${origin}/static/font/ui.woff2`, false), true);
+  assert.equal(policy.canRequest(partition, `${origin}/other-root-script.js`, false), false);
+  assert.equal(
+    policy.canRequest(partition, `${origin}/xcode-plan-display.js?handoff=other`, false),
+    false,
+  );
+  assert.equal(policy.canRequest(partition, `${origin}/xcode-plan-display.js/other`, false), false);
   assert.equal(policy.canRequest(partition, `${origin}/api/xcode/v1/web/view`, false), true);
   assert.equal(
     policy.canRequest(partition, `${origin}/xcode/plans?handoff=other-owner`, false),

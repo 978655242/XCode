@@ -212,6 +212,9 @@ export type {
   EmbeddedBrowserDataClearResult,
   EmbeddedBrowserOpenUrlRequest,
   IPlatformService,
+  // XCODE: Public display-only context for the existing Native platform bridge.
+  NativePlanDisplayContext,
+  NativePlanWebviewPrepareRequest,
   OpenInEditorRemoteTarget,
   OpenInEditorOptions,
   PostUpdateReleaseNotesPayload,

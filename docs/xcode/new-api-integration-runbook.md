@@ -68,6 +68,9 @@ macOS/Windows 使用 Electron `safeStorage`；Linux 的 `basic_text`、无可用
 - 自定义日期使用合法 calendar date 与 IANA timezone，按服务端范围投影；DST 不能按固定 24 小时补造桶。Signed quota/net 值、精确计数及无数据字段保留实际语义。
 - 默认 `server-local` 不是 IANA 名称：用量日桶以服务端 `YYYY-MM-DD` 标签归日，today 小时桶以服务端 `range_start_date` 归日；保留带 offset 的小时标签与 DST 重复桶，包括横轴和 tooltip。不能用电脑时区、UTC 日期或当前额度 offset 重建历史用量日历。工具详情的总计与卡片一样按 availability 显示“暂不提供”，不能将空 series 转为业务零。
 - 客户端购买/升级入口打开同源只读 `/xcode/plans`。短期 handoff 一次性使用，放在 owner 专属临时 WebView partition；禁止跨源导航、购买、下载、弹窗及权限获取，退出/owner 变化清 Cookie、Storage 和 Cache。
+- 2026-10-12 已实施 [U01–U04](../superpowers/plans/2026-10-08-new-api-integration.md#5-升级页评审修正u01u04) 和 [升级 UI 规格](specs/new-api-upgrade-ui.md)：原生管理员在模板表单配置可空 `xcode_display`；分类/周期/等高卡片按真实模板派生，摘要独立显示实际授权，当前标记只匹配 exact plan ID。`/plans` 仍为旧严格契约，展示 metadata 仅在 `web/view` sidecar；展示 Cookie 不含身份/权限，主题/语言/字号由 Native 首帧传递。参考价及折扣只在可比数据成立时显示，`manual_admin` CTA 仅说明实际 SKU 的 grant/renew/replace，不提交付款/申请；团队明确不支持。
+- 升级页中文基准 content1568×947、UI14/zoom1 下四卡与 CTA 首屏；英文、最大字号和较矮窗口允许纵滚，不能缩小字号或截断权益。验收截图使用隔离环境的真实合成模板，不代表部署目录必有体验/Lite/Pro/Max 或正式供应商权益。
+- 隔离开发后端重启仍须保留 `SESSION_SECRET`/`CRYPTO_SECRET` 与原数据库，并设置正确 `XCODE_PUBLIC_ORIGIN`（仅 loopback 允许 HTTP）；缺公开源的 handoff503 是配置故障，不是身份撤销。live smoke 的短期控制 token 快照过期须沿真实 refresh/PKCE 获取，不禁用限流/签名校验。Full Desktop 的冷恢复后一次 logout/relaunch 尚未解释，G2 不因此通过。
 - Native payment 写方法在发付款 HTTP 前拒绝；六项旧付款读取明确返回不支持/手工分配，不能返回假钱包、假订单或付款成功。购买功能是否保留在原生 New API dashboard 单独验收。
 
 ## 故障区分
@@ -97,6 +100,8 @@ pnpm architecture:check --changed
 
 `newApiComposerContextElectron.mjs` 已纳入上述 Electron smoke 入口：真实 Composer/额度 hooks 验证自定义 API Key 空草稿不显示订阅、三个 Native transport 保留额度、Native 缓存切换到自定义模型后只展示上下文且 hover 不读取订阅、切回 Native/清空选择，以及触摸按下的上下文展示。全局侧栏与设置额度保持主账号来源；对话浮层跟随当前结构化模型选择。
 
+`newApiModelSettingsElectron.mjs` 同样纳入该入口：使用真实 Native 状态卡与 owner hook，在隔离业务 fixture 下验证授权/查询失败/空模板、换号与退出首帧、旧响应及重复刷新隔离、手动刷新、英文深色与 393px 窄屏。模型设置按 [原版呈现规格](specs/new-api-model-settings-ui.md) 复用套餐卡及个人/团队入口，不再显示独立官方云横幅；连接/断开仍在使用统计 MCP 区。本机完整桌面在 Renderer 重新加载后实际读取部署数据，状态卡与个人入口均打开只读套餐 WebView，手动刷新正常，自定义供应商编辑入口保持；未改真实模板/授权，未以 fixture 声称官方权益或推理通过。
+
 CLI/bootstrap 不包含在根 `typecheck` 入口内，需使用其当前包脚本另行校验并重建本机 Agent bundle，不能启动旧 bundle 就声称新 worker 行为通过。桌面必须实际操作登录、手动重选、真实套餐/用量页与只读升级页，并观察重启、退出、owner 变化和旧 worker 拒绝结果。
 
 2026-10-09 可达证据见 `.superpowers/sdd/2026-10-08-new-api-integration/progress.md`：隔离后端实际完成 Native PKCE、七 DTO、refresh/恢复、admin grant/renew/revoke、handoff 与用途隔离；之后重建 backend `web/dist` 和 Go embed 二进制，SHA-256 为 `9d1cb26a27babc08f93f6a774fae978800c586c423e37888c2c714706c745a0a`，源码 `46a74273cd3b3a88d01d0a5d5512375c1c719530`、`vcs.modified=true`，不是 clean release artifact。三 installed SDK 已经穿过真实 New API relay/adapter 到受控上游，指定实例扣费与日志 wallet deduction0 有真实证据；另有真实 full Desktop 主登录、macOS keystore 冷恢复、Host→CLI→Native 推理和只读套餐页证明。受控上游的 11/7 token 是 fixture，不是真供应商计量；没有以此声称正式供应商或完整资金矩阵通过。
@@ -108,4 +113,6 @@ CLI/bootstrap 不包含在根 `typecheck` 入口内，需使用其当前包脚�
 - 发布前核对客户端/后端源码、构建标记、挂载、canonical origin、功能开关和实际 consumer；备份并确认审计保留，使用明确允许的测试数据验证撤销和资金域。
 - 关闭开关不是旧二进制安全回滚：先撤销全部专用客户端 Session/relay key，取消所有有效 xcode 实例，保留 purpose/scope 与资金审计。确认旧代码不能把专用实例/托管 key 当 general/wallet 再部署旧二进制。
 - 切客户端 URL 或去掉 `NEW_API_BASE_URL` 不迁移用户、订阅或秘密，也不允许未归属云凭据被认领。原生 browser Session 与 XCode Session 的撤销语义必须分别检查。
-- 本次实施不自动发布、不提交/推送、不重启用户已有服务、不改业务数据库。PR 目标 `XCode-main`，`main` 仍只镜像上游。
+- 默认不自动发布、不提交/推送、不重启用户已有服务、不改业务数据库；部署必须有明确授权。PR 目标 `XCode-main`，`main` 仍只镜像上游。
+- 2026-10-12 用户明确选择「桌面前端＋3001嵌入页」后，已重建桌面/本机 Agent、New API Web 与 Go embed，并启动 `NEW_API_BASE_URL=http://127.0.0.1:3001 pnpm dev:desktop:prod`。现有 `new-api` 容器保留原配置、会话密钥、数据挂载和端口，实际版本为 `xwork-upgrade-20261012`，加载 `index.3b9adbf597.js`；数据库新增可空 `xcode_display`，完整性检查通过，原 3 个账号、2 个模板、账号额度及订阅记录与升级前一致。真实 Native 页面已验证账号恢复、模板读取、个人/团队切换及主题/语言/字号继承，不替代完整 G1–G5 验收。
+- 本次部署备份位于 `~/ai/new-api-backup-xcode-restart-zv7Pnl/`，包含一致数据库快照、旧二进制和私有容器配置；目录及私有文件已限制权限，禁止提交或对外分享。旧容器保留为停止状态的 `new-api-before-upgrade-zv7Pnl`，不要与新容器同时写入相同数据库。当前模板未配置 `xcode_display`，页面按规格保留原始名称与条款；未改写套餐价格、授权、权益或补造体验/Lite/Pro/Max。

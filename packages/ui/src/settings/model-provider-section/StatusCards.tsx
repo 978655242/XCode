@@ -60,7 +60,8 @@ const CODING_PLAN_USAGE_SUMMARY_COLORS = [
   "var(--color-usage-chart-4)",
 ] as const;
 
-function PlanStatusCardSurface({
+// XCODE: Native 套餐复用原版状态卡外壳，不耦合官方 Provider/支付状态。
+export function PlanStatusCardSurface({
   planTitle,
   titleAccessory,
   statusMeta,

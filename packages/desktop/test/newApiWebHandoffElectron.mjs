@@ -1,12 +1,17 @@
 import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, WebContentsView, webContents } from "electron";
-import { build } from "esbuild";
+import { app, BrowserWindow, WebContentsView, webContents, session } from "electron";
 import { assertOrdinaryPlanIsolation } from "./newApiOrdinaryGuestAssertions.mjs";
+import {
+  assertInvalidDisplayContexts,
+  assertNativeDisplayCookie,
+} from "./newApiNativeDisplayCookieAssertions.mjs";
+import { createHandoffFixtureServer } from "./newApiWebHandoffFixtureServer.mjs";
+import { assertDelayedDisplayCookieOwnerLoss } from "./newApiWebHandoffCookieAwaitAssertions.mjs";
+import { buildOfficialPlanPreload } from "./newApiWebHandoffOfficialPreload.mjs";
 
 import {
   setNativePlanWebviewOwner,
@@ -22,64 +27,7 @@ process.env.VITE_ZCODE_E2E_STORE_BRIDGE = "1";
 async function run() {
   const dataDirectory = await mkdtemp(join(tmpdir(), "xcode-handoff-electron-"));
   app.setPath("userData", dataDirectory);
-  let cssRequests = 0;
-  let foreignRequests = 0;
-  let privateRequests = 0;
-  const foreign = createServer((_request, response) => {
-    foreignRequests++;
-    response.end("foreign");
-  });
-  const listen = (server) => new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const originFor = (server) => {
-    const address = server.address();
-    assert.ok(address && typeof address === "object");
-    return `http://127.0.0.1:${address.port}`;
-  };
-  await listen(foreign);
-  const foreignOrigin = originFor(foreign);
-  const server = createServer((request, response) => {
-    const url = new URL(request.url, "http://localhost");
-    if (url.pathname === "/xcode/plans" && url.searchParams.has("handoff")) {
-      privateRequests++;
-      response.writeHead(303, {
-        Location: "/xcode/plans",
-        "Set-Cookie": "xcode_plan=readonly; HttpOnly; SameSite=Strict; Path=/api/xcode/v1/web",
-      });
-      response.end();
-    } else if (url.pathname === "/xcode/plans") {
-      privateRequests++;
-      response.setHeader("Content-Type", "text/html");
-      response.end(
-        `<html><head><link rel="stylesheet" href="/assets/plan.css"></head><body>Assigned plan<img src="${foreignOrigin}/collect?handoff=short-code"></body></html>`,
-      );
-    } else if (url.pathname === "/api/xcode/v1/web/view") {
-      privateRequests++;
-      response.setHeader("Content-Type", "application/json");
-      response.end(JSON.stringify({ plan: "Assigned plan" }));
-    } else if (url.pathname === "/assets/plan.css") {
-      cssRequests++;
-      response.setHeader("Content-Type", "text/css");
-      response.end("body { color: rgb(1, 2, 3); }");
-    } else if (url.pathname === "/redirect-private") {
-      response.writeHead(302, { Location: "/xcode/plans?handoff=ordinary-redirect" });
-      response.end();
-    } else if (["/", "/custom", "/coding-plan"].includes(url.pathname)) {
-      response.setHeader("Content-Type", "text/html");
-      response.end("<html><body>Ordinary browsing</body></html>");
-    } else {
-      response.writeHead(404);
-      response.end();
-    }
-  });
-  server.on("upgrade", (request, socket) => {
-    const path = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
-    if (path === "/xcode/plans" || path.startsWith("/api/xcode/v1/web/")) privateRequests++;
-    socket.end(
-      "HTTP/1.1 303 See Other\r\nLocation: /xcode/plans\r\nSet-Cookie: xcode_plan=readonly; HttpOnly; SameSite=Strict; Path=/api/xcode/v1/web\r\nConnection: close\r\nContent-Length: 0\r\n\r\n",
-    );
-  });
-  await listen(server);
-  const origin = originFor(server);
+  const { origin, counters, close: closeFixtureServer } = await createHandoffFixtureServer();
   const deadline = setTimeout(() => {
     console.error("Native handoff Electron regression timed out");
     app.exit(1);
@@ -101,21 +49,7 @@ async function run() {
     });
     // XCODE: 源码 Main 没有产物 .cjs；只为真实官方 preload 编译临时产物，不替换其 bridge 行为。
     const officialPreloadPath = join(dataDirectory, "official-plan-preload.cjs");
-    const officialPreload = await build({
-      entryPoints: [fileURLToPath(new URL("../src/preload/codingPlanWebview.ts", import.meta.url))],
-      bundle: true,
-      write: false,
-      platform: "node",
-      format: "cjs",
-      external: ["electron"],
-      define: {
-        "process.env": JSON.stringify({
-          ZCODE_ENDPOINT_ORIGIN: origin,
-          VITE_ZCODE_E2E_STORE_BRIDGE: "1",
-        }),
-      },
-    });
-    await writeFile(officialPreloadPath, officialPreload.outputFiles[0].text);
+    await writeFile(officialPreloadPath, await buildOfficialPlanPreload(origin));
     ordinaryWindow.webContents.on("will-attach-webview", (_event, preferences) => {
       if (
         preferences.preload ===
@@ -126,7 +60,7 @@ async function run() {
     ordinaryWindow.hide();
     if (ordinaryWindow.webContents.isLoading())
       await new Promise((resolve) => ordinaryWindow.webContents.once("did-finish-load", resolve));
-    const beforeHostFetch = privateRequests;
+    const beforeHostFetch = counters.private;
     const hostFetchRejected = await ordinaryWindow.webContents.executeJavaScript(
       `fetch(${JSON.stringify(`${origin}/xcode/plans?handoff=host-default`)}).then(() => false, () => true)`,
     );
@@ -138,7 +72,7 @@ async function run() {
     assert.deepEqual(
       {
         rejected: hostFetchRejected,
-        privateRequests: privateRequests - beforeHostFetch,
+        privateRequests: counters.private - beforeHostFetch,
         cookieCount: hostCookieCount,
       },
       { rejected: true, privateRequests: 0, cookieCount: 0 },
@@ -161,22 +95,63 @@ async function run() {
       ordinaryWindow,
       origin,
       createWebviewGuest,
-      () => privateRequests,
+      () => counters.private,
     );
 
+    const displayContext = {
+      version: 1,
+      theme: "light",
+      locale: "zh-CN",
+      initialAudience: "team",
+      uiFontSizePx: 14,
+    };
+    const assertDisplayCookie = (partition, cookieOrigin = origin) =>
+      assertNativeDisplayCookie(session.fromPartition(partition), cookieOrigin, displayContext);
     const nativeRequest = {
       url: `${origin}/xcode/plans?handoff=attached-native`,
       ownerGeneration: 10,
+      displayContext,
     };
     await setNativePlanWebviewOwner(ordinaryWindow.id, { origin, ownerGeneration: 10 });
     assert.equal(authorizeNativePlanWebHandoff(ordinaryWindow.id, nativeRequest), true);
     const nativePrepared = await ordinaryWindow.webContents.executeJavaScript(
       `window.nativeHandoffTest.prepare(${JSON.stringify(nativeRequest)})`,
     );
+    await assertDisplayCookie(nativePrepared.partition);
     const nativeAttached = await createWebviewGuest(nativePrepared.partition, nativeRequest.url);
+    assert.equal(
+      canAttachNativePlanWebview(ordinaryWindow.id, nativePrepared.partition, nativeRequest.url),
+      false,
+      "a claimed partition must reject repeated attachment",
+    );
     assert.match(
       await nativeAttached.executeJavaScript("document.body.textContent"),
       /Assigned plan/,
+    );
+    assert.ok(
+      counters.bootstrap > 0,
+      "the actual head bootstrap must load through the guest guard",
+    );
+    assert.deepEqual(
+      await nativeAttached.executeJavaScript(`({
+        audience: document.documentElement.dataset.xcodePlanAudience,
+        theme: document.documentElement.dataset.xcodePlanTheme,
+        locale: document.documentElement.dataset.xcodePlanLocale,
+        font: document.documentElement.dataset.xcodePlanFontSize,
+        dark: document.documentElement.classList.contains("dark"),
+        lang: document.documentElement.lang,
+        uiFont: document.documentElement.style.getPropertyValue("--ui-font-size")
+      })`),
+      {
+        audience: "team",
+        theme: "light",
+        locale: "zh-CN",
+        font: "14",
+        dark: false,
+        lang: "zh-CN",
+        uiFont: "14px",
+      },
+      "same-origin static bootstrap must apply App display before the guest app starts",
     );
     assert.deepEqual(
       await nativeAttached.executeJavaScript(
@@ -196,7 +171,7 @@ async function run() {
       ),
       { plan: "Assigned plan" },
     );
-    const beforeOtherTicket = privateRequests;
+    const beforeOtherTicket = counters.private;
     assert.equal(
       await nativeAttached.executeJavaScript(
         "fetch('/xcode/plans?handoff=other-owner').then(() => false, () => true)",
@@ -210,7 +185,7 @@ async function run() {
       true,
     );
     assert.equal(
-      privateRequests,
+      counters.private,
       beforeOtherTicket,
       "Native XHR cannot replace the current owner's Cookie with another ticket",
     );
@@ -222,13 +197,13 @@ async function run() {
         sandbox: true,
       },
     });
-    const beforeRogue = privateRequests;
+    const beforeRogue = counters.private;
     try {
       await assert.rejects(
         rogueView.webContents.loadURL(nativeRequest.url),
         "knowing an admitted partition must not admit an untracked guest",
       );
-      assert.equal(privateRequests, beforeRogue);
+      assert.equal(counters.private, beforeRogue);
     } finally {
       rogueView.webContents.close({ waitForBeforeUnload: false });
     }
@@ -249,6 +224,7 @@ async function run() {
     const requestFor = (ownerGeneration) => ({
       url: `${origin}/xcode/plans?handoff=short-code-${ownerGeneration}`,
       ownerGeneration,
+      displayContext,
     });
     const prepare = (ownerGeneration) =>
       win.webContents.executeJavaScript(
@@ -256,7 +232,21 @@ async function run() {
       );
     await setNativePlanWebviewOwner(win.id, { origin, ownerGeneration: 1 });
     assert.equal(authorizeNativePlanWebHandoff(win.id, requestFor(1)), true);
+    // XCODE: Reject display/identity pollution before consuming the legitimate Host admission.
+    await assertInvalidDisplayContexts(win, requestFor(1), displayContext);
+    await assert.rejects(
+      win.webContents.executeJavaScript(
+        `window.nativeHandoffTest.prepare(${JSON.stringify({
+          url: requestFor(1).url,
+          ownerGeneration: 1,
+        })})`,
+      ),
+      /XCODE_STALE_WEB_HANDOFF/,
+      "old untyped prepare requests must not get a compatibility bypass",
+    );
     const a = await prepare(1);
+    await assertDisplayCookie(a.partition);
+    await assert.rejects(prepare(1), /XCODE_STALE_WEB_HANDOFF/, "reload must mint a new handoff");
     const guestView = new WebContentsView({
       webPreferences: {
         partition: a.partition,
@@ -271,12 +261,12 @@ async function run() {
     const partitionSession = guest.session;
     attachNativePlanWebview(win.id, a.partition, requestFor(1).url, guest, console);
     await guest.loadURL(requestFor(1).url);
-    assert.ok(cssRequests > 0, "the first same-origin stylesheet must load");
+    assert.ok(counters.css > 0, "the first same-origin stylesheet must load");
     assert.equal(
       await guest.executeJavaScript("getComputedStyle(document.body).color"),
       "rgb(1, 2, 3)",
     );
-    assert.equal(foreignRequests, 0, "a foreign resource must not receive the short handoff");
+    assert.equal(counters.foreign, 0, "a foreign resource must not receive the short handoff");
     assert.ok(
       (await partitionSession.cookies.get({ url: `${origin}/api/xcode/v1/web/view` })).some(
         (cookie) => cookie.name === "xcode_plan" && cookie.httpOnly,
@@ -306,6 +296,7 @@ async function run() {
       /XCODE_STALE_WEB_HANDOFF/,
     );
     const b = await prepare(2);
+    await assertDisplayCookie(b.partition);
     assert.ok(
       canAttachNativePlanWebview(win.id, b.partition, requestFor(2).url),
       "late A cleanup must not erase B's policy",
@@ -317,6 +308,29 @@ async function run() {
       "A's real cookies must be cleared",
     );
     await assert.rejects(prepare(1), /XCODE_STALE_WEB_HANDOFF/);
+    await assert.rejects(prepare(2), /XCODE_STALE_WEB_HANDOFF/);
+
+    // XCODE: Pause the actual Cookie write, then replace A with a fully attached B.
+    await assertDelayedDisplayCookieOwnerLoss({
+      win,
+      origin,
+      requestFor,
+      prepare,
+      assertDisplayCookie,
+    });
+
+    const secureOrigin = "https://native.example";
+    const secureRequest = {
+      url: `${secureOrigin}/xcode/plans?handoff=secure-cookie`,
+      ownerGeneration: 5,
+      displayContext,
+    };
+    await setNativePlanWebviewOwner(win.id, { origin: secureOrigin, ownerGeneration: 5 });
+    assert.equal(authorizeNativePlanWebHandoff(win.id, secureRequest), true);
+    const secure = await win.webContents.executeJavaScript(
+      `window.nativeHandoffTest.prepare(${JSON.stringify(secureRequest)})`,
+    );
+    await assertDisplayCookie(secure.partition, secureOrigin);
     const officialUrl = `${origin}/coding-plan?embedded=app`;
     const officialGuest = await createWebviewGuest("persist:official-plan-regression", officialUrl);
     assert.equal(
@@ -334,6 +348,12 @@ async function run() {
         ordinaryInitialAttachDenied: true,
         unrelatedBrowsingUnaffected: true,
         sameOriginCss: true,
+        sameOriginBootstrap: true,
+        hostOnlySessionDisplayCookie: true,
+        secureDisplayCookieOnHttps: true,
+        cookieAwaitOwnerLossRejected: true,
+        lateCookieClearsOnlyA: true,
+        oldAttachDenied: true,
         foreignResourceDenied: true,
         nullToNewOwner: true,
         oldPartitionCookiesCleared: true,
@@ -351,10 +371,7 @@ async function run() {
     if (win && !win.isDestroyed()) {
       await setNativePlanWebviewOwner(win.id, null);
     }
-    await Promise.all([
-      new Promise((resolve) => server.close(resolve)),
-      new Promise((resolve) => foreign.close(resolve)),
-    ]);
+    await closeFixtureServer();
     await rm(dataDirectory, { recursive: true, force: true });
     app.exit(exitCode);
   }

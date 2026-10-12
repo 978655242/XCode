@@ -1,22 +1,43 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import type { NativePlanDisplayContext } from "@zcode/shared";
 import { useServices } from "@/hooks/useServices.js";
 import { usePlatform } from "@/hooks/usePlatform.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { EmbeddedWebsiteHeader } from "@/components/EmbeddedWebsiteHeader.js";
 import { Button } from "@/components/ui/button.js";
 import { logger } from "@/logger.js";
+import { useZCodeStoreWithDefault } from "@/store/StoreProvider.js";
+import { resolveTheme } from "@/useTheme.js";
 
 // XCODE: Native pages get a one-use URL, never the official credential injection path.
 export function NativePlanEmbeddedWebviewDialog({
   onClose,
   onOpenResult,
+  initialAudience = "personal",
 }: {
   onClose: () => void;
   onOpenResult?: (opened: boolean) => void;
+  initialAudience?: NativePlanDisplayContext["initialAudience"];
 }) {
   const { codingPlanSubscriptionService, providerSettingsService } = useServices();
   const platform = usePlatform();
-  const { intl } = useZCodeIntl();
+  const { intl, locale } = useZCodeIntl();
+  const theme = useZCodeStoreWithDefault((state) => state.theme, "zai-dark");
+  const uiFontSizePx = useZCodeStoreWithDefault((state) => state.uiFontSizePx, 14);
+  const subscribeToSystemTheme = useCallback(
+    (onChange: () => void) => {
+      if (theme !== "system") return () => {};
+      const media = window.matchMedia("(prefers-color-scheme: dark)");
+      media.addEventListener("change", onChange);
+      return () => media.removeEventListener("change", onChange);
+    },
+    [theme],
+  );
+  const resolvedTheme = useSyncExternalStore(
+    subscribeToSystemTheme,
+    () => resolveTheme(theme),
+    () => (theme === "dark" || theme === "zai-dark" ? "dark" : "light"),
+  );
   const [view, setView] = useState<{ url: string; partition: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [request, setRequest] = useState(0);
@@ -33,6 +54,7 @@ export function NativePlanEmbeddedWebviewDialog({
     let partition: string | null = null;
     setView(null);
     setError(null);
+    setNavigation({ loading: true, back: false, forward: false });
     const dispose = platform.onNativePlanWebviewInvalidated?.((invalidated) => {
       if (partition === invalidated && active) onCloseRef.current();
     });
@@ -41,7 +63,17 @@ export function NativePlanEmbeddedWebviewDialog({
         throw new Error("XCODE_WEBVIEW_UNAVAILABLE");
       const handoff = await codingPlanSubscriptionService.createPlanWebHandoff();
       if (!active) return;
-      const prepared = await platform.prepareNativePlanWebview(handoff);
+      // XCODE: Rebuild the one-use partition for every App display/entry change, never a URL hint.
+      const prepared = await platform.prepareNativePlanWebview({
+        ...handoff,
+        displayContext: {
+          version: 1,
+          theme: resolvedTheme,
+          locale,
+          initialAudience,
+          uiFontSizePx,
+        },
+      });
       partition = prepared.partition;
       if (!active) {
         await platform.closeNativePlanWebview(partition);
@@ -60,12 +92,27 @@ export function NativePlanEmbeddedWebviewDialog({
         void platform
           .closeNativePlanWebview?.(partition)
           .catch((cause) => logger.warn("[NativePlanWebview] partition cleanup failed", { cause }));
-      // Closing is not payment completion: reread the real Host entitlement/catalog only.
+    };
+  }, [
+    codingPlanSubscriptionService,
+    initialAudience,
+    intl,
+    locale,
+    platform,
+    request,
+    resolvedTheme,
+    uiFontSizePx,
+  ]);
+
+  useEffect(
+    () => () => {
+      // XCODE: Display rebuilds are not payments or closes; refresh real entitlement only on exit.
       void providerSettingsService
         .refresh("native-plan-page-closed")
         .catch((cause) => logger.warn("[NativePlanWebview] refresh failed", { cause }));
-    };
-  }, [codingPlanSubscriptionService, intl, platform, providerSettingsService, request]);
+    },
+    [providerSettingsService],
+  );
 
   const bindWebview = useCallback(
     (guest: ElectronWebviewTag | null) => {
@@ -116,7 +163,8 @@ export function NativePlanEmbeddedWebviewDialog({
       data-plan-source="new-api"
     >
       <EmbeddedWebsiteHeader
-        title={intl.formatMessage({ id: "settings.modelProvider.native.planTitle" })}
+        title={intl.formatMessage({ id: "settings.modelProvider.codingPlan.webview.title" })}
+        contentClassName="max-w-[1352px]"
         loading={navigation.loading && !error}
         canGoBack={navigation.back}
         canGoForward={navigation.forward}
@@ -125,12 +173,13 @@ export function NativePlanEmbeddedWebviewDialog({
         onReload={() => setRequest((value) => value + 1)}
         onClose={onClose}
       />
-      <main className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-3 px-6 py-4 max-sm:px-4">
-        <p className="text-ui-base text-foreground-subtle">
-          {intl.formatMessage({ id: "settings.modelProvider.native.manualGrant" })}
-        </p>
+      {/* XCODE: Only the webpage owns content width/padding; the Native guest gets the full viewport. */}
+      <main className="flex min-h-0 w-full flex-1 flex-col">
         {error ? (
-          <div role="alert" className="text-ui-base text-destructive">
+          <div
+            role="alert"
+            className="mx-auto flex w-full max-w-[1400px] items-center gap-3 px-6 py-4 text-ui-base text-destructive"
+          >
             {error}
             <Button variant="outline" size="sm" onClick={() => setRequest((value) => value + 1)}>
               {intl.formatMessage({ id: "common.retry" })}
@@ -143,7 +192,7 @@ export function NativePlanEmbeddedWebviewDialog({
             ref={bindWebview}
             src={view.url}
             partition={view.partition}
-            className={error ? "hidden" : "min-h-0 flex-1 bg-background"}
+            className={error ? "hidden" : "min-h-0 w-full flex-1 bg-background"}
             data-testid="coding-plan-embedded-webview"
           />
         ) : null}

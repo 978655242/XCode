@@ -53,6 +53,7 @@ import {
   guardOrdinaryNativePlanRequests,
   guardPlanWebviewSession,
   isNativePlanPrivateUrl,
+  syncNativePlanWebviewZoom,
 } from "./nativePlanWebviewManager.js";
 // CDP-on-guest pivot：内置浏览器改回 `<webview>` 渲染，宿主 BrowserWindow 需重新开 webviewTag，
 // 并在 will/did-attach-webview 里做 guest 硬化 + URL 白名单 + popup 路由回内部 tab。
@@ -617,6 +618,8 @@ export function createBrowserWindow(options: {
   // 缩放命令原本只改当前运行窗口，没有在重启后恢复。
   // 创建窗口时由 main 进程先应用 setting.json 中的桌面缩放档位，同时覆盖 Chromium 可能残留的 per-host zoom。
   win.webContents.setZoomFactor(initialDesktopZoomFactor);
+  // XCODE: Native guest zoom follows the same desktop owner on startup and replay.
+  syncNativePlanWebviewZoom(win);
   if (process.platform === "win32") registerCustomWindowsControls(win);
   syncWindowControlsOverlayForZoomLevel(win, initialDesktopZoomLevel);
 
@@ -641,6 +644,7 @@ export function createBrowserWindow(options: {
     // origin 级 zoom 状态，把窗口创建阶段设置的持久化缩放覆盖回默认值。
     // did-finish-load 后再按 setting.json 的档位重放一次，确保生产包和开发态 localhost 行为一致。
     win.webContents.setZoomFactor(initialDesktopZoomFactor);
+    syncNativePlanWebviewZoom(win);
     syncWindowControlsOverlayForZoomLevel(win, initialDesktopZoomLevel);
     syncWindowFullscreenState(win);
   });
@@ -689,6 +693,8 @@ export function createBrowserWindow(options: {
     webPreferences.nodeIntegration = false;
     webPreferences.nodeIntegrationInSubFrames = nativePartition === null;
     webPreferences.sandbox = true;
+    // XCODE: Seed Native guest zoom before its first frame; ordinary guests keep their own behavior.
+    if (nativePartition) webPreferences.zoomFactor = win.webContents.getZoomFactor();
 
     delete params.preload;
     delete params.nodeintegration;

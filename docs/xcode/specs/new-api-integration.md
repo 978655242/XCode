@@ -1,6 +1,6 @@
 # XCode / XWork 私有网关：客户端适配实现规范
 
-状态：业务范围已确认，待实现。本次仅交付 specs，不修改源码、凭据、运行服务或数据库。
+状态：2026-10-09 开始按客户端独立执行计划实施；已有 wire/主身份工作继续完成。代码实现、确定性回归与真实联调分别记录，不以测试或旧服务 status 代替桌面验收。
 
 跨仓库 HTTP、认证、额度、模型 metadata 与错误定义以 [New API canonical spec](../../../../new-api/docs/specs/xcode-integration.md) 为准。本文件规定 XCode 的 Host/RPC/Registry/UI 映射，不维护第二套 HTTP 契约。XCode 为代码目录，该基线产品展示名是 XWork；不再重命名，也不删除 New API / QuantumNous 归属。
 
@@ -21,18 +21,18 @@
 
 ## 2. 源码依赖与实际切入点
 
-| 领域 | 当前源码与约束 |
-| --- | --- |
-| 主账号 RPC | [IOAuthService](../../../packages/services/src/oauth/oauth.ts)、[shared OAuth DTO](../../../packages/shared/src/oauth.ts#L55)、[OAuthService](../../../packages/services/src/oauth/oauthService.ts)、[凭据 Repo](../../../packages/services/src/oauth/repo/oauthCredentialRepo.ts) |
-| 套餐 RPC | [ICodingPlanSubscriptionService](../../../packages/services/src/coding-plan-subscription/codingPlanSubscription.ts#L58)，包含个人/企业/Start、Stripe/PayPal、官方 feature config 等多种职责 |
-| 用量 RPC | [IUsageStatsService](../../../packages/services/src/usage-stats/usageStats.ts#L20)、[Usage DTO](../../../packages/shared/src/usage-stats.ts#L64)、[Quota DTO](../../../packages/shared/src/usage-quota.ts) |
-| Provider 运行时 | [Host 组装](../../../packages/services/src/node.ts#L1491)、[providerRuntime](../../../packages/services/src/model-provider/providerRuntime.ts)、[连接解析](../../../packages/services/src/model-provider/accountProviderConnectionResolver.ts) |
-| Registry 边界 | [account source](../../../packages/provider/src/sources.ts)、[AccountProviderService](../../../packages/provider/src/account-provider-service.ts)、[resolver](../../../packages/provider/src/resolver.ts)、[Registry 发布](../../../packages/provider/src/registry-service.ts) |
-| 能力结构 | [shared model-config](../../../packages/shared/src/model-config.ts#L21)、[provider access union](../../../packages/provider/src/config/provider-data-schema.ts#L4)、[受限 option-map](../../../packages/model-option-map/src/compiler.ts#L35) |
-| worker 同步 | [Host push](../../../packages/services/src/zcode-agent/zcodeAgentService.ts#L1382)、[worker runtime](../../../apps/zcode-cli/packages/bootstrap/src/app/process-provider-registry-runtime.ts)、[account config protocol](../../../apps/zcode-cli/packages/bootstrap/src/zcode-protocol/account-provider-config.ts) |
-| 官方云身份 | [officialMcpCredentials](../../../packages/services/src/official-mcp/officialMcpCredentials.ts#L151)、[offPeakRuntimeModel](../../../packages/services/src/session/offPeakRuntimeModel.ts)、[off-peak model view](../../../packages/services/src/model-provider/offPeakModelSelectionView.ts) |
-| 嵌入购买页 | [CodingPlanUpgradeDialog](../../../packages/ui/src/settings/CodingPlanUpgradeDialog.tsx)、[用量面板](../../../packages/ui/src/settings/usage-stats/CodingPlanUsagePanel.tsx) |
-| 远程边界 | [remoteWorkspaceServiceCollection](../../../packages/desktop/src/host/remoteWorkspaceServiceCollection.ts#L320)、[当前 provisioning schema](../../../packages/shared/src/provider-provisioning.ts#L74)；本期不扩成私有远程协议 |
+| 领域            | 当前源码与约束                                                                                                                                                                                                                                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 主账号 RPC      | [IOAuthService](../../../packages/services/src/oauth/oauth.ts)、[shared OAuth DTO](../../../packages/shared/src/oauth.ts#L55)、[OAuthService](../../../packages/services/src/oauth/oauthService.ts)、[凭据 Repo](../../../packages/services/src/oauth/repo/oauthCredentialRepo.ts)                                 |
+| 套餐 RPC        | [ICodingPlanSubscriptionService](../../../packages/services/src/coding-plan-subscription/codingPlanSubscription.ts#L58)，包含个人/企业/Start、Stripe/PayPal、官方 feature config 等多种职责                                                                                                                        |
+| 用量 RPC        | [IUsageStatsService](../../../packages/services/src/usage-stats/usageStats.ts#L20)、[Usage DTO](../../../packages/shared/src/usage-stats.ts#L64)、[Quota DTO](../../../packages/shared/src/usage-quota.ts)                                                                                                         |
+| Provider 运行时 | [Host 组装](../../../packages/services/src/node.ts#L1491)、[providerRuntime](../../../packages/services/src/model-provider/providerRuntime.ts)、[连接解析](../../../packages/services/src/model-provider/accountProviderConnectionResolver.ts)                                                                     |
+| Registry 边界   | [account source](../../../packages/provider/src/sources.ts)、[AccountProviderService](../../../packages/provider/src/account-provider-service.ts)、[resolver](../../../packages/provider/src/resolver.ts)、[Registry 发布](../../../packages/provider/src/registry-service.ts)                                     |
+| 能力结构        | [shared model-config](../../../packages/shared/src/model-config.ts#L21)、[provider access union](../../../packages/provider/src/config/provider-data-schema.ts#L4)、[受限 option-map](../../../packages/model-option-map/src/compiler.ts#L35)                                                                      |
+| worker 同步     | [Host push](../../../packages/services/src/zcode-agent/zcodeAgentService.ts#L1382)、[worker runtime](../../../apps/zcode-cli/packages/bootstrap/src/app/process-provider-registry-runtime.ts)、[account config protocol](../../../apps/zcode-cli/packages/bootstrap/src/zcode-protocol/account-provider-config.ts) |
+| 官方云身份      | [officialMcpCredentials](../../../packages/services/src/official-mcp/officialMcpCredentials.ts#L151)、[offPeakRuntimeModel](../../../packages/services/src/session/offPeakRuntimeModel.ts)、[off-peak model view](../../../packages/services/src/model-provider/offPeakModelSelectionView.ts)                      |
+| 嵌入购买页      | [CodingPlanUpgradeDialog](../../../packages/ui/src/settings/CodingPlanUpgradeDialog.tsx)、[用量面板](../../../packages/ui/src/settings/usage-stats/CodingPlanUsagePanel.tsx)                                                                                                                                       |
+| 远程边界        | [remoteWorkspaceServiceCollection](../../../packages/desktop/src/host/remoteWorkspaceServiceCollection.ts#L320)、[当前 provisioning schema](../../../packages/shared/src/provider-provisioning.ts#L74)；本期不扩成私有远程协议                                                                                     |
 
 两项不能省略的改造：
 
@@ -43,19 +43,21 @@
 
 ## 3. 状态与凭据所有权
 
-| 状态 | 唯一 owner | 不变量 |
-| --- | --- | --- |
-| New API 主账号/SID/refresh | 窗口 Local Host 的主登录服务与安全凭据库 | Renderer 只拿公开 UserInfo/状态，不拿 control/refresh/sk-key |
-| 私有控制 API client | Local Host，绑定已验证主账号 | 请求 origin 固定为 New API；401/403 与网络失败分开处理 |
-| 私有模型授权/目录 | Host AccountProviderService | 以当前 user/SID/auth generation/canonical revision 构建快照；不是 Personal Config |
-| 本机 worker 配置 | 现有 providerUpdateAccountConfig | 数据快照和请求期 secret 分离；过期/另一用户快照不执行 |
-| 官方云连接 | 独立 Host 官方连接服务 | 按 New API 主用户命名空间持久化；不由当前私有模型 provider 推断 |
-| 官方云目录与权益 | 原官方 source/adapter，绑定独立官方连接 | 只用官方真实模型/Plan/组织项目，不能读 New API model catalog 替代 |
-| UI | 现有 RPC/hooks | 订阅状态是投影，不能自行授予、重置或重新解释金额 |
+| 状态                       | 唯一 owner                                                 | 不变量                                                                            |
+| -------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| New API 主账号/SID/refresh | 窗口 Local Host 的 `NewApiAccountService` 与私有安全凭据库 | 仅 `.oauth` 公共投影注册 RPC；Renderer 不拿 control/refresh/sk-key                |
+| 私有控制 API client        | Local Host，绑定已验证主账号                               | 请求 origin 固定为 New API；401/403 与网络失败分开处理                            |
+| 私有模型授权/目录          | Host AccountProviderService                                | 以当前 user/SID/auth generation/canonical revision 构建快照；不是 Personal Config |
+| 本机 worker 配置           | 现有 providerUpdateAccountConfig                           | 数据快照和请求期 secret 分离；过期/另一用户快照不执行                             |
+| 官方云连接                 | 独立 Host 官方连接服务                                     | 按 New API 主用户命名空间持久化；不由当前私有模型 provider 推断                   |
+| 官方云目录与权益           | 原官方 source/adapter，绑定独立官方连接                    | 只用官方真实模型/Plan/组织项目，不能读 New API model catalog 替代                 |
+| UI                         | 现有 RPC/hooks                                             | 订阅状态是投影，不能自行授予、重置或重新解释金额                                  |
 
 每轮异步请求冻结 `origin + NewApiUserId + SID + authGeneration`；官方请求还冻结 `officialConnectionKey + credentialGeneration`。返回前核对，身份变了则丢弃旧结果。不得把 A 用户的订阅、模型、图表、WebView 或云凭据写进 B 用户的状态。
 
 主账号 logout、换号、refresh 失效、明确 SID/key 撤销立即清理可执行授权，失效 in-flight 请求/缓存及本机 worker credentials；尽力调用服务端 logout，并按真实结果处理网络失败。不宣称本机离线删除等于已经服务端撤销。
+
+Account refresh 的过期失败不能恢复启动请求时捕获的旧授权；失败失效基于当前快照。logout、换号、官方连接失效与新 owner 的已发布状态不被旧异常覆盖。
 
 官方云凭据退出主账号时锁定/隐藏，按用户要求保留安全存储；再次登录**同一个原生 user_id**才允许恢复。切换其他主用户不得迁移、借用或暴露它们。旧全局、没有明确主账号 owner 的官方凭据不自动认领给第一位私有用户；保留原数据，要求该用户独立完成真实官方登录后形成新 namespace。
 
@@ -64,6 +66,8 @@
 ### 4.1 配置与 Adapter
 
 新增明确的 `NEW_API_BASE_URL`，开发值 `http://127.0.0.1:3001`；解析并规范化精确 origin，HTTP 仅允许本机 loopback。不要复用 Z.ai/BigModel/官方 XCode 服务的 env 或从网页 metadata 接受任意 endpoint。
+此显式 origin 启用桌面私有组合；未配置的原非私有宿主及独立 Web/远程路径保留。已配置后，认证、目录、套餐或用量失败不得回退到原官方身份/资金或自配 Provider；配置值不是从 status、metadata 或旧官方 origin 推导的默认值。
+Main 与 Host 使用同一有效环境配置：开发 `.env`/`.env.local` 与进程环境的既有优先级一致，进程中的显式空值也必须一致关闭；安全密钥加载及闲时 scheduler 模式不能仅检查未经合并的进程环境。
 
 主登录 Provider ID 为 `new-api`；在已有 OAuth adapter/service 框架中增加原生授权 code + PKCE adapter。所有浏览器登录/注册页转到 New API 本源，复用原生密码、注册、2FA、Passkey 等流程。不在 Electron 保存密码，也不复制 Native 登录表单/账户库。
 
@@ -78,6 +82,8 @@
 ### 4.2 安全持久化与恢复
 
 安全凭据域按 `new-api:<origin-key>:<user-id>:<sid>` 命名，保存 control、refresh、relay 的类型/expiry。origin-key 是规范化 origin 的稳定非秘密标识；不能同用户名不同服务器复用 token。
+
+复用现有 `credentials.json`、目录锁和原子替换。私有 typed bundle 与 active pointer 同次加密落盘，refresh/delete/取消补偿按精确 owner 与前继 refresh CAS；公共 `ICredentialService` 拒绝 `new-api:` / `official-cloud:` 秘密域。Desktop Main 使用平台 `safeStorage` 保护独立随机私有加密 key，仅传给 Host；拒绝 Linux `basic_text` 或无安全 keystore 的降级。旧官方密文不改 key，Headless 缺私有 cipher 时明确不可用。
 
 原生 JWT本地 exp 解析只作刷新提示；身份、SID、授权最终由服务端确认。Opaque/不可解析不等于已经登录。刷新采用 Host 内单飞，复用原生 refresh 轮换和竞态恢复，及时原子替换安全库中的后继 refresh。
 
@@ -94,6 +100,12 @@
 升级入口实际 load embedded `/coding-plan` 页面。改为 Host 请求 `/web-handoffs`，仅加载返回的同源 `/xcode/plans` 短期交接 URL。保持原 dialog/sidebar/navigation，不注入官方 localStorage 脚本。
 
 WebView 分区绑定主账号 generation，退出/切换即清理/关闭旧视图；不能复用 A 的分区给 B。页面只拿服务端只读 Cookie，不能看到 control、refresh 或 sk-key。校验精确私有 origin；拒绝跨源导航拿凭据，不放宽既有官方 origin 防护。
+
+Main 必须先收到当前可信 Host 对**精确 handoff URL 与 generation**的一次性 admission REQUEST，校验当前 child、所属 BrowserWindow 与当前 owner，并回送匹配该 REQUEST 的 ACK；Host 等待成功 ACK 且再次核对 owner 后才返回 Renderer RPC。`createPlanWebHandoff` 缺少该 seam 时须在请求 `/web-handoffs`、铸造短码前拒绝；只读 headless 依赖可不提供 seam，但不能因此绕过交接准入。REQUEST/ACK 不承载 control、refresh、relay key 或 Cookie。跨 IPC 通道不靠超时猜测登记已完成，也不依赖离线 logout 已送达服务端。
+
+Renderer 只能消费当前窗口最新的 admission，不能自行登记；`ownerGeneration` 数字本身不是授权。仅比对 Renderer 提交的 generation 不能阻止它给旧 A URL 改写 B generation，即使旧短码仍有效也必须拒绝。owner 变化清除待用 URL；准备分区即一次性消费，guest 只能 attach 一次，重复或重标记均拒绝。Host 退出、换号或窗口销毁须失效待决准入与迟到 ACK。初始主 frame 必须是已登记短 URL，之后只允许同源无 query/hash/userinfo 的 `/xcode/plans`；外源资源、popup、下载及权限请求拒绝。同源首屏资源按已准入 origin 校验，不依赖尚为空的 guest URL。异步清理旧 A 分区不得删除随后建立的 B policy。
+
+升级页视觉恢复的无秘密展示上下文由 `IPlatformService.prepareNativePlanWebview` 送 Main，在已准入临时分区写 UI Cookie；不改 Host `createPlanWebHandoff`、短码认证和上述 URL 防护。完整字段、异步写入后的 owner 复核及 head Bootstrap 首帧规则见 [升级 UI 规格 §5](new-api-upgrade-ui.md#5-无秘密展示上下文与首帧)；展示 Cookie 与 HttpOnly 认证 Cookie 不可混用。
 
 ## 5. 私有 Provider Registry 与模型调用
 
@@ -123,6 +135,10 @@ group 为 `new-api-family`，不要按每个套餐新建 provider ID。模型归
 
 Native Provider 归类为 ordinary model-selection 行为，但 access 仍为 managed account；不套原 `account-plan` 的“唯一 current Provider 自动 remap”，避免三种 transport 产生歧义。选择由实际 provider+model ref 决定，不自动转成另一协议或模型。
 
+XWork 前端仅开放 `account:new-api-openai-chat-completions`，展示名称固定为 `XWork·Plan`。另两个 anchor 使用现有 `visibility: hidden`，不进入模型设置、聊天模型选择或默认候选；历史 ref 保留但不自动迁移，重新选择可见模型。底层协议契约与管理员模型归属不改，不把其他 transport 的模型移入 Chat Completions。可见入口即使目录为空也保留，按真实权限和配置显示不可用。用户自配 Provider 与独立官方云连接不受影响。
+
+模型设置遵循 [原版呈现规格](new-api-model-settings-ui.md)：托管入口复用现有标题、编程套餐状态卡、个人/团队入口，数据只取 Native `/plans` 与 `/entitlements`。参考价只在相同币种/完整周期的启用模板中比较；团队明确不支持。独立官方连接操作保留在使用统计 MCP 区，不在套餐详情另造横幅。UI 投影按既有 connectionKey、登录 epoch、服务实例与请求序号隔离，换号/退出首帧清空旧数据，查询失败不解释为未开通。
+
 ### 5.2 动态能力的真实通道
 
 扩展 AccountProviderConfigSnapshot，增加 `modelConfigs`：providerId → modelId →完整 ModelConfigData，并纳入 revision/解析/序列化。复用现有 source/AccountProviderService，不另建一套 Registry。
@@ -135,8 +151,6 @@ Native Provider 归类为 ordinary model-selection 行为，但 access 仍为 ma
 4. 私有模型完整 capabilities 最终由 account snapshot 取值；Personal/Template/manual model 规则不得覆盖管理员上下文/能力/协议。用户仍可选择允许的 reasoning level、输出上限，不可放宽其范围。
 5. `providerUpdateAccountConfig` 以及 worker 的 parseProcessAccountProviderConfigSnapshot 同步扩展 modelConfigs；Host 与本机 worker 同时更新，不能只改桌面 selector。
 6. Native source 出错、换号/撤销时先发布 fail-closed 的可执行权限，旧 Registry 在等待 revision 时也不得继续执行旧用户模型。保留缓存资料与允许请求是两回事。
-XWork 前端仅开放 `account:new-api-openai-chat-completions`，展示名称固定为 `XWork·Plan`。另两个 anchor 使用现有 `visibility: hidden`，不进入模型设置、聊天模型选择或默认候选；历史 ref 保留但不自动迁移，重新选择可见模型。底层协议契约与管理员模型归属不改，不把其他 transport 的模型移入 Chat Completions。可见入口即使目录为空也保留，按真实权限和配置显示不可用。用户自配 Provider 与独立官方云连接不受影响。
-
 
 完整能力依 canonical §7：contextWindow、全部 input/output flags、tool/JSON schema/native search/mid-system、reasoning values/map、output max/map。用现有 completeModelConfigDataSchema 和受限 CEL 编译器严格校验；无 reasoning 的 neutral 配置也来自服务器，不是客户端补默认值。
 
@@ -165,14 +179,14 @@ secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或
 
 必须迁移所有受影响 caller，而不是兼容别名或新旧同时有效：
 
-| 区域 | 需要的 clean cutover |
-| --- | --- |
-| provider config | provider-data-schema/provider-config/schema/rule-data-schema 的访问与 group union、hydration/overlay/只读约束 |
-| Registry | resolver、sources、account-provider-resolution/state/service、config-service 的 entitled/current/fail-closed 分支 |
-| shared | model-provider-types、zcode-protocol AccountAccess/模型 DTO、worker account-config 协议 |
-| node | model-selection-facade 分类、process-provider-registry-runtime 解析、Host account provider connection/auth |
-| UI | usePlanIdentitySnapshot、accountProviderAccess、codingPlanUsageSources、modelVisionBadge、ModelProviderSection/Detail 以及账号失效提示 |
-| 身份分支 | 任何 `family === "zai" ? ... : bigmodel` 式 fallback 必须显式处理 native 与 official-cloud；不得把 new-api 当 bigmodel |
+| 区域            | 需要的 clean cutover                                                                                                                   |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| provider config | provider-data-schema/provider-config/schema/rule-data-schema 的访问与 group union、hydration/overlay/只读约束                          |
+| Registry        | resolver、sources、account-provider-resolution/state/service、config-service 的 entitled/current/fail-closed 分支                      |
+| shared          | model-provider-types、zcode-protocol AccountAccess/模型 DTO、worker account-config 协议                                                |
+| node            | model-selection-facade 分类、process-provider-registry-runtime 解析、Host account provider connection/auth                             |
+| UI              | usePlanIdentitySnapshot、accountProviderAccess、codingPlanUsageSources、modelVisionBadge、ModelProviderSection/Detail 以及账号失效提示 |
+| 身份分支        | 任何 `family === "zai" ? ... : bigmodel` 式 fallback 必须显式处理 native 与 official-cloud；不得把 new-api 当 bigmodel                 |
 
 不删除仍由官方云使用的旧 family、off-peak ID/配置和官方 adapters；删除的是普通私有路径上的旧依赖、fallback、secret alias 和失效兼容逻辑。
 
@@ -180,37 +194,45 @@ secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或
 
 主套餐服务改为 Native read adapter。原个人/企业/Start 入口统一对应真实模板与唯一指定订阅；不假造企业 org/project、Start wallet、免费赠送、已有订单或支付签约。
 
-| 现有 ICodingPlanSubscriptionService 方法 | 一期映射 |
-| --- | --- |
-| getStaticProducts / getStaticTeamProducts / getStartPlanPreview / batchPreview / productInfo / preview | canonical plans + entitlements；返回带 native/private-user 语义的 shared 读 DTO，真实模板 ID/名称/价格/周期。不要强塞假企业结构 |
-| getEnterprisePricing / getEnterpriseBalance | 主套餐页面为统一私人订阅的预算/额度展示；明确不是企业组织钱包。真实官方 team scope 读取移至独立官方连接路径 |
-| createSign / updateSign | 拒绝 `XCODE_SELF_SERVICE_DISABLED`；不返回 agreement/payment URL |
-| bindStripeCard / unbindStripeCard / payStripe | 同上；不调用官方/native支付写接口 |
-| createPaypalSetupToken / subscribePaypal | 同上；不创建假 setup token |
-| calculateEnterpriseOrder / createEnterpriseOrder / cancelEnterpriseOrder / continueEnterpriseOrderPayment | 同上；本期不存在 XCode 下单/订单修改操作 |
-| checkPayment / checkPendingOrders / queryStripeCards / checkPaypalSupport / getEnterprisePendingOrders / checkEnterpriseOrderStatus | 使用下文确定的 SelfServiceReadResult；私有模式返回 not-supported，不返回 paid 成功、空订单/false 等代替未提供的业务事实 |
-| getOffPeakClientConfig / getDynamicWorkflowClientConfig | 保持原官方配置读取，改用独立官方连接；不从 Native client-config 仿造 |
-| getModelContextBudgetStrategy | 保留现有 preflight-v1 客户端策略；管理员 metadata 决定模型硬上限 |
-| getForceUpdateConfig | 保留实际应用更新来源，不伪装成 New API 套餐字段 |
+| 现有 ICodingPlanSubscriptionService 方法                                                                                            | 一期映射                                                                                                                        |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| getStaticProducts / getStaticTeamProducts / getStartPlanPreview / batchPreview / productInfo / preview                              | canonical plans + entitlements；返回带 native/private-user 语义的 shared 读 DTO，真实模板 ID/名称/价格/周期。不要强塞假企业结构 |
+| getEnterprisePricing / getEnterpriseBalance                                                                                         | 主套餐页面为统一私人订阅的预算/额度展示；明确不是企业组织钱包。真实官方 team scope 读取移至独立官方连接路径                     |
+| createSign / updateSign                                                                                                             | 拒绝 `XCODE_SELF_SERVICE_DISABLED`；不返回 agreement/payment URL                                                                |
+| bindStripeCard / unbindStripeCard / payStripe                                                                                       | 同上；不调用官方/native支付写接口                                                                                               |
+| createPaypalSetupToken / subscribePaypal                                                                                            | 同上；不创建假 setup token                                                                                                      |
+| calculateEnterpriseOrder / createEnterpriseOrder / cancelEnterpriseOrder / continueEnterpriseOrderPayment                           | 同上；本期不存在 XCode 下单/订单修改操作                                                                                        |
+| checkPayment / checkPendingOrders / queryStripeCards / checkPaypalSupport / getEnterprisePendingOrders / checkEnterpriseOrderStatus | 使用下文确定的 SelfServiceReadResult；私有模式返回 not-supported，不返回 paid 成功、空订单/false 等代替未提供的业务事实         |
+| getOffPeakClientConfig / getDynamicWorkflowClientConfig                                                                             | 保持原官方配置读取，改用独立官方连接；不从 Native client-config 仿造                                                            |
+| getModelContextBudgetStrategy                                                                                                       | 保留现有 preflight-v1 客户端策略；管理员 metadata 决定模型硬上限                                                                |
+| getForceUpdateConfig                                                                                                                | 保留实际应用更新来源，不伪装成 New API 套餐字段                                                                                 |
 
 上述六个自助支付读方法的返回值统一改为 `SelfServiceReadResult<T>`：`{availability:"available",data:T}` 或 `{availability:"not-supported",reason:"manual_admin",data:null}`。T 分别为原 `CodingPlanPaymentCheckResponse`、`CodingPlanPendingOrderCheckResponse`、`CodingPlanStripeCard[]`、`CodingPlanPaypalSupportResponse`、`EnterpriseCodingPlanPendingOrder[]`、`EnterpriseCodingPlanOrderStatusResponse`。当前私有模式只能返回第二分支；权限/身份/网络/后端失败仍抛真实错误，不当作 not-supported。所有 caller 必须先按 availability 分支，停止订单状态/付款轮询并显示现有手工授予入口；不新增支付读 HTTP 请求。旧非私有功能如果仍使用这些读方法，真实 T 必须显式包装 available，不能保留未判别的兼容返回。
 
 不要新增几十个仿官方 HTTP endpoint。允许 shared DTO 增加明确 `source="new-api"`、`purchaseMode="manual_admin"`、`scope="private-user"` 分支并迁移 caller；RPC channel/服务边界和现有页面组件保留，不要求错误地冻结所有旧 DTO。
 
-原“购买/升级/续费”等入口保留，点击进入手工授予说明/真实套餐只读页，而不是删除入口、打开官方支付或显示已下单。实际 grant/renew/replace/revoke/reset 仅在 New API 管理员界面完成。
+原“购买/升级/续费”等入口保留，点击进入与原版一致的真实套餐比较只读页，而不是后台授权详情、删除入口、打开官方支付或显示已下单。实际 grant/renew/replace/revoke/reset 仅在 New API 管理员界面完成；手工授予事实通过参考价提示和 CTA 说明表达。
 
 主账号是 native 用户级订阅，套餐计费周期从原生数据显示。价格是参考展示；quota 显示依 canonical display 配置，不能把钱包余额或其他订阅总剩余作为 XCode 可用额度。
+
+### 6.1 升级套餐页面一致性
+
+[升级 UI 规格](new-api-upgrade-ui.md) 是本条执行规则，任务为客户端计划 U01–U04。保留原版“升级套餐”外壳、个人/团队切换、月季年选择、同排等高卡片/底部白按钮与真实主题语言首帧；品牌仍为 XWork，manual_admin 按钮为“联系管理员”，团队固定真实不支持。不伪造付款、体验结束、官方 MCP 权益或固定商品档位。
+
+仅 canonical `/web/view` 增 `plan_presentations` 展示 sidecar，公共 `/plans` 和 `NewApiPlanSchema` 不扩展。原生模板仍是价格/币种/时长/额度的唯一事实；缺周期不替用、重复 slot 不覆盖，折扣基于可比日历月真实价格。授权摘要独立于启用模板列表，卡片状态只精确匹配 plan_id；不从续期时间差猜 SKU/周期，不新增 trial 历史。
+
+初始分类、resolved theme、locale、现有字号经 Main 隔离 UI Cookie 送同源同步 Bootstrap，不拼 handoff query/hash、不注入官方认证脚本。唯一内容限宽/留白与 Native guest 父窗口 zoom 同步一并实施；恢复验收必须实际打开 Electron 的 Native 页，观察首帧、四卡/CTA、长文案、主题语言和换号，不用独立浏览器截图代替。此增量尚待实施，不能把旧页面成功打开等同 UI 一致性验收。
 
 ## 7. 用量与重置 RPC
 
 ### 7.1 统计口径必须拆开
 
-| 视图 | 数据范围 |
-| --- | --- |
-| App Usage | 当前本机 Agent 数据库，原统计不改 |
-| 私有额度卡 | 唯一 XCode 指定实例；只有一个真实 quota 周期 |
+| 视图            | 数据范围                                                                                 |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| App Usage       | 当前本机 Agent 数据库，原统计不改                                                        |
+| 私有额度卡      | 唯一 XCode 指定实例；只有一个真实 quota 周期                                             |
 | 私有云用量/图表 | New API 账号全部已记录消费/退款，显示“New API 账号用量”；包括其他 native key、订阅和钱包 |
-| 官方 MCP/云任务 | 独立官方连接的官方范围/账务；不并入 Native 套餐卡或 Native 账号图表 |
+| 官方 MCP/云任务 | 独立官方连接的官方范围/账务；不并入 Native 套餐卡或 Native 账号图表                      |
 
 `getCodingPlanUsageSnapshot` 调 canonical `/usage`；`getEntitlementSnapshot` 调 `/entitlements`；旧 monitor 路径不再决定主私有权益。`getAppUsageSnapshot` 保留本地实现。generic `getSnapshot` 按明确数据源调用；私有不可用时不降级为本地或官方 monitor。
 
@@ -222,9 +244,9 @@ secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或
 - raw ID/额度/计数在 HTTP 和 shared 边界使用十进制字符串。显示转换需有限且安全；金额/扣费不参与客户端计算。超过安全整数的精确值不能无标记截断，图表使用显示精度，不用于账务。
 - AccountUsageSnapshot 的 consume_record_count 映射为“消费记录数”，不要填入标为模型调用次数的旧字段。扩展 DTO 的原 modelCallCount 为可空，并提供明确 consumptionRecordCount/source kind；官方来源仍可保留真实 modelCallCount。
 - prompt/completion/total token 由日志实际字段；charged/refunded/net quota 依 canonical。真实无消费桶可补零；未知指标不能借此补零。
-- `CodingPlanActivitySummary.totalUsageDurationMs`、工具统计/详情、健康 decode speed 等 Native 不可提供字段改为明确 nullable/availability；UI 保留卡片并展示“暂不提供”。真实 total tokens/峰值/消费日趋势可从 Native buckets 计算，但不能冒充本机 Agent 活跃时长。
+- `CodingPlanActivitySummary.totalUsageDurationMs`、工具统计/详情、健康 decode speed 等 Native 不可提供字段改为明确 nullable/availability；UI 保留卡片并展示“暂不提供”，包括工具详情的“总计”，不能对空 series 求和后展示 0。真实 total tokens/峰值/消费日趋势可从 Native buckets 计算，但不能冒充本机 Agent 活跃时长。
 - 不从总 Tokens 推算 cache/reasoning，不从请求耗时推算 Agent 工作时长，不拼接本地工具数据装成账号全部客户端统计。
-- today/7d/30d/custom 和原 date controls 保留；custom 最多 30 个自然日，IANA/DST 与服务端 canonical 一致。显示时间与服务端 quota reset 时区分开。
+- today/7d/30d/custom 和原 date controls 保留；custom 最多 30 个自然日，IANA/DST 与服务端 canonical 一致。显示时间与服务端 quota reset 时区分开。自然日桶标签不经客户端时区改日；小时桶完整 UTC offset 保留在图表横轴和 tooltip，DST 回拨的同名小时不能合并成同一显示标签。
 - metadata 和统计里的历史 model_id 可不同集合；历史模型不再授权也可以展示消费，但不能因此恢复为可选模型。
 
 Native 主权益的 mcpQuota 必须 null，不能暗示新私有套餐附带官方 quota；官方 MCP 卡通过真实官方连接读取其真实配额。布局容器保留，未独立连接显示连接操作，已连接显示官方来源标签。
@@ -277,6 +299,8 @@ shared `CodingPlanResetStatusSnapshot` 改为有 mode 的联合：原官方窗�
 - `getOffPeakClientConfig/getDynamicWorkflowClientConfig`：保留原官方 origin及灰度/权限，采用独立 connection；不拿 Native client-config 打开官方 feature。
 - 官方 MCP usage：保留 `/api/v1/mcp/usage` 和 buildOfficialMcpAuthHeaders 的真实 scope；Native quota/read token 不参与。
 - 官方会话分享：`node.ts` 的 ConversationShareHttpClient tokenProvider 改从独立官方连接取得当前 owner 的真实官方凭据，覆盖发布/能力发现及其分享读取调用；禁止 `getActiveProvider()` 后取主账号 token 或用 Native accessToken 兜底。原 client 的 required-auth 操作无官方连接时维持 authentication_required；public preview/continuation 的 optional-auth 语义保留，可以匿名访问，但也不能附 Native token。异步能力/导入结果按主 owner 与官方 generation 栅栏校验。
+  - 发布/导入入口冻结整次操作的 Native owner 与官方 generation；本地正文/附件读取期间换号，后续 preparation/upload/confirm 不得重新取得新账号凭据。所有 HTTP attempt 与最终返回沿用同一 operation fence。
+  - 导入 fence 通过仅 Host 可携带的准入契约进入 MCP/worker/config 异步准备及实际 durable session-create 边界；过期操作不得写 session、index 或广播。持久化确认后先解除附件清理武装，再拒绝过期结果，不能通过事后删除会话引用的安全产物掩盖错误提交。公开 optional-auth/匿名读取仍保留，匿名导入也受当前 Native owner 约束。
 
 现有“二次读取 credential fingerprint 防混代”保护保留，并增加 Native主用户 owner 栅栏。正式请求不得混 A 的 JWT 与 B 的 coding-plan authorization。
 
@@ -296,13 +320,13 @@ shared `CodingPlanResetStatusSnapshot` 改为有 mode 的联合：原官方窗�
 
 ## 10. 实现顺序与变更边界
 
-| 切片 | 交付内容 | 依赖 |
-| --- | --- | --- |
-| X1 身份与协议 | Native wire解析、主/官方连接 purpose、凭据 namespace、安全恢复、pending generation | canonical auth 和 scoped Session后端 |
-| X2 Registry | 私有 access/anchors、完整 account modelConfigs、严格能力、worker同步、旧选择要求重选 | canonical models/entitlements |
-| X3 控制面 | Native套餐/usage/reset adapter、manual purchase guards、只读 Web handoff、实际周期/空值映射 | canonical读接口/页面 |
-| X4 官方云 | 独立连接/目录/权益，MCP与闲时任务解除普通Registry耦合 | X1，原官方服务 |
-| X5 联调 | 本机登录→管理员授予→真实Agent→消费→耗尽/撤销，真实 UI和官方云验收 | 两仓全部切片 |
+| 切片          | 交付内容                                                                                    | 依赖                                 |
+| ------------- | ------------------------------------------------------------------------------------------- | ------------------------------------ |
+| X1 身份与协议 | Native wire解析、主/官方连接 purpose、凭据 namespace、安全恢复、pending generation          | canonical auth 和 scoped Session后端 |
+| X2 Registry   | 私有 access/anchors、完整 account modelConfigs、严格能力、worker同步、旧选择要求重选        | canonical models/entitlements        |
+| X3 控制面     | Native套餐/usage/reset adapter、manual purchase guards、只读 Web handoff、实际周期/空值映射 | canonical读接口/页面                 |
+| X4 官方云     | 独立连接/目录/权益，MCP与闲时任务解除普通Registry耦合                                       | X1，原官方服务                       |
+| X5 联调       | 本机登录→管理员授予→真实Agent→消费→耗尽/撤销，真实 UI和官方云验收                           | 两仓全部切片                         |
 
 在现有 feature 分支实施，遵守 docs/xcode/BRANCHING.md 与仓库架构治理。新增契约放 shared、协调放服务 owner；UI使用现有RPC/hooks。先核对 exported symbol references、复用patterns，再改 union；不加单实现抽象或全局 generic backend framework。
 
@@ -314,23 +338,24 @@ shared `CodingPlanResetStatusSnapshot` 改为有 mode 的联合：原官方窗�
 
 下面是未来实现的完成条件，本次文档交付不声称已通过。
 
-| 场景 | 可观察结果 |
-| --- | --- |
-| 私有注册/登录/重启恢复 | 原页面入口/布局保留，浏览器打开本机 Native页，主UserInfo真实；无官方中转和 Renderer token |
-| 无授权→管理员grant | 登录不假报Plan；授予后从真实目录选择模型，真实本机Agent请求成功；没有钱包/其他订阅fallback |
-| 旧官方Plan选择 | 原保存选择即使 model_id 与私有目录完全相同，也不可自动迁移、必须用户重选；不调用旧网关；会话历史和custom provider仍可用 |
-| 三种transport | 实际SDK路径、stream/tool/reasoning/vision按metadata正确；失败可分辨，不只是typecheck |
-| 目录/权限更新 | 管理员metadata、grant/replace/revoke更新到Host/worker；旧用户/旧revision不可执行 |
-| 主用户A→B | A的用量、model、WebView与官方连接不出现在B；B无法读A任何secret；A再登录可恢复其官方连接 |
-| 官方登录 | 不替换Native主用户，不用Nativekey/JWT；MCP/闲时任务使用真实官方model和计费 |
-| 官方会话分享 | 发布/能力使用当前 owner 的官方凭据，主 Native token 不出站到官方；无连接时受保护动作要求官方登录，公开分享导入的匿名能力仍可用 |
-| 手工购买入口 | 原upgrade/续费入口仍在，进入只读授予说明；无假order/card/payment成功；Native原生面板支付不受影响 |
-| 单周期与无限额度 | 无五小时+周假双窗；原生period/单位正确；used比例与remaining不反转；unlimited明确 |
-| 跨周期额度刷新 | 旧周期预扣100、reset后actual150，真实卡片显示新周期完整150；actual=旧预扣也计入，旧占用退款不减少其他新请求额度，UI不自行抵扣 |
-| 账号用量 | 不同Nativekey及资金来源全计入；指定套餐额度仍仅它本身；记录数非模型调用数；欠缺指标显示不可提供 |
-| 控制/relay/Web秘密 | 三类用途不可互换，refresh仅Host；页面和日志无长期token；Web Cookie不升级原生面板 |
-| 失败/竞态 | 网络503不清账号或假报零；真实撤销要求重登；迟到login/usage/catalog/cloud结果不能覆盖当前owner |
-| 非本期远程 | 不删除原功能，不输出“私有远程可用”；旧provisioning中无新Native秘密 |
+| 场景                   | 可观察结果                                                                                                                                                                    |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 私有注册/登录/重启恢复 | 原页面入口/布局保留，浏览器打开本机 Native页，主UserInfo真实；无官方中转和 Renderer token                                                                                     |
+| 无授权→管理员grant     | 登录不假报Plan；授予后从真实目录选择模型，真实本机Agent请求成功；没有钱包/其他订阅fallback                                                                                    |
+| 旧官方Plan选择         | 原保存选择即使 model_id 与私有目录完全相同，也不可自动迁移、必须用户重选；不调用旧网关；会话历史和custom provider仍可用                                                       |
+| 三种transport          | 实际SDK路径、stream/tool/reasoning/vision按metadata正确；失败可分辨，不只是typecheck                                                                                          |
+| 目录/权限更新          | 管理员metadata、grant/replace/revoke更新到Host/worker；旧用户/旧revision不可执行                                                                                              |
+| 主用户A→B              | A的用量、model、WebView与官方连接不出现在B；B无法读A任何secret；A再登录可恢复其官方连接                                                                                       |
+| 官方登录               | 不替换Native主用户，不用Nativekey/JWT；MCP/闲时任务使用真实官方model和计费                                                                                                    |
+| 官方会话分享           | 发布/能力使用当前 owner 的官方凭据，主 Native token 不出站到官方；无连接时受保护动作要求官方登录，公开分享导入的匿名能力仍可用                                                |
+| 手工购买入口           | 原upgrade/续费入口仍在，原版套餐比较结构/真实manual CTA按§6.1及U01–U04验收；无假order/card/payment成功；Native原生面板支付不受影响                                            |
+| 交接一次性准入         | Host 等待匹配 Main ACK 后返回短 URL；无 seam 不铸码；A URL 重标 B generation、重复 prepare/attach、迟到旧 ACK 均拒绝；真实首屏同源资源可加载，旧分区清理不删除新 owner policy |
+| 单周期与无限额度       | 无五小时+周假双窗；原生period/单位正确；used比例与remaining不反转；unlimited明确                                                                                              |
+| 跨周期额度刷新         | 旧周期预扣100、reset后actual150，真实卡片显示新周期完整150；actual=旧预扣也计入，旧占用退款不减少其他新请求额度，UI不自行抵扣                                                 |
+| 账号用量               | 不同Nativekey及资金来源全计入；指定套餐额度仍仅它本身；记录数非模型调用数；欠缺指标显示不可提供                                                                               |
+| 控制/relay/Web秘密     | 三类用途不可互换，refresh仅Host；页面和日志无长期token；Web Cookie不升级原生面板                                                                                              |
+| 失败/竞态              | 网络503不清账号或假报零；真实撤销要求重登；迟到login/usage/catalog/cloud结果不能覆盖当前owner                                                                                 |
+| 非本期远程             | 不删除原功能，不输出“私有远程可用”；旧provisioning中无新Native秘密                                                                                                            |
 
 实施时运行仓库当前实际命令，不创建仅验证转发/mock echo的测试：
 
@@ -346,4 +371,4 @@ pnpm architecture:check --changed
 
 完成必须启动真实桌面应用和New API，操作实际登录、Native管理员授予及模型选择，观察真实流、日志/扣费、用量和撤销；逐项检查保留的UI surfaces。官方云联调必须有真实可用官方账户/Plan，缺少凭据时报告具体未验收项，不能用mock宣称完整替代。
 
-本次是docs-only：不要求运行上述构建/架构/应用测试，不以现有服务status成功代替新集成验收。交付校验仅为源码依据、跨仓契约、链接和完整性复核。
+执行期间须记录每次真实验证及限制。T01–T09 的实现/确定性回归与 T10 的正式联调分开签验；缺少实际部署来源、原生账号、管理员授予或真实官方账户时，不把纯测试、旧 status、模拟上游当成发布验收。

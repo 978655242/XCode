@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node 24.14.0、pnpm 10.33.2、TypeScript、Zod 4、现有受限 CEL 编译器、Electron、React、现有 RPC 与安全凭据 Repo；服务端依赖现有 New API Go/GORM/Bun。
 
-**Spec:** [客户端设计](../../xcode/specs/new-api-integration.md)；[唯一 HTTP/认证/计费 canonical spec](../../../../new-api/docs/specs/xcode-integration.md)。两份都必须读取。本文实施 XCode；New API N1–N4 是有真实证据的跨仓前置交付，不在本客户端计划中偷偷代做或仿造。
+**Spec:** [客户端设计](../../xcode/specs/new-api-integration.md)；[唯一 HTTP/认证/计费 canonical spec](../../../../new-api/docs/specs/xcode-integration.md)；[升级页视觉恢复规格](../../xcode/specs/new-api-upgrade-ui.md)。本文原 T01–T10 实施 XCode，New API N1–N4 是有真实证据的前置交付；本次明确新增跨仓 U01–U04，仅恢复升级 UI 及所需展示元数据，不扩展资金、支付或企业业务。
 
 ## Global Constraints
 
@@ -24,6 +24,14 @@
 - 先核对 exported symbol 的 LSP references、架构受控上下文和 spec，再修改 union/实现；跨包走公开入口，UI走RPC/hooks。
 - 上游文件最小修改并加 `// XCODE: <原因>`；bug修复说明原因与依据使用中文。不要增加兼容别名、全局 backend framework 或第二套 Registry。
 - 当前功能分支 `feature/private-server-technical-design` 可按设计继续；PR目标 `XCode-main`，不切到 `main`。提交、推送、DB变更和现有服务重启不由本计划编写自动授权。
+
+## Review Focus
+
+1. 商品事实/展示元数据错位与 strict 解码破坏 → U01 `controller/xcode_plan_display_test.go` 覆盖 CRUD roundtrip、same-batch sidecar、资格和公共 `/plans` 不扩展；XCode `newApiWire.test.ts` 保持兼容。
+2. 重复 SKU/缺周期/浮点折扣/币种混用 → U03 `plans-catalog.test.ts` 覆盖精确 ID、冲突回退、原生日历周期、可比价格和非日历时长。
+3. 过期/耗尽/停用模板状态与假支付 → U03 `plans.test.tsx` 覆盖独立实例摘要、精确匹配、manual CTA 与无写请求，不从 trial/title 推断授权。
+4. 错分类/主题语言首帧/字号与普通页面污染 → U02 `display-context.test.ts` 与 U04 `newApiUpgradePresentationElectron.mjs`，验证实际 Bootstrap、入口和首帧，不只断言生产字段。
+5. Cookie await 换号/迟到分区/缩放/嵌套限宽 → U02 现有 `newApiWebHandoffElectron.mjs` 及 U04 新 smoke，覆盖 owner清理、CSP/同源防护和 guest DOM/zoom，不以独立网页代替。
 
 ## 0. 当前证据与实施前置门槛
 
@@ -107,10 +115,10 @@ sequenceDiagram
 `mise.toml` 固定Node 24.14.0与pnpm 10.33.2；本机当前没有 `mise` 可执行程序，Homebrew node@24实测为24.18.0、pnpm为10.33.2。下列命令以已配置固定版本的mise为标准；本机执行前提供24.14.0工具链。仅文档格式检查已使用24.18.0完成，不作为固定版本业务验证。若不使用mise，在准备相同固定版本并核对 `node --version` / `pnpm --version` 后，去掉命令中的 `mise exec --` 前缀直接执行，不引入包装函数或修改仓库工具链。
 
 ```sh
-mise exec -- pnpm exec tsx --test packages/services/test/newApiWire.test.ts
+mise exec -- pnpm exec tsx --experimental-test-module-mocks --tsconfig packages/services/test/tsconfig.json --test packages/services/test/newApiWire.test.ts
 ```
 
-此命令针对本计划将创建的文件，不是声称仓库已有统一测试入口。各任务列出自己的具体路径。若测试触及单例数据目录，使用临时目录和finally清理、禁用watch；不可读写真实用户安全库。HTTP fixture仅验证解析/拒绝/竞态，不替代真实服务验收；不写转发mock echo/source-text测试。
+该入口与现有运行手册一致。T01–T10 中 Files 的 Create 是最初规划，执行时按当前实现核对，不重复创建或恢复移除模块；本轮 U01–U04 明确列出现有 Modify 与将新增 Create。每任务列出实际验证路径。单例数据目录用临时目录/finally清理、禁用watch；不可读写真实用户安全库。HTTP fixture仅验证解析/拒绝/竞态，不替代真实服务验收；不写转发mock echo/source-text测试。
 
 每任务证据记录：spec条款、源码SHA、RED/GREEN命令及结果、实际smoke步骤/结果、未通过门槛。任务通过后更新对应使用文档；最终整合文档在T10列出。提交仅用户明确要求后进行，不能照技能模板自动commit/push。
 
@@ -138,13 +146,13 @@ test("private HTTP origin is loopback only and cannot contain credentials", () =
 ```
 
 - [ ] 实现固定origin、异步IO与严格解析。不得跟随重定向向别源传Authorization；session/key明确失效、access过期、503/网络错误分开；只读access过期最多一次正常refresh重试，不将403安全拒绝当刷新提示。
-- [ ] 运行 `mise exec -- pnpm exec tsx --test packages/services/test/newApiWire.test.ts`；实际New API读取时验证no-store、response schema、origin，不保存秘密到证据。接口未落地时报告G3而不是伪造成功。
+- [ ] 运行 `mise exec -- pnpm exec tsx --experimental-test-module-mocks --tsconfig packages/services/test/tsconfig.json --test packages/services/test/newApiWire.test.ts`；实际New API读取时验证no-store、response schema、origin，不保存秘密到证据。接口未落地时报告G3而不是伪造成功。
 
 ### T02：Native主账号、PKCE、恢复与owner隔离
 
 **依赖：** T01，G1/G2；客户端设计§3/§4、canonical§4/§6.2。
 
-**Files:** Create `packages/services/src/oauth/providers/newApiProviderAdapter.ts`、`packages/shared/src/official-cloud.ts`、`packages/services/test/newApiOAuthOwner.test.ts`；Modify `packages/shared/src/oauth.ts`、`packages/services/src/oauth/{oauthService.ts,oauthProviderLogout.ts,providers/providerAdapter.ts,providers/index.ts,repo/oauthCredentialRepo.ts}`、`packages/desktop/src/main/desktopOAuthDeepLink.ts`；shared公开入口与RPC wiring由集成owner处理。
+**Files:** Create `packages/services/src/oauth/providers/newApiProviderAdapter.ts`、`packages/shared/src/official-cloud.ts`；实际回归为现有 `packages/services/test/newApiAccountLifecycle.test.ts`、`packages/services/test/newApiCredentialBoundary.test.ts`；Modify `packages/shared/src/oauth.ts`、`packages/services/src/oauth/{oauthService.ts,oauthProviderLogout.ts,providers/providerAdapter.ts,providers/index.ts,repo/oauthCredentialRepo.ts}`、`packages/desktop/src/main/desktopOAuthDeepLink.ts`；shared公开入口与RPC wiring由集成owner处理。
 
 **Interfaces:** `OAuthProviderId`增加 `new-api`；pending flow明确 `purpose: "primary" | "official-cloud"`，记录origin、window/state/verifier与generation；Native token分支以真实control/refresh/relay/SID命名，不借用zcodeJwtToken。官方owner为规范化Native origin+原生user_id，不用username；官方公开snapshot无秘密，T09消费。
 
@@ -152,7 +160,7 @@ test("private HTTP origin is loopback only and cannot contain credentials", () =
 - [ ] 扩展adapter context以保存PKCE与purpose，复用现有adapter/service/Repo。主登录浏览器只开Native授权URL；deep link精确按pending window/provider/state路由，无“当前窗口”fallback。private polling稳定拒绝，不返回假pending。
 - [ ] 安全库按 `new-api:<origin-key>:<user-id>:<sid>` 保存；恢复先确认服务端身份，JWT exp只是提示。opaque token不能被当作已验证会话；解密失败沿用明确人工恢复错误。refresh同SID保持relay key，删除key不得自动修复。
 - [ ] logout/切换/refresh明确失效先封闭私有执行、worker秘密、订阅/目录/usage/WebView，再尽力服务端撤销；网络失败显示撤销未确认。官方存储保留但锁定，只原主user_id可恢复。无owner旧全局官方凭据不自动认领、不删除。
-- [ ] 运行 `mise exec -- pnpm exec tsx --test packages/services/test/newApiOAuthOwner.test.ts`；真实桌面注册/登录/重启恢复/A→B→A，查Renderer DTO/日志无秘密；服务器确认SID撤销。此任务不宣称官方云请求已接通。
+- [ ] 运行 `mise exec -- pnpm exec tsx --experimental-test-module-mocks --tsconfig packages/services/test/tsconfig.json --test packages/services/test/newApiAccountLifecycle.test.ts packages/services/test/newApiCredentialBoundary.test.ts`；真实桌面注册/登录/重启恢复/A→B→A，查Renderer DTO/日志无秘密；服务器确认SID撤销。此任务不宣称官方云请求已接通。
 
 ### T03：私有 anchors、完整能力与一致revision的Account目录
 
@@ -167,7 +175,7 @@ test("private HTTP origin is loopback only and cannot contain credentials", () =
 - [ ] 用真实login+entitlements+models生成snapshot，完整能力使用completeModelConfigDataSchema与既有CEL编译器；无reasoning neutral配置也必须来自后端。非法模型只进issues，不生成Registry ref；管理员修复后按新revision移入真实目录。
 - [ ] source/config/resolver/Registry同步支持新access和modelConfigs；私有能力优先于Personal/Template/manual覆盖，只允许管理员范围内的reasoning/output选择。No Plan/目录空/网络错误不造entitled或默认模型。
 - [ ] ModelSelectionView/ProviderSettingsView及shared RPC增加只读issues；解耦ordinary selection与原account-plan唯一provider自动remap。
-- [ ] 运行 `mise exec -- pnpm exec tsx --test packages/services/test/newApiRegistry.test.ts`；真实管理员metadata编辑、grant/replace/revoke后观察Host目录、disabledReason及旧ref拒绝，而不是只看selector列表。
+- [ ] 运行 `mise exec -- pnpm exec tsx --experimental-test-module-mocks --tsconfig packages/services/test/tsconfig.json --test packages/services/test/newApiRegistry.test.ts`；真实管理员metadata编辑、grant/replace/revoke后观察Host目录、disabledReason及旧ref拒绝，而不是只看selector列表。
 
 ### T04：本机worker快照、请求期secret与三个SDK transport
 
@@ -181,7 +189,7 @@ test("private HTTP origin is loopback only and cannot contain credentials", () =
 - [ ] Host push与worker parser一起扩展；按当前generation校验请求期secret，只有model-request使用relay key；不读官方JWT/MaaS/env fallback。失效顺序与T02一致，不用timeout掩盖同步。
 - [ ] transport baseUrl遵守canonical：Anthropic origin→`/v1/messages`；OpenAI origin+`/v1`→`/chat/completions`与`/responses`。复用真实SDK，不重新封装SSE、不裁tools/vision/reasoning参数。
 - [ ] shared新union引起的远程caller编译同步修正；私有远程明确unsupported，不被zhipu fallback解释；provisioning envelope无Native秘密。原非私有remote功能保留。
-- [ ] 运行 `mise exec -- pnpm exec tsx --test packages/services/test/newApiWorkerBoundary.test.ts`；真实本机Agent分别用三种transport流式文本/tool、metadata允许的vision/reasoning及取消；观察实际请求路径、日志、consume和额度变化。额度/撤销/上游失败各自保留可识别错误。
+- [ ] 运行 `mise exec -- pnpm exec tsx --experimental-test-module-mocks --tsconfig packages/services/test/tsconfig.json --test packages/services/test/newApiWorkerBoundary.test.ts`；真实本机Agent分别用三种transport流式文本/tool、metadata允许的vision/reasoning及取消；观察实际请求路径、日志、consume和额度变化。额度/撤销/上游失败各自保留可识别错误。
 
 ### T05：Native套餐读RPC与完整manual purchase guards
 
@@ -196,7 +204,7 @@ test("private HTTP origin is loopback only and cannot contain credentials", () =
 - [ ] 全面拒绝createSign/updateSign、bind/unbind/payStripe、Paypal setup/subscribe、calculate/create/cancel/continue enterprise order；拒绝前不调用支付HTTP、不造agreement/card/setup token。
 - [ ] 六读逐个改签名并迁移caller：checkPayment/checkPendingOrders/queryStripeCards/checkPaypalSupport/getEnterprisePendingOrders/checkEnterpriseOrderStatus，先判availability，停止付款/订单poll。保留入口转手工说明；不新增支付读HTTP。
 - [ ] 保留preflight-v1与实际应用更新来源；offPeak/dynamicWorkflow仍是官方路径，T09重接，Native client-config不能开启官方feature。
-- [ ] 运行 `mise exec -- pnpm exec tsx --test packages/services/test/newApiSubscription.test.ts`；实际RPC访问套餐、点击原升级/续费入口，确认没有订单请求/支付成功状态。Native原生面板仍可购买由后端联调T10验证。
+- [ ] 运行 `mise exec -- pnpm exec tsx --experimental-test-module-mocks --tsconfig packages/services/test/tsconfig.json --test packages/services/test/newApiSubscription.test.ts`；实际RPC访问套餐、点击原升级/续费入口，确认没有订单请求/支付成功状态。Native原生面板仍可购买由后端联调T10验证。
 
 ### T06：账号用量、指定单周期额度与reset只读语义
 
@@ -210,20 +218,20 @@ test("private HTTP origin is loopback only and cannot contain credentials", () =
 - [ ] 用只读client分别读usage/entitlements，generic getSnapshot明确来源，无private失败→local/官方fallback；App Usage现有本地实现不改。历史模型统计可显示但不授予选择权限。
 - [ ] Native reset状态精确按设计联合映射；period未授予null，时间毫秒，不重算服务端nextResetTime。机会申请/use拒绝自助disabled，markHistory not-supported，UI不进入poll/已读/成功动画。
 - [ ] Native mcpQuota=null；官方MCP卡由T09真实官方来源读取。支持零消费桶，但不能将缺失token/cache/reasoning/Agent时长补零。
-- [ ] 运行 `mise exec -- pnpm exec tsx --test packages/services/test/newApiUsage.test.ts`；真实usage查询含多key/general/wallet/退款，reset后重新读取：预扣100→reset→actual150显示新周期150；actual100也计入；旧占用退款不减新请求。该资金算法由后端执行，UI只读取事实。
+- [ ] 运行 `mise exec -- pnpm exec tsx --experimental-test-module-mocks --tsconfig packages/services/test/tsconfig.json --test packages/services/test/newApiUsage.test.ts`；真实usage查询含多key/general/wallet/退款，reset后重新读取：预扣100→reset→actual150显示新周期150；actual100也计入；旧占用退款不减新请求。该资金算法由后端执行，UI只读取事实。
 
 ### T07：同源只读Web handoff与账号分区清理
 
 **依赖：** T05、G3；客户端§4.3、canonical§9。
 
-**Files:** Create `packages/services/test/newApiWebHandoff.test.ts`；Modify `packages/ui/src/settings/{CodingPlanUpgradeDialog.tsx,CodingPlanEmbeddedWebviewDialog.tsx}`、`packages/services/src/coding-plan-subscription/codingPlanSubscription.ts`；通过现有IPlatformService定位实际WebView创建/分区/导航实现并修改，不在UI直接window.zcode或fetch。
+**Files:** Existing `packages/services/test/newApiWebHandoff.test.ts`；Modify `packages/ui/src/settings/{CodingPlanUpgradeDialog.tsx,NativePlanEmbeddedWebviewDialog.tsx}`、`packages/services/src/coding-plan-subscription/codingPlanSubscription.ts`；通过 IPlatformService 的 Main/分区实现执行，不复用官方 dialog 的认证注入，不在UI直接window.zcode或fetch。
 
 **Interfaces:** 在套餐服务增加 `createPlanWebHandoff(): Promise<{url:string;ownerGeneration:number}>`，Host调用canonical `/web-handoffs`并校验精确origin与`/xcode/plans`路径，Renderer只拿短期URL及非秘密generation。真实分区按主owner/generation绑定，owner失效即关闭/清理。
 
 - [ ] RED：handoff跨源/恶意用户名origin/错误路径拒绝；A分区不能由B复用；迟到A handoff不打开；logout关视图；页面导航不能把短code/秘密带到别源。
-- [ ] 复用dialog/sidebar/navigation，Native路径移除官方localStorage注入与购买完成假成功语义；页面只是只读说明，关闭/回到客户端可刷新真实entitlements，不自行标paid。
+- [ ] 复用dialog/sidebar/navigation，Native路径移除官方localStorage注入与购买完成假成功语义；展示原版结构的真实套餐比较只读页。旧首次页面打开只证明认证链路，视觉恢复另按 U01–U04 验收；关闭/回客户端可刷新真实entitlements，不自行标paid。
 - [ ] 清理generation专属WebView分区，保持官方origin防护不放宽；禁止control/refresh/sk-key入URL/页面。短handoff一次性消费后303移除query，由服务器设置只读cookie。
-- [ ] 运行 `mise exec -- pnpm exec tsx --test packages/services/test/newApiWebHandoff.test.ts`；实际打开升级嵌入页、导航、过期/重放、A→B、SID撤销；查看Storage与请求：无长期secret，cookie不能升级原生面板。
+- [ ] 运行 `mise exec -- pnpm exec tsx --experimental-test-module-mocks --tsconfig packages/services/test/tsconfig.json --test packages/services/test/newApiWebHandoff.test.ts`；实际打开升级嵌入页、导航、过期/重放、A→B、SID撤销；查看Storage与请求：无长期secret，cookie不能升级原生面板。
 
 ### T08：全部UI选择、身份分支与真实空值展示clean cutover
 
@@ -236,8 +244,8 @@ test("private HTTP origin is loopback only and cannot contain credentials", () =
 - [ ] RED：保存旧official provider+同名model时启动/新发消息明确要求重选；custom选择与历史不变；三个Native transport不自动互转；个人config不能覆写admin能力。可通过实际model-selection-facade恢复持久ref验证，而不是匹配源码文字。
 - [ ] 迁移所有family二元fallback为显式Native/official处理；计划身份、usage source、vision badge、Provider detail、失效提示与group unions一起修改。只清普通路径旧依赖，保留官方off-peak/hidden config/adapter。
 - [ ] 用现有问题提示区显示metadata缺失/CEL失败模型实际名称和原因，无选择动作。修复metadata后移入真实目录；换号清旧issues。
-- [ ] 原卡片/导航/日期控件保留：单周期/unlimited、账号用量标签、消费记录数、未知“暂不提供”、手工授予说明、官方MCP独立连接按钮/来源。禁止重做布局或把未知卡片删掉。
-- [ ] 运行 `mise exec -- pnpm exec tsx --test packages/services/test/newApiSelectionCutover.test.ts`；实际Electron检查登录菜单、selector、Provider设置/详情、套餐、用量所有卡片/图表/date controls、reset外壳、升级dialog。保存脱敏截图；切换主题/语言并核对长model/plan名称，无假双周期或假次数。
+- [ ] 原卡片/导航/日期控件保留：单周期/unlimited、账号用量标签、消费记录数、未知“暂不提供”、手工授予说明、官方MCP独立连接按钮/来源。升级页恢复原版布局按 U01–U04，不以只读详情代替；其他页面禁止无关重做或删除未知卡片。
+- [ ] 运行 `mise exec -- pnpm exec tsx --experimental-test-module-mocks --tsconfig packages/services/test/tsconfig.json --test packages/services/test/newApiSelectionCutover.test.ts`；实际Electron检查登录菜单、selector、Provider设置/详情、套餐、用量所有卡片/图表/date controls、reset外壳、升级dialog。保存脱敏截图；切换主题/语言并核对长model/plan名称，无假双周期或假次数。
 
 ### T09：独立官方连接、MCP/闲时任务/分享全部重接
 
@@ -252,7 +260,7 @@ test("private HTTP origin is loopback only and cannot contain credentials", () =
 - [ ] MCP credential resolver不扫描普通Registry找唯一zhipu-provider；scope与`buildOfficialMcpAuthHeaders`保留，官方usage仍 `/api/v1/mcp/usage`。offPeakRuntimeModel与node resolveAccountProvider从同connection取官方key/JWT，拒绝private off-peak。
 - [ ] 独立云model view取原官方配置；getOffPeakClientConfig/getDynamicWorkflowClientConfig维持原origin/灰度/权限，不读取Native目录/client-config。
 - [ ] ConversationShareHttpClient的tokenProvider取当前owner官方连接，覆盖发布/能力发现/分享读取；无连接required-auth仍authentication_required，public preview/continuation optional-auth保留匿名且不附Native token。返回前核对主owner+official generation。
-- [ ] 运行 `mise exec -- pnpm exec tsx --test packages/services/test/officialCloudOwner.test.ts`；真实官方账号完成MCP、闲时任务、分享发布与匿名导入，观察官方model/账务与出站origin/认证来源。没有实际账号/Plan时此项不得勾完成，写出受阻的精确能力。
+- [ ] 运行 `mise exec -- pnpm exec tsx --experimental-test-module-mocks --tsconfig packages/services/test/tsconfig.json --test packages/services/test/officialCloudOwner.test.ts`；真实官方账号完成MCP、闲时任务、分享发布与匿名导入，观察官方model/账务与出站origin/认证来源。没有实际账号/Plan时此项不得勾完成，写出受阻的精确能力。
 
 ### T10：两仓真实联调、回归与可发布门槛
 
@@ -264,7 +272,8 @@ test("private HTTP origin is loopback only and cannot contain credentials", () =
 - [ ] 运行全部本计划新增回归；执行仓库现有providerConfigMigration测试证明custom/历史保留。实际命令：
 
 ```sh
-mise exec -- pnpm exec tsx --test packages/services/test/newApiWire.test.ts packages/services/test/newApiOAuthOwner.test.ts packages/services/test/newApiRegistry.test.ts packages/services/test/newApiWorkerBoundary.test.ts packages/services/test/newApiSubscription.test.ts packages/services/test/newApiUsage.test.ts packages/services/test/newApiWebHandoff.test.ts packages/services/test/newApiSelectionCutover.test.ts packages/services/test/officialCloudOwner.test.ts packages/services/test/providerConfigMigration.test.ts
+mise exec -- pnpm exec tsx --experimental-test-module-mocks --tsconfig packages/services/test/tsconfig.json --test packages/services/test/newApi*.test.ts packages/services/test/officialCloudOwner.test.ts packages/services/test/offPeakExecutionLifetime.test.ts packages/services/test/conversationShareOperationFence.test.ts packages/services/test/officialInvocationDispatch.test.ts packages/services/test/providerConfigMigration.test.ts packages/desktop/test/newApiOAuthRoutes.test.ts
+mise exec -- node packages/desktop/test/runNewApiElectronSmokes.mjs
 mise exec -- pnpm typecheck
 mise exec -- pnpm lint
 mise exec -- pnpm fmt:check
@@ -281,23 +290,23 @@ mise exec -- pnpm architecture:check --changed
 
 ## 3. 设计覆盖与验收追踪
 
-| 客户端设计条款 / 场景                     | 执行任务       | 证据要求                                               |
-| ----------------------------------------- | -------------- | ------------------------------------------------------ |
-| §1本机范围/非目标/用户自配保留            | T04/T08/T10    | private remote明确拒绝、custom实际回归、无无关配置变化 |
-| §3 owner/fencing/撤销/官方存储恢复        | T02/T04/T09    | A→B→A、迟到结果、worker执行阻断                        |
-| §4.1–4.2登录/PKCE/恢复/单飞               | T01/T02        | 真实Native浏览器/Host登录、SID与用户、取消竞态、重启   |
-| §4.3 Web handoff                          | T07            | 真实同源只读页、一次性code/Storage/分区清理            |
-| §5.1 access/anchors/ordinary行为          | T03/T08        | 三anchor同一family，无自动remap                        |
-| §5.2完整能力/modelConfigs/issues/revision | T03/T04/T08    | admin编辑→Host→worker→执行，非法目录不可选             |
-| §5.3协议/secret/错误/stream能力           | T04            | 三SDK实际路径/流/tool/取消，明确错误，无fallback       |
-| §5.4全部caller clean cutover              | T03–T09        | LSP调用者清单完成、旧同名模型必须重选                  |
-| §6套餐/六支付读/所有写/保留update与策略   | T05/T07/T08    | RPC真实分支、停止poll、无假订单、只读入口              |
-| §7.1–7.2数据范围/null/大数/DST            | T01/T06/T08    | 多key资金消费、超安全整数、无限/空值与UI范围标签       |
-| §7.3 mode联合/mark结果/跨周期             | T06/T10        | Native无机会/动画；真实reset与在途结算后卡片           |
-| §8独立官方连接/MCP/闲时/分享              | T02/T09/T10    | 真实官方账号/Plan、来源与账单、匿名分享仍可用          |
-| §9 Host→本机worker/非本期remote           | T04/T10        | 实际Agent消费、provisioning无Native秘密                |
-| §10架构/上游边界/安全回滚                 | 全任务/T10     | 受控上下文、references、架构check、runbook             |
-| §11全部验收 + canonical §11               | T10汇总，G1–G5 | 逐场景原始结果、源码/二进制来源、未通过项明确          |
+| 客户端设计条款 / 场景                     | 执行任务            | 证据要求                                                 |
+| ----------------------------------------- | ------------------- | -------------------------------------------------------- |
+| §1本机范围/非目标/用户自配保留            | T04/T08/T10         | private remote明确拒绝、custom实际回归、无无关配置变化   |
+| §3 owner/fencing/撤销/官方存储恢复        | T02/T04/T09         | A→B→A、迟到结果、worker执行阻断                          |
+| §4.1–4.2登录/PKCE/恢复/单飞               | T01/T02             | 真实Native浏览器/Host登录、SID与用户、取消竞态、重启     |
+| §4.3 Web handoff及展示首帧                | T07/U02/U04         | 精确短码准入、Cookie await换号、真实Native首帧与分区清理 |
+| §5.1 access/anchors/ordinary行为          | T03/T08             | 三anchor同一family，无自动remap                          |
+| §5.2完整能力/modelConfigs/issues/revision | T03/T04/T08         | admin编辑→Host→worker→执行，非法目录不可选               |
+| §5.3协议/secret/错误/stream能力           | T04                 | 三SDK实际路径/流/tool/取消，明确错误，无fallback         |
+| §5.4全部caller clean cutover              | T03–T09             | LSP调用者清单完成、旧同名模型必须重选                    |
+| §6套餐/支付读写/§6.1升级UI                | T05/T07/T08/U01–U04 | RPC拒绝假订单、真实模板比较、原版结构及DOM/首帧截图      |
+| §7.1–7.2数据范围/null/大数/DST            | T01/T06/T08         | 多key资金消费、超安全整数、无限/空值与UI范围标签         |
+| §7.3 mode联合/mark结果/跨周期             | T06/T10             | Native无机会/动画；真实reset与在途结算后卡片             |
+| §8独立官方连接/MCP/闲时/分享              | T02/T09/T10         | 真实官方账号/Plan、来源与账单、匿名分享仍可用            |
+| §9 Host→本机worker/非本期remote           | T04/T10             | 实际Agent消费、provisioning无Native秘密                  |
+| §10架构/上游边界/安全回滚                 | 全任务/T10          | 受控上下文、references、架构check、runbook               |
+| §11全部验收 + canonical §11               | T10汇总，G1–G5      | 逐场景原始结果、源码/二进制来源、未通过项明确            |
 
 ## 4. 完成定义与交接
 
@@ -306,3 +315,62 @@ T01–T09 的可达客户端实现与确定性回归已经落地，T10 已执行
 **未完成正式发布验收。** G1 全资金/跨周期/Redis/三数据库矩阵、G4 真实官方 Plan/MCP/闲时/分享、目标 OS 安全库和 G5 完整 clean release deployment 均不能以合成上游或源码检查代替。当前隔离构建 `vcs.modified=true`；实际消费证明只覆盖明确记录的受控上游。同一任务包含未满足的 live acceptance 时，不批量勾选步骤、不将其记为完整验收。
 
 存在外部依赖时继续完成可达实现与确定性回归，但blocked任务不记完成，也不偷偷缩减三transport、官方云或保留UI的验收范围。执行方式可选同会话逐任务或subagent切片；无论方式都必须统一shared/node集成owner并遵守上述完成门槛。
+
+## 5. 升级页评审修正：U01–U04
+
+2026-10-10 完成设计评审，2026-10-12 已实施 U01–U03 并完成 U04 原生管理、真实 Full Desktop 续期/替换和视觉闭环；最终回归及质量门禁结果见实施账本。两项设计评审共发现3个P1、5个P2，实施复审另修正 Unicode 边界、custom 周期折扣和 expired 授予说明；完整规则见 [UI规格](../../xcode/specs/new-api-upgrade-ui.md) 与 canonical §9.1。新证据不复用旧T07页面打开结论，也不放行 G1–G5。
+
+依赖：U01→U03；U02→U03；U01/U02/U03→U04。U01服务端与U02展示传递可并行，shared/platform与Main由一个集成owner处理；U03在两个契约确定后整合，不能先写固定截图商品。上线仍受原G1–G5约束。
+
+### U01：原生展示元数据、授予资格与只读sidecar
+
+**Spec:** UI§2–4、canonical§9.1；不改公共 `/plans`、认证和资金域。
+
+**Files（相对 new-api 根）:** Modify `model/{subscription.go,main.go,xcode_authorization.go}`、`controller/subscription.go`、`dto/xcode_web.go`、`service/{xcode_reads.go,xcode_web.go}`、`web/src/features/subscriptions/{types.ts,lib/plan-form.ts,components/subscriptions-mutate-drawer.tsx}`、`web/src/features/xcode/plans-api.ts`；Create `controller/xcode_plan_display_test.go`。XCode `packages/shared/src/new-api.ts` 不扩展Plan字段。
+
+**Interfaces:** nullable `SubscriptionPlan.xcode_display:XCodePlanDisplay|null` 为UI§3限定五字段；`XCodeWebView.plan_presentations:XCodePlanPresentation[]` 为 exact plan_id+metadata+assignable+assignment_reason+display_issue。共用原管理员模板资格校验；若须导出 model 校验，先 LSP references并迁移所有caller，不留下重复判断。控制plans与sidecar同批读取，不增加新HTTP endpoint或逐卡查询。
+
+- [x] RED：原生管理员create→edit→reload元数据不丢，null清除生效；明确更新映射/plan-form，已有模板缺字段兼容，损坏旧记录不使整个目录消失；web实际收到sidecar，旧控制/plans保持严格解析通过。
+- [x] RED：enabled且max_purchase_per_user=1为不可授予；metadata不改变资格、price/quota或钱包；重复元数据不能改授权。采用现有隔离数据库约定，不触碰3001用户DB。
+- [x] 最小实现nullable展示字段/原生迁移、CRUD验证与保存、编辑器、缓存失效、单批projection及Web schema；原生管理表单同样需中英标签和重新编辑证明。不建立商品/折扣/试用历史表。
+- [x] 在 new-api 根执行 `go test ./model ./service ./controller -run XCode -count=1`，Web执行 `bun run --cwd web typecheck`、现有相关tests和lint；XCode按§2命令跑 `newApiWire.test.ts`。实际隔离管理员保存→重开→GET web/view/control plans，观察exactID与真实字段。
+
+### U02：Native入口、隔离UI Cookie与同步首帧
+
+**Spec:** UI§5–6、客户端§4.3/§6.1；保留已有Host ACK、URL白名单、one-use和owner防护。
+
+**Files（XCode）:** Modify `packages/shared/src/platform.ts`及其公开入口、`packages/desktop/src/preload/index.ts`、`packages/desktop/src/renderer/src/desktopBrowserPlatformBridge.ts`、`packages/desktop/src/main/{nativePlanWebviewManager.ts,newApiPlanWebviewPolicy.ts,desktopWindowChrome.ts,desktopCommandHandlers.ts}`、`packages/ui/src/settings/{CodingPlanUpgradeDialog.tsx,NativePlanEmbeddedWebviewDialog.tsx}`、`packages/desktop/test/newApiWebHandoffElectron.mjs`；由LSP补齐prepare request现有callers/fixture。**Files（new-api）:** Create `web/public/xcode-plan-display.js`、`web/src/features/xcode/__tests__/display-context.test.ts`；Modify `web/index.html`、`web/rsbuild.config.ts`、`web/src/{i18n/config.ts,context/theme-provider.tsx,main.tsx}`。遵守现有上游源码版权头。
+
+**Interfaces:** shared公开 `NativePlanDisplayContext`、`NativePlanWebviewPrepareRequest` 按UI§5完整字段，`IPlatformService.prepareNativePlanWebview(request):Promise<{partition:string}>`；Main实际写session UI Cookie `xcode_plan_display_v1`，Web head同步消费并将initialAudience供React初始化。不改OAuth/control RPC、NewApiClient.createWebHandoff或服务端AuthFlow。
+
+- [x] RED：personal/team/缺省入口、App浅/中文且系统深/英文、非法Cookie、存储禁止、字号12/14/20；实际Bootstrap首帧值正确且非viewer不改native后台设置，不能仅测传参对象。
+- [x] RED：延迟 cookies.set 时A退出→B登录，旧prepare拒绝且清旧分区，不关B；重复attach、伪造generation、reload重放仍拒绝。调整既有fixture适配新必填context，非私有桥和普通guest保持原样。
+- [x] 最小实现逐层 typed传递、严格Main解码、Cookie await后current entry/window/canAttach复核及失败清理；同步静态脚本在CSS/App module之前，locale映射和ThemeProvider消费不反覆盖，非法展示值不升级身份。不得unsafe-inline script/executeJavaScript/preload/通用函数桥。
+- [x] Native guest在will-attach/attach与desktopCommandHandlers实际zoom写入路径同步当前父窗口factor；现有窗口初始化/重放zoom同样同步。不只监听事件、不塞zoom进Cookie。主题/locale/字号/入口变化沿现有request++铸码重建，不放URL query/hash。
+- [x] new-api 根执行 `bun run --cwd web test src/features/xcode/__tests__/display-context.test.ts`、typecheck和build，检查生成HTML静态Bootstrap顺序并实际加载/错误首帧；XCode执行 `node packages/desktop/test/runNewApiElectronSmokes.mjs` 和现有服务handoff回归，观察Cookie/无secret/owner清理，而非浏览器模拟Main。
+
+### U03：原版比较卡片、精确价格/状态和Native外壳
+
+**依赖:** U01/U02完成；**Spec:** UI§2–6。Native手工授予不扩成支付或团队能力。
+
+**Files（new-api）:** Modify `web/src/features/xcode/{plans.tsx,plans-api.ts,plans-format.ts}`、`web/src/styles/index.css`、`web/src/i18n/locales/{zh.json,en.json}`；Create `web/src/features/xcode/plans-catalog.ts`、`web/src/features/xcode/__tests__/{plans-catalog.test.ts,plans.test.tsx}`。**Files（XCode）:** Modify `packages/ui/src/settings/NativePlanEmbeddedWebviewDialog.tsx`、`packages/ui/src/components/EmbeddedWebsiteHeader.tsx`、`packages/ui/src/i18n/locales/{zh-CN.ts,en-US.ts}`。Header的默认官方分支不变。
+
+**Interfaces:** Web纯目录派生函数 `buildPlanCatalog(plans,presentations)` 输出按spec冲突回退的精确ID组/独立卡；`formatPlanPrice(plan,monthlyBaseline)` 只计算参考价/月均/可比折扣，不提供支付参数。plans.tsx消费真实sidecar和initialAudience；卡片状态只精确ID，授权摘要消费entitlements。
+
+- [x] RED：同组月101/季102/重复月103任意输入顺序不覆盖，选季只102；month/12与year/1冲突、缺年、异币种、权益冲突、无display、day90/custom保留真实卡，不fallback月价；month10/quarter24/year96精确显示8/月、24/96总价、8折；月0/涨价/预算不等无折扣，不使用quota币种。
+- [x] RED：年度授权切月/模板停用/模板后来改额度摘要仍真实；active/exhausted/expired/revoked/unassigned不同，0价非trial无“试用结束”；manual说明精确SKU/周期/续期vsreplace，无请求订单/支付/申请或成功提示；team首帧为空能力说明。
+- [x] 移除重复后台头、独立主题语言控制、大授权详情与常驻壳manual长提示；建立分类→紧凑摘要→周期→卡片→页脚。按实际数据分组，不内置四商业档位，权益文本不表示官方授权。使用升级页scope的XWork tokens而非改全局New API外观。
+- [x] Native main解除重复max-w-5xl/px-6限制；Header仅Native宽度覆写并对齐网页唯一内容边界；按848/416px实际卡片区域降4/2/1列、等高和CTA底部对齐，长文案纵滚不裁切。不改官方dialog认证或其他用量布局。
+- [x] new-api执行 `bun run --cwd web test src/features/xcode/__tests__/plans-catalog.test.ts src/features/xcode/__tests__/plans.test.tsx src/features/xcode/__tests__/plans-format.test.ts`、`bun run --cwd web typecheck`、`bun run --cwd web lint`、`bun run --cwd web build`；XCode跑 `pnpm typecheck`、`pnpm lint`、架构检查。实际网页与Native嵌入检查加载/错误/空目录/长权益，浏览器仅作前置，不替代U04。
+
+### U04：真实Electron、原生管理闭环与新视觉验收
+
+**依赖:** U01–U03；不宣称替代主集成T10/G1–G5。**Files:** Create `packages/desktop/test/newApiUpgradePresentationElectron.mjs`；Modify `packages/desktop/test/runNewApiElectronSmokes.mjs`、两仓实际验收状态与 [运行手册](../../xcode/new-api-integration-runbook.md)。新增smoke实际渲染当前Native dialog/真实compiled viewer，不用简化壳或复制页面代替。
+
+- [x] fixture E2E先覆盖中英×浅深×personal/team，错误/加载首帧、Cookie写入中换号、旧guest关闭/Storage清空、无跨源资源/弹窗/下载/权限和无长期secret；明确fixture仅确定性UI/边界，不是账务或供应商证明。加入现有runner并按实际场景调整有限超时，不永久安装辅助依赖。
+- [x] 在获准的隔离开发环境构建真实后端Web embed/Go来源；实际管理员配置trial1+三档各月/季/年共10个真实模板并保存权益，原生登录/grant→设置升级→切周期→manual说明→管理员renew/replace→回读真实状态。无体验产品则记录真实目录，不伪造试用；四档视觉fixture与部署商品事实分开。
+- [x] 真实Electron记录Host/客户端/后端SHA、窗口content bounds、DPR、zoomFactor、UI字号、guest innerWidth、卡片DOMRect/脱敏截图。等比对照冻结原图，不宣称未知原DPI像素一致；基准四档首屏、top≤1px、height/CTA bottom≤2px、scrollWidth≤clientWidth+1px，页脚可下滚。
+- [x] 验证zoom -3/0/5、中英、12/14/20px和长名称/权益，非基准可降列/滚动但不截断；重复打开/团队入口/刷新/关闭/A→B→A无旧分类/主题/内容残留。检查原官方升级行为未受宽度覆写或认证Cookie影响。
+- [x] 按T10更新后的实际全回归命令运行，另运行两仓具体新增测试、Web build/lint/typecheck、XCode typecheck/lint/fmt/architecture。只勾具备运行证据的步骤；缺正式官方凭据/目标OS/clean deployment仍保留原blocked项，不趁UI恢复发布。
+
+**完成定义:** U01–U04 的代码、消费者、迁移、管理员回读、实际WebView首帧/布局/状态/安全和原版对照均有独立证据。新UI范围与正式发布门禁分开；全仓 lint/fmt 的已有失败如实记录，既有 cold-session logout 尚未解释，G2 和 G1–G5 保持未验收。完整运行证据见 `.superpowers/sdd/2026-10-08-new-api-integration/progress.md`。

@@ -16,6 +16,8 @@ try {
     "newApiComposerContextElectron",
     "newApiPeriodDetailsElectron",
     "newApiWebHandoffElectron",
+    "newApiUpgradePresentationElectron",
+    "newApiModelSettingsElectron",
   ]) {
     const entry = new URL(`./${name}.mjs`, import.meta.url);
     const output = join(temporary, `${name}.mjs`);
@@ -38,7 +40,16 @@ try {
     });
     const env = { ...process.env };
     delete env.ELECTRON_RUN_AS_NODE;
-    const result = spawnSync(electron, [output], { env, stdio: "inherit", timeout: 60_000 });
+    const result = spawnSync(electron, [output], {
+      env,
+      stdio: "inherit",
+      timeout:
+        name === "newApiUpgradePresentationElectron"
+          ? process.env.XCODE_UPGRADE_SMOKE_SEED
+            ? 260_000
+            : 200_000
+          : 60_000,
+    });
     assert.equal(
       result.status,
       0,

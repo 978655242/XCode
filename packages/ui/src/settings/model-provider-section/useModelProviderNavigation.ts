@@ -183,13 +183,18 @@ export function useModelProviderNavigation({
     const groups: ModelProviderNavGroup[] = [
       {
         id: "preset",
-        title: intl.formatMessage({ id: "settings.modelProvider.presetTitle" }),
+        title: intl.formatMessage({
+          id: modelProviders.some((provider) => provider.config.group === "new-api-family")
+            ? "settings.modelProvider.native.providerGroup"
+            : "settings.modelProvider.presetTitle",
+        }),
         items: [
           ...modelProviders
             .filter((provider) => provider.config.group === "new-api-family")
             .map((provider) => ({
               key: createCustomProviderNodeKey(provider.providerId),
-              type: "custom" as const,
+              // XCODE: 托管套餐走原版 Plan 详情，不再落入自定义连接表单。
+              type: "nativePlan" as const,
               label: getProviderFormLabel(provider),
               provider,
               statusActive: provider.executable === true,
@@ -539,7 +544,7 @@ export function connectionSelectionMatchesNavigationItem(
   selection: ProviderFamilyConnectionSelection,
   item: Exclude<ModelProviderNavGroup["items"][number], { type: "codingPlanLoading" }>,
 ): boolean {
-  if (item.type === "custom") return false;
+  if (item.type === "custom" || item.type === "nativePlan") return false;
   const familySpec = resolveModelProviderFamilySpecByProviderId(item.presetId ?? "");
   if (familySpec?.id !== family) return false;
   if (selection.kind === "start-plan") {

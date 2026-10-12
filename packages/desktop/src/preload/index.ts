@@ -49,6 +49,7 @@ import type {
   DesktopTitleBarTheme,
   EmbeddedBrowserOpenUrlRequest,
   Locale,
+  NativePlanWebviewPrepareRequest,
   OAuthStateRegistration,
   OAuthCallbackEvent,
   OpenInEditorOptions,
@@ -720,7 +721,8 @@ contextBridge.exposeInMainWorld("zcode", {
   /** 清理内置浏览器缓存或全部站点数据。 */
   clearEmbeddedBrowserData: (mode: "cache" | "all") =>
     ipcRenderer.invoke(PlatformChannels.ClearEmbeddedBrowserData, mode),
-  prepareNativePlanWebview: (request: { url: string; ownerGeneration: number }) =>
+  // XCODE: Typed display-only context crosses IPC; Main owns validation and isolated Cookies.
+  prepareNativePlanWebview: (request: NativePlanWebviewPrepareRequest) =>
     ipcRenderer.invoke("zcode:native-plan-webview-prepare", request),
   closeNativePlanWebview: (partition: string) =>
     ipcRenderer.invoke("zcode:native-plan-webview-close", partition),

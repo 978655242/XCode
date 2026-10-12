@@ -1,5 +1,6 @@
 import { BrowserWindow, ipcMain, session } from "electron";
 import type { Session, WebContents } from "electron";
+import type { NativePlanDisplayContext, NativePlanWebviewPrepareRequest } from "@zcode/shared";
 import { NewApiPlanWebviewPolicy } from "./newApiPlanWebviewPolicy.js";
 import type { NativePlanWebviewOwner } from "./newApiPlanWebviewPolicy.js";
 
@@ -8,6 +9,42 @@ const windows = new Map<
   { policy: NewApiPlanWebviewPolicy; guests: Map<string, WebContents> }
 >();
 const guardedSessions = new WeakMap<Session, { windowId: number; partition: string } | null>();
+
+// XCODE: Validate the finite UI boundary before it can enter a page-readable Cookie.
+function isNativePlanDisplayContext(value: unknown): value is NativePlanDisplayContext {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const context = value as NativePlanDisplayContext;
+  const keys = Object.keys(context);
+  return (
+    keys.length === 5 &&
+    keys.every(
+      (key) =>
+        key === "version" ||
+        key === "theme" ||
+        key === "locale" ||
+        key === "initialAudience" ||
+        key === "uiFontSizePx",
+    ) &&
+    context.version === 1 &&
+    (context.theme === "light" || context.theme === "dark") &&
+    (context.locale === "zh-CN" || context.locale === "en-US") &&
+    (context.initialAudience === "personal" || context.initialAudience === "team") &&
+    Number.isInteger(context.uiFontSizePx) &&
+    context.uiFontSizePx >= 12 &&
+    context.uiFontSizePx <= 20
+  );
+}
+
+// XCODE: The desktop zoom owner calls this at every actual factor write, not just on events.
+export function syncNativePlanWebviewZoom(win: BrowserWindow): void {
+  if (win.isDestroyed()) return;
+  const guests = windows.get(win.id)?.guests;
+  if (!guests) return;
+  const factor = win.webContents.getZoomFactor();
+  for (const guest of guests.values()) {
+    if (!guest.isDestroyed()) guest.setZoomFactor(factor);
+  }
+}
 
 /** XCODE: 私有只读路径必须经专用分区准入；普通 guest 不得在登录切换后保留旧 cookie。 */
 export function isNativePlanPrivateUrl(value: string): boolean {
@@ -128,6 +165,16 @@ export function attachNativePlanWebview(
     guest.close({ waitForBeforeUnload: false });
     return;
   }
+  const win = BrowserWindow.fromId(windowId);
+  if (!win || win.isDestroyed()) {
+    guest.close({ waitForBeforeUnload: false });
+    return;
+  }
+  guest.setZoomFactor(win.webContents.getZoomFactor());
+  guest.on("did-finish-load", () => {
+    if (!win.isDestroyed() && entry.guests.get(partition) === guest)
+      guest.setZoomFactor(win.webContents.getZoomFactor());
+  });
   guardPlanWebviewSession(partitionSession);
   entry.guests.set(partition, guest);
   guardedSessions.set(partitionSession, { windowId, partition });
@@ -151,17 +198,54 @@ export function attachNativePlanWebview(
 export function registerNativePlanWebviewIpc(): void {
   ipcMain.handle(
     "zcode:native-plan-webview-prepare",
-    (event, request: { url: string; ownerGeneration: number }) => {
-      const windowId = BrowserWindow.fromWebContents(event.sender)?.id;
-      const entry = windowId === undefined ? undefined : windows.get(windowId);
+    async (event, request: NativePlanWebviewPrepareRequest) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      const entry = win ? windows.get(win.id) : undefined;
       if (
+        !win ||
+        win.isDestroyed() ||
+        win.webContents !== event.sender ||
         !entry ||
         !request ||
+        typeof request !== "object" ||
+        Array.isArray(request) ||
+        Object.keys(request).length !== 3 ||
+        !Object.keys(request).every(
+          (key) => key === "url" || key === "ownerGeneration" || key === "displayContext",
+        ) ||
         typeof request.url !== "string" ||
         !Number.isSafeInteger(request.ownerGeneration)
       )
         throw new Error("XCODE_STALE_WEB_HANDOFF");
-      return entry.policy.prepare(request);
+      if (!isNativePlanDisplayContext(request.displayContext))
+        throw new Error("XCODE_INVALID_PLAN_DISPLAY_CONTEXT");
+      const prepared = entry.policy.prepare(request);
+      try {
+        const origin = new URL(request.url).origin;
+        await session.fromPartition(prepared.partition).cookies.set({
+          url: `${origin}/xcode/plans`,
+          name: "xcode_plan_display_v1",
+          value: encodeURIComponent(JSON.stringify(request.displayContext)),
+          path: "/xcode/plans",
+          sameSite: "strict",
+          secure: origin.startsWith("https:"),
+          httpOnly: false,
+        });
+        // XCODE: A's awaited write can finish after logout/B login; only A's partition is disposable.
+        if (
+          win.isDestroyed() ||
+          event.sender.isDestroyed() ||
+          BrowserWindow.fromWebContents(event.sender) !== win ||
+          win.webContents !== event.sender ||
+          windows.get(win.id) !== entry ||
+          !entry.policy.canAttach(prepared.partition, request.url)
+        )
+          throw new Error("XCODE_STALE_WEB_HANDOFF");
+        return prepared;
+      } catch (error) {
+        await closeNativePlanWebview(win.id, prepared.partition);
+        throw error;
+      }
     },
   );
   ipcMain.handle("zcode:native-plan-webview-close", async (event, partition: string) => {

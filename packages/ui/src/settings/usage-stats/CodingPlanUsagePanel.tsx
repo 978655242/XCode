@@ -396,6 +396,15 @@ function NativeOfficialMcpCard() {
             >
               {intl.formatMessage({ id: "settings.usage.refresh" })}
             </Button>
+            {/* XCODE: 独立官方连接操作保留在原有 MCP 用量区，不占据 Native 套餐详情。 */}
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={cloud.loading}
+              onClick={() => void cloud.logout()}
+            >
+              {intl.formatMessage({ id: "settings.usage.nativeOfficialDisconnect" })}
+            </Button>
           </>
         ) : (
           <div className="flex flex-wrap gap-2">

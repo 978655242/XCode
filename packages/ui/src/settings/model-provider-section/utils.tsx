@@ -3,6 +3,7 @@ import { type BuiltinModelProviderId } from "@zcode/shared";
 import { PackageIcon } from "lucide-react";
 import { ProviderLogo } from "./ProviderLogo.js";
 import { type ModelProviderNavItem } from "./constants.js";
+import { ZCodeAboutLogo } from "@/components/ui/ZCodeAboutLogo.js";
 
 export function createPresetProviderNodeKey(id: BuiltinModelProviderId): string {
   return `preset:${id}`;
@@ -23,6 +24,7 @@ export function resolveModelProviderNavLogo(item: ModelProviderNavItem) {
 }
 
 export function renderModelProviderNavIcon(item: ModelProviderNavItem): ReactNode {
+  if (item.type === "nativePlan") return <ZCodeAboutLogo className="size-4" />;
   if ("provider" in item && item.provider) {
     return <ProviderLogo logo={resolveModelProviderNavLogo(item)} className="size-4" />;
   }

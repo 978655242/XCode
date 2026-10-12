@@ -1,4 +1,4 @@
-import type { IPlatformService } from "@zcode/shared";
+import type { IPlatformService, NativePlanWebviewPrepareRequest } from "@zcode/shared";
 
 type DesktopBrowserPlatformBridge = Pick<
   IPlatformService,
@@ -31,7 +31,8 @@ type DesktopBrowserPlatformBridge = Pick<
 // 独立对象只做 preload 委托与旧 bridge 兼容兜底，不持有 Browser 业务状态。
 export const desktopBrowserPlatformBridge = {
   prepareNativePlanWebview: window.zcode.prepareNativePlanWebview
-    ? (request) => window.zcode.prepareNativePlanWebview!(request)
+    ? // XCODE: Keep the required display context intact through the existing platform bridge.
+      (request: NativePlanWebviewPrepareRequest) => window.zcode.prepareNativePlanWebview!(request)
     : undefined,
   closeNativePlanWebview: window.zcode.closeNativePlanWebview
     ? (partition) => window.zcode.closeNativePlanWebview!(partition)

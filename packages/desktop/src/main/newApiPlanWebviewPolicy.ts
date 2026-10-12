@@ -80,7 +80,20 @@ export class NewApiPlanWebviewPolicy {
       // XCODE: 同源 fetch/子 frame 也不能用别人的交接码覆盖当前 owner 的只读 Cookie。
       if (path === "/xcode/plans" || path.startsWith("/xcode/plans/"))
         return this.canNavigate(partition, value);
-      return true;
+      // XCODE: Only the exact bootstrap root script joins same-origin viewer/API and build assets.
+      if (url.hash) return false;
+      if (path === "/xcode-plan-display.js") return url.pathname === path && url.search === "";
+      return (
+        path === "/api/xcode/v1/web/view" ||
+        path.startsWith("/assets/") ||
+        path.startsWith("/fonts/") ||
+        path.startsWith("/static/js/") ||
+        path.startsWith("/static/css/") ||
+        path.startsWith("/static/font/") ||
+        path.startsWith("/static/image/") ||
+        path.startsWith("/static/svg/") ||
+        path === "/favicon.ico"
+      );
     } catch {
       return false;
     }

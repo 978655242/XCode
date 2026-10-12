@@ -179,7 +179,11 @@ export function CodingPlanUpgradeDialog(props: CodingPlanUpgradeDialogProps) {
   if (!props.target) return null;
   if (mode === "native")
     return (
-      <NativePlanEmbeddedWebviewDialog onClose={props.onClose} onOpenResult={props.onOpenResult} />
+      <NativePlanEmbeddedWebviewDialog
+        onClose={props.onClose}
+        onOpenResult={props.onOpenResult}
+        initialAudience={props.target.initialAudience}
+      />
     );
   if (mode === "official") return <OfficialCodingPlanUpgradeDialog {...props} />;
   if (mode === "error")

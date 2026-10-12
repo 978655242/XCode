@@ -37,6 +37,21 @@ export type {
   UpdateStatePayload,
 } from "./update.js";
 
+/** XCODE: Display-only preferences; this context never grants identity or permissions. */
+export interface NativePlanDisplayContext {
+  version: 1;
+  theme: "light" | "dark";
+  locale: "zh-CN" | "en-US";
+  initialAudience: "personal" | "team";
+  uiFontSizePx: number;
+}
+
+export interface NativePlanWebviewPrepareRequest {
+  url: string;
+  ownerGeneration: number;
+  displayContext: NativePlanDisplayContext;
+}
+
 export interface TaskNotificationPayload {
   taskId: string;
   status: "completed" | "failed" | "permission_request" | "elicitation_request" | "feedback_update";
@@ -891,10 +906,9 @@ export interface IPlatformService {
   clearEmbeddedBrowserData?(mode: "cache" | "all"): Promise<EmbeddedBrowserDataClearResult>;
 
   /** XCODE: Main checks the trusted Host owner before admitting the short read-only handoff. */
-  prepareNativePlanWebview?(request: {
-    url: string;
-    ownerGeneration: number;
-  }): Promise<{ partition: string }>;
+  prepareNativePlanWebview?(
+    request: NativePlanWebviewPrepareRequest,
+  ): Promise<{ partition: string }>;
   closeNativePlanWebview?(partition: string): Promise<void>;
   onNativePlanWebviewInvalidated?(callback: (partition: string) => void): () => void;
 

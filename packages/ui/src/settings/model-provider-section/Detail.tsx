@@ -17,7 +17,6 @@ import {
   getProviderFormApiKeyManagementUrl,
   type ProviderSettingsFormProvider,
 } from "@/lib/providerSettingsFormTypes.js";
-import { ArrowRightIcon, AstroidIcon, UsersIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import {
@@ -64,13 +63,9 @@ import type { ProviderSettingsView } from "@zcode/services";
 import type { SavePersonalModelDraftInput } from "@zcode/provider";
 import { resolveAccountProviderInspectionAccess } from "@/lib/accountProviderAccess.js";
 import { projectProviderSettingsViewToFormProviders } from "@/lib/providerSettingsFormProjection.js";
-
-const START_PLAN_ENTRY_BANNER_CLASS =
-  "min-h-20 w-full overflow-hidden rounded-xl border border-border bg-[radial-gradient(circle_at_14%_12%,color-mix(in_srgb,var(--color-success)_24%,var(--color-background)_76%)_0%,color-mix(in_srgb,var(--color-success)_10%,var(--color-surface)_90%)_64%,var(--color-surface)_300%)] p-4 text-left transition-colors hover:border-border-hover";
-const PERSONAL_PLAN_ENTRY_BANNER_CLASS =
-  "min-h-20 w-full overflow-hidden rounded-xl border border-border bg-[radial-gradient(circle_at_14%_12%,color-mix(in_srgb,#4099ff_24%,var(--color-background)_76%)_0%,color-mix(in_srgb,#4099ff_10%,var(--color-surface)_90%)_64%,var(--color-surface)_300%)] p-4 text-left transition-colors hover:border-border-hover";
-const TEAM_PLAN_ENTRY_BANNER_CLASS =
-  "min-h-20 w-full overflow-hidden rounded-xl border border-border bg-[radial-gradient(circle_at_14%_12%,color-mix(in_srgb,#0ea5e9_24%,var(--color-background)_76%)_0%,color-mix(in_srgb,#0ea5e9_10%,var(--color-surface)_90%)_64%,var(--color-surface)_300%)] p-4 text-left transition-colors hover:border-border-hover";
+import type { NativePlanSettingsRead } from "@/hooks/useNativePlanSettings.js";
+import { NativePlanProviderDetail } from "./NativePlanProviderDetail.js";
+import { PlanEntryCard } from "./PlanEntryCard.js";
 
 function isPlanNavItem(
   item: ModelProviderNavItem | null,
@@ -226,6 +221,7 @@ function resolvePlanSettingsProvider({
 
 export function ModelProviderSectionDetail({
   selectedNavItem,
+  nativePlanRead,
   navigationItems = selectedNavItem ? [selectedNavItem] : [],
   connectionSettingsFailed = false,
   connectionSelections,
@@ -254,6 +250,7 @@ export function ModelProviderSectionDetail({
   providerSettingsView: providerSettingsViewOverride,
 }: {
   selectedNavItem: ModelProviderNavItem | null;
+  nativePlanRead: NativePlanSettingsRead;
   navigationItems?: ModelProviderNavItem[];
   connectionSettingsFailed?: boolean;
   connectionSelections?: ProviderFamilyConnectionSelectionSettings;
@@ -832,6 +829,32 @@ export function ModelProviderSectionDetail({
     return null;
   }
 
+  if (selectedNavItem.type === "nativePlan") {
+    return (
+      <NativePlanProviderDetail
+        provider={selectedNavItem.provider}
+        read={nativePlanRead}
+        onOpenPlans={() =>
+          openCodingPlanUpgrade({
+            providerId: selectedNavItem.provider.providerId,
+            initialAudience: "personal",
+          })
+        }
+      >
+        <InlineEditableProviderCard
+          provider={selectedNavItem.provider}
+          onSave={onSave}
+          {...modelEditingProps}
+          onTestModel={onTestModel}
+          headerVisible={false}
+          readOnlyEndpoints
+          nameEditable={false}
+          headerActionsVisible={false}
+        />
+      </NativePlanProviderDetail>
+    );
+  }
+
   if (!selectedNavItem.provider) {
     return <ModelProviderLoadingCard loadingLabel={loadingLabel} />;
   }
@@ -946,9 +969,6 @@ function CodingPlanPurchaseChoiceBanners({
             metric: startPlanSummary.grantUnitsLabel,
             metricUnit: startPlanSummary.unitLabel,
             priceState: null,
-            className: START_PLAN_ENTRY_BANNER_CLASS,
-            Icon: AstroidIcon,
-            iconClassName: "text-success",
             onClick: onSelectStartPlan,
           },
         ]
@@ -966,9 +986,6 @@ function CodingPlanPurchaseChoiceBanners({
             metric: null,
             metricUnit: null,
             priceState: personalPrice,
-            className: PERSONAL_PLAN_ENTRY_BANNER_CLASS,
-            Icon: AstroidIcon,
-            iconClassName: "text-[#4099ff]",
             onClick: () => onSelect("personal"),
           },
         ]
@@ -987,9 +1004,6 @@ function CodingPlanPurchaseChoiceBanners({
             metric: null,
             metricUnit: null,
             priceState: teamPrice,
-            className: TEAM_PLAN_ENTRY_BANNER_CLASS,
-            Icon: UsersIcon,
-            iconClassName: "text-warning",
             onClick: () => onSelect("team"),
           },
         ]
@@ -998,10 +1012,14 @@ function CodingPlanPurchaseChoiceBanners({
   return (
     <div className="space-y-3">
       {bannerItems.map((item) => (
-        <button
+        <PlanEntryCard
           key={item.key}
-          type="button"
-          className={item.className}
+          tone={item.key === "startPlan" ? "start" : item.key}
+          title={
+            !accountDisconnected && item.key !== "startPlan"
+              ? (entryGate.label ?? item.label)
+              : item.label
+          }
           disabled={
             !accountDisconnected && item.key !== "startPlan" && entryGate.status === "loading"
           }
@@ -1012,20 +1030,11 @@ function CodingPlanPurchaseChoiceBanners({
             }
             item.onClick?.();
           }}
-        >
-          <span className="flex min-w-0 items-start gap-3">
-            <item.Icon className={`mt-1 size-4 shrink-0 ${item.iconClassName}`} />
-            <span className="min-w-0 flex-1">
-              <span className="flex min-w-0 flex-wrap items-center gap-2">
-                <span className="text-ui-lg font-medium leading-6 text-foreground">
-                  {!accountDisconnected && item.key !== "startPlan"
-                    ? (entryGate.label ?? item.label)
-                    : item.label}
-                </span>
-              </span>
+          metric={
+            <>
               {item.metric ? (
                 <span className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                  <span className="text-2xl font-bold leading-none text-foreground">
+                  <span className="text-ui-xl font-bold leading-none text-foreground">
                     {item.metric}
                   </span>
                   {item.metricUnit ? (
@@ -1042,21 +1051,16 @@ function CodingPlanPurchaseChoiceBanners({
                   locale={locale}
                 />
               ) : item.priceState?.kind === "soldOut" ? (
-                <span className="mt-1 block text-lg font-semibold leading-6 text-foreground">
+                <span className="mt-1 block text-ui-lg font-semibold leading-6 text-foreground">
                   {intl.formatMessage({
                     id: "settings.modelProvider.codingPlan.purchaseBanner.temporarilySoldOut",
                   })}
                 </span>
               ) : null}
-              <span className="mt-0.5 block text-ui-base leading-5 text-foreground-subtle">
-                {item.description}
-              </span>
-            </span>
-            <span className="flex h-6 shrink-0 items-center">
-              <ArrowRightIcon className="size-4 text-foreground-subtle" />
-            </span>
-          </span>
-        </button>
+            </>
+          }
+          description={item.description}
+        />
       ))}
     </div>
   );

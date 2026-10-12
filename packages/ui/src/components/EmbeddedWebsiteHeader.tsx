@@ -12,6 +12,7 @@ export function EmbeddedWebsiteHeader({
   onForward,
   onReload,
   onClose,
+  contentClassName,
 }: {
   title: string;
   loading: boolean;
@@ -21,11 +22,18 @@ export function EmbeddedWebsiteHeader({
   onForward: () => void;
   onReload: () => void;
   onClose: () => void;
+  contentClassName?: string;
 }) {
   const { intl } = useZCodeIntl();
   return (
-    <header className="bg-background px-6 py-4 pb-0 max-sm:px-4">
-      <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3">
+    // XCODE: Native viewer can share its content boundary without changing the official page.
+    <header className={cn("bg-background px-6 py-4 pb-0", !contentClassName && "max-sm:px-4")}>
+      <div
+        className={cn(
+          "mx-auto flex w-full max-w-5xl items-center justify-between gap-3",
+          contentClassName,
+        )}
+      >
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex shrink-0 items-center gap-1">
             <Button

@@ -36,6 +36,7 @@ import {
   resolveDesktopZoomFactorForLevel,
   resolveDesktopZoomLevelFromFactor,
 } from "./desktopZoom.js";
+import { syncNativePlanWebviewZoom } from "./nativePlanWebviewManager.js";
 
 export const HELP_TOGGLE_DEV_TOOLS_MENU_ID = "help.toggle-dev-tools";
 export const HELP_TOGGLE_ZCODE_STDIO_TAP_MENU_ID = "help.toggle-zcode-stdio-tap";
@@ -65,6 +66,8 @@ function updateDesktopZoomLevel(
   // 系统缩放快捷键需要可用，但不能无限放大/缩小导致界面失控。
   // Electron zoomLevel 的真实比例是 1.2^level；这里改用 zoomFactor，保证每档统一为 1.1。
   targetWindow.webContents.setZoomFactor(resolveDesktopZoomFactorForLevel(nextLevel));
+  // XCODE: setZoomFactor does not guarantee a zoom-changed event; update attached Native guests here.
+  syncNativePlanWebviewZoom(targetWindow);
   syncWindowControlsOverlayForZoomLevel(targetWindow, nextLevel);
   targetWindow.webContents.send(PlatformChannels.DesktopZoomLevelChanged, { zoomLevel: nextLevel });
   return nextLevel;

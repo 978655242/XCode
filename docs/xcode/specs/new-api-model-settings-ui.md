@@ -1,0 +1,58 @@
+# New API 模型设置：恢复 ZCode 原版呈现
+
+状态：2026-10-12 已实施，本机 UI 与回归验收完成；不替代集成计划的正式发布门禁。
+
+## 产品规则
+
+- 复用现有模型设置外壳、左右分栏、导航、标题、状态卡和套餐入口样式；不另造一套 New API 配置页。
+- 官方模型入口只有 `account:new-api-openai-chat-completions`，名称固定为 `XWork·Plan`。隐藏协议不恢复，不自动迁移历史模型选择，不借用 BigModel/Z.ai 的 Provider 身份。
+- New API 入口是托管套餐，不进入自定义 Provider 表单。未登录、查询中、未开通、有效、额度用尽、过期、撤销和查询失败分别呈现；查询失败不解释为未开通。
+- 套餐状态、名称、有效期与额度来自 `/entitlements`；模板、价格、币种、周期和说明来自 `/plans`。不取官方静态价格或官方权益，不硬编码截图中的商品。
+- 个人套餐卡片保持原版样式。参考价格仅比较相同币种与完整周期的已启用模板；不可比的周期/币种分别展示，缺目录显示真实空态，不补假价格。
+- 团队套餐保留原版卡片位置和样式，明确“当前不支持团队套餐”，禁用购买，不展示虚构价格、席位或组织能力。
+- 订阅/升级与个人套餐入口复用现有升级弹窗及 Native handoff；实际授予仍是 `manual_admin`。不调用官方支付、自助支付或额度重置。
+- 托管套餐不提供自配 API Key、修改端点、改名、删除或“解绑套餐”。不把退出主账号冒充解绑；真实主账号退出仍走既有账号菜单。
+- 模型详情只在真实授权允许时显示 New API 的只读模型；未开通页面保持状态卡及套餐入口，不堆叠自定义配置表单。
+- 自定义供应商的添加、编辑、测试、删除与排序不变。
+- 移除套餐详情顶部独立官方云横幅。官方连接/解绑/额度入口继续保留在已有“使用统计”的官方 MCP 卡片，不修改其认证或注销流程。
+- 浅色/深色、中文/英文和手机窄屏使用现有组件与 `text-ui-*` 字号。
+
+## 所有者与读取路径
+
+New API 业务事实唯一所有者是窗口 Local Host 的主账号及订阅服务。Renderer 通过现有 `ICodingPlanSubscriptionService.getStaticProducts()` 读取 `NativeCodingPlanReadSnapshot`，不增加 HTTP/RPC 协议、凭据或持久缓存。
+
+UI hook 仅保存当前读取的投影、loading/error 和请求序号。owner key 复用 Host `connectionKey` + 主登录 `authSessionSeq` 的现有 `useUsageAccountScope`。换号/退出的首帧清空旧数据，旧请求不得覆盖新 owner；服务实例变化同样隔离。手动刷新与关闭订阅弹窗重新读取当前 owner 的快照。
+
+```mermaid
+sequenceDiagram
+    participant UI as 模型设置
+    participant Host as Local Host / 主账号 owner
+    participant API as New API
+    UI->>UI: 捕获 connectionKey + 登录 epoch + 请求序号
+    UI->>Host: getStaticProducts()
+    Host->>API: 并行 /plans 与 /entitlements
+    API-->>Host: 真实模板与当前指定实例权益
+    Host-->>UI: NativeCodingPlanReadSnapshot
+    UI->>UI: 当前 owner/请求匹配后发布投影
+    Note over UI,Host: 换号/退出立即清空；旧响应丢弃
+    UI->>Host: 现有订阅弹窗 createPlanWebHandoff
+    Host-->>UI: 现有 Main 准入的精确 URL
+```
+
+Desktop handoff 复用既有 Main/Host admission 与临时分区；Web/远程不新建 Host，不绕过现有平台能力门禁。原非 New API 模式保持现行官方界面和业务路径。
+
+## 验收
+
+1. New API 模式只见一个 `XWork·Plan` 官方导航，右侧为原版标题、编程套餐状态、个人和团队入口，没有官方云横幅或自配连接表单。
+2. 未开通/额度用尽/过期/撤销与查询失败区别明确；有效状态展示真实套餐名、有效期和指定实例额度，不显示官方五小时/周/MCP 额度。
+3. 禁用模板不参与参考价；不同币种和周期不混算；空目录不补旧官方价格。
+4. 手动刷新可以更新套餐；owner A 的延迟响应不能在换到 B 或退出后出现，重复刷新只发布最新请求。
+5. 订阅及个人入口实际打开现有 Native 套餐比较页；团队不能触发购买。自定义供应商仍可操作。
+6. 在真实 Electron 的模型设置中验收未开通、有效、错误、换号、刷新、订阅入口和两种主题；确定性 fixture 不冒充真实账号或真实推理。
+
+## 本机验证记录
+
+- `newApiModelSettings.test.ts` 覆盖禁用模板、不可比币种/周期与精确十进制价格；已纳入现有 New API Node 回归入口，完整入口 158 项通过。
+- `newApiModelSettingsElectron.mjs` 已纳入既有 Electron smoke 入口。真实 React 状态卡和 owner hook 验证未开通、有效、耗尽、过期、撤销、查询失败、空模板、换号/退出首帧、迟到响应、同 owner 重复刷新、手动刷新、英文深色及 393px 窄屏；业务输入是确定性 fixture，不冒充部署授权或真实推理。
+- 当前运行的完整 XWork 桌面在 Renderer 重新加载后实际读取部署后端套餐、价格、有效期与额度；状态卡与个人套餐入口均打开同源只读套餐 WebView，手动刷新后授权状态正常。自定义供应商仍显示原有连接和模型编辑操作。未修改真实授权、模板或凭据。
+- 根 `typecheck` 通过，Lint 0 错误/71 警告，changed 架构检查 0 违规；任务涉及文件格式检查通过。真实官方账号连接/解绑、Windows/Linux 与正式发布矩阵未在本任务重做。

@@ -27,6 +27,7 @@ import type {
   ApplicationIconInfo,
   ApplicationIconRequest,
   Locale,
+  NativePlanWebviewPrepareRequest,
   OAuthStateRegistration,
   OAuthCallbackEvent,
   PostUpdateReleaseNotesPayload,
@@ -57,10 +58,10 @@ import type {
 declare global {
   interface Window {
     zcode: {
-      prepareNativePlanWebview?(request: {
-        url: string;
-        ownerGeneration: number;
-      }): Promise<{ partition: string }>;
+      /** XCODE: Native display context is required across the renderer/preload contract. */
+      prepareNativePlanWebview?(
+        request: NativePlanWebviewPrepareRequest,
+      ): Promise<{ partition: string }>;
       closeNativePlanWebview?(partition: string): Promise<void>;
       onNativePlanWebviewInvalidated?(callback: (partition: string) => void): () => void;
       connectRemote(

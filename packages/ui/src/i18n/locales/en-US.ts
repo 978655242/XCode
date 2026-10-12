@@ -1,6 +1,20 @@
 // XCODE: 仅统一产品展示文案，保留语言资源键与协议标识。
 /** English translations */
 const enUS: Record<string, string> = {
+  "settings.usage.nativeOfficialDisconnect": "Disconnect official cloud",
+  "settings.modelProvider.native.providerGroup": "Official",
+  "settings.modelProvider.native.expiresAt": "Valid until {time}",
+  "settings.modelProvider.native.teamUnsupported": "Team plans are not supported.",
+  "settings.modelProvider.native.personalDescription": "View available personal coding plans.",
+  "settings.modelProvider.native.referenceNotice":
+    "Reference prices; contact your administrator to assign or change a plan.",
+  "settings.modelProvider.native.noOffers": "No enabled plans. Contact your administrator.",
+  "settings.modelProvider.native.referencePeriod": "per {period}, from",
+  "settings.modelProvider.native.duration.year": "{count} year(s)",
+  "settings.modelProvider.native.duration.month": "{count} month(s)",
+  "settings.modelProvider.native.duration.day": "{count} day(s)",
+  "settings.modelProvider.native.duration.hour": "{count} hour(s)",
+  "settings.modelProvider.native.duration.custom": "{count} second(s)",
   "login.privateCredentialRecovery.title": "Private credentials need recovery",
   "login.privateCredentialRecovery.description":
     "Unlock your OS credential store or restore your XWork credential backup, then restart. Existing credentials have not been deleted; no alternative key or official account will be used.",
@@ -26,10 +40,6 @@ const enUS: Record<string, string> = {
     "Not selectable — {reason}. Ask your administrator to correct the model metadata.",
   "chat.error.noNativeModel":
     "No New API model is available. Ask your administrator to check the assigned subscription and model access, or configure a custom model.",
-  "settings.modelProvider.native.officialCloud": "Official cloud · independent connection",
-  "settings.modelProvider.native.disconnectCloud": "Disconnect official cloud",
-  "settings.modelProvider.native.cloudFailed":
-    "Official cloud connection failed. Retry the connection.",
   "settings.usage.native.currentPeriod": "Current subscription period",
   "settings.usage.nativeOfficialScope": "Official cloud · {family} · {name} (independently billed)",
   "settings.usage.nativeOfficialConnectDescription":

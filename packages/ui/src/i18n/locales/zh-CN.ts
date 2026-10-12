@@ -1,6 +1,19 @@
 // XCODE: 仅统一产品展示文案，保留语言资源键与协议标识。
 /** 中文翻译 */
 const zhCN: Record<string, string> = {
+  "settings.usage.nativeOfficialDisconnect": "断开官方云",
+  "settings.modelProvider.native.providerGroup": "官方",
+  "settings.modelProvider.native.expiresAt": "有效期至 {time}",
+  "settings.modelProvider.native.teamUnsupported": "当前不支持团队套餐。",
+  "settings.modelProvider.native.personalDescription": "查看可用的个人编程套餐。",
+  "settings.modelProvider.native.referenceNotice": "参考价格；套餐开通及变更请联系管理员。",
+  "settings.modelProvider.native.noOffers": "暂无已启用的套餐，请联系管理员。",
+  "settings.modelProvider.native.referencePeriod": "每 {period} 起",
+  "settings.modelProvider.native.duration.year": "{count} 年",
+  "settings.modelProvider.native.duration.month": "{count} 个月",
+  "settings.modelProvider.native.duration.day": "{count} 天",
+  "settings.modelProvider.native.duration.hour": "{count} 小时",
+  "settings.modelProvider.native.duration.custom": "{count} 秒",
   "login.privateCredentialRecovery.title": "私有凭据需要人工恢复",
   "login.privateCredentialRecovery.description":
     "请解锁操作系统凭据存储，或恢复 XWork 凭据备份后重启。现有凭据未被删除，也不会改用其他密钥或官方账号。",
@@ -24,9 +37,6 @@ const zhCN: Record<string, string> = {
   "settings.modelProvider.native.catalogIssue": "不可选择 — {reason}。请联系管理员修正模型元数据。",
   "chat.error.noNativeModel":
     "当前没有可用的 New API 模型。请联系管理员检查指定套餐与模型权限，或配置自定义模型。",
-  "settings.modelProvider.native.officialCloud": "官方云 · 独立连接",
-  "settings.modelProvider.native.disconnectCloud": "断开官方云",
-  "settings.modelProvider.native.cloudFailed": "官方云连接失败，请重试。",
   "settings.usage.native.currentPeriod": "当前订阅周期",
   "settings.usage.nativeOfficialScope": "官方云 · {family} · {name}（独立计费）",
   "settings.usage.nativeOfficialConnectDescription":

@@ -66,6 +66,7 @@ import {
   type SettingsModelProviderTarget,
 } from "@/lib/settingsNavigation.js";
 import { useEnterpriseCodingPlanProducts } from "@/settings/model-provider-section/useEnterpriseCodingPlanProducts.js";
+import { useNativePlanSettings } from "@/hooks/useNativePlanSettings.js";
 import { useOfficialCloudConnection } from "@/hooks/useOfficialCloudConnection.js";
 
 export {
@@ -280,6 +281,10 @@ export function ModelProviderSection({
       id: "settings.modelProvider.testModel.localWorkspaceUnavailable",
     }),
   });
+  const nativePlanProviderId = modelProviders.find(
+    (provider) => provider.config.group === "new-api-family",
+  )?.providerId;
+  const nativePlanRead = useNativePlanSettings(nativePlanProviderId);
   const entitledAccountProviderIds = useMemo<ReadonlySet<string>>(() => {
     return new Set(
       (providerSettingsView?.providers ?? [])
@@ -1097,6 +1102,11 @@ export function ModelProviderSection({
       presetLoading={presetLoading}
       customLoading={customLoading}
       onRefresh={() => {
+        // XCODE: Native 套餐与目录一并刷新，不向官方套餐/团队数据源降级。
+        if (nativePlanProviderId) {
+          void Promise.all([refresh(), nativePlanRead.refresh()]);
+          return;
+        }
         void refreshModelProviderSection({
           refresh,
           // 手动刷新设置页时也要同时刷新 Z.ai / BigModel Team Plan 快照；
@@ -1113,52 +1123,6 @@ export function ModelProviderSection({
       onReorderProviderIds={handleReorderProviderIds}
       reorderableProviderIds={reorderableProviderIds}
     >
-      {modelProviders.some((provider) => provider.config.group === "new-api-family") ? (
-        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface p-3 text-ui-base">
-          <span className="text-foreground-subtle">
-            {intl.formatMessage({ id: "settings.modelProvider.native.officialCloud" })}
-          </span>
-          {officialCloud.snapshot?.status === "connected" ? (
-            <>
-              <span>
-                {officialCloud.snapshot.identity.displayName || officialCloud.snapshot.family}
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={officialCloud.loading}
-                onClick={() => void officialCloud.logout()}
-              >
-                {intl.formatMessage({ id: "settings.modelProvider.native.disconnectCloud" })}
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={officialCloud.loading || officialCloud.snapshot?.status === "locked"}
-                onClick={() => void officialCloud.startOAuth("zai")}
-              >
-                Z.ai
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={officialCloud.loading || officialCloud.snapshot?.status === "locked"}
-                onClick={() => void officialCloud.startOAuth("bigmodel")}
-              >
-                BigModel
-              </Button>
-            </>
-          )}
-          {officialCloud.error ? (
-            <span role="alert" className="text-destructive">
-              {intl.formatMessage({ id: "settings.modelProvider.native.cloudFailed" })}
-            </span>
-          ) : null}
-        </div>
-      ) : null}
       {providerSettingsView?.catalogIssues?.map((issue) => (
         <div
           key={issue.modelId}
@@ -1199,6 +1163,7 @@ export function ModelProviderSection({
         <ModelProviderSectionDetail
           connectionSelections={effectiveConnectionSelections}
           providerSettingsView={providerSettingsView}
+          nativePlanRead={nativePlanRead}
           selectedNavItem={selectedNavItem}
           navigationItems={navigationItems}
           connectionSettingsFailed={familyConnectionSettingsFailed}
