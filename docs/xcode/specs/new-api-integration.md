@@ -160,6 +160,28 @@ canonical 返回 api_type=null/model_config=null 的未配置模型不能硬塞�
 
 `ModelSelectionView`、`ProviderSettingsView` 及相应 shared RPC schema 增加只读 catalogIssues；本机 worker 同步保留该字段，但不得将 issue 创建为 Registry model。`useModelSelectionView` 与 `settings/ModelProviderSection.tsx` 将其作为现有问题提示区域的非可选配置项显示实际名称/原因，不提供选择 action/model ref。管理员修复后从 issues 移入正确 transport 的真实目录；换号先清该 owner 的 issues。
 
+### 5.2.1 服务端能力声明与思考控制一致性
+
+2026-10-12 优化范围：复用上述动态通道和原版 Composer，不新增模型配置页、能力 Registry 或 HTTP 字段；执行任务见 [模型能力优化计划](../../superpowers/plans/2026-10-12-new-api-model-capability-optimization.md)。
+
+- New API 是托管模型能力声明的唯一来源；Host 持有经校验的 owner-scoped 投影，Renderer 只展示该投影。本规则只覆盖 `new-api-account`，不覆盖用户自配 Provider 或独立官方云模型。
+- 每个 exact model ID 独立声明完整能力、思考档位顺序及 CEL 映射。新增模型或修改既有 schema 能表达的能力不要求发布客户端；新协议、新交互或超出 schema 的能力仍需客户端支持，不能凭配置凭空增加。前端只开放 Chat Completions 的规则不变。
+- `reasoningLevel.values` 决定允许选择的值；`map` 决定这些值如何写入真实协议请求。客户端不得硬加 `low/medium/high`，也不得因模型名称匹配就补默认能力。
+- “关闭”必须语义真实：有思考能力的模型若提供 `disabled/off` 等关闭档位，映射必须使用实际上游支持的明确关闭参数。`map:"{}"` 仅表示不覆盖请求字段，不能作为关闭思考的证据；canonical 的非思考模型 neutral 配置只适用于已确认没有思考能力的模型。
+- 元数据必须同时符合模型接口及部署渠道的实际能力。原生 channel 参数覆盖、默认值或模型别名不能把用户选择重新改成另一档；同名模型的候选渠道不一致时，由管理员拆分真实 alias，不在客户端增加兜底。
+- 保留既有标签、选择器和无效值提示。多档模型可选；已选中的单档模型保持只读；恢复时未选或已失效的值不能在展示层伪装为首档或“关闭”。新建/主动选模保留 `completeNewModelSelection` 取服务端 `values` 最后一项的现行行为，辅助调用保留首项；不新增默认档位字段，也不把恢复失效值当作主动选模。
+- 后台保存不等于客户端已刷新。明确使用模型设置已有 `refreshSources` 拉取目录；Renderer 重读 View 不代替 HTTP 刷新。不新增轮询/推送。刷新后首次 `sendText` 复用 Host 的 Account Config 串行交付，并以 Worker Registry 已应用匹配 revision 为放行条件，不能只凭 `receivedRevision` 回执。
+- 用户选择属于下一次提交；同一个 model ID/档位的后续 turn 必须重新绑定已应用的能力。纯能力/映射更新不改写或取消已经开始的 turn，该 turn 的后续工具步骤及重试仍用冻结配置；排队输入在真正执行时按当时有效目录校验，已删除档位不得静默替换成另一档。
+- 配置 revision 与执行授权身份分开：完整 Account snapshot revision 继续用于交付/应用；Native 执行授权使用精确 owner 与 canonical `authorizationRevision`。换号、退出、授权撤销、模型停用或移出可执行目录仍须及时取消/拒绝，不得只删除旧 revision 判断而失去安全门禁。保留当前保守的 owner 级取消范围，不新建多租约系统；自配模型与独立官方云不共享 Native 生命周期。
+- 保留现有结构、受限编译、授权和 owner/revision 校验。客户端可以校验配置可执行性，但不能自动证明供应商真实支持声明；两者须分别验收。凭据、上游地址和任意 JS 不进入模型配置或 Renderer。
+
+增量验收：
+
+1. 两个托管模型声明不同的档位、上下文和输出上限，Host、UI 与 worker 分别采用各自配置；本地覆盖及内置规则不能改写托管能力。
+2. 对实际有思考能力的部署模型，每个公开档位的 UI 选择、CLI 原始出站参数和真实 relay/上游行为对应；关闭档位显式关闭，非关闭档位不被渠道覆盖。仅有标签或空映射不算通过。
+3. 服务端只改声明并刷新目录后，既有客户端可使用新增合法档位；原选择被删除时明确重选，后续请求使用新映射，已在执行的请求保持自身快照。
+4. 缺失配置、非法 CEL、模型停用、换号/撤销或旧响应回写均不可执行；隐藏 transport、自配 Provider、独立官方云和原版设置布局不受影响。
+
 ### 5.3 调用凭据与协议
 
 请求期 auth resolver 为 new-api-account 读取当前 SID 的托管 sk-key，核对主账号 generation，普通模型调用不读官方 MaaS/zcodeJWT/环境变量覆盖 key。private usage 直接通过只读 NewApiClient，不复用模型 key 查询旧官方 monitor。

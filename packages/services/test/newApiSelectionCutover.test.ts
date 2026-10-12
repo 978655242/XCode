@@ -4,52 +4,21 @@ import {
   ProviderConfigResolver,
   ProviderConfigMap,
   ModelConfigRules,
+  ModelConfig,
+  ProviderConfig,
+  ProviderTemplateMap,
+  createAccountProviderConfigSnapshot,
+  type ProviderConfigSnapshot,
+  type ProviderRegistryServiceSnapshot,
   resolveEffectiveModelSelection,
   ProviderSettingsFacade,
 } from "@zcode/provider";
 import { createNewApiProviderAnchors, createNodeModelSelectionFacade } from "@zcode/provider-node";
 import { resolveNewApiAccountProviders } from "../src/new-api/newApiAccountProviderResolution.js";
-import { owner, catalog, entitlements } from "./newApiRegistryFixtures.js";
+import { owner, catalog, entitlements, modelConfig } from "./newApiRegistryFixtures.js";
 
 test("XWork selects only Chat Completions and requires reselect for hidden or old official refs", () => {
-  const account = resolveNewApiAccountProviders({
-    owner,
-    catalog: {
-      ...catalog,
-      models: [
-        ...catalog.models,
-        { ...catalog.models[0]!, model_id: "chat-model", api_type: "openai-chat-completions" },
-      ],
-    },
-    entitlements,
-  });
-  const resolution = new ProviderConfigResolver().resolve({
-    zcodeBuiltinProviders: createNewApiProviderAnchors(owner.origin),
-    personalProviders: ProviderConfigMap.empty(),
-    personalModels: ModelConfigRules.empty(),
-    zcodeBuiltinModelRules: ModelConfigRules.empty(),
-    accountProviders: account.providers,
-    accountModelConfigs: account.modelConfigs,
-    accountStates: account.states,
-  });
-  const registry = { revision: 1, providers: resolution.registryProviders };
-  const snapshot = {
-    registry,
-    resolution,
-    account,
-    config: {
-      zcodeBuiltinProviders: createNewApiProviderAnchors(owner.origin),
-      personalProviders: ProviderConfigMap.empty(),
-      personalModels: ModelConfigRules.empty(),
-    },
-    sourceRevisions: { config: "builtin", account: "account" },
-  };
-  const facade = createNodeModelSelectionFacade({
-    getView: () => registry,
-    getSnapshot: () => snapshot as never,
-    refresh: async () => snapshot as never,
-    onDidChange: () => () => {},
-  });
+  const { facade, registry, snapshot } = nativeSelectionFixture();
   const selection = {
     providerId: "account:new-api-openai-chat-completions",
     modelId: "chat-model",
@@ -94,5 +63,132 @@ test("XWork selects only Chat Completions and requires reselect for hidden or ol
       classifyProvider: () => "ordinary",
     }).effectiveSelection,
     null,
+  );
+});
+
+function nativeSelectionFixture(
+  personalProviders = ProviderConfigMap.empty(),
+  builtinModelRules = ModelConfigRules.empty(),
+) {
+  const config: ProviderConfigSnapshot = {
+    revision: "config-1",
+    zcodeBuiltinRevision: "builtin-1",
+    personalRevision: "personal-1",
+    zcodeBuiltinProviders: createNewApiProviderAnchors(owner.origin),
+    zcodeBuiltinProviderTemplates: ProviderTemplateMap.empty(),
+    personalProviders,
+    personalModels: ModelConfigRules.empty(),
+    zcodeBuiltinModelRules: builtinModelRules,
+  };
+  const native = resolveNewApiAccountProviders({
+    owner,
+    catalog: {
+      ...catalog,
+      models: [
+        ...catalog.models,
+        { ...catalog.models[0]!, model_id: "chat-model", api_type: "openai-chat-completions" },
+        {
+          ...catalog.models[0]!,
+          model_id: "deepseek-v4-flash",
+          api_type: "openai-chat-completions",
+          model_config: {
+            ...modelConfig,
+            optionSpecs: {
+              ...modelConfig.optionSpecs,
+              reasoningLevel: { values: ["disabled", "low"], map: "{}" },
+            },
+          },
+        },
+      ],
+    },
+    entitlements,
+    configRevision: config.zcodeBuiltinRevision,
+  });
+  const account = createAccountProviderConfigSnapshot(
+    config.zcodeBuiltinRevision,
+    native.providers,
+    native.states,
+    native,
+  );
+  const resolution = new ProviderConfigResolver().resolve({
+    ...config,
+    accountProviders: account.providers,
+    accountModelConfigs: account.modelConfigs,
+    accountStates: account.states,
+  });
+  const registry = { revision: 1, providers: resolution.registryProviders };
+  const snapshot: ProviderRegistryServiceSnapshot = {
+    config,
+    account,
+    resolution,
+    registry,
+    sourceRevisions: { config: config.revision, account: account.revision },
+  };
+  const facade = createNodeModelSelectionFacade({
+    getView: () => registry,
+    getSnapshot: () => snapshot,
+    refresh: async () => snapshot,
+    onDidChange: () => () => {},
+  });
+  return { facade, registry, snapshot };
+}
+
+test("Native personal overlays cannot hide or rename XWork Plan or expose hidden transports", () => {
+  const personal = new ProviderConfigMap([
+    {
+      providerId: "account:new-api-openai-chat-completions",
+      providerName: "Local renamed provider",
+      config: new ProviderConfig({ visibility: "hidden", modelOrder: ["deepseek-v4-flash"] }),
+    },
+    {
+      providerId: "account:new-api-openai-responses",
+      config: new ProviderConfig({ visibility: "visible" }),
+    },
+  ]);
+  const { facade, registry, snapshot } = nativeSelectionFixture(personal);
+  const settings = new ProviderSettingsFacade({
+    getView: () => registry,
+    getSnapshot: () => snapshot,
+    refresh: async () => snapshot,
+    onDidChange: () => () => {},
+  }).getView();
+  for (const view of [facade.getView(), settings]) {
+    assert.deepEqual(
+      view.providers.map((provider) => provider.providerId),
+      ["account:new-api-openai-chat-completions"],
+    );
+    assert.equal(view.providers[0]!.providerName, "XWork·Plan");
+  }
+});
+
+test("Native historical reasoning never inherits official Built-in aliases", () => {
+  const builtin = new ModelConfigRules([
+    {
+      type: "model",
+      modelMatch: ".*deepseek-v4-flash(?:[.\\-:/\\[].*)?",
+      config: ModelConfig.fromData({
+        optionSpecs: { reasoningLevel: { values: ["disabled", "low"], map: "{}" } },
+      }),
+    },
+  ]);
+  const { facade } = nativeSelectionFixture(ProviderConfigMap.empty(), builtin);
+  for (const level of ["off", "nothink", "deleted-level"]) {
+    const selection = {
+      providerId: "account:new-api-openai-chat-completions",
+      modelId: "deepseek-v4-flash",
+      options: { reasoningLevel: level },
+    };
+    const view = facade.getView(undefined, undefined, { selection });
+    assert.equal(view.selectionIssue, "reasoning-level-not-supported", level);
+    assert.equal(selection.options.reasoningLevel, level);
+  }
+  const valid = {
+    providerId: "account:new-api-openai-chat-completions",
+    modelId: "deepseek-v4-flash",
+    options: { reasoningLevel: "disabled" },
+  };
+  assert.deepEqual(
+    facade.getView(undefined, undefined, { selection: valid }).effectiveSelection,
+    valid,
   );
 });

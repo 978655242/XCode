@@ -62,7 +62,10 @@ export interface ZCodeProtocolAgentDependencies {
   /** 受信 Host 管理的 Hook policy；workspace/project 配置不得覆盖。 */
   workspaceHookPolicyProvider?: WorkspaceHookPolicyProvider;
   /** 把 Host 账号状态形成的第三层 Config Overlay 同步给进程 Registry。 */
-  syncAccountProviderConfig?: (snapshot: AccountProviderConfigSnapshot) => Promise<boolean>;
+  syncAccountProviderConfig?: (snapshot: AccountProviderConfigSnapshot) => Promise<{
+    changed: boolean;
+    appliedRevision: string | null;
+  }>;
   /** XCODE: 当前 Account Source 的同步身份栅栏，供原子导入事务提交使用。 */
   isAccountScopeCurrent?: (scope: string) => boolean;
   /** 连接测试前主动重读当前进程的 Config Source 并等待 Registry 发布。 */

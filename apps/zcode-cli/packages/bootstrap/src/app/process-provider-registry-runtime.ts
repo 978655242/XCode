@@ -158,14 +158,20 @@ export async function startProcessProviderRegistryRuntime(
           }
           return false;
         },
-        async syncAccountProviderConfig(next: AccountProviderConfigSnapshot): Promise<boolean> {
+        async syncAccountProviderConfig(next: AccountProviderConfigSnapshot): Promise<{
+          changed: boolean;
+          appliedRevision: string | null;
+        }> {
           if (standaloneAccount)
             throw new Error("Standalone Account 由本进程管理，不接收 Host 覆盖");
           const changed = accountSource.replace(next, "host-account-config");
           // Source 去重只证明收过，不证明上次刷新成功。重交时仍刷新；配套配置未到
           // 则由 Registry 保留完整旧快照，不能把接收确认冒充应用确认。
           await runtime.registryService.refresh("host-account-config");
-          return changed;
+          return {
+            changed,
+            appliedRevision: runtime.registryService.getSnapshot()?.sourceRevisions.account ?? null,
+          };
         },
         dispose() {
           disposeCredentialSubscription?.();
@@ -202,7 +208,9 @@ export async function startProcessProviderRegistryRuntime(
 }
 
 /** 把协议信封解析为进程 Registry 使用的第三层 Account Config Overlay。 */
-export function parseProcessAccountProviderConfigSnapshot(raw: unknown): AccountProviderConfigSnapshot {
+export function parseProcessAccountProviderConfigSnapshot(
+  raw: unknown,
+): AccountProviderConfigSnapshot {
   const input = zcodeProviderUpdateAccountConfigParamsSchema.parse(raw);
   const revision = input.revision.trim();
   if (!revision) throw new Error("Account Config revision 不能为空");
@@ -216,7 +224,8 @@ export function parseProcessAccountProviderConfigSnapshot(raw: unknown): Account
       if (provider.access.entitled && (!input.owner || input.states[providerId]?.current !== true))
         throw new Error(`Native Account owner/current missing: ${providerId}`);
       for (const modelId of provider.builtinModelIds ?? []) {
-        if (!input.modelConfigs[providerId]?.[modelId]) throw new Error(`Native complete model config missing: ${providerId}/${modelId}`);
+        if (!input.modelConfigs[providerId]?.[modelId])
+          throw new Error(`Native complete model config missing: ${providerId}/${modelId}`);
       }
     }
     // 仅约束托管 Worker 的普通账号信封；独立 CLI、API 和闲时不需要 current。

@@ -203,43 +203,81 @@ export class ProviderRegistryService {
       this.#assertNotDisposed();
 
       if (account.basedOnZCodeBuiltinRevision !== config.zcodeBuiltinRevision) {
-        if (
-          this.#snapshot &&
-          account.owner !== undefined &&
-          account.revision !== this.#snapshot.account.revision
-        ) {
+        if (this.#snapshot && account.revision !== this.#snapshot.account.revision) {
           const previous = this.#snapshot;
-          // XCODE: Built-in 错位也必须撤销旧私有/官方 owner，不能继续保留 A 的闲时 key。
-          const revokedOfficialIds = new Set<string>();
-          const providers = previous.resolution.registryProviders.filter((provider) => {
-            if (provider.config.access.type === "new-api-account") return false;
+          // XCODE: 配套配置未到只延后能力应用；owner、授权或模型资格失效必须立即撤销。
+          const revokedProviderIds = new Set<string>();
+          const revokedNativeModels = new Map<string, Set<string>>();
+          const providers: Provider[] = [];
+          for (const provider of previous.resolution.registryProviders) {
             const state = account.states?.[provider.providerId];
+            if (provider.config.access.type === "new-api-account") {
+              const owner = account.owner;
+              const oldOwner = provider.accountOwner;
+              const access = account.providers.get(provider.providerId)?.access;
+              if (
+                !owner ||
+                !oldOwner ||
+                owner.origin !== oldOwner.origin ||
+                owner.userId !== oldOwner.userId ||
+                owner.sid !== oldOwner.sid ||
+                owner.authGeneration !== oldOwner.authGeneration ||
+                provider.accountAuthorizationRevision !== account.authorizationRevision ||
+                access?.type !== "new-api-account" ||
+                !access.entitled ||
+                state?.current !== true
+              ) {
+                revokedProviderIds.add(provider.providerId);
+                continue;
+              }
+              const removed = new Set<string>();
+              const models = provider.models.filter((model) => {
+                const eligible =
+                  account.providers
+                    .get(provider.providerId)
+                    ?.builtinModelIds?.includes(model.modelId) &&
+                  account.modelConfigs?.[provider.providerId]?.[model.modelId]?.enabled === true;
+                if (!eligible) removed.add(model.modelId);
+                return eligible;
+              });
+              if (removed.size > 0) revokedNativeModels.set(provider.providerId, removed);
+              if (models.length > 0)
+                providers.push(
+                  removed.size === 0
+                    ? provider
+                    : Object.freeze({ ...provider, models: Object.freeze(models) }),
+                );
+              continue;
+            }
             if (
               provider.accountConnectionKey?.startsWith("official-cloud:sha256:") &&
               (state?.availability !== "available" ||
                 state.connectionKey !== provider.accountConnectionKey)
             ) {
-              revokedOfficialIds.add(provider.providerId);
-              return false;
+              revokedProviderIds.add(provider.providerId);
+              continue;
             }
-            return true;
-          });
+            providers.push(provider);
+          }
           this.#registry.replace(providers, "native-owner-invalidated");
           this.#snapshot = Object.freeze({
             ...previous,
-            account: freezeAccountSnapshot({ ...account, modelConfigs: {}, catalogIssues: [] }),
+            account: freezeAccountSnapshot(account),
             resolution: Object.freeze({
               ...previous.resolution,
               registryProviders: Object.freeze(providers),
               resolvedProviders: Object.freeze(
                 previous.resolution.resolvedProviders.map((provider) =>
-                  provider.config.access?.type === "new-api-account" ||
-                  revokedOfficialIds.has(provider.providerId)
+                  revokedProviderIds.has(provider.providerId) ||
+                  revokedNativeModels.has(provider.providerId)
                     ? Object.freeze({
                         ...provider,
                         models: Object.freeze(
                           provider.models.map((model) =>
-                            Object.freeze({ ...model, executable: false, selectable: false }),
+                            revokedProviderIds.has(provider.providerId) ||
+                            revokedNativeModels.get(provider.providerId)?.has(model.modelId)
+                              ? Object.freeze({ ...model, executable: false, selectable: false })
+                              : model,
                           ),
                         ),
                       })
@@ -251,7 +289,7 @@ export class ProviderRegistryService {
           });
           this.#emitChanged(this.#snapshot, reasons);
         }
-        // Built-in changes preserve non-private execution; private changes above revoke before admission.
+        // XCODE: Source 收到新版本不代表 Registry 已应用，sourceRevisions 保持旧确认。
         // 当前 generation 结束；等待 Account Source 的后续 change 再一次性发布最终组合。
         this.#completedGeneration = generation;
         if (this.#snapshot) this.#resolveRefreshWaiters(generation, this.#snapshot);
@@ -278,6 +316,7 @@ export class ProviderRegistryService {
           accountModelConfigs: account.modelConfigs,
           accountOwner: account.owner,
           accountRevision: account.revision,
+          accountAuthorizationRevision: account.authorizationRevision,
           personalProviderOrder: config.personalProviderOrder,
         });
         this.#registry.replace(resolution.registryProviders, [...reasons].join(","));

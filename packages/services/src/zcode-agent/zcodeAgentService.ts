@@ -1214,8 +1214,8 @@ export function createZCodeAgentService(
     waitingWorkspaceStartups.clear();
   }
   const accountConfigSyncByClient = new WeakMap<ZCodeProtocolClient, Promise<void>>();
-  // 此缓存只去重已交付的账号快照，不表示 Worker 的 Registry 已应用该版本。
-  const accountConfigReceivedRevisionByClient = new WeakMap<ZCodeProtocolClient, string>();
+  // XCODE: 只缓存 Registry 已应用的确认；收到但未应用时不能放行下一轮。
+  const accountConfigAppliedRevisionByClient = new WeakMap<ZCodeProtocolClient, string>();
   const sessionTraceIdBySessionKey = new Map<string, TraceId>();
   const accountRequestAuthService = options?.accountRequestAuthService;
   const accountProviderConfigSource = options?.accountProviderConfigSource;
@@ -1412,7 +1412,7 @@ export function createZCodeAgentService(
         // 排队前异步读取可能晚返回，把旧结果排在新结果之后。读取与交付
         // 共用现有 Client 串行队列；不新增发送屏障，也不按内容 revision 猜测时间先后。
         const snapshot = await accountProviderConfigSource.read();
-        if (accountConfigReceivedRevisionByClient.get(params.client) === snapshot.revision) return;
+        if (accountConfigAppliedRevisionByClient.get(params.client) === snapshot.revision) return;
         const result = await params.client.request(
           zcodeProtocolMethods.providerUpdateAccountConfig,
           {
@@ -1434,14 +1434,18 @@ export function createZCodeAgentService(
           },
           zcodeProviderUpdateAccountConfigResultSchema,
         );
-        if (result.receivedRevision !== snapshot.revision) {
-          throw new Error("Account Config 接收回执版本与交付版本不一致");
+        if (
+          result.receivedRevision !== snapshot.revision ||
+          result.appliedRevision !== snapshot.revision
+        ) {
+          throw new Error("Account Config 尚未在 Worker Registry 应用或回执版本不一致");
         }
-        accountConfigReceivedRevisionByClient.set(params.client, result.receivedRevision);
-        logger.info(undefined, "account provider config 已交付到 XWork agent", {
+        accountConfigAppliedRevisionByClient.set(params.client, result.appliedRevision);
+        logger.info(undefined, "account provider config 已应用到 XWork agent", {
           providerCount: result.providerCount,
           reason: params.reason,
           receivedRevision: result.receivedRevision,
+          appliedRevision: result.appliedRevision,
           status: result.status,
         });
       });
@@ -5203,12 +5207,11 @@ export function createZCodeAgentService(
         readTrustedZCodeAgentV4Connection(params)?.clientMode ??
         params.clientMode ??
         "desktop-continuous";
-      if (params.envelope.type === "createSession") {
-        // V4 草稿预热直接走 command 转发；新会话创建前只需等待 Account Config，
-        // ZCode Built-in / Personal 已由 Worker 进程 Registry 自己装配。
+      if (params.envelope.type === "createSession" || params.envelope.type === "sendText") {
+        // XCODE: 普通发送也等待已应用确认；保持原 owner/lease 和两种 deliveryMode 路由。
         await ensureAccountProviderConfigSynced({
           client,
-          reason: "v4_command_create_session",
+          reason: `v4_command_${params.envelope.type}`,
           workspace: params,
         });
       }

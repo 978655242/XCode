@@ -123,13 +123,13 @@ export function createAccountProviderRequestAuthService(
   return new AccountProviderRequestAuthService(options);
 }
 
-/** Request-period Native credentials are bound to the exact accepted account snapshot. */
+/** XCODE: 请求凭据绑定 owner/授权代际；能力版本只影响下一轮冻结配置。 */
 export function createNewApiAccountRequestAuthResolver(options: {
   account: Pick<NewApiAccountService, "isCurrent" | "getRelayCredential">;
   accountSource: ProviderSource<AccountProviderConfigSnapshot>;
   official: AccountRequestAuthResolver;
 }): AccountRequestAuthResolver {
-  const assertNative = async (input: AccountAccessIdentityInput) => {
+  const assertNative = async (input: AccountAccessIdentityInput & { modelId?: string }) => {
     const access = input.accountAccess;
     if (access.type !== "new-api-account")
       throw new AccountRequestCredentialUnavailableError(input.providerId);
@@ -138,14 +138,17 @@ export function createNewApiAccountRequestAuthResolver(options: {
     if (
       !isNewApiModelProviderId(input.providerId) ||
       !access.owner ||
-      !access.accountRevision ||
+      !access.authorizationRevision ||
       !options.account.isCurrent(access.owner) ||
       !snapshot.owner ||
       !options.account.isCurrent(snapshot.owner) ||
-      access.accountRevision !== snapshot.revision ||
+      access.authorizationRevision !== snapshot.authorizationRevision ||
       providerAccess?.type !== "new-api-account" ||
       providerAccess.entitled !== true ||
-      snapshot.states?.[input.providerId]?.current !== true
+      snapshot.states?.[input.providerId]?.current !== true ||
+      (input.modelId !== undefined &&
+        (!snapshot.providers.get(input.providerId)?.builtinModelIds?.includes(input.modelId) ||
+          snapshot.modelConfigs?.[input.providerId]?.[input.modelId]?.enabled !== true))
     ) {
       throw new AccountRequestCredentialUnavailableError(input.providerId);
     }
@@ -173,15 +176,10 @@ export function createNewApiAccountRequestAuthResolver(options: {
         throw new Error(
           `XCODE_PRIVATE_${input.reason === "off-peak" ? "OFF_PEAK" : "USAGE_AUTH"}_UNSUPPORTED`,
         );
-      const { snapshot, owner } = await assertNative(input);
-      if (
-        !input.modelId ||
-        !snapshot.providers.get(input.providerId)?.builtinModelIds?.includes(input.modelId) ||
-        snapshot.modelConfigs?.[input.providerId]?.[input.modelId]?.enabled !== true
-      )
-        throw new AccountRequestCredentialUnavailableError(input.providerId);
+      if (!input.modelId) throw new AccountRequestCredentialUnavailableError(input.providerId);
+      const { owner } = await assertNative(input);
       const credential = await options.account.getRelayCredential(owner);
-      // A logout/config publication can cross the await; no stale secret is released.
+      // XCODE: await 期间可能退出、换授权或下架模型，二次检查后才能释放凭据。
       await assertNative(input);
       return { apiKey: credential.token };
     },

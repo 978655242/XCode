@@ -24,7 +24,7 @@ import {
   materializeZCodeBuiltinProviderConfig,
 } from "@zcode/provider-node";
 import { resolveNewApiAccountProviders } from "../src/new-api/newApiAccountProviderResolution.js";
-import { owner, catalog, entitlements } from "./newApiRegistryFixtures.js";
+import { owner, catalog, entitlements, modelConfig } from "./newApiRegistryFixtures.js";
 
 function config(): ProviderConfigSnapshot {
   return {
@@ -92,6 +92,95 @@ test("builtin fence admits no new owner and immediately revokes the old owner ex
       registry.getProvider("account:new-api-openai-responses")?.accountOwner?.sid,
       "other-owner",
     );
+  } finally {
+    registry.dispose();
+  }
+});
+
+test("builtin mismatch preserves old Native capabilities but revokes a removed model immediately", async () => {
+  let current = config();
+  const source = new MutableAccountProviderConfigSource();
+  const native = resolveNewApiAccountProviders({
+    owner,
+    catalog,
+    entitlements,
+    configRevision: "builtin-1",
+  });
+  source.replace(
+    createAccountProviderConfigSnapshot("builtin-1", native.providers, native.states, native),
+  );
+  const registry = new ProviderRegistryService({
+    configSource: { read: async () => current, onDidChange: () => () => {} },
+    accountSource: source,
+  });
+  const id = "account:new-api-openai-responses";
+  try {
+    await registry.start();
+    const oldApplied = registry.getSnapshot()!.sourceRevisions.account;
+    current = { ...current, revision: "config-2", zcodeBuiltinRevision: "builtin-2" };
+    const changedCatalog = {
+      ...catalog,
+      models: catalog.models.map((entry) =>
+        entry.model_id === "real-model"
+          ? {
+              ...entry,
+              model_config: {
+                ...modelConfig,
+                optionSpecs: {
+                  ...modelConfig.optionSpecs,
+                  reasoningLevel: { values: ["none", "high"], map: "{}" },
+                },
+              },
+            }
+          : entry,
+      ),
+    };
+    const changed = resolveNewApiAccountProviders({
+      owner,
+      catalog: changedCatalog,
+      entitlements,
+      configRevision: "builtin-1",
+    });
+    source.replace(
+      createAccountProviderConfigSnapshot("builtin-1", changed.providers, changed.states, changed),
+    );
+    await registry.refresh("capabilities-before-builtin");
+    assert.deepEqual(
+      registry.getModel(id, "real-model")?.config.optionSpecs.reasoningLevel.values,
+      ["none"],
+    );
+    assert.equal(registry.getSnapshot()!.sourceRevisions.account, oldApplied);
+    assert.notEqual((await source.read()).revision, oldApplied);
+
+    const revoked = resolveNewApiAccountProviders({
+      owner,
+      catalog: {
+        ...changedCatalog,
+        models: changedCatalog.models.map((entry) =>
+          entry.model_id === "real-model"
+            ? { ...entry, model_config: { ...modelConfig, enabled: false } }
+            : entry,
+        ),
+      },
+      entitlements,
+      configRevision: "builtin-1",
+    });
+    source.replace(
+      createAccountProviderConfigSnapshot("builtin-1", revoked.providers, revoked.states, revoked),
+    );
+    await registry.refresh("disabled-before-builtin");
+    assert.equal(registry.getModel(id, "real-model"), undefined);
+    assert.equal(registry.getSnapshot()!.sourceRevisions.account, oldApplied);
+
+    source.replace(
+      createAccountProviderConfigSnapshot("builtin-2", changed.providers, changed.states, changed),
+    );
+    await registry.refresh("matching-builtin-capabilities");
+    assert.deepEqual(
+      registry.getModel(id, "real-model")?.config.optionSpecs.reasoningLevel.values,
+      ["none", "high"],
+    );
+    assert.equal(registry.getSnapshot()!.sourceRevisions.account, changed.revision);
   } finally {
     registry.dispose();
   }

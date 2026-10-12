@@ -168,7 +168,11 @@ function freezeView(revision: number, providers: readonly Provider[]): ProviderR
       config: provider.config,
       // XCODE: owner/revision/官方连接代际只留在内部 Registry，公开 facade 投影无身份 DTO。
       ...(provider.accountOwner
-        ? { accountOwner: provider.accountOwner, accountRevision: provider.accountRevision }
+        ? {
+            accountOwner: provider.accountOwner,
+            accountRevision: provider.accountRevision,
+            accountAuthorizationRevision: provider.accountAuthorizationRevision,
+          }
         : {}),
       ...(provider.accountConnectionKey
         ? { accountConnectionKey: provider.accountConnectionKey }

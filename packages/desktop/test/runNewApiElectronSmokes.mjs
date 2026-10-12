@@ -18,6 +18,7 @@ try {
     "newApiWebHandoffElectron",
     "newApiUpgradePresentationElectron",
     "newApiModelSettingsElectron",
+    "newApiModelCapabilitiesElectron",
   ]) {
     const entry = new URL(`./${name}.mjs`, import.meta.url);
     const output = join(temporary, `${name}.mjs`);
@@ -48,7 +49,9 @@ try {
           ? process.env.XCODE_UPGRADE_SMOKE_SEED
             ? 260_000
             : 200_000
-          : 60_000,
+          : name === "newApiModelCapabilitiesElectron"
+            ? 120_000
+            : 60_000,
     });
     assert.equal(
       result.status,

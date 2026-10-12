@@ -144,6 +144,7 @@ export interface ProviderConfigResolverInput {
   readonly accountModelConfigs?: AccountModelConfigs;
   readonly accountOwner?: NewApiOwner | null;
   readonly accountRevision?: string;
+  readonly accountAuthorizationRevision?: string;
   readonly personalProviderOrder?: readonly ProviderId[];
 }
 
@@ -184,6 +185,7 @@ export interface Provider extends Pick<ProviderConfigRule, "templateId" | "provi
   readonly models: readonly ProviderModel[];
   readonly accountOwner?: NewApiOwner;
   readonly accountRevision?: string;
+  readonly accountAuthorizationRevision?: string;
   /** XCODE: 官方连接的非秘密执行代际只留在内部 Registry。 */
   readonly accountConnectionKey?: string;
 }
@@ -212,12 +214,21 @@ export class ProviderConfigResolver {
         : undefined;
       return template ? template.overlay(concrete) : concrete;
     });
-    const personalProviders = input.personalProviders.mapConfigs((config, providerId) =>
-      effectiveBuiltinProviders.get(providerId)?.access?.type === "new-api-account"
-        ? new ProviderConfig({ modelOrder: config.modelOrder, visibility: config.visibility })
-        : effectiveBuiltinProviders.has(providerId)
-          ? config.withoutGroup()
-          : config,
+    // XCODE: Native 名称和可见性由固定锚点所有，本地覆盖只能调整模型顺序。
+    const personalProviders = new ProviderConfigMap(
+      input.personalProviders.rules().map((rule) =>
+        effectiveBuiltinProviders.get(rule.providerId)?.access?.type === "new-api-account"
+          ? {
+              providerId: rule.providerId,
+              config: new ProviderConfig({ modelOrder: rule.config.modelOrder }),
+            }
+          : {
+              ...rule,
+              config: effectiveBuiltinProviders.has(rule.providerId)
+                ? rule.config.withoutGroup()
+                : rule.config,
+            },
+      ),
     );
     const templatePersonalProviders = personalProviders.mapConfigs((personal, providerId, rule) => {
       if (effectiveBuiltinProviders.has(providerId)) return personal;
@@ -374,7 +385,11 @@ export class ProviderConfigResolver {
             ? { accountConnectionKey: input.accountStates[providerId]!.connectionKey }
             : {}),
           ...(config.access?.type === "new-api-account" && input.accountOwner
-            ? { accountOwner: input.accountOwner, accountRevision: input.accountRevision }
+            ? {
+                accountOwner: input.accountOwner,
+                accountRevision: input.accountRevision,
+                accountAuthorizationRevision: input.accountAuthorizationRevision,
+              }
             : {}),
         }),
       );

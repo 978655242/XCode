@@ -35,8 +35,16 @@ export class ApiProviderModelRuntime {
   readonly #modelAdapter: ApiProviderModelAdapter;
   #started = false;
   #registryUnsubscribe?: () => void;
-  #nativeExecution: { owner: NonNullable<Provider["accountOwner"]>; revision: string; controller: AbortController } | null = null;
-  readonly #officialExecutions = new Map<string, { identity: string; controller: AbortController }>();
+  #nativeExecution: {
+    owner: NonNullable<Provider["accountOwner"]>;
+    authorizationRevision: string;
+    controller: AbortController;
+    models: Map<string, Set<string>>;
+  } | null = null;
+  readonly #officialExecutions = new Map<
+    string,
+    { identity: string; controller: AbortController }
+  >();
 
   constructor(options: ApiProviderModelRuntimeOptions) {
     this.#registry = options.registry;
@@ -61,14 +69,34 @@ export class ApiProviderModelRuntime {
     this.#started = true;
     this.#registryUnsubscribe = this.#registry.onDidChange(() => {
       const active = this.#nativeExecution;
-      if (active && !this.#registry.getView().providers.some((provider) =>
-        provider.config.access.type === "new-api-account" && this.#matchesNativeExecution(provider))) {
-        active.controller.abort(new DOMException("Native account authorization changed", "AbortError"));
+      // XCODE: 能力刷新保留冻结轮次；授权变化或任一已用模型失去资格则撤销 owner 级执行。
+      if (active) {
+        let stale = false;
+        for (const [providerId, modelIds] of active.models) {
+          const provider = this.#registry.getProvider(providerId);
+          if (!provider || !this.#matchesNativeExecution(provider)) {
+            stale = true;
+            break;
+          }
+          for (const modelId of modelIds) {
+            if (this.#registry.getModel(providerId, modelId)?.config.enabled !== true) {
+              stale = true;
+              break;
+            }
+          }
+          if (stale) break;
+        }
+        if (stale)
+          active.controller.abort(
+            new DOMException("Native account authorization changed", "AbortError"),
+          );
       }
       // XCODE: 闲时凭据冻结于执行；连接代际失效后必须中止流及全部后续 attempt。
       for (const [providerId, execution] of this.#officialExecutions) {
         if (this.#registry.getProvider(providerId)?.accountConnectionKey !== execution.identity) {
-          execution.controller.abort(new DOMException("Official cloud authorization changed", "AbortError"));
+          execution.controller.abort(
+            new DOMException("Official cloud authorization changed", "AbortError"),
+          );
           this.#officialExecutions.delete(providerId);
         }
       }
@@ -79,7 +107,9 @@ export class ApiProviderModelRuntime {
     this.#started = false;
     this.#registryUnsubscribe?.();
     this.#registryUnsubscribe = undefined;
-    this.#nativeExecution?.controller.abort(new DOMException("Model runtime disposed", "AbortError"));
+    this.#nativeExecution?.controller.abort(
+      new DOMException("Model runtime disposed", "AbortError"),
+    );
     this.#nativeExecution = null;
     for (const execution of this.#officialExecutions.values())
       execution.controller.abort(new DOMException("Model runtime disposed", "AbortError"));
@@ -89,32 +119,59 @@ export class ApiProviderModelRuntime {
   #matchesNativeExecution(provider: Provider): boolean {
     const active = this.#nativeExecution;
     const owner = provider.accountOwner;
-    return active !== null && owner !== undefined && provider.accountRevision === active.revision &&
-      owner.origin === active.owner.origin && owner.userId === active.owner.userId &&
-      owner.sid === active.owner.sid && owner.authGeneration === active.owner.authGeneration;
+    return (
+      active !== null &&
+      owner !== undefined &&
+      provider.config.access.type === "new-api-account" &&
+      provider.config.access.entitled &&
+      provider.accountAuthorizationRevision === active.authorizationRevision &&
+      owner.origin === active.owner.origin &&
+      owner.userId === active.owner.userId &&
+      owner.sid === active.owner.sid &&
+      owner.authGeneration === active.owner.authGeneration
+    );
   }
 
-  #nativeExecutionSignal(provider: Provider): AbortSignal {
-    if (!provider.accountOwner || !provider.accountRevision)
+  #nativeExecutionSignal(provider: Provider, modelId: string): AbortSignal {
+    if (!provider.accountOwner || !provider.accountAuthorizationRevision)
       throw new Error("Native account execution identity unavailable");
     let active = this.#nativeExecution;
-    // XCODE: Registry 换 owner/revision 立即终止旧请求；自定义模型不共享这个生命周期。
+    // XCODE: owner/授权代际变化立即终止旧请求；自定义模型不共享这个生命周期。
     if (!active || !this.#matchesNativeExecution(provider) || active.controller.signal.aborted) {
-      active?.controller.abort(new DOMException("Native account authorization changed", "AbortError"));
-      active = { owner: provider.accountOwner, revision: provider.accountRevision, controller: new AbortController() };
+      active?.controller.abort(
+        new DOMException("Native account authorization changed", "AbortError"),
+      );
+      active = {
+        owner: provider.accountOwner,
+        authorizationRevision: provider.accountAuthorizationRevision,
+        controller: new AbortController(),
+        models: new Map(),
+      };
       this.#nativeExecution = active;
     }
+    let models = active.models.get(provider.providerId);
+    if (!models) {
+      models = new Set();
+      active.models.set(provider.providerId, models);
+    }
+    models.add(modelId);
     return active.controller.signal;
   }
 
-  #officialExecutionSignal(provider: Provider, identity: string | undefined): AbortSignal | undefined {
+  #officialExecutionSignal(
+    provider: Provider,
+    identity: string | undefined,
+  ): AbortSignal | undefined {
     const current = provider.accountConnectionKey;
     // XCODE: 未配置私有网关的原官方路径不要求 Native 连接身份；私有路径缺身份则拒绝。
     if (!identity && !current?.startsWith("official-cloud:sha256:")) return undefined;
-    if (!identity || current !== identity) throw new Error("Official cloud execution identity changed");
+    if (!identity || current !== identity)
+      throw new Error("Official cloud execution identity changed");
     let execution = this.#officialExecutions.get(provider.providerId);
     if (!execution || execution.identity !== identity || execution.controller.signal.aborted) {
-      execution?.controller.abort(new DOMException("Official cloud authorization changed", "AbortError"));
+      execution?.controller.abort(
+        new DOMException("Official cloud authorization changed", "AbortError"),
+      );
       execution = { identity, controller: new AbortController() };
       this.#officialExecutions.set(provider.providerId, execution);
     }
@@ -133,17 +190,28 @@ export class ApiProviderModelRuntime {
     return this.#modelAdapter.createModel({
       providerId: provider.providerId,
       modelId: registryModel.modelId,
-      ...(registryModel.displayName !== undefined ? { displayName: registryModel.displayName } : {}),
+      ...(registryModel.displayName !== undefined
+        ? { displayName: registryModel.displayName }
+        : {}),
       providerConfig: provider.config,
       modelConfig: config,
       ...(provider.config.access.type === "new-api-account"
-        ? { accountAccess: { ...provider.config.access.toJSON(), owner: provider.accountOwner, accountRevision: provider.accountRevision },
-          executionLifetimeSignal: this.#nativeExecutionSignal(provider) }
+        ? {
+            accountAccess: {
+              ...provider.config.access.toJSON(),
+              owner: provider.accountOwner,
+              authorizationRevision: provider.accountAuthorizationRevision,
+            },
+            executionLifetimeSignal: this.#nativeExecutionSignal(provider, registryModel.modelId),
+          }
         : {}),
       ...(provider.config.access.type === "zhipu-account" &&
       provider.config.access.mode === "off-peak"
         ? {
-            executionLifetimeSignal: this.#officialExecutionSignal(provider, target.requestDependencies?.requestAuth?.executionIdentity),
+            executionLifetimeSignal: this.#officialExecutionSignal(
+              provider,
+              target.requestDependencies?.requestAuth?.executionIdentity,
+            ),
             requestDependencies: {
               requestAuth: {
                 source: target.requestDependencies?.requestAuth?.source,

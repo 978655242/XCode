@@ -23,6 +23,8 @@ import {
   MutableAccountProviderConfigSource,
   createAccountProviderConfigSnapshot,
   ProviderRegistry,
+  createRegistryModelConfig,
+  type Provider,
   ProviderConfigResolver,
   ProviderConfigMap,
   ModelConfigRules,
@@ -49,6 +51,7 @@ function envelope() {
     revision: "revision-1",
     basedOnZCodeBuiltinRevision: "builtin-1",
     owner,
+    authorizationRevision: "7",
     providers: {
       [providerId]: {
         access: {
@@ -146,6 +149,7 @@ test("Host catalog display names and complete capabilities survive the worker Re
     accountModelConfigs: worker.modelConfigs,
     accountOwner: worker.owner,
     accountRevision: worker.revision,
+    accountAuthorizationRevision: worker.authorizationRevision,
   });
   const registry = new ProviderRegistry(resolution.registryProviders);
   const provider = registry.getProvider(providerId)!;
@@ -219,7 +223,7 @@ test("Native relay resolution rejects non-Native access and snapshot or owner ch
       mode: "private-subscription",
       entitled: true,
       owner,
-      accountRevision: snapshot.revision,
+      authorizationRevision: snapshot.authorizationRevision,
     },
   } as const;
   assert.deepEqual(await resolver.resolveCurrent(input), { apiKey: "sk-relay-secret" });
@@ -235,7 +239,7 @@ test("Native relay resolution rejects non-Native access and snapshot or owner ch
   await assert.rejects(
     resolver.resolveCurrent({
       ...input,
-      accountAccess: { ...input.accountAccess, accountRevision: officialAccessSnapshot.revision },
+      accountAccess: input.accountAccess,
     }),
   );
   source.replace(snapshot);
@@ -246,6 +250,27 @@ test("Native relay resolution rejects non-Native access and snapshot or owner ch
   currentOwner = owner;
   crossCredentialIO = () => {
     source.replace({ ...snapshot, revision: "replacement-revision" });
+  };
+  assert.deepEqual(await resolver.resolveCurrent(input), { apiKey: "sk-relay-secret" });
+  source.replace(snapshot);
+  crossCredentialIO = () => {
+    source.replace({
+      ...snapshot,
+      revision: "authorization-replacement",
+      authorizationRevision: "8",
+    });
+  };
+  await assert.rejects(resolver.resolveCurrent(input));
+  source.replace(snapshot);
+  crossCredentialIO = () => {
+    source.replace({
+      ...snapshot,
+      revision: "model-disabled",
+      modelConfigs: {
+        ...snapshot.modelConfigs,
+        [providerId]: { "real-model": ModelConfig.fromData({ ...modelConfig, enabled: false }) },
+      },
+    });
   };
   await assert.rejects(resolver.resolveCurrent(input));
 });
@@ -351,7 +376,7 @@ test("real Host account owner grants relay only for current revision and stops o
       mode: "private-subscription",
       entitled: true,
       owner: currentOwner,
-      accountRevision: snapshot.revision,
+      authorizationRevision: snapshot.authorizationRevision,
     } as const;
     const input = {
       providerId,
@@ -377,7 +402,7 @@ test("real Host account owner grants relay only for current revision and stops o
     await assert.rejects(
       auth.resolveCurrent({
         ...input,
-        accountAccess: { ...accountAccess, accountRevision: "old" },
+        accountAccess: { ...accountAccess, authorizationRevision: "old" },
       }),
     );
     await assert.rejects(
@@ -441,6 +466,7 @@ test(
       accountModelConfigs: native.modelConfigs,
       accountOwner: owner,
       accountRevision: native.revision,
+      accountAuthorizationRevision: native.authorizationRevision,
     });
     const registry = new ProviderRegistry(resolution.registryProviders);
     const runtime = new ApiProviderModelRuntime({
@@ -448,7 +474,7 @@ test(
       modelAdapter: new AiSdkModelAdapter({ env: {}, retry: { maxAttempts: 1 } }),
     });
     const originalFetch = globalThis.fetch;
-    const nativeStarted = Promise.withResolvers<AbortSignal>();
+    let nativeStarted = Promise.withResolvers<AbortSignal>();
     const customStarted = Promise.withResolvers<AbortSignal>();
     const nativeRequest = new AbortController();
     const customRequest = new AbortController();
@@ -538,6 +564,20 @@ test(
       registry.replace(
         resolution.registryProviders.map((provider) =>
           provider.providerId === nativeId
+            ? { ...provider, accountRevision: `${native.revision}:capability-refresh` }
+            : provider,
+        ),
+        "native-capability-change",
+      );
+      assert.equal(
+        nativeSignal.aborted,
+        false,
+        "capability-only publication must preserve the turn",
+      );
+      assert.equal(customSignal.aborted, false);
+      registry.replace(
+        resolution.registryProviders.map((provider) =>
+          provider.providerId === nativeId
             ? {
                 ...provider,
                 accountOwner: { ...owner, authGeneration: 2 },
@@ -550,6 +590,52 @@ test(
       assert.equal(nativeSignal.aborted, true);
       assert.equal(customSignal.aborted, false);
       await consumption[0];
+
+      const disabled = createRegistryModelConfig(
+        ModelConfig.fromData({ ...modelConfig, enabled: false }),
+      );
+      assert.ok(disabled.ok);
+      const changes: Array<(provider: Provider) => Provider> = [
+        (provider) => ({ ...provider, accountAuthorizationRevision: "replacement-auth" }),
+        (provider) => ({ ...provider, models: [] }),
+        (provider) => ({
+          ...provider,
+          models: provider.models.map((model) => ({ ...model, config: disabled.config })),
+        }),
+      ];
+      for (const change of changes) {
+        registry.replace(resolution.registryProviders, "native-restored");
+        nativeStarted = Promise.withResolvers<AbortSignal>();
+        const model = runtime.modelFactory({
+          selection: {
+            providerId: nativeId,
+            modelId: "real-model",
+            options: { reasoningLevel: "none" },
+          },
+        });
+        const consuming = runWithModelInvocationContext(
+          {
+            refreshRuntimeHeadersBeforeAttempt: async () => ({
+              headersApplied: true,
+              requestAuth: { apiKey: "sk-native-test" },
+            }),
+          },
+          () => consume(model.streamText(request)),
+        );
+        consumption.push(consuming);
+        const signal = await nativeStarted.promise;
+        registry.replace(
+          resolution.registryProviders.map((provider) =>
+            provider.providerId === nativeId ? change(provider) : provider,
+          ),
+          "native-eligibility-lost",
+        );
+        assert.equal(signal.aborted, true);
+        assert.equal(customSignal.aborted, false);
+        await consuming;
+      }
+      registry.replace(resolution.registryProviders, "native-restored-before-late-auth");
+      const fetchesBeforeLateAuth = nativeFetches;
 
       const waitingModel = runtime.modelFactory({
         selection: {
@@ -580,7 +666,7 @@ test(
       );
       lateAuth.resolve({ headersApplied: true, requestAuth: { apiKey: "sk-late-native-test" } });
       await waiting;
-      assert.equal(nativeFetches, 1);
+      assert.equal(nativeFetches, fetchesBeforeLateAuth);
       assert.equal(customSignal.aborted, false);
     } finally {
       runtime.dispose();

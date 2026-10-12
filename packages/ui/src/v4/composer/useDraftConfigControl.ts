@@ -411,7 +411,7 @@ export function useDraftConfigControl(params: {
     (modelProvider: string, model: string) => {
       const modelId = modelProvider ? `${modelProvider}/${model}` : model;
       const parsedSelection = parseModelPickerValue(modelId);
-      // 用户点击模型只确定模型身份；Reasoning 没有默认值，保持为空并等待用户选择。
+      // XCODE: 主动选模沿用原最高档默认；历史恢复不在这里自动补值。
       const modelSelection = modelSelectionView
         ? (completeNewModelSelection(modelSelectionView, parsedSelection) ?? parsedSelection)
         : parsedSelection;

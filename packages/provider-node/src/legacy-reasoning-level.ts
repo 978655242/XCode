@@ -28,7 +28,8 @@ export function resolveLegacyReasoningLevel(
   )
     return undefined;
   const provider = snapshot.resolution.effectiveProviders.get(selection.providerId);
-  if (!provider) return undefined;
+  // XCODE: Native 档位只认服务端值域，不继承官方 CDN 的历史别名。
+  if (!provider || provider.access?.type === "new-api-account") return undefined;
   const builtin = snapshot.config.zcodeBuiltinModelRules;
   let oldRules = oldRulesCache.get(builtin);
   if (!oldRules) {

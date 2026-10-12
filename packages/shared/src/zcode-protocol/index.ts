@@ -858,7 +858,8 @@ export const zcodeProviderAccountAccessSchema = z.union([
       mode: z.literal("private-subscription"),
       entitled: z.boolean(),
       owner: newApiRegistryOwnerSchema.optional(),
-      accountRevision: z.string().min(1).optional(),
+      // XCODE: 能力刷新不撤销已准入轮次，执行身份只绑定服务端授权代际。
+      authorizationRevision: z.string().min(1).optional(),
     })
     .strict(),
 ]);
@@ -2204,6 +2205,7 @@ export const zcodeProviderUpdateAccountConfigResultSchema = z
   .object({
     // 收到账号结果不代表配套 Built-in 已到达；应用版本只能读取 Registry 快照。
     receivedRevision: nonEmptyString,
+    appliedRevision: nonEmptyString.nullable(),
     providerCount: z.number().int().nonnegative(),
     status: z.enum(["received", "unchanged"]),
   })

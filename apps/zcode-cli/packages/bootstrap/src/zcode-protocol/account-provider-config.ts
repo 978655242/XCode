@@ -23,9 +23,10 @@ export async function updateAccountProviderConfig(
   if (!context.deps.syncAccountProviderConfig) {
     throw new ProtocolRequestError(-32018, "Account Provider Config runtime is not configured");
   }
-  const changed = await context.deps.syncAccountProviderConfig(snapshot);
+  const { changed, appliedRevision } = await context.deps.syncAccountProviderConfig(snapshot);
   return {
     receivedRevision: snapshot.revision,
+    appliedRevision,
     providerCount: snapshot.providers.keys().length,
     status: changed ? "received" : "unchanged",
   };

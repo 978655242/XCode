@@ -41,9 +41,12 @@ sequenceDiagram
   H->>H: 加密 CAS 落盘 / owner fence
   H->>M: 可信 origin + owner generation
   H-->>UI: 安全身份与模型投影
-  H->>W: 无 secret 的能力 / owner / revision
-  W->>H: 请求期 owner + revision 鉴权
-  H-->>W: 当前 relay credential
+  H->>W: 无 secret 的能力 / owner / 完整配置 revision
+  W->>W: matching fence 后应用 Registry
+  W-->>H: receivedRevision + 实际 appliedRevision
+  H->>W: 仅三者匹配才转发输入
+  W->>H: 请求期 owner + authorizationRevision + 模型资格
+  H-->>W: 复核当前授权后返回 relay credential
   W->>N: 固定私有 origin 推理
   H->>H: 退出 / 撤销同步失效
   H->>M: 清理 owner 对应只读分区
@@ -56,9 +59,28 @@ macOS/Windows 使用 Electron `safeStorage`；Linux 的 `basic_text`、无可用
 - 管理员在 New API 为用户授予 canonical 的 `xcode` 专用实例。托管 relay key 只消费指定实例；钱包/general/其他订阅不兜底。renew、replace、revoke、reset 通过当前管理员接口及 revision 执行，不在客户端造订单或修改原生账户关系。
 - 客户端模板价格、指定实例、额度单位和 `quota_per_unit` 来自真实 metadata；保持原始十进制字符串。Unlimited 与未知指标明确区分，不把 unknown/null 变成零。
 - 前端仅展示 `account:new-api-openai-chat-completions`，名称为 `XWork·Plan`；模型设置、聊天选择和默认候选使用同一可见性规则。Responses/Messages anchor 保留底层协议与历史身份，但不向前端开放；旧选择须手动重选，不自动转换协议。管理员需将供 XWork 使用的模型配置为真实可用的 Chat Completions transport。
-- 管理员维护真实 transport、完整 model properties 与 option/CEL maps。缺失配置、非法 CEL、禁用模型或授权/catalog revision 不一致均不能获得可执行 ref；问题在目录 issue 投影中显示，不猜供应商默认能力。
-- 旧个人、企业、Start Plan ref 必须手动重选，即使 `model_id` 同名也不自动映射。保留历史消息/ref 与用户自配 Provider/key/模型，不批量改写用户配置。
-- 配置/能力变化需刷新目录并检查 Host→worker 同一快照；UI 标签更新不代表 worker 已执行新能力。当前私有链路仅本机 worker；远程私有 provisioning 明确 unsupported，原非私有远程功能不删除。
+- 管理员维护真实 transport、完整 model properties 与 option/CEL maps。Native 本地配置只允许已有模型排序，不能覆盖托管能力、名称或可见性。缺失配置、非法 CEL、禁用模型或授权/catalog revision 不一致均不能获得可执行 ref；问题在目录 issue 投影中显示，不猜供应商默认能力。
+- 旧个人、企业、Start Plan ref 必须手动重选，即使 `model_id` 同名也不自动映射。Native 的 `off/nothink` 等历史值不转换为 `disabled`；未选、已删除或不支持的值保留原选择并要求重选。保留历史消息/ref 与用户自配 Provider/key/模型，不批量改写用户配置。
+- 模型设置现有刷新入口重新读取服务端目录；Renderer 重读 View 不代替 HTTP 刷新。首次后续提交等待 Host→Worker 串行交付的实际 `appliedRevision`；仅收到新目录或 `receivedRevision` 不代表可执行。纯能力更新保留旧 turn 的冻结配置，新 turn 重新绑定；owner/授权或模型资格失效仍取消/拒绝。Host 与 Worker 必须来自同版本产物，不支持旧 Native 鉴权字段兼容。当前私有链路仅本机 worker；远程私有 provisioning 明确 unsupported，原非私有远程功能不删除。
+
+### 2026-10-12 思考能力优化与定向配置候选
+
+供应商依据为 [DeepSeek Chat Completions](https://api-docs.deepseek.com/api/create-chat-completion) 与 [Thinking Mode](https://api-docs.deepseek.com/guides/thinking_mode)：思考默认开启，明确关闭用 `thinking.type=disabled`；开启用 `enabled` 和合法 effort。工具后续请求需要历史 `reasoning_content`，思考模式不支持 required/named tool choice。`map:"{}"` 只是无覆盖，不是关闭证据。
+
+| exact model ID      | 已应用完整配置                                                      | 实际渠道／供应商验收                                                                    |
+| ------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `deepseek-v4-flash` | 保留上下文 128000、输出 4096 及其他属性；档位 disabled/low/high/max | 官方文档未列此 alias，但当前官方 origin 的 Type43 渠道已接受 exact ID 与四档；未改写 ID |
+| `deepseek-v4-pro`   | 保留上下文 128000、输出 4096 及其他属性；档位 disabled/low/high/max | 同一 Type43 渠道四档实际 HTTP 200，关闭无思考、其余档位均观察到思考                     |
+
+用户明确授权「继续真实联调」后，已一致备份 3001 业务数据库，以 fresh 完整管理员 PUT 应用且回读两项配置；没有裸 SQL 写入。渠道无 alias/参数覆盖，raw passthrough 未开启，RetryTimes=0。目录 revision 从 `74f848158f261ba71c2a2fb85c5a885ac437fdff847bc1b866ae8d2140f554c2` 变为 `a55b5f1ebdfe0679cb855977c686b0fa2cc1da39840d082b1e6c7121d3d97058`，测试账号 authorization revision 仍为 1。备份位于忽略且限权的 `.superpowers/sdd/2026-10-12-new-api-model-capability-optimization/live-backup/`，含私有数据，禁止提交或分享。
+
+真实供应商验证共 18 次、每次 `max_tokens=512`：两模型各四档、真实文件工具调用及带历史思考的续轮、各一次流式取消，以及实际 CLI Model runtime/installed SDK 各自的关闭和高档请求。两条流的真实 relay/消费记录均为 `client_gone / context canceled`；非 idle timeout。18 条消费记录全部来自隔离测试账号的指定实例 4，billing_source=subscription、wallet_quota_deducted=0；不把此有限样例写成完整资金门禁。测试授权已撤销，真实密码 step-up 后删除测试账号；旧 control 401、relay 403，消费与审计保留。测试期间另有已有账号 5 条非测试消费，原计数未回退；非目标模型、模板和已有账号/实例/key 的配置未改。
+
+`pnpm prepare:desktop-runtime` 已成功；确认 Main 的 runningAgentSessionCount=0 后正常退出并重启同版桌面。当前 Main/Host 都已重建，暂存 Worker 与实际 CLI dist 的 SHA-256 同为 `a8f559bdc2965a47df3ac09d775d8f667b22d3656f4c79db34a022244e0ce320`。实际暂存 Worker 的 app-server NDJSON 启动/回执 smoke 退出 0：Builtin matching fence 未通过时 receivedRevision 与实际 appliedRevision 不同，status=received，不发模型 HTTP。真实设置刷新后仍只有一个 XWork·Plan 入口，原 Composer 实际接收 disabled/low/high/max，原选择和控件保留。没有在业务会话删除已选档或制造撤销；这些场景由隔离真实 Host/Worker/Core/Electron 回归验证。
+
+后端没有重启或更换产物：仍为 `xwork-upgrade-20261012`，规范 origin `http://127.0.0.1:3001`，原数据挂载与只读 binary 挂载保留；当前 binary SHA-256 `448a595f7218f4394b56419269854f6e0f6ec5020af85a6d64864f8a7936d037`。Go build metadata 未嵌入 VCS revision，不能宣称该产物精确对应当前源码或为 clean release；完整 G1–G5、多数据库及 Windows/Linux 仍未验收。
+
+映射：关闭显式写 disabled，并用 Merge Patch null 删除 `reasoning_effort`；其他允许值写 enabled + 精确 effort。保持原主动选模选择 `values` 最后一项的行为，新增 `max` 后可能提高默认推理消耗；恢复旧值不会据此补档。必要回滚只恢复备份中的两个 exact models 完整配置，再点击原刷新入口；保留客户端安全修复、审计与其他数据，不切回官方账号 origin，不重启后端。
 
 ## 用量、额度与只读升级
 
@@ -101,6 +123,10 @@ pnpm architecture:check --changed
 `newApiComposerContextElectron.mjs` 已纳入上述 Electron smoke 入口：真实 Composer/额度 hooks 验证自定义 API Key 空草稿不显示订阅、三个 Native transport 保留额度、Native 缓存切换到自定义模型后只展示上下文且 hover 不读取订阅、切回 Native/清空选择，以及触摸按下的上下文展示。全局侧栏与设置额度保持主账号来源；对话浮层跟随当前结构化模型选择。
 
 `newApiModelSettingsElectron.mjs` 同样纳入该入口：使用真实 Native 状态卡与 owner hook，在隔离业务 fixture 下验证授权/查询失败/空模板、换号与退出首帧、旧响应及重复刷新隔离、手动刷新、英文深色与 393px 窄屏。模型设置按 [原版呈现规格](specs/new-api-model-settings-ui.md) 复用套餐卡及个人/团队入口，不再显示独立官方云横幅；连接/断开仍在使用统计 MCP 区。本机完整桌面在 Renderer 重新加载后实际读取部署数据，状态卡与个人入口均打开只读套餐 WebView，手动刷新正常，自定义供应商编辑入口保持；未改真实模板/授权，未以 fixture 声称官方权益或推理通过。
+
+`newApiModelCapabilitiesElectron.mjs` 复用原 Composer 控件和真实 Host/Registry；隔离 Host 装配位于 `newApiModelCapabilitiesHost.mjs`。该场景验证逐模型不同公开档位、单档 fixed、多档菜单/Ctrl+T、主动选模原策略、已提交选择冻结、真正目录刷新与只重读 View、删除档位及历史空值重选、自配选项、中英/浅深色与 360px 窄屏。截图为受控原组件窗口，不是运行中业务账号的部署验收。
+
+本次 SDK→隔离 Native relay→受控上游完成思考工具调用、临时文件真实读取及带历史 `reasoning_content` 的续轮；记录存在性与 17 字符计数，不保存思考正文。新模型使用更新的 context/map，已创建模型保持旧映射，已删除 low 不出站；关闭显式 disabled 且无 effort。取消约 6 毫秒抵达上游，relay 为 `client_gone`，不是 10 秒 idle timeout。永久 Go relay 回归保留 Type43 转换/alias、参数覆盖、raw passthrough、真实 SSE 思考和主动取消；它们不等于真实供应商验收。
 
 CLI/bootstrap 不包含在根 `typecheck` 入口内，需使用其当前包脚本另行校验并重建本机 Agent bundle，不能启动旧 bundle 就声称新 worker 行为通过。桌面必须实际操作登录、手动重选、真实套餐/用量页与只读升级页，并观察重启、退出、owner 变化和旧 worker 拒绝结果。
 
