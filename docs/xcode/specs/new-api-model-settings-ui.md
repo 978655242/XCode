@@ -16,6 +16,8 @@
 - 自定义供应商的添加、编辑、测试、删除与排序不变。
 - 移除套餐详情顶部独立官方云横幅。官方连接/解绑/额度入口继续保留在已有“使用统计”的官方 MCP 卡片，不修改其认证或注销流程。
 - 浅色/深色、中文/英文和手机窄屏使用现有组件与 `text-ui-*` 字号。
+- 模型上下文默认值逐项依据模型发布方的官方 API 规格或公开模型配置核验，不把服务商目录的 `200K`、`1M` 等概数直接当成精确 token 数；允许按用户明确要求设置更低的应用上下文上限，部署策略不冒充官方规格。模型规格不等于代理链路已验证的接入上限。
+- 模型容量 badge 使用固定 K/M 技术单位并保留 token 整数对应的精度；`1,050,000` 显示为 `1.05M`，不能四舍五入成 `1.1M`。普通用量统计的 compact 精度不变。
 
 ## 所有者与读取路径
 
@@ -49,6 +51,7 @@ Desktop handoff 复用既有 Main/Host admission 与临时分区；Web/远程不
 4. 手动刷新可以更新套餐；owner A 的延迟响应不能在换到 B 或退出后出现，重复刷新只发布最新请求。
 5. 订阅及个人入口实际打开现有 Native 套餐比较页；团队不能触发购买。自定义供应商仍可操作。
 6. 在真实 Electron 的模型设置中验收未开通、有效、错误、换号、刷新、订阅入口和两种主题；确定性 fixture 不冒充真实账号或真实推理。
+7. 模型容量 badge 能准确表达 `1,050,000`、`1,048,576`、`202,752` 与 `204,800` token，中文和英文不改变技术规格数值；保留模型目录的禁用/授权语义。
 
 ## 本机验证记录
 
@@ -56,3 +59,6 @@ Desktop handoff 复用既有 Main/Host admission 与临时分区；Web/远程不
 - `newApiModelSettingsElectron.mjs` 已纳入既有 Electron smoke 入口。真实 React 状态卡和 owner hook 验证未开通、有效、耗尽、过期、撤销、查询失败、空模板、换号/退出首帧、迟到响应、同 owner 重复刷新、手动刷新、英文深色及 393px 窄屏；业务输入是确定性 fixture，不冒充部署授权或真实推理。
 - 当前运行的完整 XWork 桌面在 Renderer 重新加载后实际读取部署后端套餐、价格、有效期与额度；状态卡与个人套餐入口均打开同源只读套餐 WebView，手动刷新后授权状态正常。自定义供应商仍显示原有连接和模型编辑操作。未修改真实授权、模板或凭据。
 - 根 `typecheck` 通过，Lint 0 错误/71 警告，changed 架构检查 0 违规；任务涉及文件格式检查通过。真实官方账号连接/解绑、Windows/Linux 与正式发布矩阵未在本任务重做。
+- 2026-10-13 上下文精度核验：通过正常管理员接口修正 8 个模型、回读全部 20 个启用模型；真实 Electron 刷新后逐项容量 badge 与精确数值一致，且没有截断。GPT 依据 [OpenAI 原生规格](https://developers.openai.com/api/docs/models/gpt-5.6-sol) 使用 1,050,000；MiniMax 依据[官方 API 表](https://platform.minimax.io/docs/api-reference/text-anthropic-api.md)使用 204,800；GLM-5 与 DeepSeek V4 依据发布方公开模型配置使用 [202,752](https://huggingface.co/zai-org/GLM-5/raw/main/config.json) 与 [1,048,576](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/raw/main/config.json)。Claude 的 200,000/1,000,000 与[原生上下文文档](https://platform.claude.com/docs/en/build-with-claude/context-windows)一致，未改动。公开模型配置数值不冒充代理 API 的实测接入上限；本次没有边界长度推理、价格、输出上限或其他能力变更。
+- 同次验证：容量精度回归先复现 `1.1M` 错误、修复后通过；Node 24.18.0 下完整既有 New API Node 入口 169 项通过，根 `typecheck` 通过，Lint 0 错误/71 警告，任务涉及文件格式检查通过。
+- 随后的用户指定覆盖：GPT-5.6 Sol / Terra / Luna 的应用上下文上限均设为 272,000 tokens。通过正常管理员接口更新并回读三条配置，真实 Electron 刷新后均显示 `272K`；其他模型配置、价格、输出上限和能力标志未改动。该值是用户指定的部署策略，不是对 OpenAI 官方 1,050,000-token 规格的更正。

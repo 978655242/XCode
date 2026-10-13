@@ -21,5 +21,6 @@ export function formatCompactTokenNumber(
 
 export function formatModelContextWindowLabel(contextWindow: number, _locale = "en-US"): string {
   // 模型列表的容量 badge 是技术规格，不应随中文 locale 变成“万/亿”。
-  return formatCompactTokenNumber("en-US", contextWindow);
+  // XCODE: 容量是技术规格，保留精确 token 数，避免 1.05M 被四舍五入成 1.1M。
+  return formatCompactTokenNumber("en-US", contextWindow, { maximumFractionDigits: 6 });
 }
