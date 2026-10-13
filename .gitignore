@@ -75,3 +75,5 @@ packages/desktop/.e2e-network-capture/
 /.zcodeignore
 /packages/server/.v2c/
 /packages/server/.video_agent/
+/.video_agent/
+/packages/server/.zcodeignore
