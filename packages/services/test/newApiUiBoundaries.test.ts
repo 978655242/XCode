@@ -87,7 +87,7 @@ test("Native usage remains account scoped for expired access and a custom select
   assert.equal(selected.accountAccess.type, "new-api-account");
 });
 
-test("Native registry issues retain actual names and never become selectable references", () => {
+test("Native model menus omit catalog issues and keep selectable models", () => {
   const account = resolveNewApiAccountProviders({ owner, catalog, entitlements });
   const resolution = new ProviderConfigResolver().resolve({
     zcodeBuiltinProviders: createNewApiProviderAnchors(owner.origin),
@@ -103,18 +103,21 @@ test("Native registry issues retain actual names and never become selectable ref
     providers: resolution.registryProviders.map(projectModelSelectionProviderView),
     catalogIssues: account.catalogIssues,
   });
-  const issues = groups.find((group) => group.catalogIssues);
-  assert.equal(issues?.items.length, 0);
   assert.deepEqual(
-    issues?.catalogIssues?.map((issue) => issue.displayName),
-    ["Missing metadata", "Bad CEL"],
+    groups.flatMap((group) => group.items.map((item) => item.name)),
+    ["Real"],
   );
-  assert.ok(groups.flatMap((group) => group.items).some((item) => item.name === "Real"));
-  assert.equal(
-    groups
-      .flatMap((group) => group.items)
-      .some((item) => item.name === "unconfigured" || item.name === "bad-cel"),
-    false,
+  assert.ok(groups.every((group) => group.items.length > 0));
+  assert.deepEqual(
+    buildRegistryModelSelectGroups(ZCODE_AGENT_PROVIDER, {
+      revision: 2,
+      providers: resolution.registryProviders.map((provider) => ({
+        ...projectModelSelectionProviderView(provider),
+        models: [],
+      })),
+      catalogIssues: account.catalogIssues,
+    }),
+    [],
   );
 });
 

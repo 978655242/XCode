@@ -209,6 +209,36 @@ window.appearance("light","zh-CN");
       await settleMenus();
     };
     await waitFor('window.state?.status==="ready"');
+    stage = "catalog diagnostics stay in settings, not in the model picker";
+    assert.deepEqual(
+      (await observe("window.capabilityHost.settings()")).catalogIssues.map(
+        (issue) => issue.displayName,
+      ),
+      ["Missing metadata", "Bad CEL"],
+    );
+    await click(`document.querySelector(${JSON.stringify(modelTrigger)})`);
+    await waitFor('document.querySelector("[data-testid^=chat-model-select-group]")!==null');
+    assert.equal(
+      await observe(
+        'document.querySelector("[role=menu]").textContent.includes("Missing metadata") || document.querySelector("[role=menu]").textContent.includes("Bad CEL")',
+      ),
+      false,
+      "Unselectable catalog entries must not appear in the model picker",
+    );
+    assert.equal(
+      await observe('document.querySelector("[data-model-footer-action=manage-models]")!==null'),
+      true,
+    );
+    await observe(
+      "new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))).then(()=>Promise.all(document.body.getAnimations({subtree:true}).filter(animation=>animation.effect?.getTiming().iterations!==Infinity).map(animation=>animation.finished.catch(()=>{}))))",
+    );
+    await writeFile(
+      join(tmpdir(), "xwork-model-picker-selectable.png"),
+      (await win.webContents.capturePage()).toPNG(),
+    );
+    win.webContents.sendInputEvent({ type: "keyDown", keyCode: "Escape" });
+    win.webContents.sendInputEvent({ type: "keyUp", keyCode: "Escape" });
+    await settleMenus();
     stage = "original menus and highest new-model choices";
     assert.deepEqual(
       (await state()).providers.map((provider) => provider.providerId),

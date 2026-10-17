@@ -18,6 +18,7 @@
 - 浅色/深色、中文/英文和手机窄屏使用现有组件与 `text-ui-*` 字号。
 - 模型上下文默认值逐项依据模型发布方的官方 API 规格或公开模型配置核验，不把服务商目录的 `200K`、`1M` 等概数直接当成精确 token 数；允许按用户明确要求设置更低的应用上下文上限，部署策略不冒充官方规格。模型规格不等于代理链路已验证的接入上限。
 - 模型容量 badge 使用固定 K/M 技术单位并保留 token 整数对应的精度；`1,050,000` 显示为 `1.05M`，不能四舍五入成 `1.1M`。普通用量统计的 compact 精度不变。
+- 对话模型菜单只显示可选模型，不显示“不可选择”诊断条目或仅含诊断的空分组；全部不可选时保留管理模型入口。模型设置页继续展示目录问题及原因，底层授权与执行校验不变。
 
 ## 所有者与读取路径
 
@@ -52,6 +53,7 @@ Desktop handoff 复用既有 Main/Host admission 与临时分区；Web/远程不
 5. 订阅及个人入口实际打开现有 Native 套餐比较页；团队不能触发购买。自定义供应商仍可操作。
 6. 在真实 Electron 的模型设置中验收未开通、有效、错误、换号、刷新、订阅入口和两种主题；确定性 fixture 不冒充真实账号或真实推理。
 7. 模型容量 badge 能准确表达 `1,050,000`、`1,048,576`、`202,752` 与 `204,800` token，中文和英文不改变技术规格数值；保留模型目录的禁用/授权语义。
+8. 目录同时含有效模型、元数据缺失模型和能力表达式错误模型时，对话菜单只显示有效模型；全部不可选时没有问题模型条目，仍可进入管理模型。设置页的目录诊断不受影响。
 
 ## 本机验证记录
 
@@ -62,3 +64,5 @@ Desktop handoff 复用既有 Main/Host admission 与临时分区；Web/远程不
 - 2026-10-13 上下文精度核验：通过正常管理员接口修正 8 个模型、回读全部 20 个启用模型；真实 Electron 刷新后逐项容量 badge 与精确数值一致，且没有截断。GPT 依据 [OpenAI 原生规格](https://developers.openai.com/api/docs/models/gpt-5.6-sol) 使用 1,050,000；MiniMax 依据[官方 API 表](https://platform.minimax.io/docs/api-reference/text-anthropic-api.md)使用 204,800；GLM-5 与 DeepSeek V4 依据发布方公开模型配置使用 [202,752](https://huggingface.co/zai-org/GLM-5/raw/main/config.json) 与 [1,048,576](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/raw/main/config.json)。Claude 的 200,000/1,000,000 与[原生上下文文档](https://platform.claude.com/docs/en/build-with-claude/context-windows)一致，未改动。公开模型配置数值不冒充代理 API 的实测接入上限；本次没有边界长度推理、价格、输出上限或其他能力变更。
 - 同次验证：容量精度回归先复现 `1.1M` 错误、修复后通过；Node 24.18.0 下完整既有 New API Node 入口 169 项通过，根 `typecheck` 通过，Lint 0 错误/71 警告，任务涉及文件格式检查通过。
 - 随后的用户指定覆盖：GPT-5.6 Sol / Terra / Luna 的应用上下文上限均设为 272,000 tokens。通过正常管理员接口更新并回读三条配置，真实 Electron 刷新后均显示 `272K`；其他模型配置、价格、输出上限和能力标志未改动。该值是用户指定的部署策略，不是对 OpenAI 官方 1,050,000-token 规格的更正。
+- 2026-10-17 模型菜单过滤：Node 边界回归覆盖有效项与目录问题并存、全部无候选时不生成空分组；真实 Electron 回归先确认问题项可见而失败，修复后通过，并确认 Host 设置诊断仍保留。运行中的完整桌面菜单已实际确认 `auto-kiro`、`deepseek-3.2`、`qwen3-coder-next` 及“不可选择”说明均不再显示，20 个可选套餐模型及管理模型入口仍在，当前选择未改变。未修改后台模型配置或授权。
+- 同次验证：既有 New API Node 回归入口 169 项通过，Composer 能力 Electron 回归（含自定义模型、中英文、浅深色、360px 窄屏）通过；根 `typecheck` 通过，Lint 0 错误/71 警告，changed 架构检查 0 违规，任务文件格式检查通过。未重做 Windows/Linux 或手机真机验收。

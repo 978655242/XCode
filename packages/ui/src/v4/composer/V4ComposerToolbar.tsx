@@ -453,19 +453,17 @@ function V4ComposerModelControlsImpl({
     [onConfigPickerOpenChange],
   );
 
-  const modelOption =
-    modelSelectionView &&
-    (modelSelectionView.providers.some((provider) => provider.models.length > 0) ||
-      modelSelectionView.catalogIssues?.length)
-      ? ({
-          id: "model",
-          name: "Model",
-          category: "model",
-          type: "select",
-          currentValue: "",
-          options: [],
-        } satisfies ZCodeConfigOption)
-      : undefined;
+  // XCODE: 目录诊断不是可选模型，不为问题条目创建选模快捷键。
+  const modelOption = modelSelectionView?.providers.some((provider) => provider.models.length > 0)
+    ? ({
+        id: "model",
+        name: "Model",
+        category: "model",
+        type: "select",
+        currentValue: "",
+        options: [],
+      } satisfies ZCodeConfigOption)
+    : undefined;
 
   const handleOpenStartPlanUpgrade = useCallback(
     (providerId: string) => {

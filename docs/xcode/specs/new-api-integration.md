@@ -158,7 +158,7 @@ XWork 前端仅开放 `account:new-api-openai-chat-completions`，展示名称�
 
 canonical 返回 api_type=null/model_config=null 的未配置模型不能硬塞到任一 transport Registry 或提供可执行 ref。AccountProviderService 将它们以及 Host CEL 编译失败项投影到快照的 `catalogIssues`，每项固定 `{source:"new-api",modelId,displayName,code}`，与完整能力一起按同一 owner/revision 更新。
 
-`ModelSelectionView`、`ProviderSettingsView` 及相应 shared RPC schema 增加只读 catalogIssues；本机 worker 同步保留该字段，但不得将 issue 创建为 Registry model。`useModelSelectionView` 与 `settings/ModelProviderSection.tsx` 将其作为现有问题提示区域的非可选配置项显示实际名称/原因，不提供选择 action/model ref。管理员修复后从 issues 移入正确 transport 的真实目录；换号先清该 owner 的 issues。
+`ModelSelectionView`、`ProviderSettingsView` 及相应 shared RPC schema 保留只读 catalogIssues；本机 worker 同步保留该字段，但不得将 issue 创建为 Registry model。对话及复用同一分组构造器的模型选择菜单仅展示可选择的真实目录项，不显示 catalogIssues，也不生成只含问题项的空分组；没有可选模型时保留既有管理模型入口。`settings/ModelProviderSection.tsx` 继续显示问题模型的实际名称/原因，供管理员诊断，不提供选择 action/model ref。管理员修复后从 issues 移入正确 transport 的真实目录；换号先清该 owner 的 issues。隐藏仅是 Renderer 展示规则，不修改 Host 的可用性判断、授权、Registry 或历史选择。
 
 ### 5.2.1 服务端能力声明与思考控制一致性
 

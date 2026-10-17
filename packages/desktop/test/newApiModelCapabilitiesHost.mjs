@@ -72,25 +72,28 @@ export async function createCapabilityHost(ipcMain, getWindow) {
           ...catalog,
           catalog_revision: `capabilities-${catalogReads}`,
           models: [
-            ["capability-a", "Capability A", valuesA, 64],
-            ["capability-b", "Capability B", ["disabled", "high"], 32],
-            ["capability-single", "Capability single", ["disabled"], 16],
-          ].map(([model_id, display_name, values, max]) => ({
-            ...catalog.models[0],
-            model_id,
-            display_name,
-            api_type: "openai-chat-completions",
-            model_config: {
-              ...modelConfig,
-              optionSpecs: {
-                reasoningLevel: {
-                  values,
-                  map: 'reasoningLevel == "disabled" ? {"thinking":{"type":"disabled"},"reasoning_effort":null} : {"thinking":{"type":"enabled"},"reasoning_effort":reasoningLevel}',
+            ...[
+              ["capability-a", "Capability A", valuesA, 64],
+              ["capability-b", "Capability B", ["disabled", "high"], 32],
+              ["capability-single", "Capability single", ["disabled"], 16],
+            ].map(([model_id, display_name, values, max]) => ({
+              ...catalog.models[0],
+              model_id,
+              display_name,
+              api_type: "openai-chat-completions",
+              model_config: {
+                ...modelConfig,
+                optionSpecs: {
+                  reasoningLevel: {
+                    values,
+                    map: 'reasoningLevel == "disabled" ? {"thinking":{"type":"disabled"},"reasoning_effort":null} : {"thinking":{"type":"enabled"},"reasoning_effort":reasoningLevel}',
+                  },
+                  maxOutputTokens: { max, map: '{"max_tokens":maxOutputTokens}' },
                 },
-                maxOutputTokens: { max, map: '{"max_tokens":maxOutputTokens}' },
               },
-            },
-          })),
+            })),
+            ...catalog.models.slice(1),
+          ],
         },
       });
     },

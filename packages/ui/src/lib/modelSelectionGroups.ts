@@ -35,8 +35,12 @@ export function buildRegistryModelSelectGroups(
   view: ModelSelectionView,
   labels: ModelProviderGroupLabelOptions = {},
 ): ModelSelectGroup[] {
-  const groups: ModelSelectGroup[] = view.providers.flatMap((provider) => {
-    if (!supportsRegistryApiFormat(selectedProvider, provider.config.api?.type)) {
+  // XCODE: 不可选目录问题留在设置页诊断，模型菜单只投影有真实候选的分组。
+  return view.providers.flatMap((provider) => {
+    if (
+      !supportsRegistryApiFormat(selectedProvider, provider.config.api?.type) ||
+      provider.models.length === 0
+    ) {
       return [];
     }
 
@@ -69,15 +73,6 @@ export function buildRegistryModelSelectGroups(
       },
     ];
   });
-  if (view.catalogIssues?.length) {
-    groups.push({
-      key: "native-catalog-issues",
-      label: "New API",
-      items: [],
-      catalogIssues: view.catalogIssues,
-    });
-  }
-  return groups;
 }
 
 function getRegistryAccountProviderGroupPresentation(

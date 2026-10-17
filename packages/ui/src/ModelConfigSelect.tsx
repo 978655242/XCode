@@ -46,7 +46,6 @@ import {
 } from "@/lib/pickerFocus.js";
 import { RollingToolbarLabel } from "@/chat-input-toolbar/RollingToolbarLabel.js";
 import { ModelInputCapabilityBadge } from "@/components/ModelInputCapabilityBadge.js";
-import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 
 export interface ModelSelectGroupItem {
   key: string;
@@ -67,6 +66,7 @@ export interface ModelSelectConnectionOption {
   disabled?: boolean;
 }
 
+// XCODE: 模型菜单仅承载可选项，目录诊断保留在模型设置页。
 export interface ModelSelectGroup {
   key: string;
   label: string;
@@ -75,8 +75,6 @@ export interface ModelSelectGroup {
   selectedOptionKey?: string;
   connectionOptions?: ModelSelectConnectionOption[];
   items: ModelSelectGroupItem[];
-  /** Catalog issues have no value/ref and never enter the radio selection path. */
-  catalogIssues?: readonly { modelId: string; displayName: string; code: string }[];
 }
 
 export interface ModelSelectFooterAction {
@@ -228,7 +226,6 @@ export const ModelConfigSelect = memo(function ModelConfigSelectComponent({
   leadingItems,
   triggerBadge,
 }: ModelConfigSelectProps) {
-  const { intl } = useZCodeIntl();
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const open = controlledOpen ?? uncontrolledOpen;
   const lastOpenRequestKeyRef = useRef(openRequestKey);
@@ -644,25 +641,6 @@ export const ModelConfigSelect = memo(function ModelConfigSelectComponent({
             : hasSelectableModel
               ? renderModelItems(modelGroups[0]?.items ?? [])
               : null}
-          {modelGroups
-            .flatMap((group) => group.catalogIssues ?? [])
-            .map((issue) => (
-              <div
-                key={`catalog-issue:${issue.modelId}`}
-                role="note"
-                className="px-2 py-1 text-ui-sm text-foreground-subtle"
-              >
-                <span className="break-words font-medium">
-                  {issue.displayName || issue.modelId}
-                </span>
-                <span className="block break-words">
-                  {intl.formatMessage(
-                    { id: "settings.modelProvider.native.catalogIssue" },
-                    { reason: issue.code },
-                  )}
-                </span>
-              </div>
-            ))}
           {renderedFooterActions.length > 0 ? (
             <div className="sticky bottom-0 z-10 bg-menu after:absolute after:left-0 after:top-full after:h-1 after:w-full after:bg-menu after:content-['']">
               {hasSelectableModel ? <DropdownMenuSeparator /> : null}
