@@ -79,6 +79,8 @@ Main 与 Host 使用同一有效环境配置：开发 `.env`/`.env.local` 与进
 
 保持登录入口与个人信息菜单布局；主账号区域展示真实 New API 用户，提供原有登录/注册操作。官方云连接入口是现有云功能的连接操作，不能让官方登录覆盖主账号头像/用户名或 `getActiveProvider` 的 new-api 主身份。
 
+浏览器授权页的账户切换遵循 [已确认页面规格](new-api-authorization-account-switch.md)：显示当前真实账户并提供“使用其他账户”，明确告知同源后台登录态会改变；仅退出确认时的浏览器 SID，重新登录后仍须主动授权，不延长原 AuthFlow。此增量于 2026-10-17 完成设计确认与实施计划编写，尚未实施或部署；不新增独立授权会话、不改变本节 PKCE 和桌面凭据边界。
+
 ### 4.2 安全持久化与恢复
 
 安全凭据域按 `new-api:<origin-key>:<user-id>:<sid>` 命名，保存 control、refresh、relay 的类型/expiry。origin-key 是规范化 origin 的稳定非秘密标识；不能同用户名不同服务器复用 token。

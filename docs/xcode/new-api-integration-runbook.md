@@ -8,7 +8,7 @@
 - 只有显式 `NEW_API_BASE_URL` 且本机桌面 Local Host 才启用私有组合，没有默认 3001。Main 安全库、Host 与 scheduler 使用相同 dotenv→已定义 process env 优先级；显式空 process 值遮蔽 dotenv。未配置的原非私有桌面、独立 Web/远程路径保留；已启用后任何认证、目录或资金错误都不回退到原官方身份或钱包。
 - Origin 必须是精确 origin，不能含路径、query、fragment、用户名或密码；HTTP 仅允许 loopback。生产操作员明确设置后端 `XCODE_INTEGRATION_ENABLED`、与客户端完全一致的 `XCODE_PUBLIC_ORIGIN`，并验证实际二进制、挂载及数据库。
 - 不复用 Z.ai/BigModel 的环境变量。它们继续属于独立官方连接；metadata、网页地址和 `server_address` 均不能改变私有 API origin。
-- 现有 3001 服务不能仅凭 `/api/status` 成功判定就绪。先验证 canonical 端点、构建来源和隔离门槛；本次未重启或修改该服务及其业务库。
+- 现有 3001 服务不能仅凭 `/api/status` 成功判定就绪。2026-10-18 授权页专项已获明确授权并切换真实 Go embed；当前 binary/assets、人工确认门槛和未完成边界见下节生产记录，不能沿用旧隔离报告的“未部署”结论。
 
 显式启用既有测试启动命令（后端与数据隔离需由操作员先准备）：
 
@@ -19,6 +19,30 @@ NEW_API_BASE_URL=http://127.0.0.1:3001 pnpm dev:desktop:test
 桌面运行时隔离变量：`ZCODE_DESKTOP_USER_DATA_DIR`、`ZCODE_DESKTOP_SESSION_DATA_DIR`；业务数据根通过已有 `ZCODE_DATA_BASE_DIR` 处理，必须核实启动链实际采用的值，不能只设置变量就假设隔离成功。不要连接真实用户目录做注册、撤销或额度耗尽场景。
 
 macOS 保持系统 `HOME` 不变，应用/Host/工作区使用上述隔离变量。改成合成 HOME 会让真实 OS keychain 查找失败，不能选择“还原为默认”来掩盖测试配置错误。无安全库时 fail-closed，不注入测试 AES key 就宣称真实恢复通过。
+
+## 授权页生产专项：2026-10-18 当前状态
+
+状态 **NEEDS_CONTEXT，未完成完整身份/冷恢复验收**。实际3001已保持原容器/配置/挂载与密钥语义，切到经最终评审的 binary SHA-256 `da5ad356af59bb4fdab01421049ca90401df91ca6334d4d67cfc329bea1725e8`；真实 HTML 使用 `index.35d0844c67.js` / `index.0d47dc1946.css`。一致备份与部署证明见 [生产验收报告](../../.superpowers/sdd/2026-10-17-new-api-authorization-account-switch/production-validation-report.md)；完整私有生产备份必须保留，不恢复/覆盖仍有合法并发使用的业务库。
+
+两名专用非管理员原生注册账号已执行真实 A→取消换号、A→原生B登录且不自动授权、生产根路由真双标签退出/登录及取消终态。独立同源构建的真实 Desktop 使用系统 HOME/真实safeStorage、私有Main/Host/renderer/Worker与有效显式私有workspace，不复用用户5174/9229。首次真实浏览器→全局OS→Main回跳逐字节匹配服务端callback，但人工确认超过60秒，原Host真实兑换 `XCODE_AUTH_CODE_INVALID`，尚未得到B身份，不能称完整E2E/冷恢复/撤销通过。
+
+继续门槛是用户准备好后，在全新原Host流程明确授权，并及时点击独立Chrome的原生“打开XWork Production Validation”。不注入callback、不改有效期/生产限流。等待期间全局 `zcode` handler已精确恢复查询得到的原 `com.github.Electron` 与 openwork 的实际Electron.app路径，不擅自改成XWorkDev；当前专用账号/自有资源仍待人工步骤后最终清理，详见报告。历史隔离故障注入与全包质量基线不扩大成生产故障或全质量绿；未调用模型/改套餐渠道额度支付，未提交/推送。
+
+## 浏览器授权页换号：2026-10-18 验收
+
+已实现 [授权页规格](specs/new-api-authorization-account-switch.md) 的当前账户展示、常显“使用其他账户”和一次主动授权。换号会退出**当前浏览器会话**，影响同源其他后台标签；重新登录后必须再次确认。普通授权创建独立桌面设备会话，浏览器仍保持登录，换号不续期原 10 分钟请求。取消只结束本页操作，不声称撤销服务端 flow。
+
+隔离验收使用新构建 Web + Go embed、原生 setup/register 合成 A/B、独立 SQLite/密钥、`NEW_API_BASE_URL=http://127.0.0.1:43017`；Docker 仅发布 `127.0.0.1:43017:3000`。生产根路由真双标签、迟到退出 / 409 / 网络故障、原生登录返回、一次性提交与中英/主题/窄屏/真实 200% Chromium 缩放均有分项证据。详细状态及脱敏截图见 [S04 报告](../../.superpowers/sdd/2026-10-17-new-api-authorization-account-switch/task-4-report.md)，不可把受控故障注入当作真实后端故障。
+
+S04 fix round1 曾在真实 CSS640×409 /200% 下确认品牌 masthead 与授权标题同在 y32 的实际重叠。仅授权 wrapper 增加 `sm:pt-16`，不改共享登录布局、字号或品牌；重新 Web/Go embed 后实际 header bottom64/title top96，不相交，1280×900及393×852亦通过。最终截图为等待字体/动画/登录toast自然消失后的独立顶端和操作区 viewport（native capturePage 与 Playwright，非 full-page 拼接）；换号框也已用动画完成后有效opacity1的中英截图替代过渡帧。失败与闭合详见报告§10；新的隔离 backend SHA 为 `1d84f8cf2d432afb38d100c775ecece3fc19037a3d285aa9300a4fc5cc7dbe87`，不表示3001部署。
+
+真实 macOS safeStorage 生成的私有密钥为 0600；原 Host PKCE 经新浏览器登录 B / 主动确认，原始 callback 定向送入隔离 Main 的真实 `open-url` 路由，随后 Host 真实 Me 为 B。仅浏览器打开和目标进程投递使用测试运输，**未验证 OS 全局 `zcode://` 注册/分发**，不是完整安装包深链 E2E。Main/Host/Worker 同源新构建，但无套餐的合成账户未启动 Worker，未为验收补造套餐或调用模型。2FA / Passkey 未在合成账户启用，不声称完成其验证。
+
+隔离桌面还有启动恢复边界：当前 Main 的 `settingsFile = join(os.homedir(), ".zcode", "v2", "setting.json")` 不跟随 `ZCODE_DESKTOP_HOME_DIR`，可能把真实工作区加入预热名单；本次首次发现后立即停止。第二次使用已有 `--open-workspace=<私有目录>` 显式启动，避开该启动恢复读取点，设置服务与业务根另行核实为私有路径。保持系统 HOME / 真实 OS keystore，不改用户配置来规避；未修复这一独立隔离缺陷，后续不能只设置 userData 就假定所有数据路径隔离。
+
+历史控制器聚焦 88 / 全 Web 2348、两仓类型与任务 lint/format 通过；全包 New API lint / copyright / protected-format 仍有范围外基线失败。初始 S01–S03 TDD RED 未运行的记录保留，不能由后验通过倒填。本轮没有提交/推送或部署/重启业务 3001；已有 3001 不因隔离 Web 构建而更新。
+
+最终评审补正 Cookie 竞争：固定 SID `logout(expectedSID)` 复用现有 Axios fetch adapter，以 credentials omit 同时隔离请求 Cookie 与响应 Set-Cookie；必须收到匹配目标的既有 `data.revoked_sid` 才认定成功。普通无参数退出/OAuth 保留原行为，不增 Go/HTTP 契约。旧 A Cookie 暂留但 SID 已撤销，不代表仍登录，也不能在迟到响应后删除共享 hint。真实 raw-header proxy 复现旧实现 B Cookie 丢失/refresh401，修正后 B Cookie 保留、冷 reload/refresh200 且 A protected401；真实匿名 success 的清 Cookie 响应被忽略并失败关闭。最终聚焦79、全 Web180文件/2355测试、build:check/typecheck、五文件lint与三文件受保护正文格式通过；Web/Go embed 已重建，最终隔离 backend SHA `da5ad356af59bb4fdab01421049ca90401df91ca6334d4d67cfc329bea1725e8`。见 [最终修正报告](../../.superpowers/sdd/2026-10-17-new-api-authorization-account-switch/final-fix-report.md)，初轮 body-only A05 不再作为 Cookie 证明；未重验桌面/Host 冷恢复，最终定向复审已通过，未部署3001。
 
 ## 主账号与独立官方连接
 
