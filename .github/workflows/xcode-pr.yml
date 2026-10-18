@@ -41,7 +41,10 @@ jobs:
           node-version: "24.14.0" # 与 mise.toml 保持一致
           cache: pnpm
       # 只跑静态检查，不需要 node-pty 等原生模块的 postinstall 构建。
-      - run: pnpm install --frozen-lockfile --ignore-scripts
+      # pnpm 10.33.2 在 Linux 大 workspace 上存在 `_tmp_*` 目录 rename 竞态
+      # （pnpm#13627 / #12880：patchedDependencies 的 process.chdir 与 worker 线程
+      # hardLinkDir 冲突），单核执行可稳定规避；本地 macOS 安装不受影响。
+      - run: taskset -c 0 pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm architecture:check
