@@ -9,7 +9,7 @@ const h = React.createElement as (
 ) => React.ReactElement;
 
 // XCODE: TUI 组合字标使用 XWORK，保留六行高度和动画布局。
-const ZCODE_LOGO_LINES = [
+export const ZCODE_LOGO_LINES = [
   "██╗  ██╗██╗    ██╗ ██████╗ ██████╗ ██╗  ██╗",
   "╚██╗██╔╝██║    ██║██╔═══██╗██╔══██╗██║ ██╔╝",
   " ╚███╔╝ ██║ █╗ ██║██║   ██║██████╔╝█████╔╝ ",

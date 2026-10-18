@@ -21,6 +21,10 @@ import {
   canAttachNativePlanWebview,
 } from "../src/main/nativePlanWebviewManager.ts";
 import { createBrowserWindow } from "../src/main/desktopWindowChrome.ts";
+import {
+  assertNetworkCapturePreservesPlanGuards,
+  assertNativeObserverPreservesPlanOwner,
+} from "./newApiWebRequestGuardAssertions.mjs";
 process.env.VITE_ZCODE_E2E_STORE_BRIDGE = "1";
 
 // XCODE: Main ESM 在模块求值结束后才触发 ready，异步 smoke 不阻塞入口模块。
@@ -97,6 +101,12 @@ async function run() {
       createWebviewGuest,
       () => counters.private,
     );
+    await assertNetworkCapturePreservesPlanGuards({
+      ordinaryWindow,
+      origin,
+      createWebviewGuest,
+      counters,
+    });
 
     const displayContext = {
       version: 1,
@@ -207,6 +217,13 @@ async function run() {
     } finally {
       rogueView.webContents.close({ waitForBeforeUnload: false });
     }
+    await assertNativeObserverPreservesPlanOwner({
+      nativeAttached,
+      origin,
+      partition: nativePrepared.partition,
+      initialUrl: nativeRequest.url,
+      counters,
+    });
     await setNativePlanWebviewOwner(ordinaryWindow.id, null);
     assert.equal(nativeAttached.isDestroyed(), true);
     assert.equal((await attachedSession.cookies.get({})).length, 0);
@@ -347,6 +364,9 @@ async function run() {
         ordinaryLateRequestsDenied: true,
         ordinaryInitialAttachDenied: true,
         unrelatedBrowsingUnaffected: true,
+        networkCaptureTogglesPreservePrivateGuards: true,
+        lastObserverRemovalPreservesGuard: true,
+        nativeObserverTogglesPreserveOwnerAndGuest: true,
         sameOriginCss: true,
         sameOriginBootstrap: true,
         hostOnlySessionDisplayCookie: true,

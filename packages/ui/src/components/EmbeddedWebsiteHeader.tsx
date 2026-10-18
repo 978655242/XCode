@@ -2,6 +2,7 @@ import { ChevronLeftIcon, ChevronRightIcon, RefreshCwIcon, XIcon } from "lucide-
 import { Button } from "@/components/ui/button.js";
 import { cn } from "@/components/lib/utils.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+import { DesktopOverlayWindowControls } from "@/DesktopOverlayWindowControls.js";
 
 export function EmbeddedWebsiteHeader({
   title,
@@ -28,6 +29,7 @@ export function EmbeddedWebsiteHeader({
   return (
     // XCODE: Native viewer can share its content boundary without changing the official page.
     <header className={cn("bg-background px-6 py-4 pb-0", !contentClassName && "max-sm:px-4")}>
+      <DesktopOverlayWindowControls />
       <div
         className={cn(
           "mx-auto flex w-full max-w-5xl items-center justify-between gap-3",

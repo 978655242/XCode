@@ -67,6 +67,7 @@ const ACTIVE_OAUTH_PROVIDER_KEY = "oauth:active_provider";
 export interface OffPeakCredentialSnapshot {
   jwt: string;
   codingPlanApiKey: string;
+  accountScope?: string;
   kind: OffPeakCodingPlanKind;
   providerFamily: "zai" | "bigmodel";
   providerId: string;
@@ -98,7 +99,10 @@ interface OffPeakCredentialResolverDeps {
 type OffPeakCredentialInput =
   | OffPeakCredentialResolverDeps
   | {
-      officialCloudHost: Pick<OfficialCloudConnectionHost, "resolveCredentials" | "isCurrent">;
+      officialCloudHost: Pick<
+        OfficialCloudConnectionHost,
+        "resolveCredentials" | "isCurrent" | "resolveCodingPlanMaterial"
+      >;
       env?: NodeJS.ProcessEnv;
     };
 
@@ -163,8 +167,8 @@ export async function resolveOffPeakCredentials(
         throw new OffPeakCodingPlanUnavailableError("connection_unavailable");
       if (access.planKind === "start-plan")
         throw new OffPeakCodingPlanUnavailableError("start_plan_not_supported");
-      if (!credentials.codingPlanApiKey)
-        throw new OffPeakCredentialsUnavailableError("codingPlanApiKey");
+      const material = await deps.officialCloudHost.resolveCodingPlanMaterial(credentials);
+      if (!material) throw new OffPeakCredentialsUnavailableError("codingPlanApiKey");
       if (!(await deps.officialCloudHost.isCurrent(credentials))) continue;
       credentials.assertCurrentSync?.();
       const team = access.planKind === "team-coding-plan";
@@ -178,7 +182,8 @@ export async function resolveOffPeakCredentials(
             : BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan;
       return {
         jwt: credentials.jwt,
-        codingPlanApiKey: credentials.codingPlanApiKey,
+        codingPlanApiKey: material.token,
+        accountScope: officialCloudInvocationScope(credentials).slice(-64),
         kind:
           credentials.family === "zai"
             ? team
@@ -256,6 +261,7 @@ export async function resolveOffPeakCredentials(
       throw new OffPeakCodingPlanUnavailableError("connection_unavailable");
     }
     let codingPlanApiKey = "";
+    let accountScope: string | undefined;
     try {
       const auth = await deps.accountRequestAuthService.resolveCurrent({
         providerId: selection.providerId,
@@ -264,6 +270,7 @@ export async function resolveOffPeakCredentials(
         reason: "off-peak",
       });
       codingPlanApiKey = auth.apiKey?.trim() ?? "";
+      accountScope = auth.accountScope;
     } catch (error) {
       if (error instanceof AccountRequestCredentialUnavailableError) {
         throw new OffPeakCredentialsUnavailableError("codingPlanApiKey");
@@ -277,6 +284,7 @@ export async function resolveOffPeakCredentials(
       ...selection,
       jwt,
       codingPlanApiKey,
+      ...(accountScope ? { accountScope } : {}),
       ...(provider.baseURL ? { providerBaseURL: provider.baseURL } : {}),
     };
   }
@@ -312,6 +320,7 @@ export function buildOffPeakPlanIdentityHeaders(
 export interface OffPeakRequestAuth {
   apiKey: string;
   headers: Record<string, string>;
+  accountScope?: string;
   executionIdentity?: string;
   assertCurrent?: () => Promise<void>;
 }
@@ -333,6 +342,7 @@ export function buildOffPeakRequestAuth(params: {
       : {}),
     // Anthropic 兼容客户端会发送 x-api-key；服务端仍以 Authorization 与计划 Key 裁决。
     apiKey: params.credentials.jwt,
+    ...(params.credentials.accountScope ? { accountScope: params.credentials.accountScope } : {}),
     headers: {
       Authorization: `Bearer ${params.credentials.jwt}`,
       "X-Coding-Plan-Api-Key": params.credentials.codingPlanApiKey,

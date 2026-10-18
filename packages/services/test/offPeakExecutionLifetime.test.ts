@@ -17,7 +17,7 @@ import {
 import { type ModelRequest } from "@zcode/contracts";
 import { AiSdkModelAdapter } from "../../../apps/zcode-cli/packages/adapters/src/model/runner.js";
 import { ApiProviderModelRuntime } from "../../../apps/zcode-cli/packages/bootstrap/src/app/provider-registry-model-runtime.js";
-import { createModelExecutionContext } from "../../../apps/zcode-cli/packages/bootstrap/src/zcode-protocol/model-execution.js";
+import { createModelExecutionContext } from "../../../apps/zcode-cli/packages/bootstrap/src/app/model-execution-context.js";
 import {
   buildOffPeakRequestAuth,
   resolveOffPeakCredentials,
@@ -39,10 +39,15 @@ const credentials: OfficialCloudCredentialSnapshot = {
   family: "zai",
   jwt: "official-jwt-a",
   accessToken: "official-access-a",
-  codingPlanApiKey: "official-plan-a",
   access: { type: "zhipu-account", family: "zai", planKind: "individual-coding-plan" },
   catalog: { revision: 1, providers: [{ providerId, modelIds: ["cloud-model"] }] },
 };
+const resolveCodingPlanMaterial = async () => ({
+  token: "official-plan-a",
+  apiKeyId: "official-key-a",
+  organizationId: "official-org",
+  projectId: "official-project",
+});
 const configuredProviders = new ProviderConfigMap([
   [
     providerId,
@@ -78,7 +83,11 @@ const drain = async (events: AsyncIterable<unknown>) => {
 
 test("offpeak Host auth retains its current-owner fence and matches the worker connection identity", async () => {
   let current = true;
-  const host = { resolveCredentials: async () => credentials, isCurrent: async () => current };
+  const host = {
+    resolveCredentials: async () => credentials,
+    isCurrent: async () => current,
+    resolveCodingPlanMaterial,
+  };
   const snapshot = await resolveOffPeakCredentials({ officialCloudHost: host });
   const auth = buildOffPeakRequestAuth({ credentials: snapshot, ticketId: "ticket-a" });
   const official = await createOfficialCloudAccountProviderResolver(host)({
@@ -102,9 +111,12 @@ test("valid official login without a Plan publishes identity scope but never gra
   let selected: OfficialCloudCredentialSnapshot = {
     ...credentials,
     access: null,
-    codingPlanApiKey: null,
   };
-  const host = { resolveCredentials: async () => selected, isCurrent: async () => current };
+  const host = {
+    resolveCredentials: async () => selected,
+    isCurrent: async () => current,
+    resolveCodingPlanMaterial,
+  };
   const resolve = createOfficialCloudAccountProviderResolver(host);
   const input = {
     configRevision: "builtin-1",
@@ -152,6 +164,7 @@ for (const transition of ["owner-loss", "owner-replacement", "official-rotation"
       const host = {
         resolveCredentials: async () => selected,
         isCurrent: async (candidate: OfficialCloudCredentialSnapshot) => candidate === selected,
+        resolveCodingPlanMaterial,
       };
       const resolve = createOfficialCloudAccountProviderResolver(host);
       const registryProviders = async () => {

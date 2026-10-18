@@ -43,8 +43,7 @@ export function createOfficialCloudAccountProviderResolver(
         credentials &&
         credentials.family === access.accountType &&
         credentials.access &&
-        credentials.access.planKind !== "start-plan" &&
-        credentials.codingPlanApiKey,
+        credentials.access.planKind !== "start-plan",
       );
       return [
         { providerId, status: available ? ("available" as const) : ("unavailable" as const) },
@@ -138,14 +137,25 @@ export function createOfficialCloudAccountRequestAuthResolver(
       if (input.reason === "model-request")
         throw new AccountRequestCredentialUnavailableError(input.providerId);
       const credentials = await assert(input);
-      if (!credentials.codingPlanApiKey || credentials.access?.planKind === "start-plan")
+      if (credentials.access?.planKind === "start-plan")
         throw new AccountRequestCredentialUnavailableError(input.providerId);
       if (
         input.reason === "usage" &&
         input.providerId === resolveOffPeakProviderId(credentials.family)
       )
         throw new AccountRequestCredentialUnavailableError(input.providerId);
-      return { apiKey: credentials.codingPlanApiKey };
+      const accountScope = officialCloudInvocationScope(credentials).slice(-64);
+      if (
+        (input.expectedAccountScope !== undefined && input.expectedAccountScope !== accountScope) ||
+        (input.rejectedProjectTokenFingerprint && !input.expectedAccountScope)
+      )
+        throw new Error("project_token_scope_invalidated");
+      const material = await host.resolveCodingPlanMaterial(
+        credentials,
+        input.rejectedProjectTokenFingerprint,
+      );
+      if (!material) throw new AccountRequestCredentialUnavailableError(input.providerId);
+      return { apiKey: material.token, apiKeyId: material.apiKeyId, accountScope };
     },
   };
 }

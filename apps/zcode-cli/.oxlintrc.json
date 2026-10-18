@@ -1,0 +1,5 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  // XCODE: 编码兼容 fixture 保留 GB2312 字节，不能作为 UTF-8 源码读取。
+  "ignorePatterns": ["**/dist/**", "**/node_modules/**", "tests/gb2312.js"]
+}

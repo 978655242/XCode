@@ -136,13 +136,15 @@ macOS/Windows 使用 Electron `safeStorage`；Linux 的 `basic_text`、无可用
 根目录现有命令：
 
 ```sh
-pnpm exec tsx --experimental-test-module-mocks --tsconfig packages/services/test/tsconfig.json --test packages/services/test/newApi*.test.ts packages/services/test/officialCloudOwner.test.ts packages/services/test/offPeakExecutionLifetime.test.ts packages/services/test/conversationShareOperationFence.test.ts packages/services/test/officialInvocationDispatch.test.ts packages/services/test/providerConfigMigration.test.ts packages/desktop/test/newApiOAuthRoutes.test.ts
-node packages/desktop/test/runNewApiElectronSmokes.mjs
+pnpm test:unit:node
+NEW_API_BASE_URL=http://127.0.0.1:3001 node packages/desktop/test/runNewApiElectronSmokes.mjs
 pnpm typecheck
 pnpm lint
 pnpm fmt:check
 pnpm architecture:check --changed
 ```
+
+`pnpm test:unit` 顺序执行 Vitest 与上述 Node 原生测试；`test:unit:affected` 同样保留 Node 账户/凭据回归。`node:test` 文件不交给 Vitest 收集，避免将其报告成“0 test”或遗漏原生 mock.module 的隔离语义。
 
 `newApiComposerContextElectron.mjs` 已纳入上述 Electron smoke 入口：真实 Composer/额度 hooks 验证自定义 API Key 空草稿不显示订阅、三个 Native transport 保留额度、Native 缓存切换到自定义模型后只展示上下文且 hover 不读取订阅、切回 Native/清空选择，以及触摸按下的上下文展示。全局侧栏与设置额度保持主账号来源；对话浮层跟随当前结构化模型选择。
 
@@ -153,6 +155,10 @@ pnpm architecture:check --changed
 本次 SDK→隔离 Native relay→受控上游完成思考工具调用、临时文件真实读取及带历史 `reasoning_content` 的续轮；记录存在性与 17 字符计数，不保存思考正文。新模型使用更新的 context/map，已创建模型保持旧映射，已删除 low 不出站；关闭显式 disabled 且无 effort。取消约 6 毫秒抵达上游，relay 为 `client_gone`，不是 10 秒 idle timeout。永久 Go relay 回归保留 Type43 转换/alias、参数覆盖、raw passthrough、真实 SSE 思考和主动取消；它们不等于真实供应商验收。
 
 CLI/bootstrap 不包含在根 `typecheck` 入口内，需使用其当前包脚本另行校验并重建本机 Agent bundle，不能启动旧 bundle 就声称新 worker 行为通过。桌面必须实际操作登录、手动重选、真实套餐/用量页与只读升级页，并观察重启、退出、owner 变化和旧 worker 拒绝结果。
+
+CLI 依赖统一从仓库根执行 `pnpm install --frozen-lockfile`，不要进入内层工作区独立安装（它依赖根目录的 workspace 包）。根目录使用 `pnpm --filter './apps/zcode-cli/packages/*' -r typecheck` 与同范围 `-r lint`；CLI 的独立 `.oxlintrc.json` 避免根配置有意忽略 CLI 的规则使子包 lint 报“0 files”。
+
+Marketplace 导入回归通过临时 Git URL 映射克隆本地已提交 fixture，覆盖 GitHub 完整 URL、简写解析及真实落盘，不依赖公网仓库当前内容，也不修改用户 Git 配置；公网 GitHub 的连通性与供应商状态需另行验证。Electron 上下文浮层使用 CDP 鼠标输入，避免隔离窗口失去原生焦点干扰 hover/leave 场景。
 
 2026-10-09 可达证据见 `.superpowers/sdd/2026-10-08-new-api-integration/progress.md`：隔离后端实际完成 Native PKCE、七 DTO、refresh/恢复、admin grant/renew/revoke、handoff 与用途隔离；之后重建 backend `web/dist` 和 Go embed 二进制，SHA-256 为 `9d1cb26a27babc08f93f6a774fae978800c586c423e37888c2c714706c745a0a`，源码 `46a74273cd3b3a88d01d0a5d5512375c1c719530`、`vcs.modified=true`，不是 clean release artifact。三 installed SDK 已经穿过真实 New API relay/adapter 到受控上游，指定实例扣费与日志 wallet deduction0 有真实证据；另有真实 full Desktop 主登录、macOS keystore 冷恢复、Host→CLI→Native 推理和只读套餐页证明。受控上游的 11/7 token 是 fixture，不是真供应商计量；没有以此声称正式供应商或完整资金矩阵通过。
 

@@ -17,27 +17,24 @@ import {
   ZCODE_VERSION,
   buildRuntimeZaiBusinessUrl,
   resolveBigModelApiOrigin,
+  type ProjectAccessTokenClient,
+  type ProjectAccessTokenMaterial,
   type ApiClient,
   type ZCodeAccountAccess,
 } from "@zcode/shared";
 import type { OfficialCloudCatalog, OfficialCloudFamily } from "@zcode/shared";
 import { AccountProviderApiClient } from "../model-provider/accountProviderApiClient.js";
-import { AccountProviderApiKeyResolver } from "../model-provider/accountProviderApiKeyResolver.js";
 import {
   fetchPersonalCodingPlanEntitlement,
   fetchTeamCodingPlanEntitlement,
 } from "../bigmodel/codingPlanEntitlement.js";
-import {
-  ensureBigModelTeamPlanProjectApiKey,
-  copyBigModelTeamPlanProjectApiKeySecret,
-} from "../bigmodel/teamPlanApiKey.js";
+import { createAccountProjectTokenClient } from "../model-provider/accountProjectTokenClient.js";
 import { z } from "zod";
 import { getAppConfigDir } from "../paths.js";
 import { fetchZCodeBuiltinRemoteRelease } from "../model-provider/zcodeBuiltinRemoteConfig.js";
 
 export interface OfficialCloudMaterial {
   access: ZCodeAccountAccess | null;
-  codingPlanApiKey: string | null;
   catalog: OfficialCloudCatalog;
 }
 export interface OfficialCloudLoginCredentials {
@@ -150,21 +147,41 @@ const customerSchema = z.object({
 export function createOfficialCloudMaterialLoader(options: {
   apiClient: ApiClient;
   readModelView: (access: ZCodeAccountAccess | null) => Promise<ModelSelectionView>;
+  tokenClient?: ProjectAccessTokenClient;
 }) {
   const remote = new AccountProviderApiClient(options.apiClient);
-  const keys = new AccountProviderApiKeyResolver(remote.fetchRemoteData.bind(remote));
+  const tokens = options.tokenClient ?? createAccountProjectTokenClient(options.apiClient);
   return async (credentials: OfficialCloudLoginCredentials): Promise<OfficialCloudMaterial> => {
     const family = credentials.family;
     const host =
       family === "zai"
         ? new URL(buildRuntimeZaiBusinessUrl(process.env, "/")).origin
         : resolveBigModelApiOrigin(process.env);
-    let codingPlanApiKey = await keys.resolveProviderApiKey(family, credentials.accessToken);
+    const authorization =
+      family === "zai" ? `Bearer ${credentials.accessToken}` : credentials.accessToken;
+    const customer = customerSchema.parse(
+      await remote.fetchRemoteData(`${host}/api/biz/customer/getCustomerInfo`, {
+        method: "GET",
+        headers: { Authorization: authorization },
+      }),
+    );
     let access: ZCodeAccountAccess | null = null;
-    if (codingPlanApiKey) {
+    if (
+      (customer.organizations ?? []).some((organization) =>
+        (organization.projects ?? []).some(
+          (project) => String(project.projectType ?? "").trim() !== "2",
+        ),
+      )
+    ) {
+      const material = await tokens.resolve({
+        origin: host,
+        family,
+        loginToken: credentials.accessToken,
+        accountId: family,
+      });
       const personal = await fetchPersonalCodingPlanEntitlement({
         apiClient: options.apiClient,
-        authorization: codingPlanApiKey,
+        authorization: material.token,
         url: `${host}/api/biz/subscription/list`,
         timeoutMs: 15_000,
       });
@@ -172,15 +189,6 @@ export function createOfficialCloudMaterialLoader(options: {
         access = { type: "zhipu-account", family, planKind: "individual-coding-plan" };
     }
     if (!access) {
-      codingPlanApiKey = null;
-      const authorization =
-        family === "zai" ? `Bearer ${credentials.accessToken}` : credentials.accessToken;
-      const customer = customerSchema.parse(
-        await remote.fetchRemoteData(`${host}/api/biz/customer/getCustomerInfo`, {
-          method: "GET",
-          headers: { Authorization: authorization },
-        }),
-      );
       for (const organization of customer.organizations ?? []) {
         for (const project of organization.projects ?? []) {
           if (String(project.projectType) !== "2") continue;
@@ -196,23 +204,13 @@ export function createOfficialCloudMaterialLoader(options: {
             timeoutMs: 15_000,
           });
           if (entitlement.kind !== "available" || !entitlement.subscription.productId) continue;
-          const key = await ensureBigModelTeamPlanProjectApiKey({
-            apiClient: options.apiClient,
-            authorization,
-            host,
-            teamContext,
-            timeoutMs: 15_000,
+          await tokens.resolve({
+            origin: host,
+            family,
+            loginToken: credentials.accessToken,
+            accountId: family,
+            team: teamContext,
           });
-          if (!key?.apiKey) continue;
-          const secret = await copyBigModelTeamPlanProjectApiKeySecret({
-            apiClient: options.apiClient,
-            authorization,
-            host,
-            teamContext,
-            apiKey: key.apiKey,
-            timeoutMs: 15_000,
-          });
-          if (!secret) continue;
           access = {
             type: "zhipu-account",
             family,
@@ -220,7 +218,6 @@ export function createOfficialCloudMaterialLoader(options: {
             ...teamContext,
             productId: entitlement.subscription.productId,
           };
-          codingPlanApiKey = `${key.apiKey}.${secret}`;
           break;
         }
         if (access) break;
@@ -228,7 +225,6 @@ export function createOfficialCloudMaterialLoader(options: {
     }
     return {
       access,
-      codingPlanApiKey,
       catalog: toOfficialCloudCatalog(await options.readModelView(access)),
     };
   };
@@ -239,7 +235,17 @@ export function resolveOfficialCloudCatalogDependencies(dependencies: {
   zcodeBuiltinFilePath?: string;
   readModelView?: (access: OfficialCloudMaterial["access"]) => Promise<ModelSelectionView>;
   loadCloud?: (credentials: OfficialCloudLoginCredentials) => Promise<OfficialCloudMaterial>;
+  resolveCodingPlanMaterial?: (
+    credentials: OfficialCloudLoginCredentials & {
+      access: ZCodeAccountAccess | null;
+      accountIdentity: string;
+    },
+    rejectedProjectTokenFingerprint?: string,
+  ) => Promise<ProjectAccessTokenMaterial | null>;
 }) {
+  const tokenClient = dependencies.apiClient
+    ? createAccountProjectTokenClient(dependencies.apiClient)
+    : null;
   const readModelView =
     dependencies.readModelView ??
     (dependencies.zcodeBuiltinFilePath
@@ -248,9 +254,44 @@ export function resolveOfficialCloudCatalogDependencies(dependencies: {
   const loadCloud =
     dependencies.loadCloud ??
     (dependencies.apiClient && readModelView
-      ? createOfficialCloudMaterialLoader({ apiClient: dependencies.apiClient, readModelView })
+      ? createOfficialCloudMaterialLoader({
+          apiClient: dependencies.apiClient,
+          readModelView,
+          tokenClient: tokenClient!,
+        })
       : null);
   if (!loadCloud)
     throw new Error("Official cloud requires the original official catalog and API client");
-  return { readModelView, loadCloud };
+  const resolveCodingPlanMaterial =
+    dependencies.resolveCodingPlanMaterial ??
+    (async (
+      credentials: OfficialCloudLoginCredentials & {
+        access: ZCodeAccountAccess | null;
+        accountIdentity: string;
+      },
+      rejectedProjectTokenFingerprint?: string,
+    ): Promise<ProjectAccessTokenMaterial | null> => {
+      if (!tokenClient) throw new Error("Official cloud project token client unavailable");
+      const access = credentials.access;
+      if (!access || access.planKind === "start-plan") return null;
+      return tokenClient.resolve({
+        origin:
+          credentials.family === "zai"
+            ? new URL(buildRuntimeZaiBusinessUrl(process.env, "/")).origin
+            : resolveBigModelApiOrigin(process.env),
+        family: credentials.family,
+        loginToken: credentials.accessToken,
+        accountId: credentials.accountIdentity,
+        rejectedProjectTokenFingerprint,
+        ...(access.planKind === "team-coding-plan"
+          ? { team: { organizationId: access.organizationId, projectId: access.projectId } }
+          : {}),
+      });
+    });
+  return {
+    readModelView,
+    loadCloud,
+    resolveCodingPlanMaterial,
+    clearCodingPlanMaterial: () => tokenClient?.clear(),
+  };
 }

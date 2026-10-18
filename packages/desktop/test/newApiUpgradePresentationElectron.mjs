@@ -231,10 +231,11 @@ async function run() {
       font: 14,
       audience: "personal",
     });
-    const snapshotSummary = await cycleGuest.executeJavaScript(
-      `document.querySelector('.xcode-plan-summary')?.textContent`,
-    );
-    assert.match(snapshotSummary, /Active/);
+    const assignedStatusCount = () =>
+      cycleGuest.executeJavaScript(
+        `document.querySelectorAll('article[aria-label="Pro"] .xcode-plan-card-heading .xcode-plan-tag').length`,
+      );
+    if (!liveSeed) assert.equal(await assignedStatusCount(), 1);
     for (const cycle of ["Monthly", "Yearly", "Quarterly"]) {
       await cycleGuest.executeJavaScript(
         `(()=>{const button=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(cycle)});if(!button)throw new Error('Missing cycle');button.click();})()`,
@@ -244,13 +245,12 @@ async function run() {
       );
       const measured = await measure(cycleGuest);
       assert.equal(measured.cards.length, 4);
-      assert.equal(
-        await cycleGuest.executeJavaScript(
-          `document.querySelector('.xcode-plan-summary')?.textContent`,
-        ),
-        snapshotSummary,
-        "catalog cycle must not rewrite the designated instance",
-      );
+      if (!liveSeed)
+        assert.equal(
+          await assignedStatusCount(),
+          cycle === "Quarterly" ? 1 : 0,
+          "only the exact designated fixture template may show the current authorization",
+        );
       result.push({ cycle, cards: measured.cards });
     }
     await close(cycleGuest);
@@ -364,7 +364,7 @@ async function run() {
     console.error(error);
   } finally {
     clearTimeout(deadline);
-    win?.destroy();
+    // 保留最后一个窗口直到异步清理结束，避免默认退出0抢在 app.exit(1) 前掩盖断言失败。
     await vite?.close();
     await (fixture?.close() ?? Promise.resolve());
     await rm(temporary, { recursive: true, force: true });

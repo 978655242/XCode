@@ -6,10 +6,18 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
-import { resolveOffPeakProviderId, type NewApiOwner } from "@zcode/shared";
+import {
+  resolveOffPeakProviderId,
+  projectAccessTokenFingerprint,
+  type ApiClient,
+  type NewApiOwner,
+} from "@zcode/shared";
 import { ProviderConfigMap, ProviderConfig, ZhipuAccountAccessConfig } from "@zcode/provider";
 import { ProxyChannel } from "@zcode/rpc";
-import type { OfficialCloudMaterial } from "../src/official-mcp/officialCloudCatalog.js";
+import {
+  createOfficialCloudMaterialLoader,
+  type OfficialCloudMaterial,
+} from "../src/official-mcp/officialCloudCatalog.js";
 import {
   createOfficialCloudAccountProviderResolver,
   createOfficialCloudAccountRequestAuthResolver,
@@ -31,12 +39,14 @@ import {
 } from "../src/session/offPeakTaskService.js";
 import { OffPeakTaskRepo } from "../src/session/offPeakTaskRepo.js";
 import { createServiceLogger } from "../src/logger/serviceLogger.js";
+import { createUsageStatsService } from "../src/usage-stats/usageStatsService.js";
 import { createCredentialCipherProvider } from "../src/credential/providers/credentialCipherProvider.js";
 import {
   createOfficialCloudConnectionHost,
   type OfficialCloudConnectionHost,
 } from "../src/official-mcp/officialCloudConnectionService.js";
 import type { OAuthProviderAdapter } from "../src/oauth/providers/providerAdapter.js";
+import { createNodeApiClient } from "../src/providers/api/nodeApiClient.js";
 
 const ownerA: NewApiOwner = {
   origin: "https://native.example",
@@ -52,7 +62,7 @@ function barrier<T>() {
   });
   return { promise, resolve };
 }
-async function fixture(now?: () => number) {
+async function fixture(now?: () => number, apiClient?: ApiClient) {
   const dir = await mkdtemp(join(tmpdir(), "xcode-official-owner-"));
   const credentialsFile = join(dir, "credentials.json");
   const cipherProvider = createCredentialCipherProvider({
@@ -73,7 +83,6 @@ async function fixture(now?: () => number) {
   });
   let loadCloud: () => Promise<OfficialCloudMaterial> = async () => ({
     access: null,
-    codingPlanApiKey: null,
     catalog: { revision: 1, providers: [] },
   });
   const adapter: OAuthProviderAdapter = {
@@ -107,7 +116,20 @@ async function fixture(now?: () => number) {
     adapters: [adapter],
     store: { credentialsFile, cipherProvider },
     loadCloud: () => loadCloud(),
+    resolveCodingPlanMaterial: async (credentials: { access: OfficialCloudMaterial["access"] }) =>
+      credentials.access
+        ? {
+            token:
+              credentials.access.planKind === "team-coding-plan"
+                ? "official-team-key"
+                : "official-plan-key",
+            apiKeyId: "official-key-id",
+            organizationId: "official-org",
+            projectId: "official-project",
+          }
+        : null,
     ...(now ? { now } : {}),
+    ...(apiClient ? { apiClient, resolveCodingPlanMaterial: undefined } : {}),
   };
   const host = createOfficialCloudConnectionHost(dependencies);
   const callback = (state: string) => `zcode://oauth/callback?state=${state}&code=one-use-code`;
@@ -133,6 +155,330 @@ async function fixture(now?: () => number) {
     dispose: () => rm(dir, { recursive: true, force: true }),
   };
 }
+
+test("official project token refreshes after expiry and rejects late issuance across owner replacement", async (context) => {
+  let clock = 1_800_000_000_000;
+  context.mock.method(Date, "now", () => clock);
+  const arrived = barrier<void>();
+  const release = barrier<void>();
+  let issues = 0;
+  let pause = false;
+  const f = await fixture(() => clock, {
+    request: async (input, init) => {
+      const path = new URL(String(input)).pathname;
+      let data: unknown;
+      if (path.endsWith("/getCustomerInfo")) {
+        data = {
+          organizations: [
+            {
+              organizationId: "official-org",
+              projects: [{ projectId: "official-project", projectType: 1 }],
+            },
+          ],
+        };
+      } else if (path.endsWith("/api_keys")) {
+        data = [{ apiKey: "official-key-id", name: "zcode-api-key" }];
+      } else if (path.endsWith("/official-key-id/access_tokens")) {
+        assert.equal(
+          new Headers(init?.headers).get("authorization"),
+          "Bearer official-business-secret",
+        );
+        const issue = ++issues;
+        if (pause) {
+          arrived.resolve();
+          await release.promise;
+        }
+        data = {
+          accessToken: `official-pat-${issue}`,
+          tokenType: "Bearer",
+          expiresIn: 600,
+          expiresAt: clock / 1000 + 600,
+        };
+      } else throw new Error(`Unexpected project token request: ${path}`);
+      return new Response(JSON.stringify({ code: 200, data }), {
+        headers: { "content-type": "application/json" },
+      });
+    },
+  });
+  try {
+    const access = {
+      type: "zhipu-account",
+      family: "bigmodel",
+      planKind: "individual-coding-plan",
+    } as const;
+    f.setLoadCloud(async () => ({ access, catalog: { revision: 1, providers: [] } }));
+    await f.login();
+    const offPeakProviderId = resolveOffPeakProviderId("bigmodel");
+    const projected = await createOfficialCloudAccountProviderResolver(f.host)({
+      configRevision: "official",
+      configuredProviders: new ProviderConfigMap([
+        [
+          offPeakProviderId,
+          new ProviderConfig({
+            visibility: "hidden",
+            access: new ZhipuAccountAccessConfig({ accountType: "bigmodel", mode: "off-peak" }),
+          }),
+        ],
+      ]),
+      previousProviders: ProviderConfigMap.empty(),
+    });
+    assert.equal(projected.states[offPeakProviderId]?.availability, "available");
+    assert.equal(issues, 0);
+    const resolver = createOfficialCloudAccountRequestAuthResolver(f.host);
+    const input = {
+      providerId: "account:bigmodel-individual-coding-plan",
+      accountAccess: access,
+      reason: "usage",
+    } as const;
+    const first = await resolver.resolveCurrent(input);
+    assert.equal(first.apiKey, "official-pat-1");
+    assert.match(first.accountScope!, /^[a-f0-9]{64}$/);
+    clock += 601_000;
+    const second = await resolver.resolveCurrent({
+      ...input,
+      expectedAccountScope: first.accountScope,
+    });
+    assert.equal(second.apiKey, "official-pat-2");
+    assert.equal(second.accountScope, first.accountScope);
+    await assert.rejects(
+      resolver.resolveCurrent({
+        ...input,
+        expectedAccountScope: "0".repeat(64),
+      }),
+      /scope_invalidated/,
+    );
+    assert.equal(issues, 2);
+    const stored = JSON.parse(await readFile(f.credentialsFile, "utf8")) as Record<string, string>;
+    for (const value of Object.values(stored))
+      assert.equal(
+        f.dependencies.store.cipherProvider.decrypt(value).includes("official-pat-"),
+        false,
+      );
+    pause = true;
+    const pending = resolver.resolveCurrent({
+      ...input,
+      expectedAccountScope: first.accountScope,
+      rejectedProjectTokenFingerprint: await projectAccessTokenFingerprint(second.apiKey!),
+    });
+    await arrived.promise;
+    f.host.onPrimaryOwnerChanged(ownerB);
+    f.setOwner(ownerB);
+    release.resolve();
+    await assert.rejects(pending, /scope|owner|changed/i);
+    pause = false;
+    await f.login();
+    const replacement = await resolver.resolveCurrent(input);
+    assert.equal(replacement.apiKey, "official-pat-4");
+    assert.notEqual(replacement.accountScope, first.accountScope);
+  } finally {
+    release.resolve();
+    await f.dispose();
+  }
+});
+
+for (const failure of ["network", "timeout", 429, 503, 401, 403, "invalid"] as const) {
+  test(`official project token early refresh handles ${failure} without losing valid credentials`, async (context) => {
+    const start = 1_800_000_000_000;
+    let clock = start;
+    context.mock.method(Date, "now", () => clock);
+    let issues = 0;
+    const f = await fixture(
+      () => clock,
+      createNodeApiClient({
+        fetchImpl: async (input) => {
+          const path = new URL(String(input)).pathname;
+          let data: unknown;
+          if (path.endsWith("/getCustomerInfo"))
+            data = {
+              organizations: [{ organizationId: "org", projects: [{ projectId: "project" }] }],
+            };
+          else if (path.endsWith("/api_keys")) data = [{ apiKey: "key", name: "zcode-api-key" }];
+          else if (path.endsWith("/key/access_tokens")) {
+            issues++;
+            if (issues > 1) {
+              if (failure === "network") throw new TypeError("fetch failed");
+              if (failure === "timeout") throw new DOMException("timeout", "AbortError");
+              if (failure === "invalid") return new Response("invalid JSON");
+              return new Response("upstream failure", { status: failure });
+            }
+            data = {
+              accessToken: "valid-pat",
+              tokenType: "Bearer",
+              expiresIn: 600,
+              expiresAt: start / 1000 + 600,
+            };
+          } else throw new Error(`Unexpected project token request: ${path}`);
+          return Response.json({ code: 200, data });
+        },
+      }),
+    );
+    try {
+      const access = {
+        type: "zhipu-account",
+        family: "bigmodel",
+        planKind: "individual-coding-plan",
+      } as const;
+      f.setLoadCloud(async () => ({ access, catalog: { revision: 1, providers: [] } }));
+      await f.login();
+      const resolver = createOfficialCloudAccountRequestAuthResolver(f.host);
+      const input = {
+        providerId: "account:bigmodel-individual-coding-plan",
+        accountAccess: access,
+        reason: "usage",
+      } as const;
+      const first = await resolver.resolveCurrent(input);
+      assert.equal(first.apiKey, "valid-pat");
+      clock = start + 481_000;
+      if (["network", "timeout", 429, 503].includes(failure)) {
+        const refreshed = await resolver.resolveCurrent({
+          ...input,
+          expectedAccountScope: first.accountScope,
+        });
+        assert.equal(refreshed.apiKey, "valid-pat");
+        assert.equal(refreshed.accountScope, first.accountScope);
+        assert.equal(issues, 2);
+        clock = start + 600_000;
+      }
+      await assert.rejects(resolver.resolveCurrent(input), /project_token_/);
+    } finally {
+      await f.dispose();
+    }
+  });
+}
+
+test("official project token HTTP 404 invalidates its location before the next resolution", async (context) => {
+  const start = 1_800_000_000_000;
+  let clock = start;
+  context.mock.method(Date, "now", () => clock);
+  let locations = 0;
+  const issued: string[] = [];
+  const f = await fixture(
+    () => clock,
+    createNodeApiClient({
+      fetchImpl: async (input) => {
+        const path = new URL(String(input)).pathname;
+        let data: unknown;
+        if (path.endsWith("/getCustomerInfo"))
+          data = {
+            organizations: [{ organizationId: "org", projects: [{ projectId: "project" }] }],
+          };
+        else if (path.endsWith("/api_keys"))
+          data = [
+            {
+              apiKey: ++locations === 1 ? "deleted-key" : "replacement-key",
+              name: "zcode-api-key",
+            },
+          ];
+        else if (path.endsWith("/access_tokens")) {
+          const key = path.split("/").at(-2)!;
+          issued.push(key);
+          if (issued.length > 1 && key === "deleted-key")
+            return new Response("not found", { status: 404 });
+          data = {
+            accessToken: `pat-${key}`,
+            tokenType: "Bearer",
+            expiresIn: 600,
+            expiresAt: clock / 1000 + 600,
+          };
+        } else throw new Error(`Unexpected project token request: ${path}`);
+        return Response.json({ code: 200, data });
+      },
+    }),
+  );
+  try {
+    const access = {
+      type: "zhipu-account",
+      family: "bigmodel",
+      planKind: "individual-coding-plan",
+    } as const;
+    f.setLoadCloud(async () => ({ access, catalog: { revision: 1, providers: [] } }));
+    await f.login();
+    const resolver = createOfficialCloudAccountRequestAuthResolver(f.host);
+    const input = {
+      providerId: "account:bigmodel-individual-coding-plan",
+      accountAccess: access,
+      reason: "usage",
+    } as const;
+    assert.equal((await resolver.resolveCurrent(input)).apiKey, "pat-deleted-key");
+    clock = start + 481_000;
+    await assert.rejects(resolver.resolveCurrent(input), /project_token_/);
+    assert.equal((await resolver.resolveCurrent(input)).apiKey, "pat-replacement-key");
+    assert.equal(locations, 2);
+    assert.deepEqual(issued, ["deleted-key", "deleted-key", "replacement-key"]);
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("legacy official record discards only the stored execution key and preserves login through refresh", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    const original = await f.host.service.getSnapshot();
+    const stored = JSON.parse(await readFile(f.credentialsFile, "utf8")) as Record<string, string>;
+    const cipher = f.dependencies.store.cipherProvider;
+    for (const [key, encrypted] of Object.entries(stored)) {
+      const raw = cipher.decrypt(encrypted);
+      if (raw.startsWith("{") && JSON.parse(raw).schemaVersion === 1) {
+        stored[key] = cipher.encrypt(
+          JSON.stringify({
+            ...JSON.parse(raw),
+            codingPlanApiKey: "legacy-execution-secret",
+          }),
+        );
+      }
+    }
+    await writeFile(f.credentialsFile, JSON.stringify(stored));
+    assert.deepEqual(await f.host.service.getSnapshot(), original);
+    assert.equal((await f.host.resolveCredentials())?.accessToken, "official-business-secret");
+    await f.host.service.refresh();
+    const refreshed = JSON.parse(await readFile(f.credentialsFile, "utf8")) as Record<
+      string,
+      string
+    >;
+    for (const encrypted of Object.values(refreshed))
+      assert.equal(cipher.decrypt(encrypted).includes("legacy-execution-secret"), false);
+    assert.equal((await f.host.service.getSnapshot()).status, "connected");
+    assert.equal((await f.host.resolveCredentials())?.accessToken, "official-business-secret");
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("legacy official logout removes the encrypted record and cannot restore it after restart", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    const stored = JSON.parse(await readFile(f.credentialsFile, "utf8")) as Record<string, string>;
+    const cipher = f.dependencies.store.cipherProvider;
+    const connectionKeys: string[] = [];
+    for (const [key, encrypted] of Object.entries(stored)) {
+      if (!key.startsWith("official-cloud:")) continue;
+      connectionKeys.push(key);
+      const raw = cipher.decrypt(encrypted);
+      if (raw.startsWith("{"))
+        stored[key] = cipher.encrypt(
+          JSON.stringify({
+            ...JSON.parse(raw),
+            codingPlanApiKey: "legacy-execution-secret",
+          }),
+        );
+    }
+    assert.equal(connectionKeys.length, 2);
+    await writeFile(f.credentialsFile, JSON.stringify(stored));
+    assert.equal((await f.host.service.getSnapshot()).status, "connected");
+    await f.host.service.logout();
+    assert.equal(await f.host.resolveCredentials(), null);
+    const after = JSON.parse(await readFile(f.credentialsFile, "utf8")) as Record<string, string>;
+    for (const key of connectionKeys) assert.equal(after[key], undefined);
+    assert.equal(after.zcodejwttoken, f.legacy);
+    const restarted = createOfficialCloudConnectionHost(f.dependencies);
+    assert.equal(await restarted.resolveCredentials(), null);
+    assert.notEqual((await restarted.service.getSnapshot()).status, "connected");
+  } finally {
+    await f.dispose();
+  }
+});
 function officialPort(host: OfficialCloudConnectionHost) {
   const resolver = createOfficialMcpAuthHeadersResolver({ officialCloudHost: host });
   return createOfficialMcpAuthHeadersPort({
@@ -144,6 +490,101 @@ function officialPort(host: OfficialCloudConnectionHost) {
       },
     }),
   });
+}
+
+// XCODE: 官方连接必须使用项目短期 Token；仅团队账号不能先被个人项目解析拒绝。
+for (const family of ["bigmodel", "zai"] as const) {
+  for (const team of [false, true]) {
+    test(`official ${family} ${team ? "team" : "personal"} material uses project tokens without secret copying`, async () => {
+      const requests: string[] = [];
+      let rejectToken = false;
+      let loginToken = "official-login";
+      const loader = createOfficialCloudMaterialLoader({
+        apiClient: {
+          request: async (input, init) => {
+            const url = new URL(String(input));
+            requests.push(url.pathname);
+            const headers = new Headers(init?.headers);
+            let data: unknown;
+            if (url.pathname.endsWith("/getCustomerInfo")) {
+              assert.equal(
+                headers.get("Authorization"),
+                family === "zai" ? `Bearer ${loginToken}` : loginToken,
+              );
+              data = {
+                organizations: [
+                  {
+                    organizationId: "official-org",
+                    projects: [{ projectId: "official-project", projectType: team ? 2 : 1 }],
+                  },
+                ],
+              };
+            } else if (url.pathname.endsWith("/querySubscribeDetail")) {
+              assert.equal(headers.get("bigmodel-organization"), "official-org");
+              assert.equal(headers.get("bigmodel-project"), "official-project");
+              data = {
+                hasSubscription: true,
+                status: "EFFECTIVE",
+                memberGrantStatus: "VALID",
+                productId: "team-coding",
+              };
+            } else if (url.pathname.endsWith("/api_keys")) {
+              data = [
+                {
+                  apiKey: "official-key-id",
+                  name: team ? "zcode-team-api-key" : "zcode-api-key",
+                  ...(team ? { keyType: 2 } : {}),
+                },
+              ];
+            } else if (url.pathname.endsWith("/official-key-id/access_tokens")) {
+              assert.equal(init?.method, "POST");
+              assert.equal(headers.get("Authorization"), `Bearer ${loginToken}`);
+              if (rejectToken) return new Response("disabled", { status: 403 });
+              data = {
+                accessToken: "official-project-token",
+                tokenType: "Bearer",
+                expiresIn: 600,
+                expiresAt: Date.now() / 1000 + 600,
+              };
+            } else if (url.pathname.endsWith("/subscription/list")) {
+              assert.equal(headers.get("Authorization"), "official-project-token");
+              data = [
+                {
+                  productId: "personal-coding",
+                  status: "VALID",
+                  inCurrentPeriod: true,
+                },
+              ];
+            } else {
+              throw new Error(`Unexpected official request: ${url.pathname}`);
+            }
+            return new Response(JSON.stringify({ code: 200, data }), {
+              headers: { "content-type": "application/json" },
+            });
+          },
+        },
+        readModelView: async () => ({ revision: 1, providers: [] }),
+      });
+      const credentials = { family, accessToken: "official-login", jwt: "official-jwt" };
+      const material = await loader(credentials);
+      assert.equal(JSON.stringify(material).includes("official-project-token"), false);
+      assert.equal(material.access?.planKind, team ? "team-coding-plan" : "individual-coding-plan");
+      assert.ok(requests.some((path) => path.endsWith("/official-key-id/access_tokens")));
+      if (team) {
+        assert.equal(
+          requests.some((path) => path.endsWith("/subscription/list")),
+          false,
+        );
+        assert.equal(
+          material.access?.planKind === "team-coding-plan" && material.access.projectId,
+          "official-project",
+        );
+      }
+      rejectToken = true;
+      loginToken = "new-official-login";
+      await assert.rejects(loader({ ...credentials, accessToken: "new-official-login" }));
+    });
+  }
 }
 
 // XCODE: 真正的 worker 端口与鉴权 fetch 必须把一次调用锁在原生 owner/官方代际。
@@ -487,7 +928,6 @@ test("late official refresh cannot return data under B or overwrite A credential
     const arrived = barrier<void>();
     const cloud = barrier<{
       access: null;
-      codingPlanApiKey: null;
       catalog: { revision: number; providers: never[] };
     }>();
     f.setLoadCloud(async () => {
@@ -499,7 +939,6 @@ test("late official refresh cannot return data under B or overwrite A credential
     f.setOwner(ownerB);
     cloud.resolve({
       access: null,
-      codingPlanApiKey: null,
       catalog: { revision: 2, providers: [] },
     });
     await assert.rejects(pending, /owner|changed/i);
@@ -537,6 +976,60 @@ test("primary owner transition hides credentials synchronously before primary pu
   }
 });
 
+test("official TPS rejects a late A response and never reuses A TPS for B", async () => {
+  const f = await fixture();
+  const arrived = barrier<void>();
+  const release = barrier<void>();
+  let requests = 0;
+  try {
+    const access = {
+      type: "zhipu-account",
+      family: "bigmodel",
+      planKind: "individual-coding-plan",
+    } as const;
+    f.setLoadCloud(async () => ({
+      access,
+      catalog: { revision: 1, providers: [] },
+    }));
+    await f.login();
+    const service = createUsageStatsService({
+      officialCloudHost: f.host,
+      accountRequestAuthService: createOfficialCloudAccountRequestAuthResolver(f.host),
+      apiClient: {
+        request: async () => {
+          const requestNumber = ++requests;
+          if (requestNumber === 2) {
+            arrived.resolve();
+            await release.promise;
+          }
+          return new Response(
+            JSON.stringify({ code: 200, data: { proMaxDecodeSpeed: [requestNumber * 10] } }),
+          );
+        },
+      },
+      zcodeAgentService: {} as never,
+    });
+    const request = {
+      preferredProviderId: "account:bigmodel-individual-coding-plan",
+      accountAccess: access,
+      timeZone: "UTC",
+    };
+    assert.equal(await service.getCodingPlanRegularTps!(request), 10);
+    const pending = service.getCodingPlanRegularTps!(request);
+    await arrived.promise;
+    f.host.onPrimaryOwnerChanged(ownerB);
+    f.setOwner(ownerB);
+    await f.login();
+    release.resolve();
+    await assert.rejects(pending, /owner|changed/i);
+    assert.equal(await service.getCodingPlanRegularTps!(request), 30);
+    assert.equal(requests, 3);
+  } finally {
+    release.resolve();
+    await f.dispose();
+  }
+});
+
 test("official family/scope drives MCP and offpeak, never ordinary Native model auth", async () => {
   const f = await fixture();
   try {
@@ -549,7 +1042,6 @@ test("official family/scope drives MCP and offpeak, never ordinary Native model 
         projectId: "real-project",
         productId: "real-product",
       },
-      codingPlanApiKey: "official-team-key",
       catalog: { revision: 1, providers: [] },
     }));
     await f.login();
@@ -762,7 +1254,6 @@ for (const change of ["switch", "unlink", "rotate"] as const) {
     try {
       f.setLoadCloud(async () => ({
         access: { type: "zhipu-account", family: "bigmodel", planKind: "individual-coding-plan" },
-        codingPlanApiKey: "official-plan-key",
         catalog: { revision: 1, providers: [] },
       }));
       await f.login();
@@ -839,7 +1330,6 @@ test("offpeak checks owner after awaited origin before sending any credential", 
   try {
     f.setLoadCloud(async () => ({
       access: { type: "zhipu-account", family: "bigmodel", planKind: "individual-coding-plan" },
-      codingPlanApiKey: "official-plan-key",
       catalog: { revision: 1, providers: [] },
     }));
     await f.login();
@@ -877,7 +1367,6 @@ for (const operation of ["sync", "retake", "settle"] as const) {
     try {
       f.setLoadCloud(async () => ({
         access: { type: "zhipu-account", family: "bigmodel", planKind: "individual-coding-plan" },
-        codingPlanApiKey: "official-plan-key",
         catalog: { revision: 1, providers: [] },
       }));
       await f.login();
@@ -964,7 +1453,6 @@ test("offpeak publication fence survives the async gap between ticket response a
   try {
     f.setLoadCloud(async () => ({
       access: { type: "zhipu-account", family: "bigmodel", planKind: "individual-coding-plan" },
-      codingPlanApiKey: "official-plan-key",
       catalog: { revision: 1, providers: [] },
     }));
     await f.login();
@@ -1028,7 +1516,6 @@ test("offpeak client rejects a stale result even when the response body was stil
   try {
     f.setLoadCloud(async () => ({
       access: { type: "zhipu-account", family: "bigmodel", planKind: "individual-coding-plan" },
-      codingPlanApiKey: "official-plan-key",
       catalog: { revision: 1, providers: [] },
     }));
     await f.login();
@@ -1087,7 +1574,6 @@ for (const legacy of [false, true]) {
     try {
       f.setLoadCloud(async () => ({
         access: { type: "zhipu-account", family: "bigmodel", planKind: "individual-coding-plan" },
-        codingPlanApiKey: "official-plan-key",
         catalog: { revision: 1, providers: [] },
       }));
       await f.login();
@@ -1196,7 +1682,6 @@ test("offpeak real readiness admission rejects owner invalidation queued after a
   try {
     f.setLoadCloud(async () => ({
       access: { type: "zhipu-account", family: "bigmodel", planKind: "individual-coding-plan" },
-      codingPlanApiKey: "official-plan-key",
       catalog: { revision: 1, providers: [] },
     }));
     await f.login();
@@ -1283,7 +1768,6 @@ for (const operation of [
     try {
       f.setLoadCloud(async () => ({
         access: { type: "zhipu-account", family: "bigmodel", planKind: "individual-coding-plan" },
-        codingPlanApiKey: "official-plan-key",
         catalog: { revision: 1, providers: [] },
       }));
       await f.login();
@@ -1369,7 +1853,6 @@ test("offpeak Native scheduler claims only durable current-owner tasks and prese
   try {
     f.setLoadCloud(async () => ({
       access: { type: "zhipu-account", family: "bigmodel", planKind: "individual-coding-plan" },
-      codingPlanApiKey: "official-plan-key",
       catalog: { revision: 1, providers: [] },
     }));
     await f.login();
@@ -1469,7 +1952,6 @@ for (const change of ["official-account", "team-scope", "family"] as const) {
     try {
       f.setLoadCloud(async () => ({
         access: { type: "zhipu-account", family: "bigmodel", planKind: "individual-coding-plan" },
-        codingPlanApiKey: "official-plan-key",
         catalog: { revision: 1, providers: [] },
       }));
       await f.login();
@@ -1529,7 +2011,6 @@ for (const change of ["official-account", "team-scope", "family"] as const) {
             projectId: "project",
             productId: "product",
           },
-          codingPlanApiKey: "team-key",
           catalog: { revision: 1, providers: [] },
         }));
       } else {
@@ -1540,7 +2021,6 @@ for (const change of ["official-account", "team-scope", "family"] as const) {
         });
         f.setLoadCloud(async () => ({
           access: { type: "zhipu-account", family: "zai", planKind: "individual-coding-plan" },
-          codingPlanApiKey: "zai-key",
           catalog: { revision: 1, providers: [] },
         }));
       }
@@ -1633,7 +2113,7 @@ test("official credentials captured while refresh is awaiting lose synchronous a
     f.setLoadCloud(async () => {
       arrived.resolve();
       await release.promise;
-      return { access: null, codingPlanApiKey: null, catalog: { revision: 2, providers: [] } };
+      return { access: null, catalog: { revision: 2, providers: [] } };
     });
     const refreshing = f.host.service.refresh();
     await arrived.promise;

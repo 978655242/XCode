@@ -11,7 +11,7 @@ const INDICATOR_CARD_HEIGHT = 38;
 export const INDICATOR_CARD_TOP_OFFSET = 12;
 export const INDICATOR_SHADOW_INSET = { top: 6, right: 8, bottom: 12, left: 8 } as const;
 
-function indicatorCopy(locale: Locale): { text: string; width: number } {
+export function indicatorCopy(locale: Locale): { text: string; width: number } {
   // XCODE: 系统操作浮层显示统一产品名。
   return locale === "zh-CN"
     ? { text: "XWork 正在操作电脑", width: 234 }
@@ -34,7 +34,7 @@ function escapeHtml(value: string): string {
     .replaceAll('"', "&quot;");
 }
 
-function indicatorHtml(locale: Locale): string {
+export function indicatorHtml(locale: Locale): string {
   const copy = indicatorCopy(locale);
   return `<!doctype html>
 <html lang="${locale}" data-state="active">

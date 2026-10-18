@@ -116,8 +116,12 @@ test("every private payment write rejects before transport and all six reads are
     "createEnterpriseOrder",
     "cancelEnterpriseOrder",
     "continueEnterpriseOrderPayment",
+    "claimManualPlan",
   ] as const) {
     await assert.rejects(() => service[write]({} as never), /XCODE_SELF_SERVICE_DISABLED/);
+  }
+  for (const read of ["getManualClaimPlanPreviews", "getBillingDiscount"] as const) {
+    await assert.rejects(() => service[read](), /XCODE_SELF_SERVICE_DISABLED/);
   }
   for (const read of [
     "checkPayment",

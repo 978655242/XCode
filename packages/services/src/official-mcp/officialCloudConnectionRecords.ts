@@ -46,7 +46,6 @@ const recordSchema = z
       })
       .strict(),
     access: zcodeAccountAccessSchema.nullable(),
-    codingPlanApiKey: z.string().min(1).nullable(),
     catalog: officialCloudCatalogSchema,
   })
   .strict();
@@ -62,7 +61,11 @@ export function fingerprint(record: StoredConnection): string {
   return createHash("sha256").update(JSON.stringify(record)).digest("hex");
 }
 export function validateRecord(value: unknown, owner: NewApiOwner): StoredConnection {
-  const record = recordSchema.parse(value);
+  // XCODE: 丢弃旧版落盘执行 Key，保留严格校验的登录身份与 owner，不再恢复过期凭据。
+  const { codingPlanApiKey: _legacyKey, ...connection } = z
+    .record(z.string(), z.unknown())
+    .parse(value);
+  const record = recordSchema.parse(connection);
   if (
     record.origin !== owner.origin ||
     record.userId !== owner.userId ||
@@ -107,7 +110,12 @@ export function createOfficialCloudConnectionRecords(
       (records) => {
         if (!current(owner, capturedEpoch) || records.get(activeKey) !== oldKey)
           return { changes: new Map<string, string | null>(), result: false };
-        if (expected && records.get(oldKey!) !== JSON.stringify(expected))
+        const previous = oldKey ? records.get(oldKey) : null;
+        if (
+          expected &&
+          (!previous ||
+            fingerprint(validateRecord(JSON.parse(previous), owner)) !== fingerprint(expected))
+        )
           return { changes: new Map<string, string | null>(), result: false };
         const changes = new Map<string, string | null>([
           [activeKey, key],
@@ -149,7 +157,12 @@ export function createOfficialCloudConnectionRecords(
     await updateHostCredentialRecords(
       [key, activeKey],
       (records) => {
-        if (records.get(activeKey) !== key || records.get(key) !== JSON.stringify(record))
+        const stored = records.get(key);
+        if (
+          records.get(activeKey) !== key ||
+          !stored ||
+          fingerprint(validateRecord(JSON.parse(stored), owner)) !== fingerprint(record)
+        )
           return { changes: new Map<string, string | null>(), result: undefined };
         return {
           changes: new Map([
@@ -267,7 +280,6 @@ export function createOfficialCloudCredentialResolver(options: {
       jwt: before.tokens.zcodeJwtToken,
       accessToken: before.tokens.accessToken,
       access: before.access,
-      codingPlanApiKey: before.codingPlanApiKey,
       catalog: before.catalog,
       ownerKey,
       assertCurrentSync,

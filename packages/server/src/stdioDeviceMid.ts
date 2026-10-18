@@ -1,8 +1,8 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
-import { ensureDeviceMid as ensureSharedDeviceMid } from "@zcode/services/node";
+import { ensureTelemetryDeviceMid } from "@zcode/services/node";
 
-interface EnsureRemoteServerDeviceMidOptions {
-  /** 仅测试注入；生产固定使用 services 的 ensureDeviceMid。 */
+export interface EnsureRemoteServerDeviceMidOptions {
+  /** 仅测试注入；生产固定使用 services 的 ensureTelemetryDeviceMid。 */
   ensureDeviceMid?: () => Promise<string>;
   log: (...args: unknown[]) => void;
 }
@@ -22,12 +22,12 @@ interface EnsureRemoteServerDeviceMidOptions {
 export async function ensureRemoteServerDeviceMid(
   options: EnsureRemoteServerDeviceMidOptions,
 ): Promise<string | undefined> {
-  const ensureDeviceMid = options.ensureDeviceMid ?? ensureSharedDeviceMid;
+  const ensureDeviceMid = options.ensureDeviceMid ?? ensureTelemetryDeviceMid;
   try {
     return await ensureDeviceMid();
   } catch (error) {
     options.log(
-      "deviceMid 初始化失败，XWork endpoint 请求将不带 X-Device-Mid:",
+      "telemetry deviceMid 初始化失败，XWork endpoint 请求将不带 X-Device-Mid:",
       error instanceof Error ? error.message : String(error),
     );
     return undefined;

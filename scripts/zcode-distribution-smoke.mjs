@@ -7,7 +7,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout } from "node:timers/promises";
-import { promisify } from "node:util";
+import { promisify, stripVTControlCharacters } from "node:util";
 import { pathToFileURL } from "node:url";
 
 const exec = promisify(execFile);
@@ -56,10 +56,14 @@ try {
     }),
   );
   await until(
-    // XCODE: 就绪依据为可交互入口，不再将产品文案作为启动条件。
-    () => /(?:登录|\/login|输入提示词|Type a prompt)/i.test(screen),
+    () => {
+      // 修复：TUI 输出会在相邻字符间插入终端控制序列，先清理再检查可交互入口。
+      const visible = stripVTControlCharacters(screen);
+      // XCODE: 就绪依据为可交互入口，不再将产品文案作为启动条件。
+      return /(?:登录|\/login|输入提示词|Type a prompt)/i.test(visible);
+    },
     "TUI initialized render",
-    () => screen,
+    () => stripVTControlCharacters(screen),
   );
   assert.equal(terminalExit, undefined, screen);
   assert.doesNotMatch(screen, /Cannot find (?:module|package)|ERR_MODULE_NOT_FOUND/);

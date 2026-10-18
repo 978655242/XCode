@@ -22,10 +22,12 @@ import {
   formatQuotaRemainingPercentage,
   formatQuotaResetTime,
   getQuotaRemainingPercentage,
-  isCodingPlanQuotaLimitFull,
   resolveMcpQuotaLimit,
 } from "@/lib/codingPlanQuotaPresentation.js";
-import { resolveCodingPlanQuotaResetLimit } from "@/lib/codingPlanQuotaResetUi.js";
+import {
+  resolveCodingPlanQuotaResetActionCompletedAt,
+  resolveCodingPlanQuotaResetLimit,
+} from "@/lib/codingPlanQuotaResetUi.js";
 import { getContextQuotaMeterGridClass } from "@/chat-input-toolbar/contextQuotaMeterGrid.js";
 import { resolveChatCodingPlanResetOpportunityBadge } from "@/chat-input-toolbar/codingPlanResetOpportunityBadge.js";
 import { ChatCodingPlanMcpUsageMeter } from "@/chat-input-toolbar/ChatCodingPlanMcpUsageMeter.js";
@@ -58,7 +60,7 @@ export function hasChatCodingPlanUsageRemaining(
   );
 }
 
-function shouldShowContextQuotaResetTime({
+export function shouldShowContextQuotaResetTime({
   availableWidth,
   contentWidth,
 }: {
@@ -225,9 +227,6 @@ export function ChatCodingPlanUsageRemainingPanel({
   );
   const monthlyToolLimit = findCodingPlanQuotaLimit(limits, "TIME_LIMIT", 5, 1);
   const mcpQuotaLimit = resolveMcpQuotaLimit(state.visibleSnapshot);
-  // 额度剩余 100% 时重置没有收益:隐藏重置按钮与机会徽标(纯展示,不影响发放与轮询)。
-  const fiveHourQuotaFull = isCodingPlanQuotaLimitFull(fiveHourTokenLimit);
-  const weeklyQuotaFull = isCodingPlanQuotaLimitFull(weeklyTokenLimit);
   // 五小时与周机会合并为一个徽标,次数累加,倒计时取最早到期的一档。
   const opportunityBadge = resolveChatCodingPlanResetOpportunityBadge(state, resetUi);
   const fiveHourResetTime = fiveHourTokenLimit?.nextResetTime
@@ -340,7 +339,6 @@ export function ChatCodingPlanUsageRemainingPanel({
   const quotaResetDialog = {
     ...buildCodingPlanQuotaResetDialogConfig({
       fiveHourEnabled: !nativePeriod && Boolean(fiveHourTokenLimit),
-      fiveHourQuotaFull,
       resetUi,
       usageItems: (nativePeriod
         ? quotaMeters.filter((meter) => meter.key === "nativePeriod")
@@ -354,7 +352,6 @@ export function ChatCodingPlanUsageRemainingPanel({
         value: formatQuotaRemainingPercentage(locale, meter.limit),
       })),
       weekEnabled: !nativePeriod && Boolean(weeklyTokenLimit),
-      weekQuotaFull: weeklyQuotaFull,
     }),
     nativePeriod,
   };
@@ -441,24 +438,24 @@ export function ChatCodingPlanUsageRemainingPanel({
                   </Button>
                 ) : meter.key === "fiveHour" &&
                   resetUi.entry &&
-                  ((resetUi.opportunityVisible && !fiveHourQuotaFull) ||
+                  (resetUi.opportunityVisible ||
                     resetUi.processing ||
                     resetUi.entry.status === "completed") ? (
                   <LocalizedCodingPlanQuotaResetAction
                     autoCelebrateCompletedAt={autoCelebrateArm?.FIVE_HOUR ?? null}
-                    completedAt={resetUi.entry.completedAt}
+                    completedAt={resolveCodingPlanQuotaResetActionCompletedAt(resetUi)}
                     processing={resetUi.processing}
                     onAutoCelebrated={onAutoCelebrated}
                     onOpenDialog={() => setQuotaResetDialogOpen(true)}
                   />
                 ) : meter.key === "weekly" &&
                   resetUi.week.entry &&
-                  ((resetUi.week.opportunityVisible && !weeklyQuotaFull) ||
+                  (resetUi.week.opportunityVisible ||
                     resetUi.week.processing ||
                     resetUi.week.entry.status === "completed") ? (
                   <LocalizedCodingPlanQuotaResetAction
                     autoCelebrateCompletedAt={autoCelebrateArm?.WEEK ?? null}
-                    completedAt={resetUi.week.entry.completedAt}
+                    completedAt={resolveCodingPlanQuotaResetActionCompletedAt(resetUi.week)}
                     processing={resetUi.week.processing}
                     resetType="WEEK"
                     onAutoCelebrated={onAutoCelebrated}

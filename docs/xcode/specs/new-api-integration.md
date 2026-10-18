@@ -61,6 +61,21 @@ Account refresh 的过期失败不能恢复启动请求时捕获的旧授权；�
 
 官方云凭据退出主账号时锁定/隐藏，按用户要求保留安全存储；再次登录**同一个原生 user_id**才允许恢复。切换其他主用户不得迁移、借用或暴露它们。旧全局、没有明确主账号 owner 的官方凭据不自动认领给第一位私有用户；保留原数据，要求该用户独立完成真实官方登录后形成新 namespace。
 
+官方云 Project Access Token 使用上游 material 的真实 `expiresAt` 与刷新规则；请求期由既有官方凭据 resolver 解析，过期 token 不因安全库中仍有记录就继续执行。刷新前后校验主 owner 与官方 credential generation，静态 Registry 投影不发起网络刷新。
+
+```mermaid
+sequenceDiagram
+  participant C as 官方云调用方
+  participant H as Host 官方凭据 resolver
+  participant P as ProjectAccessTokenClient
+  C->>H: 请求期解析凭据
+  H->>H: 冻结并校验主 owner / 官方 generation
+  H->>P: resolve material（按 expiresAt 刷新）
+  P-->>H: token material
+  H->>H: 再校验归属；失效则拒绝迟到结果
+  H-->>C: 仅返回当前归属的有效凭据
+```
+
 ## 4. 主账号登录适配
 
 ### 4.1 配置与 Adapter
@@ -106,6 +121,8 @@ WebView 分区绑定主账号 generation，退出/切换即清理/关闭旧视�
 Main 必须先收到当前可信 Host 对**精确 handoff URL 与 generation**的一次性 admission REQUEST，校验当前 child、所属 BrowserWindow 与当前 owner，并回送匹配该 REQUEST 的 ACK；Host 等待成功 ACK 且再次核对 owner 后才返回 Renderer RPC。`createPlanWebHandoff` 缺少该 seam 时须在请求 `/web-handoffs`、铸造短码前拒绝；只读 headless 依赖可不提供 seam，但不能因此绕过交接准入。REQUEST/ACK 不承载 control、refresh、relay key 或 Cookie。跨 IPC 通道不靠超时猜测登记已完成，也不依赖离线 logout 已送达服务端。
 
 Renderer 只能消费当前窗口最新的 admission，不能自行登记；`ownerGeneration` 数字本身不是授权。仅比对 Renderer 提交的 generation 不能阻止它给旧 A URL 改写 B generation，即使旧短码仍有效也必须拒绝。owner 变化清除待用 URL；准备分区即一次性消费，guest 只能 attach 一次，重复或重标记均拒绝。Host 退出、换号或窗口销毁须失效待决准入与迟到 ACK。初始主 frame 必须是已登记短 URL，之后只允许同源无 query/hash/userinfo 的 `/xcode/plans`；外源资源、popup、下载及权限请求拒绝。同源首屏资源按已准入 origin 校验，不依赖尚为空的 guest URL。异步清理旧 A 分区不得删除随后建立的 B policy。
+
+同一 Electron Session 的 Native 请求守卫与网络捕获共用唯一 `onBeforeRequest` 分发器。守卫拒绝优先且异常时拒绝请求；观测者无放行权，启动、停止或重复注销网络捕获都不能覆盖或清除仍在生效的安全守卫。
 
 升级页视觉恢复的无秘密展示上下文由 `IPlatformService.prepareNativePlanWebview` 送 Main，在已准入临时分区写 UI Cookie；不改 Host `createPlanWebHandoff`、短码认证和上述 URL 防护。完整字段、异步写入后的 owner 复核及 head Bootstrap 首帧规则见 [升级 UI 规格 §5](new-api-upgrade-ui.md#5-无秘密展示上下文与首帧)；展示 Cookie 与 HttpOnly 认证 Cookie 不可混用。
 
@@ -222,6 +239,7 @@ secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或
 | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | getStaticProducts / getStaticTeamProducts / getStartPlanPreview / batchPreview / productInfo / preview                              | canonical plans + entitlements；返回带 native/private-user 语义的 shared 读 DTO，真实模板 ID/名称/价格/周期。不要强塞假企业结构 |
 | getEnterprisePricing / getEnterpriseBalance                                                                                         | 主套餐页面为统一私人订阅的预算/额度展示；明确不是企业组织钱包。真实官方 team scope 读取移至独立官方连接路径                     |
+| getManualClaimPlanPreviews / claimManualPlan / getBillingDiscount                                                                   | 私有模式拒绝 `XCODE_SELF_SERVICE_DISABLED`；不领取官方 Start 赠送或读取官方促销，非私有模式保留原官方行为                       |
 | createSign / updateSign                                                                                                             | 拒绝 `XCODE_SELF_SERVICE_DISABLED`；不返回 agreement/payment URL                                                                |
 | bindStripeCard / unbindStripeCard / payStripe                                                                                       | 同上；不调用官方/native支付写接口                                                                                               |
 | createPaypalSetupToken / subscribePaypal                                                                                            | 同上；不创建假 setup token                                                                                                      |

@@ -3,6 +3,7 @@ import type { Session, WebContents } from "electron";
 import type { NativePlanDisplayContext, NativePlanWebviewPrepareRequest } from "@zcode/shared";
 import { NewApiPlanWebviewPolicy } from "./newApiPlanWebviewPolicy.js";
 import type { NativePlanWebviewOwner } from "./newApiPlanWebviewPolicy.js";
+import { subscribeBeforeRequestGuard } from "./observeBeforeRequest.js";
 
 const windows = new Map<
   number,
@@ -69,16 +70,13 @@ export function isNativePlanPrivateUrl(value: string): boolean {
   }
 }
 
-/** XCODE: 一个 Session 只有一个请求监听槽；默认宿主、普通与 Native guest 共用一次注册。 */
+/** XCODE: 默认宿主、普通与 Native guest 的安全准入不能被网络观测覆盖或移除。 */
 export function guardPlanWebviewSession(partitionSession: Session): Session {
   if (guardedSessions.has(partitionSession)) return partitionSession;
   guardedSessions.set(partitionSession, null);
-  partitionSession.webRequest.onBeforeRequest((details, callback) => {
+  subscribeBeforeRequestGuard(partitionSession.webRequest, ["<all_urls>"], (details) => {
     const native = guardedSessions.get(partitionSession);
-    if (!native) {
-      callback({ cancel: isNativePlanPrivateUrl(details.url) });
-      return;
-    }
+    if (!native) return { cancel: isNativePlanPrivateUrl(details.url) };
     const entry = windows.get(native.windowId);
     const guest = entry?.guests.get(native.partition);
     const allowed = Boolean(
@@ -87,7 +85,7 @@ export function guardPlanWebviewSession(partitionSession: Session): Session {
       guest.id === details.webContentsId &&
       entry.policy.canRequest(native.partition, details.url, details.resourceType === "mainFrame"),
     );
-    callback({ cancel: !allowed });
+    return { cancel: !allowed };
   });
   return partitionSession;
 }

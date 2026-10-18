@@ -46,7 +46,7 @@ const INITIAL_STATE: UsageEntitlementState = {
   error: null,
 };
 
-const USAGE_ENTITLEMENT_REFRESH_TIMEOUT_MS = 20_000;
+export const USAGE_ENTITLEMENT_REFRESH_TIMEOUT_MS = 20_000;
 
 export interface UsageEntitlementRefreshOptions {
   silent?: boolean;
@@ -118,7 +118,7 @@ function createUsageEntitlementTimeoutError(timeoutMs: number): Error {
   return new Error(`usage_entitlement_request_timeout:${timeoutMs}`);
 }
 
-function withUsageEntitlementTimeout<T>(
+export function withUsageEntitlementTimeout<T>(
   request: Promise<T>,
   timeoutMs = USAGE_ENTITLEMENT_REFRESH_TIMEOUT_MS,
 ): Promise<T> {

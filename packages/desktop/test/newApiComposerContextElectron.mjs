@@ -127,6 +127,14 @@ async function run() {
       "data:text/html,<html><body><div id='root' style='margin:250px 100px'></div></body></html>",
     );
     const observe = (expression) => win.webContents.executeJavaScript(expression);
+    // XCODE: CDP 输入不依赖原生窗口焦点，避免后台验证漏收鼠标移出事件。
+    win.webContents.debugger.attach("1.3");
+    const moveMouse = (position) =>
+      win.webContents.debugger.sendCommand("Input.dispatchMouseEvent", {
+        type: "mouseMoved",
+        buttons: 0,
+        ...position,
+      });
     win.webContents.on("console-message", (event) => {
       if (event.level === "error") console.error(event.message);
     });
@@ -151,7 +159,7 @@ async function run() {
     })`);
     const render = async (providerId, hasUsage) => {
       stage = `${providerId ?? "none"} (${hasUsage ? "context" : "draft"})`;
-      win.webContents.sendInputEvent({ type: "mouseMove", x: 1, y: 1 });
+      await moveMouse({ x: 1, y: 1 });
       await waitFor(`document.querySelector(${JSON.stringify(popup)}) === null`);
       await observe(`window.renderComposer(${JSON.stringify(providerId)}, ${hasUsage})`);
       await frames();
@@ -160,7 +168,7 @@ async function run() {
       const position = await observe(
         `(() => { const r = document.querySelector(${JSON.stringify(trigger)}).getBoundingClientRect(); return { x: Math.round(r.x+r.width/2), y: Math.round(r.y+r.height/2) }; })()`,
       );
-      win.webContents.sendInputEvent({ type: "mouseMove", ...position });
+      await moveMouse(position);
       await waitFor(`document.querySelector(${JSON.stringify(popup)}) !== null`);
     };
     for (const providerId of [
@@ -211,7 +219,6 @@ async function run() {
       true,
     );
     await render("custom-deepseek", true);
-    win.webContents.debugger.attach("1.3");
     stage = "custom touch";
     await win.webContents.debugger.sendCommand("Emulation.setTouchEmulationEnabled", {
       enabled: true,

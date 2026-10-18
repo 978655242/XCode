@@ -7,6 +7,7 @@ import {
   type OfficialCloudConnectionSnapshot,
   resolveJwtExpiration,
   type ApiClient,
+  type ProjectAccessTokenMaterial,
 } from "@zcode/shared";
 import type { ModelSelectionView } from "@zcode/provider";
 import type { HostCredentialStoreDependencies } from "../credential/credentialService.js";
@@ -21,6 +22,7 @@ import {
   type OfficialCloudLoginCredentials,
 } from "./officialCloudCatalog.js";
 import { buildOfficialOffPeakModelSelectionView } from "../model-provider/offPeakModelSelectionView.js";
+import { createOfficialCloudRequestFences } from "./officialCloudRequestFences.js";
 import {
   createOfficialCloudConnectionRecords,
   createOfficialCloudCredentialResolver,
@@ -64,6 +66,10 @@ export interface OfficialCloudConnectionHost {
   service: IOfficialCloudConnectionService;
   onPrimaryOwnerChanged(nextOwner?: NewApiOwner | null): void;
   resolveCredentials(): Promise<OfficialCloudCredentialSnapshot | null>;
+  resolveCodingPlanMaterial(
+    credentials: OfficialCloudCredentialSnapshot,
+    rejectedProjectTokenFingerprint?: string,
+  ): Promise<ProjectAccessTokenMaterial | null>;
   isCurrent(credentials: OfficialCloudCredentialSnapshot): Promise<boolean>;
   withCredentials<T>(run: (credentials: OfficialCloudCredentialSnapshot) => Promise<T>): Promise<T>;
   getModelSelectionView(): Promise<ModelSelectionView>;
@@ -83,6 +89,13 @@ interface Dependencies {
   zcodeBuiltinFilePath?: string;
   readModelView?: (access: OfficialCloudMaterial["access"]) => Promise<ModelSelectionView>;
   loadCloud?: (credentials: OfficialCloudLoginCredentials) => Promise<OfficialCloudMaterial>;
+  resolveCodingPlanMaterial?: (
+    credentials: OfficialCloudLoginCredentials & {
+      access: OfficialCloudMaterial["access"];
+      accountIdentity: string;
+    },
+    rejectedProjectTokenFingerprint?: string,
+  ) => Promise<ProjectAccessTokenMaterial | null>;
   now?: () => number;
   onDidChange?: () => void | Promise<void>;
 }
@@ -96,7 +109,8 @@ export function createOfficialCloudConnectionHost(
   const adapters =
     dependencies.adapters ??
     createOAuthProviderAdapters(createOAuthRuntimeConfig(), { apiClient: dependencies.apiClient });
-  const { readModelView, loadCloud } = resolveOfficialCloudCatalogDependencies(dependencies);
+  const { readModelView, loadCloud, resolveCodingPlanMaterial, clearCodingPlanMaterial } =
+    resolveOfficialCloudCatalogDependencies(dependencies);
   let epoch = 0;
   let credentialLifetime = 0;
   const changes = new Emitter<void>();
@@ -178,6 +192,7 @@ export function createOfficialCloudConnectionHost(
       );
       if (!adapter) throw new Error("Official cloud family is unavailable");
       const state = randomBytes(32).toString("hex");
+      clearCodingPlanMaterial();
       epoch++;
       pending = {
         purpose: "official-cloud",
@@ -270,6 +285,7 @@ export function createOfficialCloudConnectionHost(
     },
     async logout() {
       pending = null;
+      clearCodingPlanMaterial();
       epoch++;
       const owner = dependencies.account.getOwner();
       if (!owner) return;
@@ -289,6 +305,7 @@ export function createOfficialCloudConnectionHost(
     },
     async refresh() {
       // XCODE: 刷新开始即失效冻结的官方执行，不能等 credential store/network 返回才撤销 A。
+      clearCodingPlanMaterial();
       const capturedEpoch = ++epoch;
       changes.fire();
       const credentials = await resolveCredentials();
@@ -321,23 +338,32 @@ export function createOfficialCloudConnectionHost(
   return {
     service,
     onPrimaryOwnerChanged(nextOwner = dependencies.account.getOwner()) {
+      clearCodingPlanMaterial();
       epoch++;
       pending = null;
       primaryTransitionOwner = nextOwner;
       changes.fire();
     },
     resolveCredentials,
-    isCurrent,
-    // XCODE: origin 等异步校验开始前冻结 owner；此边界不读取任何秘密。
-    captureOwnerFence() {
-      const owner = dependencies.account.getOwner();
-      const capturedEpoch = epoch;
-      return {
-        isCurrent: () =>
-          epoch === capturedEpoch &&
-          (owner ? current(owner, capturedEpoch) : dependencies.account.getOwner() === null),
-      };
+    async resolveCodingPlanMaterial(credentials, rejectedProjectTokenFingerprint) {
+      if (!(await isCurrent(credentials))) throw ownerChanged();
+      const material = await resolveCodingPlanMaterial(
+        { ...credentials, accountIdentity: officialCloudInvocationScope(credentials) },
+        rejectedProjectTokenFingerprint,
+      );
+      if (!(await isCurrent(credentials))) throw ownerChanged();
+      credentials.assertCurrentSync?.();
+      return material;
     },
+    isCurrent,
+    ...createOfficialCloudRequestFences({
+      account: dependencies.account,
+      getEpoch: () => epoch,
+      current,
+      resolveCredentials,
+      isCurrent,
+      invocationScope: officialCloudInvocationScope,
+    }),
     async withCredentials(run) {
       const capturedEpoch = epoch;
       const credentials = await resolveCredentials();
@@ -356,49 +382,6 @@ export function createOfficialCloudConnectionHost(
           credentials.family,
         ),
       );
-    },
-    async captureRequestFence() {
-      const owner = dependencies.account.getOwner();
-      const capturedEpoch = epoch;
-      const credentials = await resolveCredentials();
-      if (
-        epoch !== capturedEpoch ||
-        (owner ? !current(owner, capturedEpoch) : dependencies.account.getOwner() !== null)
-      )
-        throw ownerChanged();
-      credentials?.assertCurrentSync?.();
-      return {
-        token: credentials?.jwt ?? null,
-        // XCODE: 公开分享匿名读取也属于捕获的 Native owner，不能绕过 worker 准入。
-        scope: credentials
-          ? officialCloudInvocationScope(credentials)
-          : createHash("sha256").update(JSON.stringify(owner)).digest("hex"),
-        // XCODE: SQLite 同步提交回调不能 await；官方变更入口在异步 IO 前递增 epoch。
-        assertCurrentSync: () => {
-          if (
-            epoch !== capturedEpoch ||
-            (owner ? !current(owner, capturedEpoch) : dependencies.account.getOwner() !== null)
-          )
-            throw ownerChanged();
-          credentials?.assertCurrentSync?.();
-        },
-        isCurrent: async () => {
-          if (epoch !== capturedEpoch) return false;
-          if (
-            owner
-              ? !dependencies.account.isCurrent(owner)
-              : dependencies.account.getOwner() !== null
-          )
-            return false;
-          if (credentials) return isCurrent(credentials);
-          const latest = await resolveCredentials();
-          return (
-            latest === null &&
-            epoch === capturedEpoch &&
-            (owner ? current(owner, capturedEpoch) : dependencies.account.getOwner() === null)
-          );
-        },
-      };
     },
   };
 }

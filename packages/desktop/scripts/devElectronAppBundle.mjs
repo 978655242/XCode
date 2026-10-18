@@ -9,7 +9,7 @@ import {
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, posix } from "node:path";
 
 export const DEV_ELECTRON_PROTOCOL_SCHEME = "zcode";
 // XCODE: 仅迁移开发应用展示名，协议、bundle ID 与缓存根目录保持不变。
@@ -89,7 +89,7 @@ export function patchDevElectronInfoPlist(plist, rendererUrl) {
 }
 
 export function resolveDevElectronAppBundlePath({ runtimeRoot, electronVersion, arch }) {
-  return join(runtimeRoot, `${electronVersion}-${arch}`, `${DEV_ELECTRON_APP_NAME}.app`);
+  return posix.join(runtimeRoot, `${electronVersion}-${arch}`, `${DEV_ELECTRON_APP_NAME}.app`);
 }
 
 export async function prepareDevElectronAppBundle({
@@ -101,13 +101,13 @@ export async function prepareDevElectronAppBundle({
   rendererUrl,
 }) {
   const appPath = resolveDevElectronAppBundlePath({ runtimeRoot, electronVersion, arch });
-  const infoPlistPath = join(appPath, "Contents", "Info.plist");
-  const existingExecutablePath = join(appPath, "Contents", "MacOS", "Electron");
-  const appEntryPath = join(appPath, "Contents", "Resources", "app");
-  const sourceExecutablePath = join(electronAppPath, "Contents", "MacOS", "Electron");
+  const infoPlistPath = posix.join(appPath, "Contents", "Info.plist");
+  const sourceExecutablePath = posix.join(electronAppPath, "Contents", "MacOS", "Electron");
+  const existingExecutablePath = posix.join(appPath, "Contents", "MacOS", "Electron");
+  const appEntryPath = posix.join(appPath, "Contents", "Resources", "app");
   // 源二进制的身份指纹，写在 .app 外面：放进 Contents 会污染 bundle 结构。
-  const sourceStampPath = join(dirname(appPath), ".zcode-dev-electron-source.json");
-  // 这里原本把两个 Electron 可执行文件（各 ~100MB+）整份读进内存做 equals，
+  const sourceStampPath = posix.join(dirname(appPath), ".zcode-dev-electron-source.json");
+  // 修复原因：这里原本把两个 Electron 可执行文件（各 ~100MB+）整份读进内存做 equals，
   // 每次 dev 启动都要付一次全量读盘。源二进制由 npm 包解压产出，记录它的 size+mtime
   // 即可判定是否需要重拷，语义等价而开销是常数级。
   //
@@ -155,8 +155,8 @@ export async function prepareDevElectronAppBundle({
 
   // XCODE: 缓存命中也同步展示名与产品图标，不依赖 Electron 二进制变化来刷新 Info.plist。
   await copyFile(
-    join(import.meta.dirname, "../build/icon.icns"),
-    join(appPath, "Contents", "Resources", "xcode.icns"),
+    posix.join(import.meta.dirname, "../build/icon.icns"),
+    posix.join(appPath, "Contents", "Resources", "xcode.icns"),
   );
   const currentInfoPlist = await readFile(infoPlistPath, "utf8");
   const patchedInfoPlist = patchDevElectronInfoPlist(currentInfoPlist, rendererUrl);
@@ -171,6 +171,6 @@ export async function prepareDevElectronAppBundle({
 
   return {
     appPath,
-    executablePath: join(appPath, "Contents", "MacOS", "Electron"),
+    executablePath: posix.join(appPath, "Contents", "MacOS", "Electron"),
   };
 }

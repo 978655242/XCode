@@ -31,7 +31,7 @@ import { OFFICIAL_CLOUD_CONNECTION_CHANGED_CHANNEL } from "@/hooks/useOfficialCl
 
 export { refreshRestoredOAuthProviderFamilyAfterStartup } from "@/root/oauthProviderFamilySelectionRefresh.js";
 
-async function handleOAuthCallbackSuccess(params: {
+export async function handleOAuthCallbackSuccess(params: {
   result: OAuthSessionCallbackResult;
   platform: Pick<IPlatformService, "reportTelemetryEvent">;
   refreshLatestModelProviderFamilySelection?: (
