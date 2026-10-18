@@ -127,7 +127,7 @@ sequenceDiagram
 
 明确授权后，真实3001已切换到最终评审binary `da5ad356af59bb4fdab01421049ca90401df91ca6334d4d67cfc329bea1725e8`，原容器配置/密钥语义/挂载保留，实际新JS/CSS与运行binary已回读。仅为本专项原生注册两名专用非管理员，真实A权限/取消换号、A→原生B登录保留原flow且无自动complete、生产根路由真双标签及取消终态已有脱敏证据；未对生产注入故障、修改限流/时间、配置套餐或调用模型。
 
-当前 **NEEDS_CONTEXT，非完整E2E完成**：独立真实Desktop的原Host产生PKCE/state，B明确同意后，人点击原生Chrome协议确认，实际全局OS投递到精确私有bundle/Main，callback哈希与服务端原字符串一致。但人工点击晚于60秒，原Host真实兑换 `XCODE_AUTH_CODE_INVALID`、restoreSession=null；不得称B身份成功、完整退出冷恢复/Me或设备撤销/浏览器分离成功。需要用户准备好后，在新鲜原Host流程及时完成原生协议确认，不注入callback或延长期限。等待期间已精确恢复原 `com.github.Electron` 与 openwork Electron.app 的原路径，不擅自改成XWorkDev。
+当前 **PASS WITH DISCLOSED CONCERNS（生产专项、清理及独立最终复核完成）**：首轮人工超过60秒的code-invalid失败历史保留；最终用户在稳定独立Chrome连续亲点网页授权/原生打开，原Host PKCE/state经真正全局OS→精确私有Main，callback哈希匹配且1485ms内投递，fresh complete仅1次，原Host真实Me B。全Main/Host退出0后同私有数据/真实keystore冷恢复仍真实Me B；原Host.logout真实撤销专用设备SID而浏览器B冷refresh200，旧完成页不重登录；再全退出cold restart的Host identity/provider均null。签出截图的pending-new-auth UI不称稳定idle页，不做原因或源码修复推断。最终复核无阻断性 Important 缺口，原有范围限制保留。
 
-两合成账号password step-up/self-delete和自有资源最终清理当前尚未完成；用户原5174/9229与原有会话不在退出/停止范围。实际构建、OS/keystore路径、正常生产429自然等待、未完成边界与证据见 [生产验收报告](../../../.superpowers/sdd/2026-10-17-new-api-authorization-account-switch/production-validation-report.md)。历史隔离故障/质量边界继续保留，不把已部署网页等同完整身份验收，不宣称全质量绿；最终由控制器审阅。
+生产原生429按实际Retry-After自然等待，随后B复用真实Cookie、A原生登录，都经原生UI执行account.delete/password step-up/self-delete：DELETE200/success、旧会话401、全部专用session revoked、原生audit保留。删除后单一只读事务确认原行/身份/会话安全/配置保留，并发usage/access字段单列。本任务自有进程/私有密码/keys/bundle/profile全部清理；finally精确恢复原com.github.Electron/openwork Electron.app并新查询相等，仅unregister私有app；原5174/9229 PIDs和已部署3001、完整生产备份保留。实际证据及独立隔离缺陷/工具预览脱敏历史见 [生产验收报告](../../../.superpowers/sdd/2026-10-17-new-api-authorization-account-switch/production-validation-report.md)。不把专项通过扩大成模型/资金或全质量绿；未提交/推送，最终由控制器审阅。
 

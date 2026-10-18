@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- 状态：2026-10-18 S01–S03 实现、独立评审及 S04 隔离验收已有分项证据；随后获用户明确授权并已切换业务3001到最终评审产物。生产专项当前 **NEEDS_CONTEXT**：真实OS投递已发生，但首轮人工确认超过60秒、原Host兑换失败，B身份/冷恢复/撤销尚未验收；详见末尾生产记录。未提交/推送，不声称全质量绿。
+- 状态：2026-10-18 S01–S03/独立评审及S04隔离验收已有分项证据；另获授权后真实3001部署和生产授权专项全部执行/清理完成，独立最终复核通过，状态 **PASS WITH DISCLOSED CONCERNS**。真实OS/原Host Me B、全进程退出冷恢复、专用设备撤销/浏览器分离、两账号原生password step-up/self-delete及精确handler恢复均有证据；首次过期/429/驱动历史和独立缺陷保留。未提交/推送，不声称全质量绿。
 - 展示名为 XWork；内部 `xcode-desktop`、`provider=new-api`、`zcode://oauth/callback`、state 和 PKCE 不变。
 - 采用当前浏览器单会话切换；提前说明其他已打开的 New API 后台页面会受到影响；不建立独立授权会话或多账户中心。
 - 保持 10 分钟请求期限、60 秒 code 及精确 callback 校验；换号不续期。
@@ -145,11 +145,11 @@
 - S04 fix round1 两项 Important 证据问题已闭合：过渡态换号框截图由真实动画完成/opacity1的中英稳态截图替代；200%稳定viewport确认的实际masthead/title重叠，经原实现者仅在授权wrapper增加`sm:pt-16`、重新Web/Go embed后通过。原生CSS640×409的header底64/title顶96不相交，1280×900和393×852亦无裁切/重叠，滚动按钮可见；最终截图不使用full-page拼接。失败→修复→运行GREEN、同一私有DB/密钥保留与第二次完整清理见S04报告§10，不把本次运行RED倒填为初始TDD单测RED。
 - 最终 Cookie 修正记录：最终评审指出原 A05 body-only 迟到响应不保留真实 Set-Cookie，不能证明 B 浏览器持久身份安全。已先更新 canonical§4.2/UI规格，再执行旧实现单测 RED（5失败）与真实完整 headers 竞争 RED（B Cookie 消失/refresh401）；仅固定 SID 入口使用已安装 Axios fetch credentials omit，成功须匹配既有 revoked_sid，不变普通 logout/OAuth、Go或协议。GREEN 为聚焦79、全Web180文件/2355测试、类型/构建、五文件lint、三文件protected正文格式；重新Web/Go embed后，真实A已撤销、B迟到响应后Cookie不变且冷刷新200，匿名success真实清Cookie被忽略并失败关闭，普通logout仍清Cookie。详细证据、运行限制与清理见 [final-fix-report.md](../../../.superpowers/sdd/2026-10-17-new-api-authorization-account-switch/final-fix-report.md)；不改写初始未执行RED历史，不复验或扩大A12/OS/模型门槛。最终定向复审已通过，P1 已关闭，无新增阻断；未提交、推送或部署3001。
 
-## 2026-10-18 生产专项检查点
+## 2026-10-18 生产专项最终执行记录
 
 用户明确另行授权一致备份/发布3001、两名专用合成非管理员原生注册与最终self-delete、独立真实Desktop/OS keystore、临时精确OS handler接管与恢复。已部署binary SHA-256 `da5ad356af59bb4fdab01421049ca90401df91ca6334d4d67cfc329bea1725e8`，实际HTML的新JS/CSS及容器内SHA已回读，不再沿用旧“未部署3001”状态。保持原容器/配置/密钥/挂载，不写SQL、不覆盖活动库、保留生产备份及审计。
 
-实际生产浏览器A权限/取消换号、A→原生B登录/原flow/无自动complete、生产根路由真双标签、取消终态已执行。原Host生成PKCE/state，B主动确认后首次真实Chrome→全局OS→私有Main收到精确同一callback；人工确认晚于60秒导致原Host真实 `XCODE_AUTH_CODE_INVALID`，restoreSession=null，不接受为B身份通过。新鲜人工确认仍是 **NEEDS_CONTEXT**，Host完整退出冷恢复/Me、设备撤销与浏览器分离、两合成账号最终password step-up/self-delete及自有资源最终清理未完成；等待期间精确原OS handler已恢复。
+实际A权限/取消换号、A→原生B/原flow/无自动complete、生产根路由真双标签和取消终态完成。首次人工超60秒的 `XCODE_AUTH_CODE_INVALID` 历史保留；最终稳定Chrome由用户连续亲点网页授权/原生打开，真实全局OS→原Main精确callback（1485ms）、原Host真实Me为B，fresh complete仅1次。Main/Host全退出0后同数据/真实keystore新Main冷恢复Me B；原publicHost.logout后专用xcode SID生产revoked，浏览器B冷refresh200，旧完成页无重登录；再全退出cold restart的Host身份/provider均null，截图pending-new-auth UI不称idle登录页。生产429按实际Retry-After自然等待后，B复用Cookie、A原生登录，均通过account.delete/password原生UI step-up/self-delete，旧protected401、全部专用session revoked、原生audit保留。最终只读一致事务确认原行/身份/会话安全/配置不变，另列并发usage/access及非本专项新增session/audit。自有进程/私有密码keys/bundle/profile已全清理，exact原OS handler finally恢复并在删除私有app后新查询相等，仅unregister私有app；原5174/9229 PIDs保持，生产备份/审计/部署保留。独立最终复核通过，状态 **PASS WITH DISCLOSED CONCERNS**，无阻断性 Important 缺口。
 
-当前事实、实际命令来源、独立bundle/路径、正常生产限制、原有会话只读对照和脱敏证据见 [production-validation-report.md](../../../.superpowers/sdd/2026-10-17-new-api-authorization-account-switch/production-validation-report.md)。不把隔离故障注入冒充生产、不改生产rate limits、不补造套餐/模型调用，不重跑既有2355测试或扩大质量结论；控制器最终审阅，不由执行代理自批准。
+当前事实、实际命令来源、独立bundle/路径、正常生产限制、原有会话只读对照和脱敏证据见 [production-validation-report.md](../../../.superpowers/sdd/2026-10-17-new-api-authorization-account-switch/production-validation-report.md)，独立最终复核见同目录 `production-final-review.md`。不把隔离故障注入冒充生产、不改生产rate limits、不补造套餐/模型调用，不重跑既有2355测试或扩大质量结论；控制器已审阅并关闭本专项，未作提交、推送或全质量/模型/资金批准。
 

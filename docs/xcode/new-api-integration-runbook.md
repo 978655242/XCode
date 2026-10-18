@@ -22,13 +22,13 @@ macOS 保持系统 `HOME` 不变，应用/Host/工作区使用上述隔离变量
 
 ## 授权页生产专项：2026-10-18 当前状态
 
-状态 **NEEDS_CONTEXT，未完成完整身份/冷恢复验收**。实际3001已保持原容器/配置/挂载与密钥语义，切到经最终评审的 binary SHA-256 `da5ad356af59bb4fdab01421049ca90401df91ca6334d4d67cfc329bea1725e8`；真实 HTML 使用 `index.35d0844c67.js` / `index.0d47dc1946.css`。一致备份与部署证明见 [生产验收报告](../../.superpowers/sdd/2026-10-17-new-api-authorization-account-switch/production-validation-report.md)；完整私有生产备份必须保留，不恢复/覆盖仍有合法并发使用的业务库。
+状态 **PASS WITH DISCLOSED CONCERNS（生产授权专项、清理及独立最终复核完成）**。实际3001保持原容器/配置/挂载与密钥语义，使用经最终评审的binary SHA-256 `da5ad356af59bb4fdab01421049ca90401df91ca6334d4d67cfc329bea1725e8`，真实HTML引用 `index.35d0844c67.js` / `index.0d47dc1946.css`。一致备份/部署与全部证据见 [生产验收报告](../../.superpowers/sdd/2026-10-17-new-api-authorization-account-switch/production-validation-report.md)；保留完整生产备份和staged reviewed binary，不恢复/覆盖仍有合法并发使用的业务库。最终复核无阻断性 Important 缺口，不扩大为全质量、模型或资金验收。
 
-两名专用非管理员原生注册账号已执行真实 A→取消换号、A→原生B登录且不自动授权、生产根路由真双标签退出/登录及取消终态。独立同源构建的真实 Desktop 使用系统 HOME/真实safeStorage、私有Main/Host/renderer/Worker与有效显式私有workspace，不复用用户5174/9229。首次真实浏览器→全局OS→Main回跳逐字节匹配服务端callback，但人工确认超过60秒，原Host真实兑换 `XCODE_AUTH_CODE_INVALID`，尚未得到B身份，不能称完整E2E/冷恢复/撤销通过。
+两名专用非管理员原生注册账号完成A权限/取消换号、A→原生B/原flow/无自动complete、生产根路由真双标签和取消终态。独立真实Desktop使用系统HOME/真实safeStorage、私有Main/Host/renderer/Worker及有效显式私有workspace，不复用5174/9229。首轮人工等待造成code过期的失败保留；最终用户亲自连续点击网页授权/原生打开，真正OS投递精确callback到原Main、原Host真实Me B。完整退出后同数据/keystore重启仍真实Me B；原Host.logout真实撤销专用xcode SID，浏览器B冷refresh200；旧完成页不重登，再全退出cold restart的Host/session provider均null（截图pending-auth UI不冒充idle登录页）。
 
-继续门槛是用户准备好后，在全新原Host流程明确授权，并及时点击独立Chrome的原生“打开XWork Production Validation”。不注入callback、不改有效期/生产限流。等待期间全局 `zcode` handler已精确恢复查询得到的原 `com.github.Electron` 与 openwork 的实际Electron.app路径，不擅自改成XWorkDev；当前专用账号/自有资源仍待人工步骤后最终清理，详见报告。历史隔离故障注入与全包质量基线不扩大成生产故障或全质量绿；未调用模型/改套餐渠道额度支付，未提交/推送。
+生产429按Retry-After自然等待，不改限制；随后B复用真实Cookie、A原生登录，均由原生UI执行account.delete/password step-up及self-delete，旧会话401、专用session全revoked、原生audit保留。最终单一只读事务确认原身份/会话安全/配置/套餐等原行不变，合法并发usage/access字段另列。所有自有进程/私有密码数据keys/bundle/profile已清理；finally精确恢复原com.github.Electron及openwork实际Electron.app路径并新查询相等，仅unregister私有app，不改成XWorkDev。原5174/9229 PIDs不变，3001继续部署；本专项模型调用0，不宣称全局usage0或全质量绿。独立隔离缺陷和工具预览脱敏历史见报告，未提交/推送。
 
-## 浏览器授权页换号：2026-10-18 验收
+## 浏览器授权页换号：2026-10-18 隔离阶段记录
 
 已实现 [授权页规格](specs/new-api-authorization-account-switch.md) 的当前账户展示、常显“使用其他账户”和一次主动授权。换号会退出**当前浏览器会话**，影响同源其他后台标签；重新登录后必须再次确认。普通授权创建独立桌面设备会话，浏览器仍保持登录，换号不续期原 10 分钟请求。取消只结束本页操作，不声称撤销服务端 flow。
 
