@@ -175,6 +175,8 @@ flowchart LR
 
 实现与页面示例：[Gen UI 契约](packages/ui/src/gen-ui/CONTRACT.md)、[页面 API 示例](apps/zcode-cli/packages/visualize-plugin/skills/visualize/references/api.md)、[Tweak 指南](apps/zcode-cli/packages/visualize-plugin/skills/visualize/tweak.md)。桌面集成验证入口为 `node packages/desktop/scripts/gen-ui-e2e.mjs`。
 
+该验证入口使用临时 profile 和本地夹具运行真实 Electron：分别检查原生滚动条拖动与内容区滚轮，并在渲染帧后采集历史恢复截图。它不代表外部成品插件或真实模型供应商已逐个验收。
+
 ## 其他示例插件
 
 | 插件                          | 功能与演示指令                                     | 适合参考什么                                                     | 当前边界                                                                            |

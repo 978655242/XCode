@@ -8,12 +8,12 @@ import {
   testId,
 } from "@zcode/shared";
 import { clearAppData, clickTestIdByDom, readSettings } from "../../../helpers/desktop-app.js";
+import { getLatestUpstreamToolResultByToolCallId } from "../../../helpers/conversation-session-network.js";
 import {
   prepareConversationE2E,
   sendPrompt,
   waitForAssistantMessageContaining,
   waitForComposerText,
-  waitForToolCallBlockByToolName,
   waitForUserMessageContaining,
 } from "../../../helpers/conversation-session.js";
 
@@ -22,6 +22,8 @@ const FIRST_ANSWER = "E2E_ASK_AUTO_RESOLUTION_SETTING_FIRST_ANSWER";
 const FIRST_FINAL = "E2E_ASK_AUTO_RESOLUTION_SETTING_FIRST_DONE";
 const SECOND_PROMPT = "E2E_ASK_AUTO_RESOLUTION_SETTING_SECOND";
 const SECOND_FINAL = "E2E_ASK_AUTO_RESOLUTION_SETTING_SECOND_AUTO_DONE";
+const FIRST_TOOL_CALL_ID = "toolu_e2e_ask_auto_resolution_first";
+const SECOND_TOOL_CALL_ID = "toolu_e2e_ask_auto_resolution_second";
 
 describe("AskUserQuestion 自动继续设置 GUI 候选", () => {
   after(async () => {
@@ -41,31 +43,50 @@ describe("AskUserQuestion 自动继续设置 GUI 候选", () => {
       `${FIRST_PROMPT}: call AskUserQuestion exactly once, then wait for my answer. ` +
         `After the answer, reply with ${FIRST_FINAL}.`,
     );
+    // XCODE: 发送会点击底部输入框；问题面板随后替换在同一位置，必须先移开指针，否则 hover 会按规格暂停倒计时。
+    await browser.action("pointer").move({ origin: "viewport", x: 2, y: 2 }).perform();
     await waitForComposerText("", "首个 AskUserQuestion 提交后输入框没有清空");
     await waitForUserMessageContaining(FIRST_PROMPT);
-    await waitForToolCallBlockByToolName("AskUserQuestion", 60_000);
     await waitForElicitationDialog(FIRST_PROMPT);
 
     await setAutoResolutionEnabled(false);
     await waitForElicitationDialog(FIRST_PROMPT);
     await browser.pause(acceleratedDeadlineMs + 1_000);
+    expect(await getLatestUpstreamToolResultByToolCallId(FIRST_TOOL_CALL_ID)).toBeNull();
     await waitForElicitationDialog(FIRST_PROMPT);
 
     await setAutoResolutionEnabled(true);
     await browser.pause(acceleratedDeadlineMs + 1_000);
+    // XCODE: 弹窗消失不等于自动继续；真实选项作答必须以 tool_result 暴露，不能误归因于 deadline。
+    expect(await getLatestUpstreamToolResultByToolCallId(FIRST_TOOL_CALL_ID)).toBeNull();
     await waitForElicitationDialog(FIRST_PROMPT);
 
     await submitCustomAnswer(FIRST_ANSWER);
     await waitForAssistantMessageContaining(FIRST_FINAL);
+    const firstResult = await getLatestUpstreamToolResultByToolCallId(FIRST_TOOL_CALL_ID);
+    expect(firstResult?.isError).toBe(false);
+    expect(firstResult?.content).toContain(FIRST_ANSWER);
 
     await sendPrompt(
       `${SECOND_PROMPT}: call AskUserQuestion exactly once, then wait for my answer. ` +
         `After automatic continuation, reply with ${SECOND_FINAL}.`,
     );
+    await browser.action("pointer").move({ origin: "viewport", x: 2, y: 2 }).perform();
     await waitForComposerText("", "第二个 AskUserQuestion 提交后输入框没有清空");
-    await waitForToolCallBlockByToolName("AskUserQuestion", 60_000);
+    await waitForUserMessageContaining(SECOND_PROMPT);
+    // XCODE: 计时场景只读观察问题；工具/消息等待器会点击分组，不能在自动继续前制造交互。
     await waitForElicitationDialog(SECOND_PROMPT);
+    await browser.waitUntil(
+      async () => (await getLatestUpstreamToolResultByToolCallId(SECOND_TOOL_CALL_ID)) !== null,
+      {
+        timeout: acceleratedDeadlineMs + 5_000,
+        timeoutMsg: "新问题没有在实际自动继续后产生 provider-visible tool_result",
+      },
+    );
     await waitForAssistantMessageContaining(SECOND_FINAL);
+    const secondResult = await getLatestUpstreamToolResultByToolCallId(SECOND_TOOL_CALL_ID);
+    expect(secondResult?.isError).toBe(false);
+    expect(secondResult?.content).toContain("The user did not provide answers to these questions.");
   });
 });
 

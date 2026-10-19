@@ -37,6 +37,51 @@ import defusedxml.minidom
 import defusedxml.sax
 
 
+# // XCODE: CT_Settings 是有序序列；按完整顺序插入新节点，不能依赖可缺省的单个锚点。
+_SETTINGS_ORDER = """
+writeProtection view zoom removePersonalInformation removeDateAndTime
+doNotDisplayPageBoundaries displayBackgroundShape printPostScriptOverText
+printFractionalCharacterWidth printFormsData embedTrueTypeFonts embedSystemFonts
+saveSubsetFonts saveFormsData mirrorMargins alignBordersAndEdges
+bordersDoNotSurroundHeader bordersDoNotSurroundFooter gutterAtTop hideSpellingErrors
+hideGrammaticalErrors activeWritingStyle proofState formsDesign attachedTemplate
+linkStyles stylePaneFormatFilter stylePaneSortMethod documentType mailMerge revisionView
+trackRevisions doNotTrackMoves doNotTrackFormatting documentProtection autoFormatOverride
+styleLockTheme styleLockQFSet defaultTabStop autoHyphenation consecutiveHyphenLimit
+hyphenationZone doNotHyphenateCaps showEnvelope summaryLength clickAndTypeStyle
+defaultTableStyle evenAndOddHeaders bookFoldRevPrinting bookFoldPrinting bookFoldPrintingSheets
+drawingGridHorizontalSpacing drawingGridVerticalSpacing displayHorizontalDrawingGridEvery
+displayVerticalDrawingGridEvery doNotUseMarginsForDrawingGridOrigin drawingGridHorizontalOrigin
+drawingGridVerticalOrigin doNotShadeFormData noPunctuationKerning characterSpacingControl
+printTwoOnOne strictFirstAndLastChars noLineBreaksAfter noLineBreaksBefore savePreviewPicture
+doNotValidateAgainstSchema saveInvalidXml ignoreMixedContent alwaysShowPlaceholderText
+doNotDemarcateInvalidXml saveXmlDataOnly useXSLTWhenSaving saveThroughXslt showXMLTags
+alwaysMergeEmptyNamespace updateFields hdrShapeDefaults footnotePr endnotePr compat docVars
+rsids mathPr attachedSchema themeFontLang clrSchemeMapping doNotIncludeSubdocsInStats
+doNotAutoCompressPictures forceUpgrade captions readModeInkLockDown smartTagType
+schemaLibrary shapeDefaults doNotEmbedSmartTags decimalSymbol listSeparator
+""".split()
+
+
+def insert_settings_element(editor, root, name, xml):
+    """Insert a new CT_Settings child without reordering existing content."""
+    position = _SETTINGS_ORDER.index(name)
+    namespaces = {
+        root.namespaceURI,
+        "http://schemas.openxmlformats.org/officeDocument/2006/math",
+        "http://schemas.openxmlformats.org/schemaLibrary/2006/main",
+    }
+    for child in root.childNodes:
+        if (
+            child.nodeType == child.ELEMENT_NODE
+            and child.namespaceURI in namespaces
+            and child.localName in _SETTINGS_ORDER
+            and _SETTINGS_ORDER.index(child.localName) > position
+        ):
+            editor.insert_before(child, xml)
+            return
+    editor.append_to(root, xml)
+
 class XMLEditor:
     """
     Editor for manipulating OOXML XML files with line-number-based node finding.

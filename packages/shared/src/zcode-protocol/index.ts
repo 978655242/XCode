@@ -46,6 +46,7 @@ import { modelSelectionSchema } from "../model-selection.js";
 import { APP_USAGE_RANGES, appUsageSnapshotSchema } from "../usage-stats.js";
 import { DYNAMIC_WORKFLOW_MODES } from "../dynamic-workflow-feature.js";
 import { errorAttributionSchema } from "../zcode-protocol-v4/snapshot.js";
+import { toolCallDisplaySchema } from "../zcode-protocol-v4/toolDisplay.js";
 // 后台详情共享精简的只读响应 schema，不携带命令或计时元数据。
 export * from "../background-bash-output.js";
 export * from "../process-diagnostic.js";
@@ -1563,6 +1564,18 @@ export const zcodeTurnSteerQueuedEventPayloadSchema = z
     inputSize: z.number().int().nonnegative(),
     commandKind: zcodeTurnSteerCommandKindSchema.optional(),
     source: zcodeTurnSteerSourceSchema.optional(),
+    // XCODE: CLI 抢占式输入会携带呈现标记；严格声明，避免 Host 丢弃整条 turn.steerQueued。
+    inputPresentation: z
+      .enum([
+        "user_steer",
+        "coordinator_steer",
+        "coordinator_input",
+        "subagent_reply_steer",
+        "subagent_reply",
+        "task_notification_steer",
+        "task_notification",
+      ])
+      .optional(),
     toolDisallowlist: z.array(nonEmptyString).optional(),
     delivery: zcodeTurnSteerDeliverySchema.optional(),
     targetTurnId: nonEmptyString,
@@ -1704,6 +1717,13 @@ export const zcodeToolUpdatedEventPayloadSchema = z.discriminatedUnion("kind", [
     .extend({
       kind: z.literal("started"),
       startedAt: protocolInstantSchema,
+      // XCODE: MCP 执行前也会发送展示载荷；复用严格共享 schema，保留嵌套 UI 元数据而非吞掉字段。
+      display: toolCallDisplaySchema.optional(),
+      // XCODE: CLI 已发送按入参解析的能力；严格声明以保留元数据，避免丢弃整条 started 事件。
+      readOnly: z.boolean().optional(),
+      sideEffectScope: z
+        .enum(["none", "workspace", "git", "network", "system", "session", "userInteraction"])
+        .optional(),
     })
     .strict(),
   zcodeToolCallBasePayloadSchema
@@ -2546,6 +2566,7 @@ export const zcodeProviderUpdateAccountConfigParamsSchema = z
           z.string(),
           completeModelConfigDataSchema.extend({
             displayName: z.string().optional(),
+            icon: z.string().optional(),
           }),
         ),
       )
@@ -2554,7 +2575,6 @@ export const zcodeProviderUpdateAccountConfigParamsSchema = z
     catalogRevision: z.string().min(1).optional(),
     authorizationRevision: z.string().min(1).optional(),
     // 账号状态与 Overlay 必须一起传递，否则 Worker 会丢失非当前套餐的执行门禁。
-            icon: z.string().optional(),
     states: z.record(
       z.string(),
       z

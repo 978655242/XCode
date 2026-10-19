@@ -201,3 +201,12 @@ GUI 候选位于
 `packages/desktop/test/e2e/conversation-session/manual-review/pending/conversation-session-ask-user-question-auto-resolution-setting.test.ts`。
 它只允许在 `ZCODE_ENV=test` 下使用 `ZCODE_E2E_ASK_USER_QUESTION_CLOCK_SCALE=20`
 缩放 runtime 的 60 秒/300 秒窗口；生产环境忽略该注入。候选在人工确认前不晋级正式 E2E。
+该候选保留普通模型上下文窗口，不继承 `manual-review` 自动压缩测试的 240/80 小窗口，
+避免在工具结果后或第二题发送前插入无关 compact。两次问答按各自 toolCallId 取证，
+第二题必须真实进入等待态后无人工回答自动继续，不能把首题历史误当作新问题。
+
+该候选在关闭与重新开启后的两个等待窗口内，必须同时核对问答仍在场及首题没有
+`tool_result`；人工作答后核对首题结果含指定答案，新题结果必须明确表示用户未回答。
+不能仅凭弹窗消失认定 deadline 生效：若结果含真实选项答案，应报告该答案与输入来源，
+不能把人工/外部自动化输入误判为设置恢复了自动继续。新题回放也只接受空答案语义，
+不得用任意工具结果匹配最终成功文案。

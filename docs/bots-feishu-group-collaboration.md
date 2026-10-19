@@ -477,6 +477,13 @@ Group draft configuration is applied afterwards, so an owner's explicit mode cho
 is retained and cannot update the shared project ruleset. The first-input guard
 remains for older group tasks, but does not reset an already isolated session.
 
+群草稿的 `/mode` 菜单和 `/mode <id>` 共用已有 Agent 权限模式目录，不依赖模型是否支持
+思考等级或当前是否存在可执行模型；模型可用性仍在提交入口独立校验。只有绑定 owner
+能修改该群草稿模式，拒绝未知模式和非 owner 升权时不修改任何配置。显式选择必须在新任务
+创建后应用到该任务的 session 权限，不能写入工作区默认、私聊配置或其他群的草稿。
+受控 E2E 必须先断言 `/mode` 成功及草稿已保存，再检查真实 CLI session 权限与项目设置未变，
+不能把被拒绝的命令当作成功 setup，或把期望降为默认 build 来掩盖失败。
+
 ## Group member display names
 
 Group attribution resolves names from the current chat's member directory using
@@ -807,6 +814,7 @@ Provider 使用原生 mentions 和卡片中的有序 at 节点恢复可信 menti
 逐条输入 → 停止屏障 → 全批次有效性判断 → 保留原始消息提交
 原生 mention targetId + 当前 bot openId → isCurrentBot → 模型分工
 ```
+
 当前授权、Host 持久化 owner、CLI 单一 admission、desktop continuous/mobile replayable 不变。
 
 模型身份定位补充：除 mention 清单外，逐条输入投影有序 text/channelMention 节点，

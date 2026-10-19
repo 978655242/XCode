@@ -27,7 +27,6 @@
 - 平台与模型网络为替身；真实租户机器人事件权限及 live 通知仍需验证。群启用消息已补充 include_bot 权限说明。
 - 未更改桌面 continuous、手机 replayable、远程工作区身份隔离、投递 owner 或输入队列；未实测手机及 Windows/Linux。
 
-
 ## MN-03 按名字解析原生提及（2026-10-08）
 
 包含查找更新：唯一包含候选或唯一完整名字匹配直接发送，所有未解决名字一起返回。
@@ -57,6 +56,16 @@
 ## Input material refactor（当前边界）
 
 TP-01 now covers topic start-now admission and original-message presentation through the real Host/CLI. Setup: a controlled streaming run; action: submit a topic batch with two original messages, one root quote and a history attachment; assertions: no queued input, separate original senders/bodies, first-only quote/history and original-text preview at Desktop and narrow viewport sizes. The material is synthetic; native Feishu history collection and Bot-service stop coordination require separate service tests and manual acceptance. TP-01 的后续运行记录见本文；旧 queue/Steer 结果只作历史。现 case 手动停止后提交，尚不证明 Bot 自动停止协调，新增 TP-04 专门覆盖。
+
+2026-10-19 合并验证修订（待集成 owner 重新执行）：GR-02/04 保留真实 CLI
+`{scope: session, mode: yolo}` 与项目设置不变的断言，并先检查 owner `/mode yolo`
+返回成功状态、草稿保存，防止模式命令被拒绝却继续运行。对应服务回归覆盖公共模式目录、
+无思考档位/无可用模型时的菜单、非 owner/未知模式拒绝，以及群间与私聊配置隔离。
+TP-01 原运行是 zh-CN，旧英文 aria-label 不是附件缺失证据；现按首条原消息的
+附件结构和 button 语义定位，仍实际打开预览读取原文/姓名/ID/换行，并覆盖 1280/430 宽度。
+新增合批中的可信原生提及与普通 `@name` 区分、次条独立文件索引归属；历史作为未被消息
+索引认领的共享材料只显示于首条。未改实际飞书、授权、CLI 接受队列或手机远控语义；
+本轮尚未重跑，不将 fixture/selector 修订记为 Electron 通过。
 
 ## Topic collaboration (in progress)
 
@@ -771,15 +780,14 @@ CLI 工具契约、当前执行输入绑定、来源持久化、反向协议，�
 证据必须分别标记 service synthetic、真实 CLI、Desktop DOM、手机 replayable 与 live tenant；
 本轮证据如下，不沿用旧通过次数。没有重新开启重复成功回执修复。
 
-
-| Case | 当前证据 | 结论 |
-| --- | --- | --- |
-| MN-02 / FN-01 | `conversation-session-bot-channel-worker.test.ts`：真实 CLI 工具、反向 RPC、两次原生提及、无来源桌面续聊；真实 text delta 丢帧，终态仍完整回传一次 | passed，formal |
-| TP-04 / TP-05 | `conversation-session-bot-topic-worker.test.ts`：收到真实流后自动停止，完成停止后才提交下一条；真实 ReadSessionContext 结果、落盘文件字节及跨任务拒绝 | passed，formal |
-| GR-02 正常晋升 / PS-01 | `conversation-session-bot-continuous-worker.test.ts`：群排队自然晋升并引用正确消息；真实 IM 首轮及 desktop service 续聊各回传一次 | passed，formal |
-| GR-UI-01 | `feishu-bound-groups-ui.test.ts`：Desktop 实际点击、RPC 保存、话题计数和其他群/机器人不变 | passed，formal |
-| TP-03 | 飞书/Lark × 是否明确提及共四场景：可信消息边界、真实 run 来源、引用当前提问、审批 @ 管理员、问答按提及决定 @ | passed，pending |
-| GR-02/04 旧 Desktop runtime | v3 状态文件、职业引导和新 Provider 分组夹具已更新；队列展示、取消、来源详情与已收到操作执行至通过；群草稿 `/mode yolo` 失败 | failed，不算全 case 通过 |
+| Case                        | 当前证据                                                                                                                                              | 结论                     |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| MN-02 / FN-01               | `conversation-session-bot-channel-worker.test.ts`：真实 CLI 工具、反向 RPC、两次原生提及、无来源桌面续聊；真实 text delta 丢帧，终态仍完整回传一次    | passed，formal           |
+| TP-04 / TP-05               | `conversation-session-bot-topic-worker.test.ts`：收到真实流后自动停止，完成停止后才提交下一条；真实 ReadSessionContext 结果、落盘文件字节及跨任务拒绝 | passed，formal           |
+| GR-02 正常晋升 / PS-01      | `conversation-session-bot-continuous-worker.test.ts`：群排队自然晋升并引用正确消息；真实 IM 首轮及 desktop service 续聊各回传一次                     | passed，formal           |
+| GR-UI-01                    | `feishu-bound-groups-ui.test.ts`：Desktop 实际点击、RPC 保存、话题计数和其他群/机器人不变                                                             | passed，formal           |
+| TP-03                       | 飞书/Lark × 是否明确提及共四场景：可信消息边界、真实 run 来源、引用当前提问、审批 @ 管理员、问答按提及决定 @                                          | passed，pending          |
+| GR-02/04 旧 Desktop runtime | v3 状态文件、职业引导和新 Provider 分组夹具已更新；队列展示、取消、来源详情与已收到操作执行至通过；群草稿 `/mode yolo` 失败                           | failed，不算全 case 通过 |
 
 新 worker case 的实际路径为 `packages/desktop/test/e2e/conversation-session/manual-review/pending/`；
 其他候选在 `packages/desktop/test/e2e/bots/manual-review/pending/`。
@@ -799,7 +807,6 @@ checker 对结果 marker 的提示不代表输入匹配缺失，结果 marker �
 2. TP-05 调试时旧 `readSessionMessages` 接口出现当前 CLI 返回结构与旧 schema 不匹配（messageId/sessionId 对 id/sessionID 等）。最终文件核验读取隔离 CLI SQLite 的真实 completed tool result，不绕过 ReadSessionContext 下载；该旧查询接口问题未在本次测试维护中修复。
 3. 实际手机 replayable、SSH、Windows/Linux、真实飞书/Lark 租户通知与另一机器人响应未验证。成功的 Node Host/CLI 测试不冒充 Electron UI，窄窗口不冒充手机。
 4. 初始验证时所有新增 case 保持 pending；随后用户确认转正，最终状态见下节。必要检查仍有失败，因此不自动 commit。
-
 
 GR-UI-01 最终隔离配置保留缺密钥的绑定引用，避免自动触发扫码注册；
 `desktop-e2e-20260923072504683-p46231-87bcca99bca1deb4` 中该项通过，截图可见两群开关与 2/0 话题数。

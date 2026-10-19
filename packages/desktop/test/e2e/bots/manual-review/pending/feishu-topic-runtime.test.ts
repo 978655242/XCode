@@ -106,6 +106,13 @@ describe("BOT-E2E-TP-01 topic start-now and original messages", () => {
             textContent:
               "Sender: E2E 群成员 | open_id: ou_member\nE2E_HISTORY_ORIGINAL\nOriginal second line",
           },
+          {
+            kind: "file",
+            filename: "topic-second-e2e.txt",
+            mimeType: "text/plain",
+            textContent: "E2E_SECOND_FILE_ORIGINAL",
+            sizeBytes: Buffer.byteLength("E2E_SECOND_FILE_ORIGINAL"),
+          },
         ],
         source: {
           provider: "feishu",
@@ -120,7 +127,19 @@ describe("BOT-E2E-TP-01 topic start-now and original messages", () => {
               messageId: "om_material_first",
               senderId: "ou_first",
               senderName: "First author",
-              text: "E2E_TOPIC_FIRST",
+              text: "E2E_TOPIC_FIRST @E2E Trusted Target",
+              contentParts: [
+                { type: "text", text: "E2E_TOPIC_FIRST " },
+                {
+                  type: "channelMention",
+                  refId: "om_material_first:m1",
+                  name: "E2E Trusted Target",
+                  targetId: "ou_e2e_target",
+                  channel: "feishu",
+                  idType: "open_id",
+                  entityType: "user",
+                },
+              ],
               attachmentIndexes: [],
               conversationQuotes: [{ text: "E2E_TOPIC_ROOT_ORIGINAL", senderName: "Root author" }],
             },
@@ -128,8 +147,8 @@ describe("BOT-E2E-TP-01 topic start-now and original messages", () => {
               messageId: "om_material_second",
               senderId: "ou_member",
               senderName: "Second author",
-              text: "E2E_TOPIC_SECOND",
-              attachmentIndexes: [],
+              text: "E2E_TOPIC_SECOND @E2E Plain Target",
+              attachmentIndexes: [1],
             },
           ],
           authorizationId: "e2e-authorization",
@@ -148,12 +167,23 @@ describe("BOT-E2E-TP-01 topic start-now and original messages", () => {
     expect(await second.getText()).toContain("Second author");
     expect(await first.$("[data-v4-user-input-quotes]").isExisting()).toBe(true);
     expect(await second.$("[data-v4-user-input-quotes]").isExisting()).toBe(false);
-    expect(await second.$("[data-v4-user-input-attachment-pill]").isExisting()).toBe(false);
-    const historyFile = await $(
-      '[data-v4-user-input-attachment-pill][aria-label="Open text attachment"]',
+    const trustedMention = await first.$('[data-channel-mention="feishu"]');
+    await trustedMention.waitForDisplayed({ timeout: 5000 });
+    expect(await trustedMention.getText()).toContain("E2E Trusted Target");
+    expect(await second.$("[data-channel-mention]").isExisting()).toBe(false);
+    expect(await second.getText()).toContain("@E2E Plain Target");
+    expect(await second.$("[data-v4-user-input-attachment-pill]").getText()).toContain(
+      "topic-second-e2e.txt",
     );
+    expect(await first.getText()).not.toContain("topic-second-e2e.txt");
+    expect(await first.getText()).not.toContain("E2E_TOPIC_MATERIALS");
+    expect(await second.getText()).not.toContain("E2E_TOPIC_MATERIALS");
+    // XCODE: 未被原消息索引认领的历史附件归首条；定位结构与可打开语义，不依赖当前中英文文案。
+    expect(await first.$$("[data-v4-user-input-attachment-pill]")).toHaveLength(1);
+    expect(await second.$$("[data-v4-user-input-attachment-pill]")).toHaveLength(1);
+    const historyFile = await first.$('[data-v4-user-input-attachment-pill][role="button"]');
     await historyFile.waitForDisplayed({ timeout: 30000 });
-    expect(await historyFile.getText()).toContain("Topic history");
+    expect(await historyFile.getAttribute("aria-label")).toBeTruthy();
     for (const width of [1280, 430]) {
       await setV4ElectronWindowSize(width, 900);
       await historyFile.click();

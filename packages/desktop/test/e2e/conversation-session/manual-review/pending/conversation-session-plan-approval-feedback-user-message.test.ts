@@ -3,14 +3,14 @@ import { readFile } from "node:fs/promises";
 import type { E2ENetworkCaptureArtifact } from "../../../helpers/network-capture-proxy.js";
 import { clearAppData } from "../../../helpers/desktop-app.js";
 import {
-  prepareConversationE2E,
-  sendPrompt,
-  waitForAssistantMessageContaining,
-  waitForComposerText,
-  waitForUpstreamRequest,
-  waitForToolCallBlockByToolName,
-  waitForUserMessageContaining,
-} from "../../../helpers/conversation-session.js";
+  getV4Messages,
+  prepareV4ConversationE2E,
+  sendV4Prompt,
+  waitForV4AssistantMessageContaining,
+  waitForV4ComposerText,
+  waitForV4UserMessageContaining,
+} from "../../../helpers/v4-conversation.js";
+import { waitForUpstreamRequest } from "../../../helpers/conversation-session-network.js";
 
 const PROMPT_MARKER = "E2E_PLAN_APPROVAL_FEEDBACK_USER_MESSAGE";
 const ENTER_MARKER = "E2E_PLAN_APPROVAL_ENTER_PLAN";
@@ -26,7 +26,7 @@ describe("conversation session plan approval feedback user message", () => {
   });
 
   it("persists custom ExitPlanMode feedback as a visible user message", async () => {
-    await prepareConversationE2E();
+    await prepareV4ConversationE2E();
 
     const runId = Date.now();
     const prompt = [
@@ -36,9 +36,9 @@ describe("conversation session plan approval feedback user message", () => {
     ].join(" ");
     const feedback = `${FEEDBACK_MARKER}_${runId}: add explicit test coverage before implementation.`;
 
-    await sendPrompt(prompt);
-    await waitForComposerText("", "composer should clear after sending prompt");
-    await waitForUserMessageContaining(PROMPT_MARKER);
+    await sendV4Prompt(prompt);
+    await waitForV4ComposerText("", "composer should clear after sending prompt");
+    await waitForV4UserMessageContaining(PROMPT_MARKER);
 
     await waitForUpstreamRequest(
       {
@@ -48,7 +48,7 @@ describe("conversation session plan approval feedback user message", () => {
       "initial plan-mode request",
       60_000,
     );
-    await waitForToolCallBlockByToolName("EnterPlanMode", 60_000);
+    // XCODE: EnterPlanMode 是刻意隐藏的内部切换，以后续 provider 历史证明它已执行。
 
     await waitForUpstreamRequest(
       {
@@ -58,38 +58,28 @@ describe("conversation session plan approval feedback user message", () => {
       "exit plan-mode request",
       60_000,
     );
-    await waitForToolCallBlockByToolName("ExitPlanMode", 60_000);
 
     await waitForPlanApprovalDialog(60_000);
     await submitCustomElicitationAnswer(feedback);
 
     await waitForUpstreamRequest(
       {
-        includes: [
-          feedback,
-          EXIT_MARKER,
-          EXIT_TOOL_CALL_ID,
-          EXIT_PLAN_DENIED_MESSAGE,
-        ],
+        includes: [feedback, EXIT_MARKER, EXIT_TOOL_CALL_ID, EXIT_PLAN_DENIED_MESSAGE],
         excludes: ["Generate a concise title", "CRITICAL: Respond with TEXT ONLY"],
       },
       "plan feedback continuation request",
       60_000,
     );
-    await waitForUserMessageContaining(feedback);
+    await waitForV4UserMessageContaining(feedback);
     await waitForUserMessageNotContaining(feedback, "Conversation steered");
     await waitForUserMessageNotContaining(feedback, "已引导对话");
 
-    const ordering = await waitForPlanFeedbackProviderOrdering(
-      feedback,
-      EXIT_TOOL_CALL_ID,
-      10_000,
-    );
+    const ordering = await waitForPlanFeedbackProviderOrdering(feedback, EXIT_TOOL_CALL_ID, 10_000);
     expect(ordering.feedbackIndex).toBeGreaterThan(ordering.toolResultIndex);
     expect(ordering.toolResultText).toContain(EXIT_PLAN_DENIED_MESSAGE);
     expect(ordering.toolResultText).not.toContain(feedback);
 
-    await waitForAssistantMessageContaining("upstream-e2e-ok");
+    await waitForV4AssistantMessageContaining("upstream-e2e-ok");
   });
 });
 
@@ -120,10 +110,7 @@ async function waitForPlanApprovalDialog(timeoutMs: number) {
   );
 }
 
-async function waitForUserMessageNotContaining(
-  requiredText: string,
-  forbiddenText: string,
-) {
+async function waitForUserMessageNotContaining(requiredText: string, forbiddenText: string) {
   await browser.waitUntil(
     async () => {
       const message = await findUserMessageTextContaining(requiredText);
@@ -137,14 +124,7 @@ async function waitForUserMessageNotContaining(
 }
 
 async function findUserMessageTextContaining(text: string): Promise<string | null> {
-  const messages = await $$('[data-testid^="chat-user-message-"]');
-  for (const message of messages) {
-    const messageText = await message.getText();
-    if (messageText.includes(text)) {
-      return messageText;
-    }
-  }
-  return null;
+  return (await getV4Messages("user")).find((message) => message.text.includes(text))?.text ?? null;
 }
 
 async function submitCustomElicitationAnswer(answer: string) {
@@ -152,9 +132,7 @@ async function submitCustomElicitationAnswer(answer: string) {
   await input.waitForDisplayed({ timeout: 30_000 });
   await input.setValue(answer);
 
-  const submitButton = await $(
-    "//button[contains(., 'Submit') or contains(., '提交')]",
-  );
+  const submitButton = await $("//button[contains(., 'Submit') or contains(., '提交')]");
   await submitButton.waitForEnabled({ timeout: 30_000 });
   await submitButton.click();
 }
@@ -174,14 +152,8 @@ async function waitForPlanFeedbackProviderOrdering(
   await browser.waitUntil(
     async () => {
       try {
-        const ordering = await readPlanFeedbackProviderOrdering(
-          feedback,
-          toolCallId,
-        );
-        if (
-          ordering.toolResultIndex >= 0 &&
-          ordering.feedbackIndex > ordering.toolResultIndex
-        ) {
+        const ordering = await readPlanFeedbackProviderOrdering(feedback, toolCallId);
+        if (ordering.toolResultIndex >= 0 && ordering.feedbackIndex > ordering.toolResultIndex) {
           return true;
         }
         latestError = JSON.stringify(ordering);
@@ -219,14 +191,11 @@ async function readPlanFeedbackProviderOrdering(
   }
 
   const blocks = flattenProviderMessageBlocks(matchingRecord.requestJson);
-  const toolResultIndex = blocks.findIndex(
-    (block) => block.toolUseId === toolCallId,
-  );
+  const toolResultIndex = blocks.findIndex((block) => block.toolUseId === toolCallId);
   const feedbackIndex = blocks.findIndex(
     (block) => block.role === "user" && block.text.includes(feedback),
   );
-  const toolResultText =
-    toolResultIndex >= 0 ? blocks[toolResultIndex]?.text ?? "" : "";
+  const toolResultText = toolResultIndex >= 0 ? (blocks[toolResultIndex]?.text ?? "") : "";
 
   return {
     feedbackIndex,

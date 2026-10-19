@@ -19,3 +19,24 @@ Widget state remains scoped to the current workspace identity and session.
 State storage is an injected adapter. Atomic file replacement and the existing cross-process file
 lock serialize full snapshots; notifications project durable state. Only modelContent is exported
 as untrusted next-turn context. Main owns native sandbox resources, not persisted state.
+
+Filesystem notifications are hints, not an exact list of changed filenames. A missing filename or
+`state.lock` hint must refresh already observed targets in that scope after the commit lock is gone.
+Resolve these coarse hints only after observing that the lock is gone. Reuse per-path notification
+serialization and snapshot deduplication; unrelated scopes must not be notified.
+
+The native `fs.watch` transport remains best-effort: macOS can omit all hints for a committed write.
+There is no polling fallback. Cross-instance notification delivery is therefore not guaranteed;
+reloading reads the durable snapshot. This limitation is retained by explicit product decision.
+
+```mermaid
+sequenceDiagram
+  participant W as Writing state adapter
+  participant F as Scoped files and lock
+  participant R as Observing state adapter
+  W->>F: Acquire state.lock, atomically replace snapshot
+  W->>F: Finish eviction and release state.lock
+  F-->>R: JSON, lock or unnamed filesystem hint
+  R->>F: Read committed observed snapshots in that scope
+  R-->>R: Serialize per path and suppress unchanged snapshots
+```

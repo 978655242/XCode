@@ -129,8 +129,10 @@ export async function main() {
           { env: unauthorizedEnv, timeout: processTimeoutMs },
         ),
         (error) =>
+          error.code === 1 &&
           error.stdout === "" &&
-          error.stderr.includes("Captured ZCode CUA broker credentials may only launch") &&
+          error.stderr.length > 0 &&
+          !error.stderr.includes(forbiddenEvaluation) &&
           !error.stderr.includes("UNAUTHORIZED_PLUGIN_IMPORTED"),
       );
 

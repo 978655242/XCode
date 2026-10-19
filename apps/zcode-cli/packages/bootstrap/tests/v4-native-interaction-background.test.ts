@@ -395,6 +395,50 @@ describe("V4InteractionRegistry", () => {
     expect(resolve).not.toHaveBeenCalled();
   });
 
+  it("keeps the active question pending across disable and re-enable deadlines until a real answer", async () => {
+    vi.useFakeTimers();
+    const registry = new V4InteractionRegistry();
+    const firstResolve = vi.fn();
+    const permissionResolve = vi.fn();
+    registry.register("ask-existing", firstResolve, {
+      kind: "askUserQuestion",
+      sessionId: "s1",
+    });
+    registry.register("permission-existing", permissionResolve, {
+      kind: "other",
+      sessionId: "s2",
+    });
+    await vi.advanceTimersByTimeAsync(1_000);
+    await registry.setAskUserQuestionAutoResolutionEnabled(false);
+    await vi.advanceTimersByTimeAsync(300_000);
+    expect(firstResolve).not.toHaveBeenCalled();
+
+    // XCODE: 旧回归在重开后立刻人工收口，无法捕获旧题被重新授予 deadline 的错误。
+    await registry.setAskUserQuestionAutoResolutionEnabled(true);
+    await vi.advanceTimersByTimeAsync(300_000);
+    expect(firstResolve).not.toHaveBeenCalled();
+    expect(registry.has("ask-existing")).toBe(true);
+    expect(permissionResolve).not.toHaveBeenCalled();
+    expect(registry.has("permission-existing")).toBe(true);
+
+    const answer = { action: "accept" as const, content: { answers: { first: "real answer" } } };
+    expect(registry.resolve("ask-existing", answer)).toBe(true);
+    expect(firstResolve).toHaveBeenCalledExactlyOnceWith(answer);
+    const secondResolve = vi.fn();
+    registry.register("ask-after-reenable", secondResolve, {
+      kind: "askUserQuestion",
+      sessionId: "s1",
+    });
+    await vi.advanceTimersByTimeAsync(300_000);
+    expect(secondResolve).toHaveBeenCalledExactlyOnceWith({
+      action: "accept",
+      content: { answers: {} },
+    });
+    expect(permissionResolve).not.toHaveBeenCalled();
+    expect(registry.resolve("permission-existing", { optionId: "allowOnce" })).toBe(true);
+    expect(permissionResolve).toHaveBeenCalledExactlyOnceWith({ optionId: "allowOnce" });
+  });
+
   it("disabling snoozes the active AskUserQuestion and permanently disqualifies queued ones", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-13T00:00:00.000Z"));

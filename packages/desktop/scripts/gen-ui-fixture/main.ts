@@ -329,10 +329,12 @@ void app
     guest = currentGuest();
     frame = guest.mainFrame.frames.find((value) => value.url.includes("/instance/"))!;
     assert.equal(await read("document.querySelector('h1').textContent"), "Updated heading");
-    await writeFile(
-      join(root, "react-replayed.png"),
-      (await win.webContents.capturePage()).toPNG(),
+    // XCODE: 状态就绪早于合成帧，截图前等待绘制，避免把瞬时白帧记录为恢复结果。
+    await win.webContents.executeJavaScript(
+      "(() => { const { promise, resolve } = Promise.withResolvers(); requestAnimationFrame(() => requestAnimationFrame(resolve)); return promise; })()",
     );
+    const replayed = await win.webContents.capturePage();
+    await writeFile(join(root, "react-replayed.png"), replayed.toPNG());
     assert.equal(currentGuest().id, guestId);
     assert.equal(await read("window.starts"), 1);
     await win.webContents.executeJavaScript("window.showTask('second-task')");

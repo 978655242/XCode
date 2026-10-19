@@ -166,10 +166,18 @@ def _fix_update_fields(settings_xml_path: Path) -> None:
         )
         print('Fixed: <w:updateFields w:val="false"/> → <w:updateFields w:val="true"/>')
 
-    # Case 3: Not present at all → inject before </w:settings>
+    # // XCODE: 新增 updateFields 必须遵守 CT_Settings 顺序；直接追加会落在 compat/rsids 后导致 XSD 失败。
     elif '<w:updateFields' not in content:
-        content = content.replace('</w:settings>', '<w:updateFields w:val="true"/></w:settings>')
+        if __package__:
+            from .utilities import XMLEditor, insert_settings_element
+        else:
+            from utilities import XMLEditor, insert_settings_element
+        editor = XMLEditor(settings_xml_path)
+        root = editor.get_node(tag="w:settings")
+        insert_settings_element(editor, root, "updateFields", '<w:updateFields w:val="true"/>')
+        editor.save()
         print('Fixed: added <w:updateFields w:val="true"/> to settings.xml')
+        return
 
     if content != original:
         settings_xml_path.write_text(content, encoding='utf-8')

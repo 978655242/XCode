@@ -182,6 +182,9 @@ Windows 官方 `node.exe` 通常带 Authenticode 签名。脚本构建 Windows t
 - Windows Authenticode 移除覆盖 PE32/PE32+、未签名 no-op、尾部证书表 truncate 和越界目录报错。
 - OpenTUI runtime asset manifest 覆盖 `@zcode/tui`、`@zcode/i18n`、
   `@zcode/contracts` 的 workspace runtime closure，并排除 workspace 源文件。
+- 官方插件资产回归使用完整发布清单的 manifest、必需 seed 与 runtime 文件建立 fixture，
+  缺失场景只删除目标文件，避免新增内容插件使其它资产门禁的测试提前失败；
+  真实仓库资产采集继续验证完整清单，不因 fixture 调整放宽缺失资产校验。
 - CLI bundle 版本注入读取仓库根 `package.json`，即使 `packages/cli/package.json` 版本不同也不改变 `zcode --version` 的构建时版本。
 - `build:sea` workspace 脚本必须在 `build-sea.mjs --all` 前通过 Turbo `--force`
   重建 CLI 之外的 workspace，再通过 package-local `pnpm build` 直接重建 CLI；

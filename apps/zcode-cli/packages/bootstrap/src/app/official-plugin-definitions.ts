@@ -223,7 +223,8 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
         `../../${name}-plugin`,
         `../../../${name}-plugin`,
       ],
-      version: "0.1.8",
+      // XCODE: DOCX schema 修复须推进缓存识别的版本轴，其他办公插件保持原版本。
+      version: name === "documents" ? "0.1.9" : "0.1.8",
     }),
   ),
   {

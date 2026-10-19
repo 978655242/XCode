@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { watch, type FSWatcher } from "node:fs";
 import { mkdir, readdir, readFile, rm, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { Emitter } from "@zcode/rpc";
 import { acquireFileLock } from "@zcode/shared/node";
 import { z } from "zod";
@@ -78,11 +78,25 @@ export function createGenUiStateStorage(root: string): GenUiStateStorage {
     if (disposed) throw new Error("Gen UI state storage is closed");
     targets.set(fileFor(target), target);
     if (watchers.has(dir)) return;
-    const watcher = watch(dir, { persistent: false }, (_event, filename) => {
-      if (!filename || !/^[a-f0-9]{64}\.json$/u.test(filename)) return;
-      void publish(join(dir, filename)).catch((error: unknown) =>
-        log.warn(undefined, "State notification failed", { error: String(error) }),
-      );
+    const watcher = watch(dir, { persistent: false }, async (_event, filename) => {
+      try {
+        if (filename && /^[a-f0-9]{64}\.json$/u.test(filename)) {
+          await publish(join(dir, filename));
+        } else if (!filename || filename === "state.lock") {
+          // XCODE: macOS 可只报告提交锁而合并掉 JSON 提示；锁释放后按原 scope 补读，避免跨窗口漏更新。
+          try {
+            await stat(join(dir, "state.lock"));
+            return;
+          } catch (error) {
+            if (!isMissing(error)) throw error;
+          }
+          for (const file of targets.keys()) {
+            if (dirname(file) === dir) await publish(file);
+          }
+        }
+      } catch (error) {
+        log.warn(undefined, "State notification failed", { error: String(error) });
+      }
     });
     watcher.on("error", (error) =>
       log.warn(undefined, "State watcher failed", { error: error.message }),

@@ -58,15 +58,15 @@ epoch、CAS 和 product guard 裁决。
 
 当前命令全集以 `packages/shared/src/zcode-protocol-v4/command.ts` 为唯一类型事实源，主要分组如下：
 
-| 分组          | 命令                                                                                    |
-| ------------- | --------------------------------------------------------------------------------------- |
+| 分组          | 命令                                                                                                           |
+| ------------- | -------------------------------------------------------------------------------------------------------------- |
 | 会话/输入     | `createSession`、`createSelectionSideSession`、`sendText`、`sendGoalCommand`、`renameSession`、`deleteSession` |
-| 生成控制      | `stop`、`compact`、`retryTurn`、`editUserQuery`、`forkAssistant`                        |
-| 文件回退      | `applyFileRewind`                                                                       |
-| 队列          | `sendQueuedNow`、`editQueueItem`、`reorderQueueItem`、`deleteQueueItem`、`setAutoDrain` |
-| 配置          | `switchModelConfig`、`switchCollaborationMode`、`setFollowupMode`                       |
-| Goal/后台工作 | `pauseGoal`、`resumeGoal`、`cancelBackgroundWork`                                       |
-| 阻塞交互      | `resolveInteraction`、`snoozeInteractionAutoResolution`                                |
+| 生成控制      | `stop`、`compact`、`retryTurn`、`editUserQuery`、`forkAssistant`                                               |
+| 文件回退      | `applyFileRewind`                                                                                              |
+| 队列          | `sendQueuedNow`、`editQueueItem`、`reorderQueueItem`、`deleteQueueItem`、`setAutoDrain`                        |
+| 配置          | `switchModelConfig`、`switchCollaborationMode`、`setFollowupMode`                                              |
+| Goal/后台工作 | `pauseGoal`、`resumeGoal`、`cancelBackgroundWork`                                                              |
+| 阻塞交互      | `resolveInteraction`、`snoozeInteractionAutoResolution`                                                        |
 
 `session/steer`、`session/rewind` 和独立 rewind 命令已经删除。引导输入由 `sendText` + `inputRouting`/follow-up mode 裁决；重试和编辑分别使用 `retryTurn`、`editUserQuery`；workspace 文件撤销使用 `applyFileRewind`，不会隐式截断会话历史。
 
@@ -121,7 +121,7 @@ Host 把带 revision 的 registry 同步给对应 workspace CLI。聊天 UI 用 
 
 运行中切换配置默认影响下一轮。secret 不进入 snapshot；远程 workspace 也使用同一 provider-registry command，不依赖旧版配置文件。
 
-## 兼容工具调度事件
+## 兼容工具生命周期事件
 
 旧 `session/event` 链路仍接收 CLI 发出的 `tool.updated(kind=scheduled)`。
 其可选 `assistantMessageId` 表示所属 assistant 消息，必须通过 App 的严格校验并保留；
@@ -134,6 +134,26 @@ Host 却因 `Unrecognized key: assistantMessageId` 丢弃整条 scheduled 事件
 desktop-continuous 或 web-remote-replayable 的投递与恢复边界。
 
 回归需覆盖两种 deliveryKind、两种 input 形式、缺省字段兼容及非法/未知字段拒绝。
+
+`tool.updated(kind=started)` 还必须严格接收并原样保留 CLI 的两个可选执行能力字段：
+`readOnly` 只能是布尔值，`sideEffectScope` 只能是 `none`、`workspace`、`git`、`network`、
+`system`、`session`、`userInteraction`。取值与 CLI contracts 的 `ToolSideEffectScope` 一致，
+只属于 started 分支，不扩展 scheduled、progress 或终态载荷。
+
+CLI 执行器在权限判定通过后、handler 执行前发出这两个按实际入参解析的能力字段，
+并可携带 `display`：MCP 工具由 `createMcpToolDisplay` 投影服务名、工具名、描述与可选 UI 元数据。
+`display` 复用 shared 的严格 `toolCallDisplaySchema`，MCP 的 `ui` 与 `csp` 也按既有嵌套 schema
+校验、限长并保留；非法嵌套字段拒绝整条事件，不使用 V4 row 的 `.catch(undefined)` 展示降级。
+这只是展示元数据，不构成 UI 资源加载或工具执行授权。普通工具和旧事件仍可完全省略 `display`。
+mapper 只把 `startedAt` 转成协议时间并补 `kind=started`，不删除能力或展示元数据。
+Host 必须沿用严格 schema 接收，不能通过忽略未知字段或删除元数据掩盖消费侧漂移。
+字段各自可省略，旧事件不补默认值；缺省不构成只读声明或授权，权限与工作区副作用的保守判定仍由
+CLI 现有规则负责。本次不改 owner/lease、workspace scope、V4 projection 或两种投递恢复边界。
+
+2026-10-19 的真实 Bot Worker E2E 暴露了 Host 因 `Unrecognized keys: readOnly, sideEffectScope`
+丢弃 started 事件的问题。回归覆盖两种 deliveryKind、全部合法范围、布尔真/假、字段独立缺省与旧事件、
+非法布尔值/枚举/未知字段拒绝，并确认合法字段在解码后保留；还需覆盖实际 MCP 插件 started
+展示载荷（含嵌套 UI/CSP）的保留，以及非法类型、长度和嵌套未知字段的拒绝。
 
 ## 修改规则
 
