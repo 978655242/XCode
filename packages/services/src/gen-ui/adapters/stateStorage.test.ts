@@ -128,13 +128,15 @@ describe("desktop Gen UI state persistence", () => {
       await writeFile(lock, "");
       const notify = () =>
         Promise.all(hints.callbacks.map(({ listener }) => listener("rename", filename)));
+      // 唯一一条提示在锁仍存在时到达；之后不再有任何 OS 事件，补读必须由锁释放触发。
       await notify();
       expect(observed).toEqual([]);
       await rm(lock);
-      await notify();
-      expect(observed).toEqual([
-        { target, state: { modelContent: "selection", privateContent: null } },
-      ]);
+      await vi.waitFor(() =>
+        expect(observed).toEqual([
+          { target, state: { modelContent: "selection", privateContent: null } },
+        ]),
+      );
       await notify();
       expect(observed).toEqual([
         { target, state: { modelContent: "selection", privateContent: null } },
