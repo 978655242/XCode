@@ -179,6 +179,8 @@ Headless `--target` 测试覆盖：
 - command center 执行 `/clear` 时复用 `/new` 的同一路径，返回同样的 session reset/session id 结果。
 - CLI TUI wiring 在 `/new` 后把后续 prompt 发送到新创建的 active app。
 - TUI transcript 合并在 session reset 且没有 `restoredMessages` 时清空旧消息，避免新 session 继续占用旧会话显示空间。
+- Headless prompt 与 TUI App 替换的生命周期测试保留 Built-in 刷新回调契约；断言同一进程 Registry 被借用，App 关闭先于进程 Owner 及模型选择仓库释放，且 `/new` 不提前释放共享 Owner。TUI 替身先调用启动选项加载，再发 `/new`。
+- CLI help、插件列表和安全拒绝测试断言命令、完整插件 ID/本地化 listing/无 listing 的 slug 回退、拒绝执行及凭据不泄露等行为，不固定产品品牌或帮助介绍文案。
 
 ## Auth Login Setup
 

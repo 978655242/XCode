@@ -2,6 +2,20 @@
 
 客户端规则见 [spec](specs/new-api-integration.md)，认证、资金与管理员接口以 [New API canonical spec](../../../new-api/docs/specs/xcode-integration.md) 为唯一来源。实施与发布验收见 [执行计划](../superpowers/plans/2026-10-08-new-api-integration.md)。
 
+## 本机一键启动（2026-10-19 当前部署）
+
+双击桌面 **`启动 XCode.command`**。入口位于 `scripts/xcode/启动 XCode.command`，只负责补启动或激活现有 XWork Dev；不是 Apple Xcode。需要 Docker Desktop、现有数据库/原生API部署、仓库依赖和已安装 Node24，不自动安装、拉镜像或更新业务构件。
+
+- 当前 API 是既有 launchd 作业 `com.new-api.local-backend`，binary及私密 `.env` 在 `~/Library/Application Support/new-api-local/`；使用现有 `new-api-local-postgres` 的 `127.0.0.1:15433/new_api`。这是已由用户确认复用的原生部署，下面旧容器/SQLite验收段落仅作为历史记录，不是当前启动规格。
+- `NEW_API_BASE_URL` 固定为 `http://127.0.0.1:3001`。binary、配置、plist或数据库身份变化会明确拒绝，不根据“端口能通”接管未知实例；安装清单在 `~/.config/xcode-local/start.json`（0600），不含密钥明文。
+- 旧 `new-api` 容器保持停止且 restart policy 为 `no`，避免启动 Docker 数据库时旧 API 抢占端口；不删除旧容器或卷。原生 API 的既有登录自启/自动重启策略保留；本轮桌面作业 `com.xwork.local-desktop` 不登录自启、不自动重启。
+- 保持系统 HOME 和原钥匙串/业务目录，沿用当前账号、项目及草稿。入口使用既有 `ZCODE_BUILTIN_PROVIDER_CONFIG_FILE` 指向仓库 `config/provider/zcode-builtin.json`，解决 Dev.app symlink下模型资源相对根错误，不复制资源或伪造目录。
+- 日志：`~/.local/share/xcode-local/desktop.log`；原生 API 日志沿用其现有 plist。并发点击只有一份检查，已有桌面只激活；孤立或手工部分 dev 会拒绝，保护既有构建输出。
+- 关闭启动终端不停止桌面/API；关桌面窗口后再双击可重新显示；Cmd+Q只退出桌面，不停止原生API或数据库。
+- 此入口使用本机已安装 Node24.18.0/pnpm10.33.2；未安装mise，未修改仓库24.14.0 pin，patch版本warning保留。首次启动仍会走既有开发编译链，不是独立打包应用或离线安装器。
+
+真实冷启动、只读模型/套餐恢复、Cmd+Q及窗口重开已验。**现有 API 仍监听全接口，不应暴露3001至不可信网络**；本轮未改其绑定配置。既有 `config/default.json` 相对根问题仍可能影响社群/反馈配置，本入口只使用现有provider覆盖修正模型资源。未执行真实模型调用、支付、授权变更或全量产品验收。详情见[一键启动实施计划](../superpowers/plans/2026-10-18-xcode-one-click-start.md)。
+
 ## 配置与边界
 
 - Node 版本使用 `mise.toml`，pnpm 使用根 `package.json`。本次验证使用 Node 24.14.0 / pnpm 10.33.2。

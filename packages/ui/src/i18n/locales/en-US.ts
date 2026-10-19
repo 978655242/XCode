@@ -3827,6 +3827,7 @@ const enUS: Record<string, string> = {
   "settings.modelProvider.modelMetadata.invalid.reasoningLevelMap":
     "Reasoning parameter mapping is invalid",
   "settings.modelProvider.contextWindowBadgeLabel": "Context window: {value}",
+  "model.capability.vision": "Vision",
   "settings.modelProvider.advanced": "Advanced settings",
   "settings.modelProvider.advancedConfig": "Advanced settings",
   "settings.modelProvider.reasoning": "Reasoning settings",
@@ -5265,8 +5266,8 @@ const enUS: Record<string, string> = {
   "chat.agentSwitch.success": "Switched to {provider}",
   "chat.agentSwitch.failed": "Could not switch agent",
   "chat.toolbar.model.manageModels": "Manage models",
-  "chat.toolbar.model.searchPlaceholder": "Search models...",
   "chat.toolbar.model.group.custom": "Custom models",
+  "chat.toolbar.model.searchPlaceholder": "Search models...",
   "chat.toolbar.model.empty": "No models found",
   "chat.toolbar.modelSwitch.stage.settingModel": "Switching model...",
   "chat.toolbar.modelSwitch.stage.fallbackConfigOption": "Falling back to config option API...",

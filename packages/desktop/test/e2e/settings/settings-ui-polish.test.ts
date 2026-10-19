@@ -1043,6 +1043,21 @@ describe("设置页 UI polish E2E", () => {
     expect(await $('[data-model-reasoning-level-map-editor="true"] textarea').getValue()).toBe(
       editedAfterReset,
     );
+    // 能力由真实表单保存；视觉标签只在模型设置列表显示，composer 菜单不显示。
+    await $('[data-model-input-modality="image"]').click();
+    await clickVisibleButton(/保存|Save/);
+    await $('[data-model-settings-scroll="true"]').waitForExist({ reverse: true });
+    for (const presentation of [
+      { locale: "zh-CN", theme: "dark" },
+      { locale: "en-US", theme: "light" },
+    ]) {
+      await setPresentation(presentation);
+      const badge = $(
+        `[data-model-provider-model-id="${REASONING_EDITOR_MODEL_ID}"] [data-model-input-capability="vision"]`,
+      );
+      await badge.waitForDisplayed();
+      expect(await badge.getText()).toMatch(/视觉|Vision/);
+    }
   });
 
   it("MP-UI-05-remote: 远程 workspace 下也不显示配置同步入口", async function () {

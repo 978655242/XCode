@@ -79,8 +79,8 @@ export const officialSeaPlugins = [
     requiresRuntime: false,
     requiredSeedPaths: ["agents/visual-judge.md", "skills/docx/SKILL.md"],
     rootPath: join("packages", "documents-plugin"),
-    // 修复原因：SEA manifest 必须与 package、plugin manifest 和官方 definition 同步，避免发布产物嵌入旧版本。
-    version: "0.1.8",
+    // XCODE: 与 DOCX schema 修复的 package、manifest、official definition 同步，更新已有安装缓存。
+    version: "0.1.9",
   },
   {
     marketplace: "zcode-plugins-official",

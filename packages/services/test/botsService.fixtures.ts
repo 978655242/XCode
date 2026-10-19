@@ -177,7 +177,9 @@ export function createModelSelectionService(providers: readonly TestModelSelecti
         config: {},
         models: provider.models.map((model) => ({
           modelId: typeof model === "string" ? model : model.id,
-          config: typeof model === "string" ? {} : (model.config ?? {}),
+          // XCODE: Registry 模型始终有 optionSpecs；无 reasoning 是空配置，不是缺少整个容器。
+          config:
+            typeof model === "string" ? { optionSpecs: {} } : { optionSpecs: {}, ...model.config },
         })),
       })),
       preferredSelection: providers[0]?.models[0]

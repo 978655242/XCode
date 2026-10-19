@@ -223,9 +223,11 @@ async function checkNativeScroll(win: BrowserWindow) {
         `Math.abs(document.querySelector('[data-testid=gen-ui-anchor]').getBoundingClientRect().top-document.querySelector('webview').getBoundingClientRect().top)<1`,
       ),
     );
+    // XCODE: 拖拽仍命中滚动条；滚轮命中内容区，不依赖平台原生滚动条的事件路由。
     await win.webContents.debugger.sendCommand("Input.dispatchMouseEvent", {
       type: "mouseWheel",
       ...point,
+      x: point.x - 24,
       deltaX: 0,
       deltaY: -60,
     });

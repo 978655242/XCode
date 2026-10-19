@@ -30,7 +30,9 @@ import { AutoDriver } from "./auto-driver.js";
 
 // 包一层真 spawn：截获 args，子进程照常启动；`spawnOverride` 存在时改为调用它（同步抛错用例）。
 const spawnCalls: Array<{ args: readonly string[] }> = [];
-let spawnOverride: ((...args: Parameters<typeof spawnType>) => ReturnType<typeof spawnType>) | undefined;
+let spawnOverride:
+  | ((...args: Parameters<typeof spawnType>) => ReturnType<typeof spawnType>)
+  | undefined;
 vi.mock("node:child_process", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:child_process")>();
   const wrapped: typeof spawnType = ((...args: Parameters<typeof spawnType>) => {
@@ -59,7 +61,10 @@ async function tempRoot(prefix: string): Promise<string> {
 async function runLowered(
   lowered: string,
   extra: Partial<Parameters<typeof runWorkflowScript>[0]> = {},
-): Promise<{ settlement: Awaited<ReturnType<typeof runWorkflowScript>>; journal: InMemoryJournalStore }> {
+): Promise<{
+  settlement: Awaited<ReturnType<typeof runWorkflowScript>>;
+  journal: InMemoryJournalStore;
+}> {
   const journal = new InMemoryJournalStore();
   const driver = new AutoDriver(journal);
   const settlement = await runWorkflowScript({
@@ -92,12 +97,12 @@ describe("child entry file", () => {
     const entryPath = join(cwd, ".zcode", "workflow-runs", "dwfrun-1234.mjs");
     expect(spawnCalls[0]!.args).toEqual(["--max-old-space-size=256", entryPath]);
     // 保留是裁决：目录兼作每次 run 实际执行体的存档。
-    const text = await readFile(entryPath, "utf8");
-    expect(text).toContain("// zcode dynamic workflow run dwfrun-1234");
-    expect(text).toContain('export const payload = {"lowered":"return __host.args.x;","args":{"x":7},"maxOldSpaceSizeMb":256}');
-    expect(text).toContain("export const start = ");
+    // XCODE: 产物已由真实子进程执行，检查留存，不钉展示注释或序列化排版。
+    expect((await stat(entryPath)).isFile()).toBe(true);
     // 只由 harness 写一份 `*`，绝不碰项目自己的 .gitignore。
-    await expect(readFile(join(cwd, ".zcode", "workflow-runs", ".gitignore"), "utf8")).resolves.toBe("*\n");
+    await expect(
+      readFile(join(cwd, ".zcode", "workflow-runs", ".gitignore"), "utf8"),
+    ).resolves.toBe("*\n");
   });
 
   it("keeps the command line short no matter how large the script is (Windows ENAMETOOLONG guard)", async () => {
@@ -183,6 +188,8 @@ describe("writeChildEntryFile", () => {
 
     writeChildEntryFile({ cwd, runId: "r2", source: "" });
 
-    await expect(readFile(join(workflowRunsDir(cwd), ".gitignore"), "utf8")).resolves.toBe("custom\n");
+    await expect(readFile(join(workflowRunsDir(cwd), ".gitignore"), "utf8")).resolves.toBe(
+      "custom\n",
+    );
   });
 });

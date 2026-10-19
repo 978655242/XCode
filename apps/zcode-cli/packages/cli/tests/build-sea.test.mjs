@@ -835,47 +835,17 @@ test("allows skill-only official plugins when SEA runtime assets are required", 
   const stagingDirectory = join(directory, "staging");
 
   try {
-    await writeTestFile(root, "packages/android-emulator-plugin/.zcode-plugin/plugin.json", "{}");
-    await writeTestFile(root, "packages/android-emulator-plugin/dist/mcp/server.js", "");
-    await writeTestFile(root, "packages/node-repl-host/.zcode-plugin/plugin.json", "{}");
-    await writeTestFile(root, "packages/node-repl-host/dist/mcp/server.js", "");
-    await writeTestFile(root, "packages/browser-use-plugin/.zcode-plugin/plugin.json", "{}");
-    await writeTestFile(root, "packages/browser-use-plugin/skills/control-browser/SKILL.md", "");
-    await writeTestFile(root, "packages/browser-use-plugin/skills/web-gui-tester/SKILL.md", "");
-    await writeTestFile(root, "packages/browser-use-plugin/docs/api.json", "{}");
-    await writeTestFile(root, "packages/browser-use-plugin/docs/documents.json", "[]");
-    await writeTestFile(root, "packages/browser-use-plugin/docs/overview.md", "");
-    await writeTestFile(root, "packages/browser-use-plugin/docs/recording.md", "");
-    await writeTestFile(root, "packages/browser-use-plugin/docs/workflow.md", "");
-    await writeTestFile(root, "packages/browser-use-plugin/scripts/browser-client.mjs", "");
-    await writeDocumentPluginFixtures(root);
-    await writeTestFile(root, "packages/ios-simulator-plugin/.zcode-plugin/plugin.json", "{}");
-    await writeTestFile(root, "packages/ios-simulator-plugin/dist/mcp/server.js", "");
-    await writeTestFile(
-      root,
-      "packages/restore-legacy-sessions-plugin/.zcode-plugin/plugin.json",
-      "{}",
-    );
+    await writeOfficialPluginFixtures(root);
     await writeTestFile(
       root,
       "packages/restore-legacy-sessions-plugin/skills/restore-legacy-sessions/SKILL.md",
       "",
     );
-    await writeTestFile(root, "packages/skill-creator-plugin/.zcode-plugin/plugin.json", "{}");
     await writeTestFile(root, "packages/skill-creator-plugin/skills/skill-creator/SKILL.md", "");
-    // 新增官方内容插件后也要提供 fixture，否则采集会先报 manifest 缺失，无法验证免运行时资源。
-    await writeTestFile(root, "packages/plugin-creator-plugin/.zcode-plugin/plugin.json", "{}");
     await writeTestFile(root, "packages/plugin-creator-plugin/skills/plugin-creator/SKILL.md", "");
-    // skill-creator 用作「带可执行 hook 的 skill-only 官方插件」载体（原先由 superpowers 覆盖）。
-    // collector 按 officialSeaPlugins 登记 + 伪造目录采集，真实 skill-creator 是否带 hook 无关紧要。
+    // skill-creator 用作带可执行 hook 的内容插件载体，真实插件是否带 hook 不影响此契约。
     await writeTestFile(root, "packages/skill-creator-plugin/hooks/hooks.json", "{}");
     await writeTestFile(root, "packages/skill-creator-plugin/hooks/run-hook.cmd", "");
-    await writeTestFile(root, "packages/zcode-guide-plugin/.zcode-plugin/plugin.json", "{}");
-    await writeTestFile(
-      root,
-      "packages/zcode-guide-plugin/skills/zcode-configuration-guide/SKILL.md",
-      "",
-    );
 
     const { manifest } = await collectSeaOfficialPluginAssets({
       requireRuntime: true,
@@ -954,21 +924,8 @@ test("requires SEA runtime assets for runtime-backed official plugins", async ()
   const stagingDirectory = join(directory, "staging");
 
   try {
-    await writeTestFile(root, "packages/android-emulator-plugin/.zcode-plugin/plugin.json", "{}");
-    // 宿主要先齐备，这条测试隔离的是 android-emulator 缺 runtime 这一种情况。
-    await writeTestFile(root, "packages/node-repl-host/.zcode-plugin/plugin.json", "{}");
-    await writeTestFile(root, "packages/node-repl-host/dist/mcp/server.js", "");
-    await writeTestFile(root, "packages/browser-use-plugin/.zcode-plugin/plugin.json", "{}");
-    await writeTestFile(root, "packages/documents-plugin/.zcode-plugin/plugin.json", "{}");
-    await writeTestFile(root, "packages/ios-simulator-plugin/.zcode-plugin/plugin.json", "{}");
-    await writeTestFile(root, "packages/ios-simulator-plugin/dist/mcp/server.js", "");
-    await writeTestFile(
-      root,
-      "packages/restore-legacy-sessions-plugin/.zcode-plugin/plugin.json",
-      "{}",
-    );
-    await writeTestFile(root, "packages/skill-creator-plugin/.zcode-plugin/plugin.json", "{}");
-    await writeTestFile(root, "packages/zcode-guide-plugin/.zcode-plugin/plugin.json", "{}");
+    await writeOfficialPluginFixtures(root);
+    await rm(join(root, "packages/android-emulator-plugin/dist/mcp/server.js"));
 
     await assert.rejects(
       collectSeaOfficialPluginAssets({
@@ -992,22 +949,8 @@ test("requires the Browser Use client alongside the SEA MCP runtime", async () =
   const stagingDirectory = join(directory, "staging");
 
   try {
-    for (const pluginName of [
-      "android-emulator-plugin",
-      "browser-use-plugin",
-      "documents-plugin",
-      "ios-simulator-plugin",
-      "restore-legacy-sessions-plugin",
-      "skill-creator-plugin",
-      "zcode-guide-plugin",
-    ]) {
-      await writeTestFile(root, `packages/${pluginName}/.zcode-plugin/plugin.json`, "{}");
-    }
-    await writeTestFile(root, "packages/android-emulator-plugin/dist/mcp/server.js", "");
-    await writeTestFile(root, "packages/node-repl-host/.zcode-plugin/plugin.json", "{}");
-    await writeTestFile(root, "packages/node-repl-host/dist/mcp/server.js", "");
-    await writeDocumentPluginFixtures(root);
-    await writeTestFile(root, "packages/ios-simulator-plugin/dist/mcp/server.js", "");
+    await writeOfficialPluginFixtures(root);
+    await rm(join(root, "packages/browser-use-plugin/scripts/browser-client.mjs"));
 
     await assert.rejects(
       collectSeaOfficialPluginAssets({
@@ -1291,17 +1234,15 @@ test("can be dynamically imported when argv[1] is missing", () => {
   assert.equal(result.stdout.trim(), "zcode-windows-x64.exe");
 });
 
-async function writeDocumentPluginFixtures(root) {
-  for (const [name, skill] of [
-    ["documents", "docx"],
-    ["pdf", "pdf"],
-    ["presentations", "pptx"],
-    ["spreadsheets", "xlsx"],
-  ]) {
-    await writeTestFile(root, `packages/${name}-plugin/.zcode-plugin/plugin.json`, "{}");
-    await writeTestFile(root, `packages/${name}-plugin/agents/visual-judge.md`, "");
-    await writeTestFile(root, `packages/${name}-plugin/skills/${skill}/SKILL.md`, "");
+async function writeOfficialPluginFixtures(root) {
+  // 缺失资产用例只移除目标文件，其余插件必须满足当前完整发布契约。
+  for (const plugin of officialSeaPlugins) {
+    await writeTestFile(root, join(plugin.rootPath, ".zcode-plugin/plugin.json"), "{}");
+    for (const path of [
+      ...(plugin.requiredSeedPaths ?? []),
+      ...(plugin.requiredRuntimePaths ?? []),
+    ]) {
+      await writeTestFile(root, join(plugin.rootPath, path), "");
+    }
   }
-  await writeTestFile(root, "packages/image-search-plugin/.zcode-plugin/plugin.json", "{}");
-  await writeTestFile(root, "packages/image-search-plugin/.mcp.json", "{}");
 }

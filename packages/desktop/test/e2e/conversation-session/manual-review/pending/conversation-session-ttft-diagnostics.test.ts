@@ -1,3 +1,5 @@
+import { spawn, type ChildProcess } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
@@ -42,6 +44,7 @@ type Span = {
 };
 async function spans(): Promise<Span[]> {
   const response = await fetch("http://127.0.0.1:14318/records");
+  if (!response.ok) throw new Error(`OTLP receiver: ${response.status}`);
   const records = (await response.json()) as Array<{
     data: { resourceSpans?: Array<{ scopeSpans: Array<{ spans: Span[] }> }> };
   }>;
@@ -128,6 +131,10 @@ async function setInteractionBehavior(behavior: "queue" | "guide") {
 describe("TTFT02 真实发送诊断到最终 OTLP", () => {
   const configPath = join(dirname(DEFAULT_WORKSPACE), ".zcode", "cli", "config.json");
   let originalConfig: string | undefined;
+  let configWritten = false;
+  let receiver: ChildProcess | undefined;
+  let receiverClosed: Promise<void> | undefined;
+  let receiverReady = false;
   const runtimeEvidence: unknown[] = [];
   beforeEach(async () => {
     await browser.execute(() => {
@@ -176,6 +183,37 @@ describe("TTFT02 真实发送诊断到最终 OTLP", () => {
       );
   });
   before(async () => {
+    // XCODE: exporter 在 Electron 启动时配置；receiver 由本 spec 独占，不能 reset 他人的出口。
+    if (
+      process.env.ZCODE_LOCAL_TTFT_ENABLED !== "1" ||
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT !== "http://127.0.0.1:14318"
+    ) {
+      throw new Error(
+        "TTFT diagnostics requires launch env ZCODE_LOCAL_TTFT_ENABLED=1 OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:14318",
+      );
+    }
+    const ready = Promise.withResolvers<void>();
+    const closed = Promise.withResolvers<void>();
+    receiverClosed = closed.promise;
+    receiver = spawn(
+      process.execPath,
+      [fileURLToPath(new URL("../../../../../scripts/ttft-otlp-receiver.mjs", import.meta.url))],
+      { stdio: ["ignore", "pipe", "pipe"] },
+    );
+    let startupError = "";
+    receiver.stderr!.on("data", (chunk: Buffer) => {
+      startupError += chunk.toString();
+    });
+    receiver.stdout!.on("data", (chunk: Buffer) => {
+      if (chunk.toString().includes("OTLP receiver ready:14318")) ready.resolve();
+    });
+    receiver.once("error", ready.reject);
+    receiver.once("close", (code) => {
+      closed.resolve();
+      ready.reject(new Error(`Owned OTLP receiver exited (${code}): ${startupError}`));
+    });
+    await ready.promise;
+    receiverReady = true;
     originalConfig = await readFile(configPath, "utf8").catch((error: NodeJS.ErrnoException) => {
       if (error.code === "ENOENT") return undefined;
       throw error;
@@ -206,13 +244,16 @@ describe("TTFT02 真实发送诊断到最终 OTLP", () => {
         },
       }),
     );
+    configWritten = true;
   });
   after(async () => {
+    if (!receiverReady) return;
     try {
       const roots = (await spans()).filter((span) => span.name === "local_ttft");
       type MetricPoint = { count?: string; attributes?: { key: string }[] };
       const metrics = async () => {
         const response = await fetch("http://127.0.0.1:14318/records");
+        if (!response.ok) throw new Error(`OTLP receiver: ${response.status}`);
         const records = (await response.json()) as Array<{
           data: {
             resourceMetrics?: Array<{
@@ -278,14 +319,20 @@ describe("TTFT02 真实发送诊断到最终 OTLP", () => {
           ),
         );
     } finally {
-      if (originalConfig !== undefined) await writeFile(configPath, originalConfig);
-      else await rm(configPath, { force: true });
+      if (configWritten) {
+        if (originalConfig !== undefined) await writeFile(configPath, originalConfig);
+        else await rm(configPath, { force: true });
+      }
+      receiver?.kill();
+      await receiverClosed;
+      await rm(resolveE2ERuntimePath("ttft-diagnostics"), { recursive: true, force: true });
     }
   });
 
   it("队列转正保留原输入，后台返回仍导出首输出和独立阶段", async function () {
     this.timeout(180000);
-    await fetch("http://127.0.0.1:14318/reset", { method: "POST" });
+    const reset = await fetch("http://127.0.0.1:14318/reset", { method: "POST" });
+    expect(reset.ok).toBe(true);
     await prepareV4ConversationE2E();
     await focus();
     await sendV4Prompt("E2E_TTFT_DIAG_HOLD: Reply ttft-diag-hold-ok.");
@@ -299,9 +346,11 @@ describe("TTFT02 真实发送诊断到最终 OTLP", () => {
         .find((win) => !win.isDestroyed())
         ?.minimize();
     });
+    // XCODE: 先前等待的 local_ttft.start 已由 HOLD 输入满足，会在 renderer 收到 blur 前立即恢复窗口；
+    // 必须等 renderer 自身确认离开前台，才能验证 background_returned。
     await browser.waitUntil(
-      async () => (await spans()).some((span) => span.name === "local_ttft.start"),
-      { timeout: 5000 },
+      async () => browser.execute(() => document.hidden || !document.hasFocus()),
+      { timeout: 5000, timeoutMsg: "最小化后 renderer 仍处于前台" },
     );
     await focus();
     await waitForV4AssistantMessageContaining("ttft-diag-queue-ok");
@@ -354,6 +403,15 @@ describe("TTFT02 真实发送诊断到最终 OTLP", () => {
       { timeout: 15000 },
     );
     expect((await spans()).filter((span) => span.name === "local_ttft")).toHaveLength(2);
+    const cancelled = (await spans()).find(
+      (span) => span.name === "local_ttft.excluded" && attr(span, "outcome") === "cancelled",
+    )!;
+    expect(ms(cancelled)).toBeGreaterThan(0);
+    expect(
+      (await spans()).some(
+        (span) => span.traceId === cancelled.traceId && span.name === "local_ttft",
+      ),
+    ).toBe(false);
   });
   it("失败重试后的首输出只产生一份 TTFT，并导出两个 attempt", async function () {
     this.timeout(120000);
@@ -397,6 +455,17 @@ describe("TTFT02 真实发送诊断到最终 OTLP", () => {
       { timeout: 20000 },
     );
     expect((await spans()).filter((span) => span.name === "local_ttft")).toHaveLength(before);
+    const failedTrace = (await spans()).find(
+      (span) => span.name === "local_ttft.excluded" && attr(span, "outcome") === "failed",
+    )!;
+    expect(ms(failedTrace)).toBeGreaterThan(0);
+    const failedStages = (await spans()).filter((span) => span.traceId === failedTrace.traceId);
+    expect(failedStages.some((span) => span.name === "local_ttft.prepare.hooks")).toBe(true);
+    expect(
+      failedStages.some(
+        (span) => span.name === "local_ttft.attempt" && attr(span, "detail_outcome") === "failed",
+      ),
+    ).toBe(true);
   });
 
   it("立即引导独立分类，不抢占主轮工具首输出", async function () {
@@ -437,14 +506,26 @@ describe("TTFT02 真实发送诊断到最终 OTLP", () => {
     await clickV4Stop();
     await waitForV4ConversationState((state) => state.state === "idle", "暂停主轮未停止");
     const before = (await spans()).filter((span) => span.name === "local_ttft").length;
+    const startsBefore = new Set(
+      (await spans())
+        .filter((span) => span.name === "local_ttft.start")
+        .map((span) => span.traceId),
+    );
     await sendV4Prompt("E2E_TTFT_DIAG_CONFIRM: Reply ttft-diag-confirm-ok.");
     await waitForV4PausedQueueSendDialog();
-    // 显式模拟用户阅读弹窗的停留，不用于业务状态同步。
-    await browser.pause(350);
+    // XCODE: 等最终出口的首次提交检查点，不用 sleep 假造确认等待时长。
+    await browser.waitUntil(
+      async () =>
+        (await spans()).some(
+          (span) => span.name === "local_ttft.start" && !startsBefore.has(span.traceId),
+        ),
+      { timeout: 15000, timeoutMsg: "确认前没有导出首次提交的 TTFT start" },
+    );
     await clickTestIdByDom(TID_V4_COMPOSER_KEEP_QUEUE_SEND);
     await waitForV4AssistantMessageContaining("ttft-diag-confirm-ok");
     await waitRoot(before + 1);
     const confirmed = (await spans()).filter((span) => span.name === "local_ttft").at(-1)!;
+    expect(startsBefore.has(confirmed.traceId)).toBe(false);
     expect(
       (await spans()).filter(
         (span) => span.traceId === confirmed.traceId && span.name === "local_ttft.start",
@@ -456,7 +537,7 @@ describe("TTFT02 真实发送诊断到最终 OTLP", () => {
           (span) =>
             span.traceId === confirmed.traceId && span.name === "local_ttft.user_confirmation",
         )
-        .some((span) => ms(span) >= 350),
+        .some((span) => ms(span) > 0),
     ).toBe(true);
     await clickV4QueueItemSendNow(held.queueItemId);
     await waitForV4AssistantMessageContaining("ttft-diag-held-ok");

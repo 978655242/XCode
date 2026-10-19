@@ -65,6 +65,18 @@ pnpm --filter @zcode/desktop test:e2e -- --spec './test/e2e/conversation-session
 
 该候选用例操作真实 Composer，断言最后收到的 protobuf Trace/Metric。第二场景在唯一的公开 transport seam 注入 250ms 命令延迟与 7s ACK 延迟；模型 fixture 在 250ms 首思考、8s 首正文，检查 root 在 ACK/terminal 之前到达且已知延迟归因正确。fault seam 只在 E2E build 生效，不生成伪造事实。
 
+`conversation-session-ttft-diagnostics` 自管独占的 localhost:14318 receiver 子进程，不要先启动上面的接收器；端口已被占用时会安全失败，不重置或停止其他进程。exporter 仍须在 Electron 启动前显式配置：
+
+```sh
+NEW_API_BASE_URL=http://127.0.0.1:3001 \
+ZCODE_E2E_MANUAL_REVIEW=1 ZCODE_LOCAL_TTFT_ENABLED=1 \
+OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:14318 \
+E2E_PROVIDER_REPLAY_FIXTURE_PATH=packages/desktop/test/e2e/fixtures/upstream/common.json,packages/desktop/test/e2e/fixtures/upstream/conversation-session/conversation-session-ttft-diagnostics.json \
+pnpm --filter @zcode/desktop test:e2e -- --spec './test/e2e/conversation-session/manual-review/pending/conversation-session-ttft-diagnostics.test.ts'
+```
+
+该场景不使用小上下文自动压缩 profile。真实 Composer 的 queue、stop、retry、guide、confirmation 和 send-now 操作必须产生最终 OTLP 检查点、阶段和正确的成功/排除样本；测试不以 provider replay 的完成文案代替埋点证据。receiver、临时 hook 与输入文件在 spec 结束后清理，原隔离 CLI 配置恢复。Electron 的 HOME、userData 和工作区仍须使用 E2E runner 的隔离 profile。
+
 ## 当前平台定位
 
 - region：`cn-beijing`

@@ -4238,6 +4238,10 @@ async function seedUpstreamE2EModelConfig(specs: string[] = []) {
         // Hook 改写用例需要观察原始 tool_result；240-token 窗口会插入无关自动压缩，
         // 改写批准到模型收到结果的链路，因此与权限竞速用例一样保留正常窗口。
         !spec.includes("conversation-session-permission-hook-rewrite.test.ts") &&
+        // XCODE: 问答设置、TTFT 与计划反馈需保留原始多轮历史，240/80 会插入无关 compact。
+        !spec.includes("conversation-session-ask-user-question-auto-resolution-setting.test.ts") &&
+        !spec.includes("conversation-session-ttft-diagnostics.test.ts") &&
+        !spec.includes("conversation-session-plan-approval-feedback-user-message.test.ts") &&
         // Bug 根因：TX 显式叉乘 completed tool 后的 manual compact/fork/goal；
         // manual-review 默认 240/80 小窗口会在工具结果或 goal continuation 前额外插入
         // auto compact，把另一条产品路径混进 51 个独立断言并触发无 fixture 重试。
@@ -4246,6 +4250,8 @@ async function seedUpstreamE2EModelConfig(specs: string[] = []) {
         !spec.includes("conversation-session-subagent-catalog-refresh.test.ts") &&
         // SHR09 只改变 profile 字段；保持历史便于断言旧 part 不变与单段父轨迹。
         !spec.includes("conversation-session-subagent-profile-fields.test.ts") &&
+        // XCODE: 并行 child 计数恢复必须观察同一段工具序列，不能由极小窗口替换历史。
+        !spec.includes("conversation-session-subagent-parallel-projection.test.ts") &&
         !spec.includes("conversation-session-subagent-context-boundaries.test.ts") &&
         !spec.includes("conversation-session-subagent-multi-workspace.test.ts") &&
         !spec.includes("conversation-session-subagent-cross-host.test.ts")),

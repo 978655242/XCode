@@ -1,7 +1,7 @@
 import { TopicHistoryPermissionError } from "../src/bots/topicHistory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BotActor, ZCodeStreamEvent } from "@zcode/shared";
-import { botsStateFileSchema } from "@zcode/shared";
+import { botsStateFileSchema, getZCodeAgentModeSelectOptions } from "@zcode/shared";
 import * as f from "./botsService.fixtures.js";
 
 const callbackTransport = vi.hoisted(() => ({
@@ -2087,6 +2087,75 @@ describe("Feishu group sessions", () => {
       }),
     );
     expect(taskService.setMode).toHaveBeenCalledWith(expect.objectContaining({ mode: "default" }));
+  });
+
+  it("applies only the owner's group draft mode to the newly created isolated session", async () => {
+    const { send, repo, taskService } = setup(true);
+    const modeOptions = getZCodeAgentModeSelectOptions();
+    vi.mocked(taskService.getTaskConfigOptions).mockResolvedValue([
+      {
+        id: "mode",
+        category: "mode",
+        type: "select",
+        currentValue: "build",
+        options: modeOptions,
+      },
+    ]);
+    await send("/enable");
+    await send("/enable", "oc_b");
+    const configBefore = structuredClone(await repo.readConfig());
+    const otherBefore = structuredClone(
+      (await repo.readState()).bots[JSON.stringify(["feishu-1", "oc_b"])],
+    );
+    const groupKey = JSON.stringify(["feishu-1", "oc_a"]);
+    const menu = await send("/mode");
+    expect(
+      menu.flatMap((reply) => reply.selection?.options.map((option) => option.id) ?? []),
+    ).toEqual(modeOptions.map((option) => option.value));
+    expect((await send("/mode yolo", "oc_a", "member"))[0]?.text).toContain("绑定");
+    expect((await repo.readState()).bots[groupKey]?.draftOptions?.mode).toBe("default");
+    await send("/mode not-a-mode");
+    expect((await repo.readState()).bots[groupKey]?.draftOptions?.mode).toBe("default");
+    const modeReply = await send("/mode yolo");
+    expect(modeReply.length).toBeGreaterThan(0);
+    expect(modeReply.map((reply) => reply.text)).toEqual(
+      (await send("/status")).map((reply) => reply.text),
+    );
+    expect((await repo.readState()).bots[groupKey]?.draftOptions?.mode).toBe("yolo");
+    // XCODE: 模型没有 reasoning 配置时，权限选择也必须在真实建任务边界保留且只作用于本群。
+    await send("owner-selected-mode", "oc_a", "member");
+    const selectedTaskId = (await repo.readState()).bots[groupKey]!.activeTaskId!;
+    expect(taskService.createTask).toHaveBeenCalledWith(
+      expect.objectContaining({ permissionScope: "session" }),
+    );
+    expect(taskService.setMode).toHaveBeenCalledWith({ taskId: selectedTaskId, mode: "yolo" });
+    expect((await repo.readState()).bots[JSON.stringify(["feishu-1", "oc_b"])]).toEqual(
+      otherBefore,
+    );
+    await send("other-group-input", "oc_b", "member");
+    const otherTaskId = (await repo.readState()).bots[JSON.stringify(["feishu-1", "oc_b"])]!
+      .activeTaskId!;
+    expect(otherTaskId).not.toBe(selectedTaskId);
+    expect(taskService.setMode).toHaveBeenLastCalledWith({ taskId: otherTaskId, mode: "default" });
+    expect(await repo.readConfig()).toEqual(configBefore);
+    expect(taskService.setConfigOption).not.toHaveBeenCalled();
+  });
+
+  it("keeps the group permission menu available without a model selection view", async () => {
+    const { send, repo, taskService } = setup(false, true);
+    await send("/enable");
+    const menu = await send("/mode");
+    expect(
+      menu.flatMap((reply) => reply.selection?.options.map((option) => option.id) ?? []),
+    ).toEqual(getZCodeAgentModeSelectOptions().map((option) => option.value));
+    const modeReply = await send("/mode yolo");
+    expect(modeReply.map((reply) => reply.text)).toEqual(
+      (await send("/status")).map((reply) => reply.text),
+    );
+    expect(
+      (await repo.readState()).bots[JSON.stringify(["feishu-1", "oc_a"])]?.draftOptions?.mode,
+    ).toBe("yolo");
+    expect(taskService.createTask).not.toHaveBeenCalled();
   });
 
   it("does not resolve another group's task through the direct snapshot fallback", async () => {

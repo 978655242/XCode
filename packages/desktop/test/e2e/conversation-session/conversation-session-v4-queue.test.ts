@@ -96,10 +96,12 @@ describe("v4 M4/B09 门禁：queue 单项管理与撤回编辑", () => {
           attachments.length === 1 &&
           // Bug 原因：从 queue 恢复的媒体 ref 不重建本地 object URL，缩略图可能只显示
           // image fallback icon；用 innerText 验证 filename 会误判已恢复且 ready 的附件。
-          attachments[0]?.uploadStatus === "ready"
+          attachments[0]?.uploadStatus === "ready" &&
+          // XCODE: 撤回先恢复草稿并解除 disabled，再于下一帧聚焦；ready 附件不代表焦点已兑现。
+          (await isV4ComposerFocused())
         );
       },
-      { timeout: 30000, timeoutMsg: "队列项移除后没有完整恢复 composer 文本与附件" },
+      { timeout: 30000, timeoutMsg: "队列项移除后没有完整恢复 composer 文本、附件与焦点" },
     );
     expect(await isV4ComposerFocused()).toBe(true);
     expect(await getV4ComposerAttachments()).toHaveLength(1);

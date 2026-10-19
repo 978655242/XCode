@@ -120,6 +120,12 @@ graph and snapshots it under `tests/graphs/expected/<name>.txt` (via vitest's as
 review the diffs by hand — the snapshots are the human-readable contract for the
 analyzer. These fixtures are excluded from oxlint like `tests/workflows/`.
 
+## Lowering tests
+
+Lowering regressions execute emitted JavaScript and check site identity, type erasure,
+control flow, and deterministic output. They do not depend on generated-JavaScript
+snapshots: released sources must remain testable without unpublished `expected/*.js` assets.
+
 ## Develop
 
 All commands from this directory (or with `--filter @zcode/dynamic-workflow` from
@@ -167,7 +173,7 @@ diagnostics/schemas/graph output, implement until green.
    an ask is (actor name, per-actor ask sequence) checked against the recorded
    `inputHash`, and for a world node it is `{op, args}` content plus occurrence
    index — neither is positional. Site ids stay display/graph coordinates. Step 3
-   survives only if world nodes ever need a *positional* identity of their own;
+   survives only if world nodes ever need a _positional_ identity of their own;
    nothing asks for that today. See `docs/execution-engine.md` in the
    app repo.
 4. ~~Analysis: taint-based may-flow site graph, then the causality, control-flow and

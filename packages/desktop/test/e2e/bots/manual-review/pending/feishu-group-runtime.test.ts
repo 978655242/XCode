@@ -241,7 +241,9 @@ describe("BOT-E2E-GR-02/04 real Host CLI group queue", () => {
         async (message) => {
           return (
             window as unknown as {
-              __testActions: { sendBotMessage(input: BotInboundMessage): Promise<unknown> };
+              __testActions: {
+                sendBotMessage(input: BotInboundMessage): Promise<Array<{ text: string }>>;
+              };
             }
           ).__testActions.sendBotMessage(message);
         },
@@ -291,7 +293,13 @@ describe("BOT-E2E-GR-02/04 real Host CLI group queue", () => {
     expect(
       draftState.bots[JSON.stringify([botId, chatId])].pendingPermissionOptions ?? [],
     ).toHaveLength(0);
-    await sendGroup("/mode yolo", "ou_e2e_user");
+    const modeReply = await sendGroup("/mode yolo", "ou_e2e_user");
+    expect(modeReply.length).toBeGreaterThan(0);
+    expect(modeReply.map((reply) => reply.text)).toEqual(
+      (await sendGroup("/status", "ou_e2e_user")).map((reply) => reply.text),
+    );
+    const selectedDraft = JSON.parse(await readFile(join(root, "bot-state.v3.json"), "utf8"));
+    expect(selectedDraft.bots[JSON.stringify([botId, chatId])].draftOptions.mode).toBe("yolo");
     await sendGroup("E2E_GROUP_RUNTIME_SLOW new group task", "ou_member");
     const persisted = JSON.parse(await readFile(join(root, "bot-state.v3.json"), "utf8"));
     const createdId = persisted.bots[JSON.stringify([botId, chatId])].activeTaskId as string;

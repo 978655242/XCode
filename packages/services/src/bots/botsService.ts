@@ -41,6 +41,7 @@ import {
   decodeCustomModelValue,
   encodeCustomModelValue,
   getPermissionRequestPreview,
+  getZCodeAgentModeSelectOptions,
   getSupportedBotReplyGranularities,
   normalizeBotReplyGranularity,
   type ZCodeConfigOption,
@@ -2679,6 +2680,17 @@ export function createBotsService(
     draftOptions: BotDraftOptions,
     resolvedView?: ModelSelectionView | null,
   ): Promise<ZCodeConfigOption[]> {
+    // XCODE: 权限模式属于 Agent，不属于模型 reasoning 能力；缺模型或无思考档位也不能吞掉群主选择。
+    const modeOptions: ZCodeConfigOption[] = [
+      {
+        id: "mode",
+        name: "Mode",
+        category: "mode",
+        type: "select",
+        currentValue: draftOptions.mode ?? "default",
+        options: getZCodeAgentModeSelectOptions(),
+      },
+    ];
     const view =
       resolvedView === undefined
         ? await readModelSelectionView(context, draftOptions.modelSelection)
@@ -2686,22 +2698,21 @@ export function createBotsService(
     const selection = draftOptions.modelSelection
       ? view?.effectiveSelection
       : view?.preferredSelection;
-    if (!selection) return [];
+    if (!selection) return modeOptions;
     const model = view?.providers
       .find((provider) => provider.providerId === selection.providerId)
       ?.models.find((candidate) => candidate.modelId === selection.modelId);
     const spec = model?.config.optionSpecs.reasoningLevel;
-    if (!spec) return [];
-    return [
-      {
-        id: "thought_level",
-        name: "Reasoning",
-        category: "thought_level",
-        type: "select",
-        currentValue: selection.options?.reasoningLevel ?? "",
-        options: spec.values.map((value) => ({ value, name: value })),
-      },
-    ];
+    if (!spec) return modeOptions;
+    modeOptions.push({
+      id: "thought_level",
+      name: "Reasoning",
+      category: "thought_level",
+      type: "select",
+      currentValue: selection.options?.reasoningLevel ?? "",
+      options: spec.values.map((value) => ({ value, name: value })),
+    });
+    return modeOptions;
   }
 
   async function applyDraftConfigOptions(

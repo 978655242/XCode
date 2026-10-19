@@ -8,10 +8,7 @@ import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import {
-  ZCODE_OFFICIAL_PLUGIN_MARKETPLACE,
-  ZCODE_PLUGIN_HOST_COMMAND,
-} from "@zcode/contracts";
+import { ZCODE_OFFICIAL_PLUGIN_MARKETPLACE, ZCODE_PLUGIN_HOST_COMMAND } from "@zcode/contracts";
 import {
   ZCODE_CUA_OFFICIAL_PLUGIN_ID,
   ZCODE_CUA_NODE_REPL_HOST_ENV_KEY,
@@ -595,17 +592,17 @@ test("borrows one process provider registry for a headless prompt and disposes i
   let runtimeStarts = 0;
   let runtimeDisposals = 0;
   let selectionRepositoryDisposals = 0;
+  let appClosures = 0;
   const exitCode = await run(ctx, {
     ...createPromptDeps(),
     skipUserConfig: false,
     userConfigPath: "/tmp/zcode-legacy-cli.json",
     startProcessProviderRegistryRuntime: async (_env, options) => {
       runtimeStarts += 1;
-      assert.deepEqual(options, {
-        standalone: {
-          legacyCliUserConfigFilePath: "/tmp/zcode-legacy-cli.json",
-        },
-      });
+      // XCODE: 刷新回调是合法的启动契约，生命周期测试不能将 options 固定为旧形状。
+      assert.equal(options?.standalone?.legacyCliUserConfigFilePath, "/tmp/zcode-legacy-cli.json");
+      assert.equal(typeof options?.standalone?.onBuiltinRefreshError, "function");
+      assert.equal(typeof options?.standalone?.onBuiltinRefreshResult, "function");
       return {
         accountSource: {} as never,
         dispose: () => {
@@ -638,7 +635,11 @@ test("borrows one process provider registry for a headless prompt and disposes i
         modelId: "model-a",
       });
       return {
-        close: async () => {},
+        close: async () => {
+          assert.equal(runtimeDisposals, 0);
+          assert.equal(selectionRepositoryDisposals, 0);
+          appClosures += 1;
+        },
         runtime: {} as never,
         sessionId: "session-registry-headless",
         submitPrompt: async (prompt: string) => ({
@@ -653,8 +654,10 @@ test("borrows one process provider registry for a headless prompt and disposes i
     },
   });
 
-  assert.equal(exitCode, 0);
+  assert.equal(exitCode, 0, ctx.stderr.output());
   assert.equal(runtimeStarts, 1);
+  assert.equal(appClosures, 1);
+  assert.equal(ctx.stdout.output(), "registry me\n");
   assert.equal(runtimeDisposals, 1);
   assert.equal(selectionRepositoryDisposals, 1);
 });
@@ -3005,7 +3008,7 @@ test("command center resolves plugin labels from listings by stable plugin id", 
               displayName: "Computer Use",
               displayNameI18n: { "zh-CN": "电脑控制" },
             },
-            "zcode-cua@custom-marketplace": {
+            "sample-tool@custom-marketplace": {
               displayName: "Custom Computer Use",
               displayNameI18n: { "zh-CN": "自定义电脑控制" },
             },
@@ -3027,13 +3030,13 @@ test("command center resolves plugin labels from listings by stable plugin id", 
             },
             {
               commandRootCount: 0,
-              dataPath: "/tmp/zcode/plugins/data/zcode-cua@custom-marketplace",
+              dataPath: "/tmp/zcode/plugins/data/sample-tool@custom-marketplace",
               enabled: false,
-              id: "zcode-cua@custom-marketplace",
+              id: "sample-tool@custom-marketplace",
               manifestPath: "/plugins/custom-cua/.zcode-plugin/plugin.json",
               marketplace: "custom-marketplace",
               mcpServerNames: [],
-              name: "zcode-cua",
+              name: "sample-tool",
               rootPath: "/plugins/custom-cua",
               skillCount: 0,
               skillRootCount: 0,
@@ -3041,13 +3044,13 @@ test("command center resolves plugin labels from listings by stable plugin id", 
             },
             {
               commandRootCount: 0,
-              dataPath: "/tmp/zcode/plugins/data/zcode-cua@unlisted-marketplace",
+              dataPath: "/tmp/zcode/plugins/data/sample-tool@unlisted-marketplace",
               enabled: false,
-              id: "zcode-cua@unlisted-marketplace",
+              id: "sample-tool@unlisted-marketplace",
               manifestPath: "/plugins/unlisted-cua/.zcode-plugin/plugin.json",
               marketplace: "unlisted-marketplace",
               mcpServerNames: [],
-              name: "zcode-cua",
+              name: "sample-tool",
               rootPath: "/plugins/unlisted-cua",
               skillCount: 0,
               skillRootCount: 0,
@@ -3077,12 +3080,12 @@ test("command center resolves plugin labels from listings by stable plugin id", 
     "✓ 电脑控制",
   );
   assert.equal(
-    items.find((item) => item.id === "zcode-cua@custom-marketplace")?.primary,
+    items.find((item) => item.id === "sample-tool@custom-marketplace")?.primary,
     "○ 自定义电脑控制",
   );
   assert.equal(
-    items.find((item) => item.id === "zcode-cua@unlisted-marketplace")?.primary,
-    "○ ZCode Cua",
+    items.find((item) => item.id === "sample-tool@unlisted-marketplace")?.primary,
+    "○ Sample Tool",
   );
 });
 
@@ -3985,7 +3988,7 @@ test("prints help with help flag", async () => {
   const exitCode = await run(ctx);
 
   assert.equal(exitCode, 0);
-  assert.match(ctx.stdout.output(), /With no command, zcode opens the full-screen TUI\./);
+  assert.match(ctx.stdout.output(), /zcode \[command\] \[options\]/);
   assert.match(ctx.stdout.output(), /Commands:/);
   assert.match(ctx.stdout.output(), /--force-mcs/);
   assert.match(ctx.stdout.output(), /--surface <surface>/);
@@ -4167,10 +4170,9 @@ export async function main() {
     ]);
 
     assert.equal(exitCode, 1);
-    assert.match(
-      ctx.stderr.output(),
-      /Captured ZCode CUA broker credentials may only launch the trusted shared node_repl host/,
-    );
+    // XCODE: 验证拒绝和凭据不泄露，不固定错误中的展示品牌。
+    assert.equal(ctx.stdout.output(), "");
+    assert.equal(ctx.stderr.output().includes("scoped-secret-token"), false);
     await assert.rejects(readFile(outputPath, "utf8"), { code: "ENOENT" });
   } finally {
     resetCapturedZCodeCuaBrokerCredentialsForTest();
@@ -4342,7 +4344,7 @@ export async function main() {
     assert.equal(await run(ctx), 1);
     assert.match(
       ctx.stderr.output(),
-      /Captured ZCode CUA broker credentials may only launch the trusted shared node_repl host/,
+      /CUA broker credentials may only launch the trusted shared node_repl host/,
     );
     await assert.rejects(readFile(outputPath, "utf8"), { code: "ENOENT" });
   } finally {
@@ -6266,17 +6268,16 @@ test("reuses one process provider registry across TUI app replacements", async (
   let runtimeDisposals = 0;
   let selectionRepositoryDisposals = 0;
   let appCreations = 0;
+  let appClosures = 0;
   const exitCode = await run(ctx, {
     ...createPromptDeps(),
     skipUserConfig: false,
     userConfigPath: "/tmp/zcode-legacy-tui.json",
     startProcessProviderRegistryRuntime: async (_env, options) => {
       runtimeStarts += 1;
-      assert.deepEqual(options, {
-        standalone: {
-          legacyCliUserConfigFilePath: "/tmp/zcode-legacy-tui.json",
-        },
-      });
+      assert.equal(options?.standalone?.legacyCliUserConfigFilePath, "/tmp/zcode-legacy-tui.json");
+      assert.equal(typeof options?.standalone?.onBuiltinRefreshError, "function");
+      assert.equal(typeof options?.standalone?.onBuiltinRefreshResult, "function");
       return {
         accountSource: {} as never,
         dispose: () => {
@@ -6310,7 +6311,11 @@ test("reuses one process provider registry across TUI app replacements", async (
         modelId: "model-a",
       });
       return {
-        close: async () => {},
+        close: async () => {
+          assert.equal(runtimeDisposals, 0);
+          assert.equal(selectionRepositoryDisposals, 0);
+          appClosures += 1;
+        },
         getLocale: () => "en-US",
         getModel: () => "openai/gpt-test",
         getThoughtLevel: () => "medium",
@@ -6327,18 +6332,28 @@ test("reuses one process provider registry across TUI app replacements", async (
       } as never;
     },
     runTui: async (options) => {
-      await options.submitPrompt("/new", {
+      // XCODE: 先模拟真实 TUI 首帧后的初始化，/new 才会替换而非首次创建 App。
+      await loadTuiStartup(options);
+      assert.equal(appCreations, 1);
+      const result = await options.submitPrompt("/new", {
         requestPermission: async () => ({
           decision: "deny",
           resolvedAt: new Date(),
         }),
       });
+      assert.equal(result.sessionId, "session-registry-tui-2");
+      assert.equal(appCreations, 2);
+      assert.equal(appClosures, 1);
+      assert.equal(runtimeStarts, 1);
+      assert.equal(runtimeDisposals, 0);
+      assert.equal(selectionRepositoryDisposals, 0);
       return 0;
     },
   });
 
-  assert.equal(exitCode, 0);
+  assert.equal(exitCode, 0, ctx.stderr.output());
   assert.equal(appCreations, 2);
+  assert.equal(appClosures, 2);
   assert.equal(runtimeStarts, 1);
   assert.equal(runtimeDisposals, 1);
   assert.equal(selectionRepositoryDisposals, 1);

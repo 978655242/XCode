@@ -85,27 +85,34 @@ async function terminalFixture(
 
 test("native first paint precedes initialization and theme detection; ready options reach the app", async () => {
   const startup = deferred<TuiStartupOptions>();
-  let frameAtStartup = "";
-  let capture = () => "";
+  let paintedFrames = 0;
+  let paintedFramesAtStartup = 0;
+  let appQueries = 0;
   let calls = 0;
   const terminal = await terminalFixture(
     {
       loadStartupOptions: () => {
         calls += 1;
-        frameAtStartup = capture();
+        paintedFramesAtStartup = paintedFrames;
         return startup.promise;
+      },
+      listMcpServers: async () => {
+        appQueries += 1;
+        return {};
       },
     },
     (created) => {
-      capture = created.captureCharFrame;
+      created.renderer.on(CliRenderEvents.FRAME, () => {
+        paintedFrames += 1;
+      });
     },
   );
   try {
     await terminal.action(() => terminal.renderOnce());
     assert.equal(calls, 1);
-    assert.match(frameAtStartup, /Starting ZCode/);
+    assert.ok(paintedFramesAtStartup > 0, "native output precedes runtime initialization");
     assert.match(terminal.captureCharFrame(), /\/test\/workspace/);
-    assert.doesNotMatch(terminal.captureCharFrame(), /Type a prompt/);
+    assert.equal(appQueries, 0, "the app stays unmounted while startup is pending");
     await terminal.action(() =>
       startup.resolve({
         initialModel: "personal/startup-model",
@@ -118,7 +125,7 @@ test("native first paint precedes initialization and theme detection; ready opti
         ],
       }),
     );
-    assert.doesNotMatch(terminal.captureCharFrame(), /Starting ZCode/);
+    assert.ok(appQueries > 0, "the app mounts after startup completes");
     assert.match(terminal.captureCharFrame(), /startup-model/);
     assert.match(terminal.captureCharFrame(), /personal \| high/);
     await terminal.action(() => terminal.mockInput.typeText("/startup"));

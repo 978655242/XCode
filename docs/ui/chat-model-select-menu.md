@@ -15,7 +15,7 @@
     `API`；连接方式徽标使用无边框的弱表面圆形 pill，模型项本身不重复徽标。连接方式只在设置页切换，输入框菜单只消费当前 selection。
   - 只有一个 provider 时，一级菜单直接展示 model 列表，不额外包一层 provider。
   - 选中 model 使用 `DropdownMenuRadioItem` 保留单选状态；受当前运行任务限制的 model 使用禁用语义和锁定提示，不触发切换。
-  - XCODE：模型名后不显示“视觉 / Vision”能力徽标（模型菜单与模型设置列表均不显示）；图片输入能力仍由 provider registry 的 `inputFormat` 决定附件校验，与展示无关。
+  - XCODE：模型菜单的模型名后不显示“视觉 / Vision”能力徽标；该徽标只保留在模型设置的模型列表行。图片输入能力仍由 provider registry 的 `inputFormat` 决定附件校验，与展示无关。
   - `Ctrl+M` 只唤起模型菜单，不按顺序循环切换模型；模型切换必须由用户在菜单中明确选择。
   - trigger 文案切换时复用 toolbar rolling label 动效，和 mode / thought level 控件保持一致；系统开启 reduced motion 时直接静态替换。
   - XCODE：composer 模型菜单不展示具体供应商，只分两组并各带组标题：`XWork`（`new-api-account` 官方模型）在前，`自定义模型`（其余本地/自配模型，i18n `chat.toolbar.model.group.custom`）在后；某组为空时不显示。两组图标统一使用与 New API 管理端同源的 @lobehub/icons：官方模型取 `/xcode/v1/models` 下发的 `icon`（模型 icon 优先，空则取供应商 icon）；自定义模型没有后端图标，按模型 ID 厂商关键词映射到同一套名称（`resolveModelLobeIcon`，如 Claude→`Claude.Color`、DeepSeek→`DeepSeek.Color`、GLM→`ZAI`，取值对齐后端 `defaultVendorIcons` 与当前供应商配置）。客户端用同版本 `@lobehub/icons-static-svg` 按名称懒加载，`X.Color` 有彩色资源时用彩色，否则用跟随主题前景色的单色；名称未知或未识别时回落 provider logo，再回落 `Package` 图标。trigger 只显示所选模型的图标与模型名，不显示供应商名或前缀；title 同为模型名。其他复用 `ModelConfigSelect` 的入口（子代理、定时任务、工作流设置）保留原供应商分组与身份文案。

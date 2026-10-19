@@ -37,7 +37,7 @@ from pathlib import Path
 import defusedxml.minidom
 from defusedxml import minidom
 
-from .utilities import XMLEditor
+from .utilities import XMLEditor, insert_settings_element
 
 # ---------------------------------------------------------------------------
 # Inline pack utility (replaces former ooxml.scripts.pack dependency)
@@ -1022,10 +1022,7 @@ class Document:
             track_revisions: If True, adds trackRevisions element
             update_fields: If True, adds updateFields element to auto-update fields on open
 
-        Places elements per OOXML schema order:
-        - trackRevisions: early (before defaultTabStop)
-        - updateFields: early (before defaultTabStop)
-        - rsids: late (after compat)
+        Inserts new children in CT_Settings schema order, preserving existing values.
         """
         editor = self["word/settings.xml"]
         root = editor.get_node(tag="w:settings")
@@ -1040,20 +1037,8 @@ class Document:
 
             if not track_revisions_exists:
                 track_rev_xml = f"<{prefix}:trackRevisions/>"
-                # Try to insert before documentProtection, defaultTabStop, or at start
-                inserted = False
-                for tag in [f"{prefix}:documentProtection", f"{prefix}:defaultTabStop"]:
-                    elements = editor.dom.getElementsByTagName(tag)
-                    if elements:
-                        editor.insert_before(elements[0], track_rev_xml)
-                        inserted = True
-                        break
-                if not inserted:
-                    # Insert as first child of settings
-                    if root.firstChild:
-                        editor.insert_before(root.firstChild, track_rev_xml)
-                    else:
-                        editor.append_to(root, track_rev_xml)
+                # // XCODE: 可选锚点缺失时也必须遵守 CT_Settings 顺序，不能插到 zoom 等已有设置前。
+                insert_settings_element(editor, root, "trackRevisions", track_rev_xml)
 
         # Conditionally add updateFields if requested
         if update_fields:
@@ -1064,20 +1049,8 @@ class Document:
 
             if not update_fields_exists:
                 update_fields_xml = f'<{prefix}:updateFields {prefix}:val="true"/>'
-                # Try to insert before defaultTabStop, hyphenationZone, or at start
-                inserted = False
-                for tag in [f"{prefix}:defaultTabStop", f"{prefix}:hyphenationZone"]:
-                    elements = editor.dom.getElementsByTagName(tag)
-                    if elements:
-                        editor.insert_before(elements[0], update_fields_xml)
-                        inserted = True
-                        break
-                if not inserted:
-                    # Insert as first child of settings
-                    if root.firstChild:
-                        editor.insert_before(root.firstChild, update_fields_xml)
-                    else:
-                        editor.append_to(root, update_fields_xml)
+                # // XCODE: updateFields 位于 defaultTabStop 之后、compat 之前，原来的前插会生成无效 DOCX。
+                insert_settings_element(editor, root, "updateFields", update_fields_xml)
 
         # Always check if rsids section exists
         rsids_elements = editor.dom.getElementsByTagName(f"{prefix}:rsids")
@@ -1089,23 +1062,8 @@ class Document:
   <{prefix}:rsid {prefix}:val="{self.rsid}"/>
 </{prefix}:rsids>'''
 
-            # Try to insert after compat, before clrSchemeMapping, or before closing tag
-            inserted = False
-            compat_elements = editor.dom.getElementsByTagName(f"{prefix}:compat")
-            if compat_elements:
-                editor.insert_after(compat_elements[0], rsids_xml)
-                inserted = True
-
-            if not inserted:
-                clr_elements = editor.dom.getElementsByTagName(
-                    f"{prefix}:clrSchemeMapping"
-                )
-                if clr_elements:
-                    editor.insert_before(clr_elements[0], rsids_xml)
-                    inserted = True
-
-            if not inserted:
-                editor.append_to(root, rsids_xml)
+            # // XCODE: rsids 必须在 docVars 后、mathPr 前，不能简单紧跟 compat 或追加到末尾。
+            insert_settings_element(editor, root, "rsids", rsids_xml)
         else:
             # Check if this rsid already exists
             rsids_elem = rsids_elements[0]
