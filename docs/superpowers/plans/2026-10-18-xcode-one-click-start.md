@@ -45,15 +45,15 @@
 
 ## 2. 文件与职责
 
-| 文件 | 操作 | 职责 |
-|---|---|---|
-| `scripts/xcode/start-local.py` | 新建 | 固定运行身份、互斥、数据库/API/桌面补启动、正确实例激活 |
-| `scripts/xcode/start-local.test.py` | 新建 | 真实锁/进程/套接字及信任边界回归 |
-| `scripts/xcode/启动 XCode.command` | 新建 | 可执行 Terminal/Finder 入口，固定工具 PATH |
-| `docs/xcode/new-api-integration-runbook.md` | 更新 | 使用方法、日志、当前原生部署和退出边界 |
-| `~/.config/xcode-local/start.json` | 本机0600 | 工具绝对路径、必要桌面环境、原生三文件指纹及数据库身份；父目录0700 |
-| `~/Library/LaunchAgents/com.xwork.local-desktop.plist` | 本机0600 | 按需调用既有开发入口，不登录自启或自动重启 |
-| `~/.local/share/xcode-local/` | 本机0700 | 锁与0600的 desktop.log，无凭据副本 |
+| 文件                                                   | 操作     | 职责                                                               |
+| ------------------------------------------------------ | -------- | ------------------------------------------------------------------ |
+| `scripts/xcode/start-local.py`                         | 新建     | 固定运行身份、互斥、数据库/API/桌面补启动、正确实例激活            |
+| `scripts/xcode/start-local.test.py`                    | 新建     | 真实锁/进程/套接字及信任边界回归                                   |
+| `scripts/xcode/启动 XCode.command`                     | 新建     | 可执行 Terminal/Finder 入口，固定工具 PATH                         |
+| `docs/xcode/new-api-integration-runbook.md`            | 更新     | 使用方法、日志、当前原生部署和退出边界                             |
+| `~/.config/xcode-local/start.json`                     | 本机0600 | 工具绝对路径、必要桌面环境、原生三文件指纹及数据库身份；父目录0700 |
+| `~/Library/LaunchAgents/com.xwork.local-desktop.plist` | 本机0600 | 按需调用既有开发入口，不登录自启或自动重启                         |
+| `~/.local/share/xcode-local/`                          | 本机0700 | 锁与0600的 desktop.log，无凭据副本                                 |
 
 ### Task 1: 固定真实运行身份
 
