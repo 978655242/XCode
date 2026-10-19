@@ -169,6 +169,6 @@ Marketplace 导入回归通过临时 Git URL 映射克隆本地已提交 fixture
 - 发布前核对客户端/后端源码、构建标记、挂载、canonical origin、功能开关和实际 consumer；备份并确认审计保留，使用明确允许的测试数据验证撤销和资金域。
 - 关闭开关不是旧二进制安全回滚：先撤销全部专用客户端 Session/relay key，取消所有有效 xcode 实例，保留 purpose/scope 与资金审计。确认旧代码不能把专用实例/托管 key 当 general/wallet 再部署旧二进制。
 - 切客户端 URL 或去掉 `NEW_API_BASE_URL` 不迁移用户、订阅或秘密，也不允许未归属云凭据被认领。原生 browser Session 与 XCode Session 的撤销语义必须分别检查。
-- 默认不自动发布、不提交/推送、不重启用户已有服务、不改业务数据库；部署必须有明确授权。PR 目标 `XCode-main`，`main` 仍只镜像上游。
+- 默认不自动发布、不提交/推送、不重启用户已有服务、不改业务数据库；部署必须有明确授权。PR 目标 `release`，`XCode-main` 只接上游同步，`main` 仍只镜像上游。
 - 2026-10-12 用户明确选择「桌面前端＋3001嵌入页」后，已重建桌面/本机 Agent、New API Web 与 Go embed，并启动 `NEW_API_BASE_URL=http://127.0.0.1:3001 pnpm dev:desktop:prod`。现有 `new-api` 容器保留原配置、会话密钥、数据挂载和端口，实际版本为 `xwork-upgrade-20261012`，加载 `index.3b9adbf597.js`；数据库新增可空 `xcode_display`，完整性检查通过，原 3 个账号、2 个模板、账号额度及订阅记录与升级前一致。真实 Native 页面已验证账号恢复、模板读取、个人/团队切换及主题/语言/字号继承，不替代完整 G1–G5 验收。
 - 本次部署备份位于 `~/ai/new-api-backup-xcode-restart-zv7Pnl/`，包含一致数据库快照、旧二进制和私有容器配置；目录及私有文件已限制权限，禁止提交或对外分享。旧容器保留为停止状态的 `new-api-before-upgrade-zv7Pnl`，不要与新容器同时写入相同数据库。当前模板未配置 `xcode_display`，页面按规格保留原始名称与条款；未改写套餐价格、授权、权益或补造体验/Lite/Pro/Max。

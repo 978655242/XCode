@@ -1,7 +1,7 @@
 ## XWork 分支与上游同步（必须遵守）
 
 - 本仓库是 ZCode 的下游产品 XWork。分支、PR、上游同步规则见 `docs/xcode/BRANCHING.md`，开工前必读。
-- 开发分支从 `XCode-main` 切出，PR 目标为 `XCode-main`；`main` 仅镜像上游 ZCode，禁止提交 XWork 改动。
+- 开发分支从 `release` 切出，PR 目标为 `release`；`XCode-main` 只接上游同步 PR（`sync/upstream-*`），再经晋升 PR 合入 `release`；`main` 仅镜像上游 ZCode，禁止提交 XWork 改动。
 - 必须修改上游文件时保持最小改动，并加 `// XCODE: <原因>` 注释。
 
 ## 核心原则

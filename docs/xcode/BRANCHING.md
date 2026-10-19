@@ -19,14 +19,18 @@ git fetch upstream --tags
 
 ## 2. 分支模型
 
+三条长期分支各司其职：`main` 镜像上游，`XCode-main` 专门接收上游同步，`release` 是 XWork 产品主干。上游改动按 `main → XCode-main → release` 单向流动，功能开发只进 `release`。
+
 ```mermaid
 gitGraph
-  commit id: "ZCode v3.14.3"
+  commit id: "ZCode v3.15.1"
   branch XCode-main
-  commit id: "XWork 规范"
+  commit id: "XWork 基线"
+  branch release
+  commit id: "release 起点"
   branch feature/xxx
   commit id: "功能开发"
-  checkout XCode-main
+  checkout release
   merge feature/xxx id: "PR squash"
   checkout main
   commit id: "上游更新 (ff)"
@@ -34,29 +38,34 @@ gitGraph
   branch sync/upstream-20261101
   merge main id: "合并上游"
   checkout XCode-main
-  merge sync/upstream-20261101 id: "PR merge commit"
+  merge sync/upstream-20261101 id: "sync PR merge commit"
+  checkout release
+  merge XCode-main id: "晋升 PR merge commit"
 ```
 
-| 分支                       | 来源            | 规则                                                                          |
-| -------------------------- | --------------- | ----------------------------------------------------------------------------- |
-| `main`                     | `upstream/main` | 上游纯镜像。只允许 fast-forward 到 `upstream/main`，禁止提交任何 XWork 改动。 |
-| `XCode-main`               | —               | XWork 产品主干，GitHub 默认分支。禁止直接 push，只接受 PR。                   |
-| `feature/<简述>`           | `XCode-main`    | 新功能。                                                                      |
-| `fix/<简述>`               | `XCode-main`    | 缺陷修复。                                                                    |
-| `hotfix/<版本>-<简述>`     | 发布 tag        | 线上紧急修复，合回 `XCode-main`。                                             |
-| `sync/upstream-<YYYYMMDD>` | `XCode-main`    | 上游同步专用，见第 4 节。                                                     |
+| 分支                       | 来源            | 规则                                                                                       |
+| -------------------------- | --------------- | ------------------------------------------------------------------------------------------ |
+| `main`                     | `upstream/main` | 上游纯镜像。只允许 fast-forward 到 `upstream/main`，禁止提交任何 XWork 改动。              |
+| `XCode-main`               | —               | 上游同步分支。只接受 `sync/upstream-*` PR，禁止直接 push，不接功能 PR。                    |
+| `release`                  | —               | XWork 产品主干，GitHub 默认分支。接受功能/修复 PR 和 `XCode-main` 晋升 PR，禁止直接 push。 |
+| `feature/<简述>`           | `release`       | 新功能。                                                                                   |
+| `fix/<简述>`               | `release`       | 缺陷修复。                                                                                 |
+| `chore/<简述>`             | `release`       | 工程杂项。                                                                                 |
+| `hotfix/<版本>-<简述>`     | 发布 tag        | 线上紧急修复，合回 `release`。                                                             |
+| `sync/upstream-<YYYYMMDD>` | `XCode-main`    | 上游同步专用，见第 4 节。                                                                  |
 
 规则：
 
-- 所有开发分支从最新的 `XCode-main` 切出，PR 目标必须是 `XCode-main`，禁止向 `main` 提 PR。
-- 小步提交、短生命周期；分支落后 `XCode-main` 时用 `git rebase origin/XCode-main` 更新（仅限个人未共享分支）。
+- 所有开发分支从最新的 `release` 切出，PR 目标必须是 `release`。禁止向 `main` 提 PR，禁止功能 PR 指向 `XCode-main`。
+- 小步提交、短生命周期；分支落后 `release` 时用 `git rebase origin/release` 更新（仅限个人未共享分支）。
 - 上游的其他分支（如 `upstream/feat/ui-plugin`）不直接合入；等其进入 `upstream/main` 后随常规同步进入。确需提前引入时走 `sync/` 流程并在同步记录中注明。
+- `release` 中的 XWork 改动不回流 `XCode-main`。`XCode-main` 只保留上游合并、冲突解决、拒绝项 revert 和同步所需的最小适配。
 
 ## 3. 提交与 PR
 
 - 提交信息使用 Conventional Commits：`feat:`、`fix:`、`refactor:`、`docs:`、`chore:`、`sync:`（仅同步分支）。
-- `feature/`、`fix/` 的 PR 使用 Squash merge。
-- `sync/` 的 PR 必须使用 Create a merge commit，禁止 Squash 与 Rebase。原因：保留上游提交的原始 SHA，下次同步时 Git 才能正确计算 merge-base，否则同一批上游改动会反复冲突。
+- `feature/`、`fix/`、`chore/` 的 PR 使用 Squash merge。
+- `sync/` → `XCode-main` 与 `XCode-main` → `release` 的 PR 必须使用 Create a merge commit，禁止 Squash 与 Rebase。原因：保留上游提交的原始 SHA，下次同步时 Git 才能正确计算 merge-base，否则同一批上游改动会反复冲突。
 - PR 合并前必须通过 CI 检查 `policy` 与 `verify`（见第 8 节），并按 PR 模板填写检查项。
 
 ## 4. 上游同步流程
@@ -118,7 +127,18 @@ gh pr create --base XCode-main --title "sync: upstream ZCode <版本>"
 - 默认整体 merge `main`，不要从上游 cherry-pick。cherry-pick 会生成新 SHA，下次 merge 时同一改动会再次冲突。只有紧急安全修复来不及完整同步时才允许 cherry-pick（`git cherry-pick -x`），并在同步记录中登记，下次完整同步时核对。
 - 冲突解决必须说明取舍：保留 XCode 行为、采用上游行为或二者融合。不确定时在 PR 中 @ 相关功能负责人。
 - 同步 PR 只包含上游合并、冲突解决、拒绝项 revert 和必要适配，禁止夹带新功能。
-- 在同步 PR 内更新 `upstream-sync-log.md`（含“已同步到”字段）；CI 会拒绝未更新记录的同步 PR，也拒绝非同步 PR 修改该文件。
+- 在同步 PR 内更新 `upstream-sync-log.md`（含“已同步到”字段）；CI 会拒绝未更新记录的同步 PR，也拒绝功能 PR 修改该文件。
+
+### 4.4 晋升到 `release`
+
+`sync/` PR 合入 `XCode-main` 后，直接从 `XCode-main` 向 `release` 提 PR，不新建中间分支：
+
+```bash
+gh pr create --base release --head XCode-main --title "sync: promote upstream ZCode <版本> to release"
+```
+
+- 必须 Create a merge commit。`release` 上的 XWork 功能与上游改动的冲突在这一步解决；解决方式同 4.3，需要较大改造时先在 `release` 上开 `fix/` PR，不要回改 `XCode-main`。
+- CI 只允许 head 为已推送的 `origin/XCode-main`，防止借晋升 PR 夹带未评审改动。
 
 ## 5. 降低与上游的分叉成本
 
@@ -133,27 +153,27 @@ gh pr create --base XCode-main --title "sync: upstream ZCode <版本>"
 ## 6. 版本与 Tag
 
 - 上游 tag（如 `v3.14.3`）保持原样，不删除、不重写。
-- XWork 发布 tag 沿用 `xcode-v<主>.<次>.<修订>`，只在 `XCode-main` 上打，避免破坏既有发布自动化和上游 tag。
+- XWork 发布 tag 沿用 `xcode-v<主>.<次>.<修订>`，只在 `release` 上打，避免破坏既有发布自动化和上游 tag。
 
 ## 7. 禁止事项
 
-- 禁止向 `main` 提交或合并任何 XWork 代码；禁止 force push `main` 与 `XCode-main`。
+- 禁止向 `main` 提交或合并任何 XWork 代码；禁止 force push `main`、`XCode-main` 与 `release`。
 - 禁止向 `upstream` 推送。
-- 禁止 Squash 或 Rebase 方式合并 `sync/` PR。
-- 禁止在一个 PR 中同时包含上游同步与功能开发。
+- 禁止 Squash 或 Rebase 方式合并 `sync/` PR 和 `XCode-main` → `release` 晋升 PR。
+- 禁止在一个 PR 中同时包含上游同步与功能开发；禁止功能 PR 指向 `XCode-main`。
 
 ## 8. 强制机制
 
 以下规则由工具强制执行，违反会被直接拦截，不依赖自觉：
 
-| 层级          | 位置                                                       | 拦截内容                                                                                                                                        |
-| ------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| GitHub 规则集 | `XCode-main`                                               | 直接 push、force push、删除分支；未通过 `policy`/`verify` 的 PR 不能合并；禁用 Rebase merge。                                                   |
-| GitHub 规则集 | `main`                                                     | force push、删除分支；仅仓库管理员可更新（用于快进上游）。                                                                                      |
-| CI `policy`   | `.github/workflows/xcode-pr.yml`                           | PR 目标不是 `XCode-main`；分支名不合规；非 `sync/` 分支夹带上游提交；同步分支未先快进 `main` 或未更新同步记录；非同步 PR 修改同步记录。         |
-| CI `verify`   | `.github/workflows/xcode-pr.yml`                           | `pnpm lint`、`pnpm typecheck`、`pnpm architecture:check` 失败；PR 改动文件未格式化（同步 PR 跳过）。                                            |
-| 合并后巡检    | `.github/workflows/xcode-main-guard.yml`                   | 同步 PR 被 squash 合并（规则集无法按分支限制合并方式，只能事后告警）；每日检查 `main` 是否偏离上游，并在 Actions Summary 列出待同步的上游提交。 |
-| 本地 pre-push | `.husky/pre-push` → `scripts/xcode/branch-policy.mjs push` | 推送 `XCode-main`、推送含非上游提交的 `main`、分支名不合规；随后执行 `pnpm verify:pre-push`。`pnpm install` 后自动生效。                        |
+| 层级          | 位置                                                       | 拦截内容                                                                                                                                                                                                   |
+| ------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GitHub 规则集 | `release`、`XCode-main`                                    | 直接 push、force push、删除分支；未通过 `policy`/`verify` 的 PR 不能合并；禁用 Rebase merge。                                                                                                              |
+| GitHub 规则集 | `main`                                                     | force push、删除分支；仅仓库管理员可更新（用于快进上游）。                                                                                                                                                 |
+| CI `policy`   | `.github/workflows/xcode-pr.yml`                           | `sync/` 不指向 `XCode-main`、其他分支不指向 `release`；分支名不合规；功能分支夹带上游提交；同步分支未先快进 `main` 或未更新同步记录；晋升 PR 夹带未进入 `origin/XCode-main` 的提交；功能 PR 修改同步记录。 |
+| CI `verify`   | `.github/workflows/xcode-pr.yml`                           | `pnpm lint`、`pnpm typecheck`、`pnpm architecture:check` 失败；PR 改动文件未格式化（同步 PR 跳过）。                                                                                                       |
+| 合并后巡检    | `.github/workflows/xcode-main-guard.yml`                   | `XCode-main` 或 `release` 上的同步内容被 squash 合并（事后告警）；每日检查 `main` 是否偏离上游，并在 Actions Summary 列出待同步上游提交和待晋升到 `release` 的提交数。                                     |
+| 本地 pre-push | `.husky/pre-push` → `scripts/xcode/branch-policy.mjs push` | 推送 `XCode-main`、推送已存在的 `release`（仅放行首次创建）、推送含非上游提交的 `main`、分支名不合规；随后执行 `pnpm verify:pre-push`。`pnpm install` 后自动生效。                                         |
 
 - `policy`、`verify` 是规则集中的必需检查名，修改 workflow 的 job 名必须同步修改规则集。
 - 规则集、巡检告警只能由仓库管理员处理；禁止为绕过检查而临时关闭规则集或使用 `--no-verify`。
