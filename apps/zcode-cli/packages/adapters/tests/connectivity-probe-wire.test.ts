@@ -54,7 +54,7 @@ describe("connectivity probe wire contract", () => {
       const modelId = "probe-model-unchanged";
       const resolved = fixture.resolve(
         { providerId, modelId },
-        { maxOutputTokens: 1, reasoningLevel: "disabled" },
+        { maxOutputTokens: 1_024, reasoningLevel: "disabled" },
       );
       const result = streamText(
         createStreamTextOptions({
@@ -93,7 +93,7 @@ describe("connectivity probe wire contract", () => {
           : kind === "anthropic"
             ? "max_tokens"
             : "max_completion_tokens";
-      expect(body[budgetField]).toBe(1);
+      expect(body[budgetField]).toBe(1_024);
       if (kind === "anthropic") {
         expect(body.system).toEqual([{ type: "text", text: "You are ZCode connectivity probe." }]);
         expect(body.messages).toEqual([{ role: "user", content: [{ type: "text", text: "hi" }] }]);

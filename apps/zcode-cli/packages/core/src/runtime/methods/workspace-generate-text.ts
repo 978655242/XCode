@@ -23,7 +23,10 @@ import { normalizeStreamError } from "../helpers/index.js";
 import { auxiliaryModelOptions } from "../../model/auxiliary-model-options.js";
 
 const WORKSPACE_GENERATE_TEXT_TIMEOUT_MS = 60_000;
-const CONNECTIVITY_PROBE_MAX_OUTPUT_TOKENS = 1;
+// 修复：New API 原生 Claude 渠道强制 max_tokens ∈ [1024, 128000]（"Token counts are
+// never clamped."），固定 1/512 都会被 400 拒绝；统一 1,024 并按模型公开上限钳制，
+// 不做渠道特判、失败也不动态加价（Todo159 2026-10-19 修订）。
+const CONNECTIVITY_PROBE_MAX_OUTPUT_TOKENS = 1_024;
 // 探测请求使用固定最小 prompt，避免多余推理开销；不可改写角色、文本或混入会话历史。
 const CONNECTIVITY_PROBE_SYSTEM = "You are XWork connectivity probe.";
 const CONNECTIVITY_PROBE_USER = "hi";
@@ -56,11 +59,14 @@ export async function testModelConnectivity(
   options?: { abortSignal?: AbortSignal; traceContext?: TraceContext },
 ): Promise<void> {
   const baseModel = createRuntimeModel(this, { selection: input.selection, scope: "workspace" });
-  // 连接探测不需要生成正文；复用辅助生成的 5,000 预算会等待多余推理和输出。
-  // 独立限制为 1 Token，仍使用最低公开档位，不改变其他辅助调用的预算。
+  // 连接探测不需要生成正文；不复用辅助生成的 5,000 预算，避免等待多余推理和输出。
+  // 预算取 min(1024, 模型公开上限)，仍使用最低公开档位，不改变其他辅助调用的预算。
   const model = baseModel.bind({
     reasoningLevel: baseModel.optionSpecs.reasoningLevel.values[0]!,
-    maxOutputTokens: CONNECTIVITY_PROBE_MAX_OUTPUT_TOKENS,
+    maxOutputTokens: Math.min(
+      CONNECTIVITY_PROBE_MAX_OUTPUT_TOKENS,
+      baseModel.optionSpecs.maxOutputTokens.max,
+    ),
   });
   const traceContext = createChildTraceContext(options?.traceContext ?? this.rootTraceContext, {
     attributes: {

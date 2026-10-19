@@ -1,10 +1,12 @@
 # Desktop Local Model Provider P0 E2E Cases
 
-## Todo144：连接测试 1 Token、无正文也成功
+## Todo144：连接测试固定小预算、无正文也成功
+
+> 修订（2026-10-19，Todo159）：连接测试预算已从 1 统一调整为 `min(1024, 模型公开输出上限)`；本节 wire 断言已同步改为 1,024。历史验收记录保留原始值。
 
 2026-09-15 Pro 验证：C91-04 与 Todo95 两个 pending spec 联合 2/2 通过，run `desktop-e2e-20260915073727784-p67110-e4267aabc5aa16a0`。无正文成功 fixture 明确返回 completion_tokens=1，避免混同“无内容且无用量”的既有 Adapter 重试场景；不改正式重试策略。
 
-- 扩展 C91-04 pending `settings/manual-review/pending/provider-connectivity-prompt.test.ts`：真实模型行点击；case-local loopback 返回无正文且 finish_reason=length 的 SSE，断言成功反馈、Chat wire max_completion_tokens=1、原有固定 Prompt 不变；第二次返回 400，断言失败且配置/选择不变。
+- 扩展 C91-04 pending `settings/manual-review/pending/provider-connectivity-prompt.test.ts`：真实模型行点击；case-local loopback 返回无正文且 finish_reason=length 的 SSE，断言成功反馈、Chat wire max_completion_tokens=1,024、原有固定 Prompt 不变；第二次返回 400，断言失败且配置/选择不变。
 - 接受组合：最低档位及预算/错误边界由 Core 单测覆盖，三类协议预算字段由 Adapter 单测覆盖。E2E 用 Chat 代表；不扩大到所有品牌、主题、远端/手机实机，不冒称上游全部兼容。仍为 synthetic/fast-text、本地隔离、pending 不转正。
 
 ## Todo95：未知型号仅配置推理档位
