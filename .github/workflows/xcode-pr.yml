@@ -21,6 +21,8 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
+      - name: Test branch policy
+        run: node --test scripts/xcode/branch-policy.test.mjs
       - name: Check branch policy
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
