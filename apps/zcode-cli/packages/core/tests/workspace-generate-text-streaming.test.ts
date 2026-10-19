@@ -162,13 +162,13 @@ describe("workspace generateText streaming aggregation", () => {
       selection: { providerId: "test-provider", modelId: "glm-test" },
     });
 
-    expect(boundOptions).toEqual({ maxOutputTokens: 1, reasoningLevel: "low" });
+    expect(boundOptions).toEqual({ maxOutputTokens: 1_024, reasoningLevel: "low" });
   });
 
   it("does not raise the connectivity output budget above the model limit", async () => {
     let boundOptions: ModelOptions | undefined;
     const model = createStreamingModel({
-      maxOutputTokens: 4_096,
+      maxOutputTokens: 512,
       onBind: (options) => {
         boundOptions = options;
       },
@@ -182,7 +182,7 @@ describe("workspace generateText streaming aggregation", () => {
       selection: { providerId: "test-provider", modelId: "glm-test" },
     });
 
-    expect(boundOptions).toEqual({ maxOutputTokens: 1, reasoningLevel: "disabled" });
+    expect(boundOptions).toEqual({ maxOutputTokens: 512, reasoningLevel: "disabled" });
   });
 
   it("uses the disabled baseline when the model does not reason", async () => {
@@ -201,7 +201,7 @@ describe("workspace generateText streaming aggregation", () => {
       selection: { providerId: "test-provider", modelId: "glm-test" },
     });
 
-    expect(boundOptions).toEqual({ maxOutputTokens: 1, reasoningLevel: "disabled" });
+    expect(boundOptions).toEqual({ maxOutputTokens: 1_024, reasoningLevel: "disabled" });
   });
 
   it.each(["stop", "length"])("accepts %s without any response text", async (finishReason) => {

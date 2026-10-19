@@ -119,7 +119,7 @@ describe("Todo95 未知型号仅添加档位", () => {
         enable_thinking: true,
         reasoning_effort: "high",
         reasoning: { effort: "high" },
-        max_completion_tokens: 1,
+        max_completion_tokens: 1_024,
         messages: [
           { role: "system", content: "You are ZCode connectivity probe." },
           { role: "user", content: "hi" },

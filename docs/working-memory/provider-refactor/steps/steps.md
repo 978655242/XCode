@@ -2,11 +2,11 @@
 
 > 状态：持续维护
 >
-> 最近更新：2026-09-09
+> 最近更新：2026-10-19
 
 ## 当前执行入口
 
-- [Todo159：连接测试输出预算统一调整为 512 Token](todo-159-connectivity-512-token-budget.md)：待执行，目标值已确认。Air 的 OpenCode Go Luna 拒绝 `max_output_tokens=1`，服务端要求至少 16；仅改为 16 的对照请求成功。统一将连接测试预算改为 512，取代 Todo144 的 1 Token 裁决，保留最低推理档位、Prompt、流结束和错误契约；本轮仅记录 Todo，512 与修改后 App 验收待执行。
+- [Todo159：连接测试输出预算统一调整为 1,024 Token](todo-159-connectivity-512-token-budget.md)：**已实施**。原定 512 未实施即被新证据取代：New API 原生 Claude 渠道强制 `max_tokens ∈ [1024, 128000]`，1 与 512 均被 400 拒绝；目标值修订为 1,024 并按模型公开输出上限钳制，取代 Todo144 的 1 Token 裁决，保留最低推理档位、Prompt、流结束和错误契约。Core/Adapter/桌面 pending E2E 断言同步更新；真实 New API 渠道 App 内点击验收待用户复核。
 
 - [Todo158：权限审批框完全访问与待执行队列权限同步](todo-158-permission-dialog-full-access-and-queued-mode.md)：已实现，验收尚未全部收口。仅审批框同步当前任务、Composer 和固定待执行队列为 yolo，各自 Plan 保留；包含事务、幂等与投影恢复。必要验证的基线失败、跨端未验证项见 Todo 第 9 节。
 
