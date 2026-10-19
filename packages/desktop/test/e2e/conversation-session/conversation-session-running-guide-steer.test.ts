@@ -233,7 +233,8 @@ Message from coordinator:
       expect(wireText(lastInput.content)).not.toContain(
         "The coordinator sent a message while you were working:",
       );
-      expect(wireText(lastInput.content)).not.toContain("Another ZCode session sent a message:");
+      // XCODE: 提示词展示名已迁移为 XWork（incoming-message.ts）；回放夹具同步匹配 XWork。
+      expect(wireText(lastInput.content)).not.toContain("Another XWork session sent a message:");
       for (const [marker, body, role] of [
         [
           guideOneMarker,

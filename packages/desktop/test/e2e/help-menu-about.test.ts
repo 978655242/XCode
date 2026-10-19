@@ -183,6 +183,7 @@ describe(`问号菜单应用入口（${expectedFlavor}）`, () => {
     await setTheme("zai-light");
     await openMenu();
     const labels = await menuLabels();
+    // XCODE: 帮助菜单“关于”项展示名已迁移为 XWork（titleBar.menu.help.about）。
     expect(labels).toEqual([
       "Product docs",
       "User community",
@@ -191,13 +192,13 @@ describe(`问号菜单应用入口（${expectedFlavor}）`, () => {
       "Export logs",
       "Resource manager",
       ...(production ? ["Check for updates"] : []),
-      "About ZCode",
+      "About XWork",
     ]);
     expect(await $$('[role="menu"] [role="separator"]')).toHaveLength(1);
     await browser.saveScreenshot(join(tmpdir(), "zcode-help-export-en-light.png"));
     await assertLogExport("Export logs", "Exporting logs...");
     await openMenu();
-    await $('[role="menuitem"]*=About ZCode').click();
+    await $('[role="menuitem"]*=About XWork').click();
     await assertAboutWindow();
   });
 
@@ -293,6 +294,7 @@ describe(`问号菜单应用入口（${expectedFlavor}）`, () => {
     await $(`[data-testid="${TID_SETTINGS_PAGE}"]`).waitForDisplayed();
     await openMenu();
     const labels = await menuLabels();
+    // XCODE: 帮助菜单“关于”项展示名已迁移为 XWork（titleBar.menu.help.about）。
     expect(labels).toEqual([
       "产品文档",
       "用户社群",
@@ -301,13 +303,13 @@ describe(`问号菜单应用入口（${expectedFlavor}）`, () => {
       "导出日志",
       "资源管理器",
       ...(production ? ["检查更新"] : []),
-      "关于 ZCode",
+      "关于 XWork",
     ]);
     expect(await $$('[role="menu"] [role="separator"]')).toHaveLength(1);
     await browser.saveScreenshot(join(tmpdir(), "zcode-help-export-zh-dark.png"));
     await assertLogExport("导出日志", "正在导出日志中");
     await openMenu();
-    await $('[role="menuitem"]*=关于 ZCode').click();
+    await $('[role="menuitem"]*=关于 XWork').click();
     await assertAboutWindow();
   });
 });
