@@ -1,5 +1,5 @@
 import type * as NodeFs from "node:fs";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -9,9 +9,8 @@ const hints = vi.hoisted(
   (): {
     manual: boolean;
     callbacks: Array<{ directory: string; listener: NodeFs.WatchListener<string> }>;
-    watched: string[];
-    onDelivered: Map<string, () => void>;
-  } => ({ manual: false, callbacks: [], watched: [], onDelivered: new Map() }),
+    watchers: Array<{ delivered: boolean; onDelivered?: () => void }>;
+  } => ({ manual: false, callbacks: [], watchers: [] }),
 );
 vi.mock("node:fs", async (importOriginal) => {
   const actual = await importOriginal<typeof NodeFs>();
@@ -23,9 +22,11 @@ vi.mock("node:fs", async (importOriginal) => {
       listener: NodeFs.WatchListener<string>,
     ) => {
       if (!hints.manual) {
-        hints.watched.push(String(directory));
+        const watcher: (typeof hints.watchers)[number] = { delivered: false };
+        hints.watchers.push(watcher);
         return actual.watch(directory, options, (event, filename) => {
-          hints.onDelivered.get(String(directory))?.();
+          watcher.delivered = true;
+          watcher.onDelivered?.();
           listener(event, filename);
         });
       }
@@ -41,26 +42,24 @@ afterEach(async () => {
   for (const close of cleanup.splice(0).reverse()) await close();
   hints.manual = false;
   hints.callbacks.length = 0;
-  hints.watched.length = 0;
-  hints.onDelivered.clear();
+  hints.watchers.length = 0;
 });
-// 修复原因：macOS FSEvents 在 watch() 返回后要片刻才开始投递事件，此前的写入会被整体丢弃
-// （实测立即写入约 1/75 收不到任何事件），用例因此偶发 30s 超时。反复写无关探针文件，直到
-// 监听真实投递出事件，再验证跨实例广播；生产实现会忽略非状态文件名。
-async function waitUntilWatching(directory: string) {
-  const { promise, resolve } = Promise.withResolvers<void>();
-  let delivered = false;
-  hints.onDelivered.set(directory, () => {
-    delivered = true;
-    resolve();
-  });
-  // 每次写入后让出事件循环，监听一旦生效就会在下一轮写入前回调。
-  for (let attempt = 0; !delivered; attempt++) {
-    if (attempt >= 10_000) throw new Error("Gen UI state watcher never delivered events");
-    await writeFile(join(directory, "watch-probe"), String(attempt));
-    await Promise.race([promise, new Promise((next) => setImmediate(next))]);
+// 修复原因：同一目录新建第二个 fs.watch 时，macOS FSEvents 可能丢掉紧邻的事件（实测约 1/80），
+// 原用例让 b.set 在写入同一刻才创建 b 的 watcher，a 偶尔收不到外部写入而 30s 超时。
+// 先让两个实例都建立监听，并反复写无关探针文件直到每个 watcher 真实投递过事件，再验证广播；
+// 生产实现会忽略非状态文件名。
+async function waitUntilAllWatching(directory: string) {
+  for (const watcher of hints.watchers) {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    watcher.onDelivered = resolve;
+    // 每次写入后让出事件循环，监听一旦生效就会在下一轮写入前回调。
+    for (let attempt = 0; !watcher.delivered; attempt++) {
+      if (attempt >= 10_000) throw new Error("Gen UI state watcher never delivered events");
+      await writeFile(join(directory, "watch-probe"), String(attempt));
+      await Promise.race([promise, new Promise((next) => setImmediate(next))]);
+    }
+    watcher.onDelivered = undefined;
   }
-  hints.onDelivered.delete(directory);
 }
 describe("desktop Gen UI state persistence", () => {
   it("keeps the latest 100 paths and serializes writes across service instances", async () => {
@@ -120,7 +119,8 @@ describe("desktop Gen UI state persistence", () => {
       path: "/workspace/chart.html",
     };
     await a.get(target);
-    await waitUntilWatching(hints.watched[0]!);
+    await b.get(target);
+    await waitUntilAllWatching(join(root, (await readdir(root))[0]!));
     const changed = new Promise<unknown>((resolve) => {
       const off = a.onChanged((event) => {
         off.dispose();
