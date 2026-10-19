@@ -88,6 +88,7 @@ describe("会话区 subagent prompt assembly E2E", () => {
     await seedSubagentInstructionFixtures();
     await prepareIncomingMessageCapability(false);
 
+    // XCODE: 子代理与系统提示词展示名已迁移为 XWork（general-purpose.ts/explore.ts/cli-prefix.ts）；回放夹具同步匹配 XWork。
     await runSubagentPromptAssemblyScenario({
       agentPromptIncludes: [
         "You are an agent for XWork CLI",
@@ -106,6 +107,7 @@ describe("会话区 subagent prompt assembly E2E", () => {
     // 混入无关的压缩 fixture；保持同一窗口，但用新任务隔离每类 child trajectory。
     await startNewV4Draft();
     await runSubagentPromptAssemblyScenario({
+      // XCODE: Explore 提示词展示名已迁移为 XWork（explore.ts）。
       agentPromptIncludes: ["You are XWork Explore", "READ-ONLY MODE"],
       agentPromptExcludes: [CUSTOM_AGENT_PROMPT_MARKER],
       childMarker: EXPLORE_CHILD_MARKER,
@@ -123,6 +125,7 @@ describe("会话区 subagent prompt assembly E2E", () => {
         CUSTOM_AGENT_PROMPT_MARKER,
         "Reply only with the requested marker.",
       ],
+      // XCODE: general-purpose 提示词展示名已迁移为 XWork。
       agentPromptExcludes: ["You are an agent for XWork CLI"],
       childMarker: CUSTOM_CHILD_MARKER,
       childReplyToken: CUSTOM_CHILD_REPLY_TOKEN,
@@ -139,6 +142,7 @@ describe("会话区 subagent prompt assembly E2E", () => {
         ISOLATED_CUSTOM_AGENT_PROMPT_MARKER,
         "Reply only with the requested marker.",
       ],
+      // XCODE: general-purpose 提示词展示名已迁移为 XWork。
       agentPromptExcludes: ["You are an agent for XWork CLI"],
       childMarker: ISOLATED_CUSTOM_CHILD_MARKER,
       childReplyToken: ISOLATED_CUSTOM_CHILD_REPLY_TOKEN,
@@ -157,6 +161,7 @@ describe("会话区 subagent prompt assembly E2E", () => {
     const modelId = "claude-opus-4-8";
     await runSubagentPromptAssemblyScenario({
       modelId,
+      // XCODE: general-purpose 提示词展示名已迁移为 XWork（general-purpose.ts）。
       agentPromptIncludes: [
         "You are an agent for XWork CLI",
         "the caller will relay this to the user",
@@ -336,6 +341,7 @@ function assertChildSystemPromptShape(
     { type: "ephemeral" },
     { type: "ephemeral" },
   ]);
+  // XCODE: 系统提示词前缀已迁移为 XWork（cli-prefix.ts）。
   expect(systems[0]).toBe("You are XWork, an interactive coding agent");
   for (const expected of input.agentPromptIncludes) {
     expect(systems[1]).toContain(expected);

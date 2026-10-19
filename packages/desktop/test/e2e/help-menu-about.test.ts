@@ -183,6 +183,7 @@ describe(`问号菜单应用入口（${expectedFlavor}）`, () => {
     await setTheme("zai-light");
     await openMenu();
     const labels = await menuLabels();
+    // XCODE: 帮助菜单“关于”项展示名已迁移为 XWork（titleBar.menu.help.about）。
     expect(labels).toEqual([
       "Product docs",
       "User community",
@@ -293,6 +294,7 @@ describe(`问号菜单应用入口（${expectedFlavor}）`, () => {
     await $(`[data-testid="${TID_SETTINGS_PAGE}"]`).waitForDisplayed();
     await openMenu();
     const labels = await menuLabels();
+    // XCODE: 帮助菜单“关于”项展示名已迁移为 XWork（titleBar.menu.help.about）。
     expect(labels).toEqual([
       "产品文档",
       "用户社群",
