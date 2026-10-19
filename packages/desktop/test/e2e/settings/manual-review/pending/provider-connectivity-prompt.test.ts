@@ -58,9 +58,9 @@ describe("C91-04 connectivity whitelist prompt", () => {
           object: "chat.completion.chunk",
           created: 1,
           model: modelId,
-          // 1 Token 可全部用于推理；无正文的正常 length 结束也必须显示连接成功。
+          // 探针预算可全部用于推理；无正文的正常 length 结束也必须显示连接成功。
           choices: [{ index: 0, delta: {}, finish_reason: "length" }],
-          // 省略用量会触发正式 Adapter 的零用量空响应重试，不能代表已消耗 1 Token。
+          // 省略用量会触发正式 Adapter 的零用量空响应重试，不能代表已消耗预算。
           usage: { prompt_tokens: 10, completion_tokens: 1, total_tokens: 11 },
         })}\n\ndata: [DONE]\n\n`,
       );
@@ -120,7 +120,7 @@ describe("C91-04 connectivity whitelist prompt", () => {
       for (const body of bodies) {
         expect(body.model).toBe(modelId);
         expect(body.stream).toBe(true);
-        expect(body.max_completion_tokens).toBe(1);
+        expect(body.max_completion_tokens).toBe(1_024);
         expect(body.messages).toEqual([
           { role: "system", content: "You are ZCode connectivity probe." },
           { role: "user", content: "hi" },

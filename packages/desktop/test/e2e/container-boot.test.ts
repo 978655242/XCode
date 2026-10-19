@@ -1,9 +1,5 @@
 import { access } from "node:fs/promises";
-import {
-  DEFAULT_WORKSPACE,
-  clearAppData,
-  waitForWorkspaceApp,
-} from "./helpers/desktop-app.js";
+import { DEFAULT_WORKSPACE, clearAppData, waitForWorkspaceApp } from "./helpers/desktop-app.js";
 
 interface WindowInfo {
   title: string;
@@ -48,7 +44,8 @@ describe("桌面端容器 headless boot demo", () => {
     );
 
     expect(mainWindow).toBeTruthy();
-    expect(mainWindow?.title).toBe("ZCode");
+    // XCODE: 展示名已迁移为 XWork；数据目录仍沿用 ZCode 身份。
+    expect(mainWindow?.title).toBe("XWork");
     expect(mainWindow?.visible).toBe(true);
 
     // 修复原因：v4 renderer URL 只承载启动/恢复参数，workspace 绑定已经迁入 store。
