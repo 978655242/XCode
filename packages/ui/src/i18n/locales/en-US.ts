@@ -3827,6 +3827,7 @@ const enUS: Record<string, string> = {
   "settings.modelProvider.modelMetadata.invalid.reasoningLevelMap":
     "Reasoning parameter mapping is invalid",
   "settings.modelProvider.contextWindowBadgeLabel": "Context window: {value}",
+  "model.capability.vision": "Vision",
   "settings.modelProvider.advanced": "Advanced settings",
   "settings.modelProvider.advancedConfig": "Advanced settings",
   "settings.modelProvider.reasoning": "Reasoning settings",

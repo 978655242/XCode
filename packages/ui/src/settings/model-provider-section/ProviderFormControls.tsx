@@ -12,6 +12,8 @@ import type { ModelConfigResolution, ProviderConfigObject } from "@zcode/provide
 import { useProviderDetailFeedback } from "@/settings/model-provider-section/ProviderDetailFeedback.js";
 import { LobeIcon, resolveLobeIcon } from "@/components/LobeIcon.js";
 import { resolveModelLobeIcon } from "@/lib/modelBrandLogo.js";
+import { ModelInputCapabilityBadge } from "@/components/ModelInputCapabilityBadge.js";
+import { shouldShowModelVisionBadge } from "@/lib/modelVisionBadge.js";
 
 export function ModelRowInput({
   model,
@@ -265,6 +267,13 @@ export function ModelRowInput({
           >
             {contextWindowLabel}
           </span>
+          {shouldShowModelVisionBadge(
+            model.modelId,
+            model.config.properties?.inputFormat?.supportsImage,
+            providerAccess,
+          ) ? (
+            <ModelInputCapabilityBadge />
+          ) : null}
         </div>
         {shouldShowTestButton ? (
           <Button

@@ -3583,6 +3583,7 @@ const zhCN: Record<string, string> = {
   "settings.modelProvider.modelMetadata.invalid.reasoningLevelValues": "推理档位不能为空或重复",
   "settings.modelProvider.modelMetadata.invalid.reasoningLevelMap": "推理参数映射无效",
   "settings.modelProvider.contextWindowBadgeLabel": "上下文窗口：{value}",
+  "model.capability.vision": "视觉",
   "settings.modelProvider.advanced": "高级设置",
   "settings.modelProvider.advancedConfig": "高级配置",
   "settings.modelProvider.reasoning": "推理设置",

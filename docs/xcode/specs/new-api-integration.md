@@ -220,14 +220,14 @@ secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或
 
 必须迁移所有受影响 caller，而不是兼容别名或新旧同时有效：
 
-| 区域            | 需要的 clean cutover                                                                                                   |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| provider config | provider-data-schema/provider-config/schema/rule-data-schema 的访问与 group union、hydration/overlay/只读约束          |
-| Registry        | resolver、sources、account-provider-resolution/state/service、config-service 的 entitled/current/fail-closed 分支      |
-| shared          | model-provider-types、zcode-protocol AccountAccess/模型 DTO、worker account-config 协议                                |
-| node            | model-selection-facade 分类、process-provider-registry-runtime 解析、Host account provider connection/auth             |
-| UI              | usePlanIdentitySnapshot、accountProviderAccess、codingPlanUsageSources、ModelProviderSection/Detail 以及账号失效提示   |
-| 身份分支        | 任何 `family === "zai" ? ... : bigmodel` 式 fallback 必须显式处理 native 与 official-cloud；不得把 new-api 当 bigmodel |
+| 区域            | 需要的 clean cutover                                                                                                                   |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| provider config | provider-data-schema/provider-config/schema/rule-data-schema 的访问与 group union、hydration/overlay/只读约束                          |
+| Registry        | resolver、sources、account-provider-resolution/state/service、config-service 的 entitled/current/fail-closed 分支                      |
+| shared          | model-provider-types、zcode-protocol AccountAccess/模型 DTO、worker account-config 协议                                                |
+| node            | model-selection-facade 分类、process-provider-registry-runtime 解析、Host account provider connection/auth                             |
+| UI              | usePlanIdentitySnapshot、accountProviderAccess、codingPlanUsageSources、modelVisionBadge、ModelProviderSection/Detail 以及账号失效提示 |
+| 身份分支        | 任何 `family === "zai" ? ... : bigmodel` 式 fallback 必须显式处理 native 与 official-cloud；不得把 new-api 当 bigmodel                 |
 
 不删除仍由官方云使用的旧 family、off-peak ID/配置和官方 adapters；删除的是普通私有路径上的旧依赖、fallback、secret alias 和失效兼容逻辑。
 

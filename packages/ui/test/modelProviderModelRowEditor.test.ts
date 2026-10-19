@@ -46,6 +46,7 @@ vi.mock("@/i18n/IntlProvider.js", () => ({
       formatMessage: ({ id }: { id: string }, values?: Record<string, string>) => {
         const messages: Record<string, string> = {
           "settings.modelProvider.addModel": "添加模型",
+          "model.capability.vision": "视觉",
           "settings.modelProvider.contextWindow": "上下文窗口",
           "settings.modelProvider.contextWindowBadgeLabel": "上下文窗口：{value}",
           "settings.modelProvider.delete": "删除",
@@ -1030,6 +1031,24 @@ describe("ProviderModelsSection compact model rows", () => {
     expect(fireEvent.keyDown(row, { key: " ", code: "Space" })).toBe(false);
     expect(row.getAttribute("aria-pressed")).toBe("true");
     expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it("模型行按图片能力显示视觉标记，而非按型号猜测", () => {
+    const model = createModelProviderModelConfig({ id: "unknown-vision-model" });
+    model.config.properties!.inputFormat!.supportsImage = true;
+    const { rerender } = render(
+      createElement(ModelRowInput, { providerId: "provider-demo", model, onCommit: vi.fn() }),
+    );
+    expect(screen.getByLabelText("视觉")).toBeTruthy();
+    const textOnly = createModelProviderModelConfig({ id: "GLM-5.3" });
+    rerender(
+      createElement(ModelRowInput, {
+        providerId: "provider-demo",
+        model: textOnly,
+        onCommit: vi.fn(),
+      }),
+    );
+    expect(screen.queryByLabelText("视觉")).toBeNull();
   });
 
   it("Model Draft 等待 Host 原子保存成功后才关闭弹窗", async () => {
