@@ -7,7 +7,7 @@ import { withoutRequestVerificationHeaders } from "@zcode/shared";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import type { LanguageModel } from "ai";
+import { wrapLanguageModel, type LanguageModel } from "ai";
 import {
   compileModelOptionMaps,
   type CompiledModelOptionMaps,
@@ -27,6 +27,7 @@ import { createModelRequestSecurityState } from "./request-security-edition/inde
 import type { ModelRequestSecurityState, ModelRequestSecurityPort } from "./request-security.js";
 import { createOpenAIResponsesJsonCompatFetch } from "./openai-responses-json-compat.js";
 import { createModelOptionMapFetch, type RawRequestBodyCapture } from "./model-option-map-fetch.js";
+import { openAICompatibleCacheUsageMiddleware } from "./openai-compatible-cache-usage.js";
 import { createNetworkProxyFetch } from "../network/proxy-fetch.js";
 import { createProviderEndpointRoutingFetch } from "./provider-endpoint-routing-fetch.js";
 import { normalizeModelTlsFailure } from "./failure-tls.js";
@@ -347,7 +348,12 @@ export class AiSdkModelExecution {
           // 使用 binding 冻结的模型事实，不按供应商或实时 Registry 另查一套能力。
           supportsStructuredOutputs: supportsJsonSchemaOutput,
         });
-        return provider as LanguageModelFactory;
+        // 缺失 cached_tokens 时保留“未知”，不让 SDK 默认的 0 冒充真实命中率。
+        return (modelId: string) =>
+          wrapLanguageModel({
+            model: provider(modelId),
+            middleware: openAICompatibleCacheUsageMiddleware,
+          });
       }
     }
   }

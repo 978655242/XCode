@@ -26,7 +26,7 @@ export function toTokenUsageInfo(usage?: {
   input: number;
   output: number;
   reasoning: number;
-  cache: { read: number; write: number };
+  cache: { read?: number; write: number };
 } {
   return {
     total: usage?.totalTokens,
@@ -34,7 +34,8 @@ export function toTokenUsageInfo(usage?: {
     output: usage?.outputTokens ?? 0,
     reasoning: usage?.reasoningTokens ?? 0,
     cache: {
-      read: usage?.cacheReadTokens ?? 0,
+      // 缓存读取缺失表示 provider 未回报，持久化保持缺省，下游据此显示“未知”而非 0%。
+      ...(usage?.cacheReadTokens !== undefined ? { read: usage.cacheReadTokens } : {}),
       write: usage?.cacheWriteTokens ?? 0,
     },
   };

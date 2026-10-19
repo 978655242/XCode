@@ -146,4 +146,45 @@ describe("OpenAI-compatible stream usage requests", () => {
       type: "tool-call",
     });
   });
+
+  it.each([
+    ["omitted", { prompt_tokens: 100, completion_tokens: 1, total_tokens: 101 }, undefined],
+    [
+      "reported",
+      {
+        prompt_tokens: 100,
+        completion_tokens: 1,
+        total_tokens: 101,
+        prompt_tokens_details: { cached_tokens: 0 },
+      },
+      0,
+    ],
+  ])("keeps cache read unknown only when cached_tokens is %s", async (_label, usage, expected) => {
+    vi.stubGlobal("fetch", async () => {
+      return new Response(
+        [
+          'data: {"id":"c","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"content":"ok"},"finish_reason":"stop"}]}',
+          `data: ${JSON.stringify({ id: "c", object: "chat.completion.chunk", created: 1, model: "m", choices: [], usage })}`,
+          "data: [DONE]",
+          "",
+        ].join("\n\n"),
+        { headers: { "content-type": "text/event-stream" } },
+      );
+    });
+    const registry = new TestProviderConfigFixture({
+      env: {},
+      providers: {
+        compatible: {
+          apiKey: "test-key",
+          baseURL: "https://api.example.test/v1",
+          kind: "openai-compatible",
+        },
+      },
+    });
+    const result = streamText({ model: registry.resolve("compatible/m").model, prompt: "hi" });
+
+    const total = await result.totalUsage;
+    expect(total.inputTokens).toBe(100);
+    expect(total.inputTokenDetails.cacheReadTokens).toBe(expected);
+  });
 });

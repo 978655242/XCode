@@ -5134,6 +5134,7 @@ const enUS: Record<string, string> = {
   "chat.contextUsage": "Context usage {used} of {total}",
   "chat.contextUsage.title": "Context windows",
   "chat.contextUsageDescription":
+  "chat.contextUsage.cacheHitRateUnknown": "Unknown",
     "Prompt text, tool calls, and responses all share this context window.",
   "chat.contextUsage.cacheHitRate": "Average cache hit rate",
   "chat.contextUsage.breakdown": "Context sources",

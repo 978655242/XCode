@@ -18,6 +18,7 @@
   - 使用 `ContextTrigger` 作为上下文入口
   - 使用 `ContextContentBody` 展示上下文窗口占用、breakdown、cache hit rate，以及 Coding Plan `Usage Remaining`
   - cache hit rate 只有在主轮累计命中率大于等于 78% 时展示；低于 78% 的值不在紧凑 context 面板中显示
+  - provider 未回报缓存读取（`cache.hitRate` 为 `null`）时显示「未知」，不显示 0%，也不受 78% 阈值影响
   - 输入框 context 内的 Coding Plan 用量独立渲染，不复用 sidebar 菜单面板 UI
 - `packages/ui/src/components/ai-elements/context.tsx`
   - 增加了 0 上限保护，避免进度百分比出现无效值

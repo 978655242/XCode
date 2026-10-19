@@ -182,6 +182,42 @@ describe("session history rewind hydration", () => {
       totalInputTokens: 100,
       totalCacheReadTokens: 80,
       totalCacheWriteTokens: 10,
+      cacheReadUnknown: false,
+    });
+  });
+
+  it("marks the recovered cache aggregate unknown when a request omitted cache read", () => {
+    const sessionID = createSessionId("cache-aggregate-unknown-read");
+    const firstUserID = createMessageId("cache-unknown-first-user");
+    const firstAssistantID = createMessageId("cache-unknown-first-assistant");
+    const secondUserID = createMessageId("cache-unknown-second-user");
+    const secondAssistantID = createMessageId("cache-unknown-second-assistant");
+    const persistedMessages = [
+      userMessage(sessionID, firstUserID, "first", 1),
+      assistantMessage(sessionID, firstAssistantID, firstUserID, "reply", 2, {
+        input: 100,
+        output: 20,
+        reasoning: 0,
+        cache: { read: 80, write: 0 },
+        total: 120,
+      }),
+      userMessage(sessionID, secondUserID, "second", 3),
+      assistantMessage(sessionID, secondAssistantID, secondUserID, "reply", 4, {
+        input: 200,
+        output: 20,
+        reasoning: 0,
+        cache: { write: 0 },
+        total: 220,
+      }),
+    ];
+    const activeMessages = activeSessionMessages(persistedMessages);
+
+    expect(mainTurnCacheHitAggregateFromMessages({ activeMessages, persistedMessages })).toEqual({
+      requestCount: 2,
+      totalInputTokens: 300,
+      totalCacheReadTokens: 80,
+      totalCacheWriteTokens: 0,
+      cacheReadUnknown: true,
     });
   });
 
@@ -236,6 +272,7 @@ describe("session history rewind hydration", () => {
       totalInputTokens: 300,
       totalCacheReadTokens: 180,
       totalCacheWriteTokens: 30,
+      cacheReadUnknown: false,
     });
   });
 

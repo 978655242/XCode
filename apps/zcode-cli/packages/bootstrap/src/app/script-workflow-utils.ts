@@ -154,7 +154,7 @@ export async function collectScriptWorkflowSessionStats(
   for (const message of messages) {
     stats.toolCalls += message.parts.filter((part) => part.type === "tool").length;
     if (message.info.role !== "assistant") continue;
-    stats.tokens.cacheRead += message.info.tokens.cache.read;
+    stats.tokens.cacheRead += message.info.tokens.cache.read ?? 0;
     stats.tokens.cacheWrite += message.info.tokens.cache.write;
     stats.tokens.input += message.info.tokens.input;
     stats.tokens.output += message.info.tokens.output;

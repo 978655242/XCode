@@ -82,7 +82,8 @@ export function mainTurnCacheHitAggregateFromMessages(input: {
       // activeMessages 是 provider/context projection，Compact preserved usage
       // 可能已被清零。active IDs 只决定分支成员，cache aggregate 必须读取持久化原始 tokens。
       const inputTokens = nonNegativeInteger(message.info.tokens.input) ?? 0;
-      const cacheReadTokens = nonNegativeInteger(message.info.tokens.cache.read) ?? 0;
+      const rawCacheRead = nonNegativeInteger(message.info.tokens.cache.read);
+      const cacheReadTokens = rawCacheRead ?? 0;
       const cacheWriteTokens = nonNegativeInteger(message.info.tokens.cache.write) ?? 0;
       if (inputTokens <= 0 && cacheReadTokens <= 0 && cacheWriteTokens <= 0) {
         return aggregate;
@@ -93,6 +94,7 @@ export function mainTurnCacheHitAggregateFromMessages(input: {
         totalInputTokens: aggregate.totalInputTokens + inputTokens,
         totalCacheReadTokens: aggregate.totalCacheReadTokens + cacheReadTokens,
         totalCacheWriteTokens: aggregate.totalCacheWriteTokens + cacheWriteTokens,
+        cacheReadUnknown: aggregate.cacheReadUnknown || rawCacheRead === undefined,
       };
     },
     {
@@ -100,6 +102,7 @@ export function mainTurnCacheHitAggregateFromMessages(input: {
       totalInputTokens: 0,
       totalCacheReadTokens: 0,
       totalCacheWriteTokens: 0,
+      cacheReadUnknown: false,
     },
   );
 }
@@ -126,7 +129,8 @@ export function recordMainTurnCacheHitUsage(
   // AI SDK v6 已把 Anthropic cache read/write 并入 inputTokens；
   // 缓存命中率的分母应使用 total input，不能再把 cache 字段重复加到分母或上下文用量里。
   const inputTokens = modelUsageInputWindowTokens(usage) ?? 0;
-  const cacheReadTokens = nonNegativeInteger(usage.cacheReadTokens) ?? 0;
+  const rawCacheRead = nonNegativeInteger(usage.cacheReadTokens);
+  const cacheReadTokens = rawCacheRead ?? 0;
   const cacheWriteTokens = nonNegativeInteger(usage.cacheWriteTokens) ?? 0;
   if (inputTokens <= 0 && cacheReadTokens <= 0 && cacheWriteTokens <= 0) {
     return undefined;
@@ -138,6 +142,8 @@ export function recordMainTurnCacheHitUsage(
     totalCacheReadTokens: runtime.mainTurnCacheHitAggregate.totalCacheReadTokens + cacheReadTokens,
     totalCacheWriteTokens:
       runtime.mainTurnCacheHitAggregate.totalCacheWriteTokens + cacheWriteTokens,
+    // 修复原因：provider 未回报缓存读取时按 0 计会把命中率显示成 0%；记为未知，整个窗口不出数。
+    cacheReadUnknown: runtime.mainTurnCacheHitAggregate.cacheReadUnknown || rawCacheRead === undefined,
   };
 
   const aggregate = runtime.mainTurnCacheHitAggregate;
@@ -145,9 +151,9 @@ export function recordMainTurnCacheHitUsage(
     inputTokens,
     cacheReadTokens,
     cacheWriteTokens,
-    latestHitRate: inputTokens > 0 ? cacheReadTokens / inputTokens : null,
+    latestHitRate: rawCacheRead !== undefined && inputTokens > 0 ? cacheReadTokens / inputTokens : null,
     hitRate:
-      aggregate.totalInputTokens > 0
+      !aggregate.cacheReadUnknown && aggregate.totalInputTokens > 0
         ? aggregate.totalCacheReadTokens / aggregate.totalInputTokens
         : null,
     hitRateRequestCount: aggregate.requestCount,

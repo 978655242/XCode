@@ -379,7 +379,8 @@ export interface TokenUsageInfo {
   output: number;
   reasoning: number;
   cache: {
-    read: number;
+    /** provider 未回报缓存读取时缺省；不能当作 0 命中。 */
+    read?: number;
     write: number;
   };
 }

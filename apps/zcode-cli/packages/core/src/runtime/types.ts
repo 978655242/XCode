@@ -279,6 +279,8 @@ export interface MainTurnCacheHitAggregate {
   totalInputTokens: number;
   totalCacheReadTokens: number;
   totalCacheWriteTokens: number;
+  /** 窗口内任一请求缺失缓存读取计数时为 true，此时累计命中率不可信，hitRate 返回 null。 */
+  cacheReadUnknown: boolean;
 }
 
 export type BackgroundTaskNotificationSealReason = "subagent_terminal" | "subagent_cancelled";

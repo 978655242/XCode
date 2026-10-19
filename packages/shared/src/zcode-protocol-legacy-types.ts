@@ -181,7 +181,7 @@ export const zcodeTokenUsageSchema = z
     reasoning: z.number().int().nonnegative(),
     cache: z
       .object({
-        read: z.number().int().nonnegative(),
+        read: z.number().int().nonnegative().optional(),
         write: z.number().int().nonnegative(),
       })
       .strict(),

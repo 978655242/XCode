@@ -951,6 +951,27 @@ describe("ChatContextUsage", () => {
     expect(html).toContain("4.8%");
   });
 
+  it("renders unknown instead of 0% when the provider did not report cache reads", () => {
+    const html = renderToStaticMarkup(
+      createElement(ChatContextUsage, {
+        intl: {
+          formatMessage: ({ id }: { id: string }) => id,
+        },
+        locale: "en-US",
+        selectedProvider: "glm",
+        taskUsage: {
+          used: 17_000,
+          size: 1_000_000,
+          cache: { hitRate: null },
+        },
+      }),
+    );
+
+    expect(html).toContain("chat.contextUsage.cacheHitRate");
+    expect(html).toContain("chat.contextUsage.cacheHitRateUnknown");
+    expect(html).not.toContain("0%");
+  });
+
   it("renders Coding Plan quota without real task context usage", () => {
     const availableProviders = [
       createCodingPlanProvider(BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan),

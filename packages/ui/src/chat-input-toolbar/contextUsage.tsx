@@ -869,14 +869,16 @@ export function ChatContextUsage({
     );
   }, [intl, numberFormatter, renderableTaskUsage]);
   const cacheHitRateLabel = useMemo(() => {
-    return formatContextCacheHitRateLabel(
-      renderableTaskUsage?.cache?.hitRate,
-      locale,
-      {
-        showBelowThreshold: import.meta.env.DEV,
-      },
-    );
-  }, [locale, renderableTaskUsage]);
+    const cache = renderableTaskUsage?.cache;
+    // 修复原因：provider 未回报缓存读取时 runtime 给出 hitRate=null；有 cache 对象却无比例，
+    // 应明确展示“未知”，而不是隐藏或被误读为 0%。
+    if (cache && cache.hitRate === null) {
+      return intl.formatMessage({ id: "chat.contextUsage.cacheHitRateUnknown" });
+    }
+    return formatContextCacheHitRateLabel(cache?.hitRate, locale, {
+      showBelowThreshold: import.meta.env.DEV,
+    });
+  }, [intl, locale, renderableTaskUsage]);
   const breakdownSegments = useMemo(
     () => buildContextUsageBreakdownSegments(renderableTaskUsage?.breakdown),
     [renderableTaskUsage?.breakdown],

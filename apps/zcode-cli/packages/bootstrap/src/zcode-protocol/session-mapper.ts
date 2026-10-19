@@ -821,13 +821,16 @@ function contextCacheUsageFromMessages(
   let latestInputTokens = 0;
   let latestCacheReadTokens = 0;
   let latestCacheWriteTokens = 0;
+  let latestCacheReadKnown = true;
+  let cacheReadUnknown = false;
 
   for (const message of messages) {
     if (message.info.role !== "assistant" || message.info.summary) {
       continue;
     }
     const input = nonNegativeInteger(message.info.tokens.input) ?? 0;
-    const read = nonNegativeInteger(message.info.tokens.cache.read) ?? 0;
+    const rawRead = nonNegativeInteger(message.info.tokens.cache.read);
+    const read = rawRead ?? 0;
     const write = nonNegativeInteger(message.info.tokens.cache.write) ?? 0;
     if (input <= 0 && read <= 0 && write <= 0) {
       continue;
@@ -839,6 +842,9 @@ function contextCacheUsageFromMessages(
     latestInputTokens = input;
     latestCacheReadTokens = read;
     latestCacheWriteTokens = write;
+    // 缓存读取缺失表示 provider 未回报；冷恢复同样不能把它算作 0 命中。
+    latestCacheReadKnown = rawRead !== undefined;
+    cacheReadUnknown ||= rawRead === undefined;
   }
 
   if (requestCount <= 0) {
@@ -848,8 +854,9 @@ function contextCacheUsageFromMessages(
     inputTokens: latestInputTokens,
     cacheReadTokens: latestCacheReadTokens,
     cacheWriteTokens: latestCacheWriteTokens,
-    latestHitRate: latestInputTokens > 0 ? latestCacheReadTokens / latestInputTokens : null,
-    hitRate: inputTokens > 0 ? cacheReadTokens / inputTokens : null,
+    latestHitRate:
+      latestCacheReadKnown && latestInputTokens > 0 ? latestCacheReadTokens / latestInputTokens : null,
+    hitRate: !cacheReadUnknown && inputTokens > 0 ? cacheReadTokens / inputTokens : null,
     hitRateRequestCount: requestCount,
     totalInputTokens: inputTokens,
     totalCacheReadTokens: cacheReadTokens,
@@ -1469,7 +1476,7 @@ function readToolStateUpdatedAt(state: ToolState): number | undefined {
 }
 
 function tokenTotal(tokens: {
-  cache: { read: number; write: number };
+  cache: { read?: number; write: number };
   input: number;
   output: number;
   reasoning: number;
@@ -1477,7 +1484,11 @@ function tokenTotal(tokens: {
 }): number {
   return (
     tokens.total ??
-    tokens.input + tokens.output + tokens.reasoning + tokens.cache.read + tokens.cache.write
+    tokens.input +
+      tokens.output +
+      tokens.reasoning +
+      (tokens.cache.read ?? 0) +
+      tokens.cache.write
   );
 }
 

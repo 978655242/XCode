@@ -21,6 +21,7 @@ Anthropic path, so the denominator must not add cache fields again.
 - ZCode Protocol snapshot returns the value at `runtime.contextUsage.cache`.
 - Task stream emits the same value on `usage_update.cache`, so desktop `continuous` and mobile `/remote` `replayable` clients consume one shared payload.
 - UI displays `cache.hitRate` in the chat input context panel when the field is present. Production builds keep the aggregate `0.78` (78%) threshold so lower rates do not distract from context capacity; development builds always display every valid rate to make provider cache diagnostics observable. It does not invent a fallback when the provider omits cache usage, and it does not infer cache hit rate from task cumulative token usage.
+- Unknown cache usage is not zero. When a provider response omits its cache-read counter (for example OpenAI Chat Completions usage without `prompt_tokens_details.cached_tokens`, as the Kiro Claude upstream does), the adapter keeps `cacheReadTokens` undefined instead of the AI SDK default `0`, persisted assistant tokens omit `cache.read`, and that request's `latestHitRate` is `null`. One unknown request makes the aggregate `hitRate` `null` for the whole window (the same rule as the session debug panel), because a token-weighted sum cannot be trusted with a missing term. When a `cache` object is present with `hitRate: null`, the panel shows "Unknown" in every build instead of `0%`; when no `cache` object exists the row stays hidden.
 
 ## Context Source Breakdown
 
