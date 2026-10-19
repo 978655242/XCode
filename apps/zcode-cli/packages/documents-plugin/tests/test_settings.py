@@ -22,10 +22,15 @@ REPO = next(parent for parent in Path(__file__).resolve().parents if (parent / "
 FIXTURE = REPO / "packages/desktop/test/e2e/fixtures/fs/conversation-session/conversation-session-assistant-preview-cards/sample.docx"
 
 
+W14_NS = "http://schemas.microsoft.com/office/word/2010/wordml"
+W15_NS = "http://schemas.microsoft.com/office/word/2012/wordml"
+
+
 def settings(children):
     return (
         f'<w:settings xmlns:w="{WORD_NS}" '
-        'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">'
+        'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" '
+        f'xmlns:w14="{W14_NS}" xmlns:w15="{W15_NS}">'
         f'{children}</w:settings>'
     )
 
@@ -55,6 +60,11 @@ class SettingsRegression(unittest.TestCase):
                 '<w:zoom w:percent="90"/><w:trackRevisions w:val="false"/>'
                 '<w:defaultTabStop w:val="720"/><w:updateFields w:val="false"/>'
                 '<w:compat/><w:rsids><w:rsidRoot w:val="12345678"/></w:rsids>'
+            ),
+            # 只剩 Office 扩展尾部时，新增基础 CT_Settings 元素必须插在扩展元素之前。
+            "extension_tail": settings(
+                '<w:zoom w:percent="100"/><w:defaultTabStop w:val="720"/>'
+                '<w14:docId w14:val="1A2B3C4D"/><w15:docId w15:val="{00000000-0000-0000-0000-000000000000}"/>'
             ),
         }
         for name, xml in variants.items():
@@ -108,6 +118,15 @@ class SettingsRegression(unittest.TestCase):
                 _fix_update_fields(saved / "word/settings.xml")
                 _pack_document(saved, output)
                 self.validate_docx(output)
+                self.assert_base_before_extensions(saved / "word/settings.xml")
+
+    def assert_base_before_extensions(self, path):
+        # 外部 validator 不校验扩展尾部顺序；直接断言基础 w: 元素都在第一个扩展元素之前。
+        namespaces = [child.tag.split("}")[0][1:] for child in ET.parse(path).getroot()]
+        first_extension = next(
+            (i for i, ns in enumerate(namespaces) if ns in (W14_NS, W15_NS)), len(namespaces)
+        )
+        self.assertNotIn(WORD_NS, namespaces[first_extension:], namespaces)
 
     def document_text(self, directory):
         return [node.text for node in ET.parse(directory / "word/document.xml").iter(f"{{{WORD_NS}}}t")]

@@ -72,12 +72,12 @@ def insert_settings_element(editor, root, name, xml):
         "http://schemas.openxmlformats.org/schemaLibrary/2006/main",
     }
     for child in root.childNodes:
-        if (
-            child.nodeType == child.ELEMENT_NODE
-            and child.namespaceURI in namespaces
-            and child.localName in _SETTINGS_ORDER
-            and _SETTINGS_ORDER.index(child.localName) > position
-        ):
+        if child.nodeType != child.ELEMENT_NODE:
+            continue
+        # XCODE: w14/w15 等 Office 扩展子元素位于 CT_Settings 基础序列之后；遇到第一个扩展元素
+        # 即为插入边界，否则只剩扩展尾部时新元素会被追加到其后，生成 schema 无效的 settings.xml。
+        is_base = child.namespaceURI in namespaces and child.localName in _SETTINGS_ORDER
+        if not is_base or _SETTINGS_ORDER.index(child.localName) > position:
             editor.insert_before(child, xml)
             return
     editor.append_to(root, xml)
