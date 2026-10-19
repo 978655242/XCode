@@ -13,8 +13,8 @@ import { promisify } from "node:util";
 
 const run = promisify(execFile);
 
-// 分支角色：release 是产品主干（接功能 PR 与来自 XCode-main 的同步 PR）；
-// XCode-main 是上游同步分支（只接 sync/ PR）；main 是上游纯镜像。
+// 分支角色：release 是产品主干（接功能 PR、直接晋升与受控 sync/promote-* PR）；
+// XCode-main 是上游同步分支（只接 sync/upstream-* PR）；main 是上游纯镜像。
 const TRUNK_BRANCH = "release";
 const SYNC_TARGET_BRANCH = "XCode-main";
 const MIRROR_BRANCH = "main";
@@ -27,6 +27,7 @@ const MIRROR_REF = `refs/remotes/origin/${MIRROR_BRANCH}`;
 const ZERO_SHA = /^0+$/;
 const WORK_BRANCH = /^(feature|fix|chore|hotfix)\/[a-z0-9][a-z0-9._-]*$/;
 const SYNC_BRANCH = /^sync\/upstream-\d{8}$/;
+const PROMOTION_BRANCH = /^sync\/promote-\d{8}$/;
 
 async function git(...args) {
   const { stdout } = await run("git", args, { maxBuffer: 64 * 1024 * 1024 });
@@ -55,11 +56,68 @@ async function fetchUpstream() {
 }
 
 function branchNameError(name) {
-  if (WORK_BRANCH.test(name) || SYNC_BRANCH.test(name)) return null;
+  if (WORK_BRANCH.test(name) || SYNC_BRANCH.test(name) || PROMOTION_BRANCH.test(name)) return null;
   return (
     `分支名 "${name}" 不符合规范。允许：feature/<kebab>、fix/<kebab>、chore/<kebab>、` +
-    `hotfix/<版本>-<kebab>、sync/upstream-YYYYMMDD（小写）。`
+    `hotfix/<版本>-<kebab>、sync/upstream-YYYYMMDD、sync/promote-YYYYMMDD（小写）。`
   );
+}
+
+async function checkPromotionBranch(headSha, forkPoint) {
+  const errors = [];
+  for (const ref of [TRUNK_REF, SYNC_TARGET_REF]) {
+    if (!(await isAncestor(ref, headSha))) {
+      errors.push(`受控晋升必须包含当前 ${ref.replace("refs/remotes/", "")} 的完整历史。`);
+    }
+  }
+  const unreviewedCount = Number(
+    await git("rev-list", "--count", forkPoint, `^${TRUNK_REF}`, `^${SYNC_TARGET_REF}`),
+  );
+  if (unreviewedCount > 0) {
+    errors.push(
+      `受控晋升包含 ${unreviewedCount} 个未审核的新上游提交，必须先合入 origin/XCode-main。`,
+    );
+  }
+  if (errors.length > 0) return errors;
+
+  // 仅检查分支自己的提交；两条已审核基准中的历史不做追溯限制。
+  const commits = lines(
+    await git(
+      "log",
+      "--first-parent",
+      "--reverse",
+      "--format=%H %P",
+      headSha,
+      `^${TRUNK_REF}`,
+      `^${SYNC_TARGET_REF}`,
+    ),
+  );
+  const first = commits[0]?.split(" ") ?? [];
+  if (
+    first.length !== 3 ||
+    !(await isAncestor(first[1], TRUNK_REF)) ||
+    !(await isAncestor(first[2], SYNC_TARGET_REF)) ||
+    (await isAncestor(first[2], first[1]))
+  ) {
+    errors.push(
+      "受控晋升必须从 release ancestry 开始，以真实双亲 merge 合入已审核 XCode-main；之后才可追加线性冲突修复。",
+    );
+  }
+  for (const commit of commits) {
+    const [, ...parents] = commit.split(" ");
+    if (parents.length > 2) {
+      errors.push("受控晋升只允许双亲 merge，禁止 octopus merge。");
+    } else if (
+      parents.length === 2 &&
+      !(await isAncestor(parents[1], TRUNK_REF)) &&
+      !(await isAncestor(parents[1], SYNC_TARGET_REF))
+    ) {
+      errors.push(
+        "受控晋升禁止合入第三方分支历史；merge 侧父必须属于 origin/release 或已审核 origin/XCode-main ancestry。",
+      );
+    }
+  }
+  return errors;
 }
 
 async function checkPr() {
@@ -68,8 +126,9 @@ async function checkPr() {
   const errors = [];
   const isSync = SYNC_BRANCH.test(head);
   const isPromotion = head === SYNC_TARGET_BRANCH;
+  const isPromotionBranch = PROMOTION_BRANCH.test(head);
 
-  // 目标分支：sync/ → XCode-main；XCode-main → release；其余工作分支 → release。
+  // 目标分支：sync/upstream-* → XCode-main；直接/受控晋升与工作分支 → release。
   const expectedBase = isSync ? SYNC_TARGET_BRANCH : TRUNK_BRANCH;
   if (base !== expectedBase) {
     errors.push(
@@ -110,6 +169,8 @@ async function checkPr() {
         `${SYNC_TARGET_BRANCH} → ${TRUNK_BRANCH} 的 PR 只能包含已合入 origin/${SYNC_TARGET_BRANCH} 的提交。`,
       );
     }
+  } else if (isPromotionBranch) {
+    errors.push(...(await checkPromotionBranch(headSha, forkPoint)));
   } else {
     if (upstreamCount > 0) {
       errors.push(
