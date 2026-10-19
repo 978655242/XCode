@@ -8,7 +8,6 @@ import {
 import type { ModelSelectionView } from "@zcode/services";
 import type { ModelSelectGroup } from "@/ModelConfigSelect.js";
 import { decodeCustomModelValue, encodeCustomModelValue } from "@/lib/zcodeCustomModelValue.js";
-import { shouldShowModelVisionBadge } from "@/lib/modelVisionBadge.js";
 
 export interface ModelProviderGroupLabelOptions {
   apiKeyLabel?: string;
@@ -58,17 +57,10 @@ export function buildRegistryModelSelectGroups(
             : accountPresentation?.label || provider.providerName?.trim() || provider.providerId,
         ...(accountPresentation?.labelBadge ? { labelBadge: accountPresentation.labelBadge } : {}),
         ...(accountPresentation ? { directItems: true } : {}),
-        items: provider.models.map(({ modelId, displayName, config }) => ({
+        items: provider.models.map(({ modelId, displayName }) => ({
           key: `registry-provider:${provider.providerId}:${modelId}`,
           value: encodeCustomModelValue(provider.providerId, modelId),
           name: displayName ?? modelId,
-          ...(shouldShowModelVisionBadge(
-            modelId,
-            config.properties?.inputFormat?.supportsImage,
-            provider.config.access,
-          )
-            ? { supportsVisionInput: true }
-            : {}),
         })),
       },
     ];

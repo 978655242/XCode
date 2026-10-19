@@ -108,6 +108,8 @@ export interface ProviderSettingsModelCandidateView {
   readonly kind: "candidate";
   readonly modelId: ModelId;
   readonly displayName?: string;
+  /** New API 下发的 @lobehub/icons 图标名。 */
+  readonly icon?: string;
   readonly builtin: boolean;
   readonly effectiveBuiltinConfig: ModelConfigObject;
   readonly personalExactConfig?: ModelConfigObject;
@@ -186,6 +188,8 @@ export interface ProviderSettingsCreationResult {
 export interface ModelSelectionModelView {
   readonly modelId: ModelId;
   readonly displayName?: string;
+  /** New API 下发的 @lobehub/icons 图标名。 */
+  readonly icon?: string;
   readonly config: RegistryModelConfigObject;
 }
 
@@ -588,6 +592,7 @@ export function projectModelSelectionProviderView(
         Object.freeze({
           modelId: model.modelId,
           ...(model.displayName !== undefined ? { displayName: model.displayName } : {}),
+          ...(model.icon !== undefined ? { icon: model.icon } : {}),
           config: serializeRegistryModelConfig(model.config),
         }),
       ),
@@ -655,6 +660,7 @@ function createProviderSettingsView(input: {
             kind: model.kind,
             modelId: model.modelId,
             ...(model.displayName !== undefined ? { displayName: model.displayName } : {}),
+            ...(model.icon !== undefined ? { icon: model.icon } : {}),
             builtin: model.source === "builtin",
             effectiveBuiltinConfig: model.effectiveBuiltinConfig.toJSON(),
             ...(personalModelConfig ? { personalExactConfig: personalModelConfig.toJSON() } : {}),

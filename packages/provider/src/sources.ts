@@ -18,7 +18,10 @@ export type AccountModelConfigs = Readonly<
     Readonly<
       Record<
         string,
-        z.infer<typeof completeModelConfigDataSchema> & { readonly displayName?: string }
+        z.infer<typeof completeModelConfigDataSchema> & {
+          readonly displayName?: string;
+          readonly icon?: string;
+        }
       >
     >
   >

@@ -4,38 +4,7 @@ import type { ModelSelectionView } from "@zcode/services";
 import { buildRegistryModelSelectGroups } from "../src/lib/modelSelectionGroups.js";
 
 describe("model selection groups", () => {
-  it.each([
-    [{ type: "zhipu-account", accountType: "zai", mode: "individual-coding-plan" }, false],
-    [{ type: "zhipu-account", accountType: "bigmodel", mode: "team-coding-plan" }, false],
-    [{ type: "zhipu-coding-plan-api-key" }, false],
-    [{ type: "zhipu-account", accountType: "zai", mode: "start-plan" }, false],
-    [{ type: "zhipu-account", accountType: "bigmodel", mode: "start-plan" }, false],
-    [{ type: "zhipu-account", accountType: "bigmodel", mode: "off-peak" }, true],
-    [{ type: "api-key" }, true],
-  ])("仅套餐 GLM-5.3 隐藏视觉标，不影响 Flash/真实能力：%j", (access, expected) => {
-    const view: ModelSelectionView = {
-      revision: 1,
-      providers: [
-        {
-          providerId: "fixture",
-          config: {
-            access: access as ModelSelectionView["providers"][number]["config"]["access"],
-            api: { type: "anthropic-messages" },
-          },
-          models: ["GLM-5.3", "GLM-5.3-Flash", "GLM-4.7"].map((modelId) => ({
-            modelId,
-            config: { properties: { inputFormat: { supportsImage: true } } },
-          })),
-        },
-      ],
-    };
-    const items = buildRegistryModelSelectGroups("glm", view)[0]!.items;
-    expect(items[0]!.supportsVisionInput === true).toBe(expected);
-    expect(items[1]!.supportsVisionInput).toBe(true);
-    expect(items[2]!.supportsVisionInput).toBe(true);
-    expect(view.providers[0]!.models[0]!.config.properties?.inputFormat?.supportsImage).toBe(true);
-  });
-  it("保留带前缀和多段斜杠的精确模型 ID；不从名称推断视觉能力", () => {
+  it("保留带前缀和多段斜杠的精确模型 ID", () => {
     const modelId = "upstream/family/vision-preview";
     const view: ModelSelectionView = {
       revision: 1,
@@ -52,13 +21,8 @@ describe("model selection groups", () => {
         key: `registry-provider:aggregator:${modelId}`,
         value: "custom:aggregator:upstream%2Ffamily%2Fvision-preview",
         name: modelId,
-        supportsVisionInput: true,
       },
     ]);
-    view.providers[0]!.models[0]!.config = {};
-    expect(buildRegistryModelSelectGroups("glm", view)[0]?.items[0]).not.toHaveProperty(
-      "supportsVisionInput",
-    );
   });
   it("直接把 Registry API Provider 投影为有序模型组", () => {
     const selectionView: ModelSelectionView = {
@@ -108,7 +72,6 @@ describe("model selection groups", () => {
             key: "registry-provider:anthropic-api:claude-a",
             value: "custom:anthropic-api:claude-a",
             name: "claude-a",
-            supportsVisionInput: true,
           },
           {
             key: "registry-provider:anthropic-api:claude-b",

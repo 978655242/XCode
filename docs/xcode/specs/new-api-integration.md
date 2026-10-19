@@ -154,7 +154,7 @@ group 为 `new-api-family`，不要按每个套餐新建 provider ID。模型归
 
 Native Provider 归类为 ordinary model-selection 行为，但 access 仍为 managed account；不套原 `account-plan` 的“唯一 current Provider 自动 remap”，避免三种 transport 产生歧义。选择由实际 provider+model ref 决定，不自动转成另一协议或模型。
 
-XWork 前端仅开放 `account:new-api-openai-chat-completions`，展示名称固定为 `XWork·Plan`。另两个 anchor 使用现有 `visibility: hidden`，不进入模型设置、聊天模型选择或默认候选；历史 ref 保留但不自动迁移，重新选择可见模型。底层协议契约与管理员模型归属不改，不把其他 transport 的模型移入 Chat Completions。可见入口即使目录为空也保留，按真实权限和配置显示不可用。用户自配 Provider 与独立官方云连接不受影响。
+XWork 前端仅开放 `account:new-api-openai-chat-completions`，展示名称固定为 `XWork`。另两个 anchor 使用现有 `visibility: hidden`，不进入模型设置、聊天模型选择或默认候选；历史 ref 保留但不自动迁移，重新选择可见模型。底层协议契约与管理员模型归属不改，不把其他 transport 的模型移入 Chat Completions。可见入口即使目录为空也保留，按真实权限和配置显示不可用。用户自配 Provider 与独立官方云连接不受影响。
 
 模型设置遵循 [原版呈现规格](new-api-model-settings-ui.md)：托管入口复用现有标题、编程套餐状态卡、个人/团队入口，数据只取 Native `/plans` 与 `/entitlements`。参考价只在相同币种/完整周期的启用模板中比较；团队明确不支持。独立官方连接操作保留在使用统计 MCP 区，不在套餐详情另造横幅。UI 投影按既有 connectionKey、登录 epoch、服务实例与请求序号隔离，换号/退出首帧清空旧数据，查询失败不解释为未开通。
 
@@ -220,14 +220,14 @@ secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或
 
 必须迁移所有受影响 caller，而不是兼容别名或新旧同时有效：
 
-| 区域            | 需要的 clean cutover                                                                                                                   |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| provider config | provider-data-schema/provider-config/schema/rule-data-schema 的访问与 group union、hydration/overlay/只读约束                          |
-| Registry        | resolver、sources、account-provider-resolution/state/service、config-service 的 entitled/current/fail-closed 分支                      |
-| shared          | model-provider-types、zcode-protocol AccountAccess/模型 DTO、worker account-config 协议                                                |
-| node            | model-selection-facade 分类、process-provider-registry-runtime 解析、Host account provider connection/auth                             |
-| UI              | usePlanIdentitySnapshot、accountProviderAccess、codingPlanUsageSources、modelVisionBadge、ModelProviderSection/Detail 以及账号失效提示 |
-| 身份分支        | 任何 `family === "zai" ? ... : bigmodel` 式 fallback 必须显式处理 native 与 official-cloud；不得把 new-api 当 bigmodel                 |
+| 区域            | 需要的 clean cutover                                                                                                   |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| provider config | provider-data-schema/provider-config/schema/rule-data-schema 的访问与 group union、hydration/overlay/只读约束          |
+| Registry        | resolver、sources、account-provider-resolution/state/service、config-service 的 entitled/current/fail-closed 分支      |
+| shared          | model-provider-types、zcode-protocol AccountAccess/模型 DTO、worker account-config 协议                                |
+| node            | model-selection-facade 分类、process-provider-registry-runtime 解析、Host account provider connection/auth             |
+| UI              | usePlanIdentitySnapshot、accountProviderAccess、codingPlanUsageSources、ModelProviderSection/Detail 以及账号失效提示   |
+| 身份分支        | 任何 `family === "zai" ? ... : bigmodel` 式 fallback 必须显式处理 native 与 official-cloud；不得把 new-api 当 bigmodel |
 
 不删除仍由官方云使用的旧 family、off-peak ID/配置和官方 adapters；删除的是普通私有路径上的旧依赖、fallback、secret alias 和失效兼容逻辑。
 

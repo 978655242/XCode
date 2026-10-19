@@ -1,11 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import {
-  TID_CHAT_MODEL_SELECT_ITEM,
-  TID_CHAT_MODEL_SELECT_GROUP,
-  TID_CHAT_MODEL_SELECT_TRIGGER,
-  TID_SETTINGS_BACK_BUTTON,
-  encodeCustomModelValue,
   TID_LOGIN_TRIGGER,
   TID_MODEL_PROVIDER_ADD_PROVIDER_BUTTON,
   TID_MODEL_PROVIDER_ADD_MODEL_BUTTON,
@@ -1048,47 +1043,6 @@ describe("设置页 UI polish E2E", () => {
     expect(await $('[data-model-reasoning-level-map-editor="true"] textarea').getValue()).toBe(
       editedAfterReset,
     );
-    // 能力由真实表单保存，随后验证两个消费入口；不直接改 DOM 或注入徽标。
-    await $('[data-model-input-modality="image"]').click();
-    await clickVisibleButton(/保存|Save/);
-    await $('[data-model-settings-scroll="true"]').waitForExist({ reverse: true });
-    for (const presentation of [
-      { locale: "zh-CN", theme: "dark" },
-      { locale: "en-US", theme: "light" },
-    ]) {
-      await setPresentation(presentation);
-      const badge = $(
-        `[data-model-provider-model-id="${REASONING_EDITOR_MODEL_ID}"] [data-model-input-capability="vision"]`,
-      );
-      await badge.waitForDisplayed();
-      expect(await badge.getText()).toMatch(/视觉|Vision/);
-    }
-    await clickTestIdByDom(TID_SETTINGS_BACK_BUTTON);
-    await clickTestIdByWebDriver(TID_CHAT_MODEL_SELECT_TRIGGER);
-    await $(
-      sel(testId(TID_CHAT_MODEL_SELECT_GROUP, `registry-provider:${REASONING_EDITOR_PROVIDER_ID}`)),
-    ).moveTo();
-    const modelItem = $(
-      sel(
-        testId(
-          TID_CHAT_MODEL_SELECT_ITEM,
-          encodeCustomModelValue(REASONING_EDITOR_PROVIDER_ID, REASONING_EDITOR_MODEL_ID),
-        ),
-      ),
-    );
-    try {
-      await modelItem.waitForDisplayed();
-    } catch (error) {
-      const menu = await browser.execute(() =>
-        Array.from(
-          document.querySelectorAll<HTMLElement>(
-            '[role="menu"], [role="listbox"], [data-testid^="chat-model-select"]',
-          ),
-        ).map((element) => ({ id: element.dataset.testid, text: element.innerText })),
-      );
-      throw new Error(`视觉模型候选未显示：${JSON.stringify(menu)}`, { cause: error });
-    }
-    expect(await modelItem.$('[data-model-input-capability="vision"]').isDisplayed()).toBe(true);
   });
 
   it("MP-UI-05-remote: 远程 workspace 下也不显示配置同步入口", async function () {

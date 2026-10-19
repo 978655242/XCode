@@ -3,15 +3,15 @@ import type { ProviderSettingsFormModel } from "@/lib/providerSettingsFormTypes.
 import type { ModelConnectivityResult } from "@zcode/shared";
 import { Loader2Icon, Trash2, Unplug } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
-import { ModelInputCapabilityBadge } from "@/components/ModelInputCapabilityBadge.js";
 import { Switch } from "@/components/ui/switch.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useProviderModelDraft } from "@/settings/model-provider-section/useProviderModelDraft.js";
 import { ProviderModelMetadataDialog } from "@/settings/model-provider-section/ProviderModelMetadataDialog.js";
 import { formatModelContextWindowLabel } from "@/lib/tokenNumberFormat.js";
 import type { ModelConfigResolution, ProviderConfigObject } from "@zcode/provider";
-import { shouldShowModelVisionBadge } from "@/lib/modelVisionBadge.js";
 import { useProviderDetailFeedback } from "@/settings/model-provider-section/ProviderDetailFeedback.js";
+import { LobeIcon, resolveLobeIcon } from "@/components/LobeIcon.js";
+import { resolveModelLobeIcon } from "@/lib/modelBrandLogo.js";
 
 export function ModelRowInput({
   model,
@@ -241,11 +241,16 @@ export function ModelRowInput({
     { id: "settings.modelProvider.contextWindowBadgeLabel" },
     { value: contextWindowLabel },
   );
+  const modelIconName = model.icon ?? resolveModelLobeIcon(model.modelId);
 
   return (
     <div className="space-y-2 px-3 py-2">
       <div className="flex items-center gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
+          {/* XCODE: 与 composer 同一图标链：后端 icon 优先，自定义模型按模型名映射。 */}
+          {modelIconName && resolveLobeIcon(modelIconName) ? (
+            <LobeIcon name={modelIconName} className="size-4 shrink-0" />
+          ) : null}
           <span
             data-testid={inputTestId}
             className="min-w-0 truncate font-mono text-ui-base text-foreground"
@@ -260,13 +265,6 @@ export function ModelRowInput({
           >
             {contextWindowLabel}
           </span>
-          {shouldShowModelVisionBadge(
-            model.modelId,
-            model.config.properties?.inputFormat?.supportsImage,
-            providerAccess,
-          ) ? (
-            <ModelInputCapabilityBadge />
-          ) : null}
         </div>
         {shouldShowTestButton ? (
           <Button

@@ -36,6 +36,7 @@ async function settledSnapshot() {
     return {
       prefix: trigger.querySelector(".composer-provider-prefix")?.textContent ?? null,
       title: trigger.querySelector("[title]")?.getAttribute("title") ?? null,
+      icon: Boolean(trigger.querySelector("img, svg")),
     };
   }, TID_CHAT_MODEL_SELECT_TRIGGER);
 }
@@ -64,12 +65,16 @@ describe("Composer provider 身份回归", () => {
     await clearAppData();
   });
 
-  it("CMP02: bigmodel-api 没有 providerName 时菜单和按钮仍显示相同 provider 身份", async function () {
+  it("CMP02: bigmodel-api 没有 providerName 时菜单与按钮只显示模型名和图标", async function () {
     this.timeout(120000);
     await prepareV4ConversationE2E();
     await restartIntoWorkspacePreservingProfile(DEFAULT_WORKSPACE, {
       afterElectronProcessExit: async () => {
-        await seedReplayProvider({ id: "bigmodel-api", name: "bigmodel-api", models: ["GLM-5.3"] });
+        await seedReplayProvider({
+          id: "bigmodel-api",
+          name: "bigmodel-api",
+          models: ["GLM-5.3"],
+        });
         const repo = new NodePersonalProviderConfigRepository({
           filePath: getE2EAppDataPaths().configFile,
           pollingIntervalMs: false,
@@ -79,7 +84,10 @@ describe("Composer provider 身份回归", () => {
             const rule = current.providers.getRule("bigmodel-api")!;
             return {
               ...current,
-              providers: current.providers.setRule({ ...rule, providerName: null }),
+              providers: current.providers.setRule({
+                ...rule,
+                providerName: null,
+              }),
             };
           });
         } finally {
@@ -94,23 +102,25 @@ describe("Composer provider 身份回归", () => {
       const trigger = $(`[data-testid="${TID_CHAT_MODEL_SELECT_TRIGGER}"]`);
       await trigger.click();
       const menu = await $('[role="menu"]').getText();
-      assert.ok(menu.includes("bigmodel-api"), "菜单必须展示无名称 provider 的 ID");
+      assert.ok(menu.includes("GLM-5.3"), "菜单必须展示模型");
+      assert.ok(menu.includes("自定义模型"), "自配模型归入「自定义模型」分组");
+      assert.ok(!menu.includes("bigmodel-api"), "composer 菜单不显示具体供应商");
       await browser.keys("Escape");
       // rolling 动画短暂保留旧标签；等待实际展示收敛，避免读取退场节点。
       await browser.waitUntil(
         async () => {
           const current = await settledSnapshot();
-          return current.prefix === "bigmodel-api/" && current.title === "bigmodel-api/GLM-5.3";
+          return current.prefix === null && current.title === "GLM-5.3";
         },
-        { timeout: 5000, timeoutMsg: "模型按钮未收敛到选中的 provider 身份" },
+        { timeout: 5000, timeoutMsg: "模型按钮未收敛到仅模型名" },
       );
       const state = await settledSnapshot();
       await mkdir(evidence, { recursive: true });
       await writeFile(join(evidence, "nameless-provider.json"), JSON.stringify(state, null, 2));
       await browser.saveScreenshot(join(evidence, "nameless-provider.png"));
-      // 回归用户截图：不能因为名称缺失而绕过七档规则，从源头不生成前缀。
-      assert.equal(state.prefix, "bigmodel-api/");
-      assert.ok(state.title?.includes("bigmodel-api/GLM-5.3"));
+      assert.equal(state.prefix, null);
+      assert.equal(state.title, "GLM-5.3");
+      assert.ok(state.icon, "模型名前必须显示图标");
     } finally {
       await restoreElectronRendererContentSize(original);
     }

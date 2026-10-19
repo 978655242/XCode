@@ -235,6 +235,8 @@ export const NewApiCatalogSchema = z
         .object({
           model_id: nonempty,
           display_name: z.string(),
+          // XCODE: 与 New API 管理端同源的 @lobehub/icons 图标名；旧后端没有该字段。
+          icon: z.string().nullable().optional(),
           api_type: z
             .enum(["anthropic-messages", "openai-chat-completions", "openai-responses"])
             .nullable(),

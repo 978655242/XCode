@@ -182,6 +182,7 @@ function freezeView(revision: number, providers: readonly Provider[]): ProviderR
           Object.freeze({
             modelId: model.modelId,
             ...(model.displayName !== undefined ? { displayName: model.displayName } : {}),
+            ...(model.icon !== undefined ? { icon: model.icon } : {}),
             config: model.config,
           }),
         ),

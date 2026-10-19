@@ -133,7 +133,7 @@ function nativeSelectionFixture(
   return { facade, registry, snapshot };
 }
 
-test("Native personal overlays cannot hide or rename XWork Plan or expose hidden transports", () => {
+test("Native personal overlays cannot hide or rename XWork or expose hidden transports", () => {
   const personal = new ProviderConfigMap([
     {
       providerId: "account:new-api-openai-chat-completions",
@@ -157,7 +157,7 @@ test("Native personal overlays cannot hide or rename XWork Plan or expose hidden
       view.providers.map((provider) => provider.providerId),
       ["account:new-api-openai-chat-completions"],
     );
-    assert.equal(view.providers[0]!.providerName, "XWork·Plan");
+    assert.equal(view.providers[0]!.providerName, "XWork");
   }
 });
 

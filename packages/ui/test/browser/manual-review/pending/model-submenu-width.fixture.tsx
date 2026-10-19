@@ -25,7 +25,7 @@ function Fixture() {
               label: "Custom provider",
               items: [
                 { key: "text", value: "text", name },
-                { key: "vision", value: "vision", name, supportsVisionInput: true },
+                { key: "long", value: "long", name: `${name} long` },
               ],
             },
           ]}

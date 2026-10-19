@@ -46,7 +46,6 @@ vi.mock("@/i18n/IntlProvider.js", () => ({
       formatMessage: ({ id }: { id: string }, values?: Record<string, string>) => {
         const messages: Record<string, string> = {
           "settings.modelProvider.addModel": "添加模型",
-          "model.capability.vision": "视觉",
           "settings.modelProvider.contextWindow": "上下文窗口",
           "settings.modelProvider.contextWindowBadgeLabel": "上下文窗口：{value}",
           "settings.modelProvider.delete": "删除",
@@ -206,33 +205,6 @@ function createProvider(
 }
 
 describe("ProviderModelsSection compact model rows", () => {
-  it.each(["individual-coding-plan", "team-coding-plan", "start-plan", "manual", "standard"])(
-    "设置页共享视觉标判断，连接=%s",
-    (mode) => {
-      const provider = createProvider();
-      provider.config.access =
-        mode === "manual"
-          ? { type: "zhipu-coding-plan-api-key", apiKey: "fixture" }
-          : mode === "standard"
-            ? { type: "api-key", apiKey: "fixture" }
-            : {
-                type: "zhipu-account",
-                accountType: "bigmodel",
-                mode: mode as "individual-coding-plan" | "team-coding-plan" | "start-plan",
-              };
-      provider.models = ["GLM-5.3", "GLM-5.3-Flash"].map((id) => {
-        const model = createModelProviderModelConfig({ id });
-        model.config.properties!.inputFormat = {
-          ...model.config.properties?.inputFormat,
-          supportsImage: true,
-        };
-        return model;
-      });
-      render(createElement(InlineEditableProviderCard, { provider, onSave: vi.fn() }));
-      expect(screen.getAllByText("视觉")).toHaveLength(mode === "standard" ? 2 : 1);
-      expect(provider.models[0]!.config.properties?.inputFormat?.supportsImage).toBe(true);
-    },
-  );
   it("切换 Provider 时相同模型 ID 也不能复用上一个 Provider 的编辑事务", async () => {
     const initial = createProvider();
     const view = render(
@@ -1058,24 +1030,6 @@ describe("ProviderModelsSection compact model rows", () => {
     expect(fireEvent.keyDown(row, { key: " ", code: "Space" })).toBe(false);
     expect(row.getAttribute("aria-pressed")).toBe("true");
     expect(onReorder).not.toHaveBeenCalled();
-  });
-
-  it("模型行按图片能力显示视觉标记，而非按型号猜测", () => {
-    const model = createModelProviderModelConfig({ id: "unknown-vision-model" });
-    model.config.properties!.inputFormat!.supportsImage = true;
-    const { rerender } = render(
-      createElement(ModelRowInput, { providerId: "provider-demo", model, onCommit: vi.fn() }),
-    );
-    expect(screen.getByLabelText("视觉")).toBeTruthy();
-    const textOnly = createModelProviderModelConfig({ id: "GLM-5.3" });
-    rerender(
-      createElement(ModelRowInput, {
-        providerId: "provider-demo",
-        model: textOnly,
-        onCommit: vi.fn(),
-      }),
-    );
-    expect(screen.queryByLabelText("视觉")).toBeNull();
   });
 
   it("Model Draft 等待 Host 原子保存成功后才关闭弹窗", async () => {

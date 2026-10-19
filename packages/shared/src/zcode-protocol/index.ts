@@ -2554,6 +2554,7 @@ export const zcodeProviderUpdateAccountConfigParamsSchema = z
     catalogRevision: z.string().min(1).optional(),
     authorizationRevision: z.string().min(1).optional(),
     // 账号状态与 Overlay 必须一起传递，否则 Worker 会丢失非当前套餐的执行门禁。
+            icon: z.string().optional(),
     states: z.record(
       z.string(),
       z

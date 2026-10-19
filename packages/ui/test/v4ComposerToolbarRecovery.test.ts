@@ -35,10 +35,11 @@ const mocks = vi.hoisted(() => ({
   codingPlanEntitlementsEnabledStartPlanIds: [] as string[],
   configOptions: [] as Array<Record<string, unknown>>,
   configOptionsError: true,
-  enterpriseProducts: { snapshot: { productList: [] }, loading: false, error: null } as Record<
-    string,
-    unknown
-  >,
+  enterpriseProducts: {
+    snapshot: { productList: [] },
+    loading: false,
+    error: null,
+  } as Record<string, unknown>,
   modelSelectionView: {
     revision: 1,
     providers: [
@@ -442,7 +443,11 @@ afterEach(() => {
   mocks.codingPlanEntitlementsEnabledStartPlanIds = [];
   mocks.configOptions = [];
   mocks.configOptionsError = true;
-  mocks.enterpriseProducts = { snapshot: { productList: [] }, loading: false, error: null };
+  mocks.enterpriseProducts = {
+    snapshot: { productList: [] },
+    loading: false,
+    error: null,
+  };
   mocks.modelSelectionView = {
     revision: 1,
     providers: [
@@ -548,7 +553,11 @@ describe("V4ComposerModelControls recovery", () => {
           providerId,
           providerName: "BigModel Start Plan",
           config: {
-            access: { type: "zhipu-account", accountType: "bigmodel", mode: "start-plan" },
+            access: {
+              type: "zhipu-account",
+              accountType: "bigmodel",
+              mode: "start-plan",
+            },
             api: {
               type: "anthropic-messages",
               baseUrl: "https://open.bigmodel.cn/api/anthropic",
@@ -606,46 +615,56 @@ describe("V4ComposerModelControls recovery", () => {
     await act(async () => root.unmount());
   });
 
-  it("将供应商配置名称传给模型触发器展示", () => {
-    renderToolbarMarkup();
-
-    expect(captured.modelSelectProps?.triggerLabel).toBe("Custom OpenAI/gpt-4o");
-    expect(captured.modelSelectProps?.indicatorClassName).not.toContain("@sm/composer");
-    expect(captured.modelSelectProps?.indicatorClassName).toContain(
-      "group-data-[composer-model-icon=true]/toolbar:hidden",
-    );
-    expect(captured.modelSelectProps?.triggerClassName).toContain(
-      "group-data-[composer-model-icon=true]/toolbar:size-7",
-    );
-    expect(captured.modelSelectProps?.triggerLabelPrefixClassName).not.toContain("@2xl/composer");
-    expect(captured.modelSelectProps?.triggerLabelPrefixClassName).toContain(
-      "group-data-[composer-provider-compact=true]/toolbar:hidden",
-    );
-  });
-
-  it("Registry 已发布时只使用 Registry providerName", () => {
+  it("模型菜单分 XWork 与自定义模型两组，按钮只显示模型名，官方模型用后端图标", () => {
     mocks.modelSelectionView = {
       revision: 1,
       providers: [
+        ...mocks.modelSelectionView!.providers,
         {
-          providerId: "custom-openai",
-          providerName: "Registry OpenAI",
+          providerId: "account:new-api-openai-chat-completions",
+          providerName: "XWork",
           config: {
-            access: { type: "api-key", apiKey: "test-key" },
+            access: {
+              type: "new-api-account",
+              accountType: "new-api",
+              mode: "private-subscription",
+              entitled: true,
+            },
             api: {
               type: "openai-chat-completions",
-              baseUrl: "https://registry.example.com/v1",
+              baseUrl: "https://new-api.example.com/v1",
             },
-            models: ["gpt-4o"],
           },
-          models: [{ modelId: "gpt-4o", config: completeDisabledModelConfig() }],
+          models: [
+            {
+              modelId: "claude-sonnet-5.5",
+              icon: "Claude.Color",
+              config: completeDisabledModelConfig(),
+            },
+          ],
         },
       ],
-    };
+    } as typeof mocks.modelSelectionView;
 
     renderToolbarMarkup();
 
-    expect(captured.modelSelectProps?.triggerLabel).toBe("Registry OpenAI/gpt-4o");
+    const props = captured.modelSelectProps!;
+    expect(props.triggerLabel).toBe("gpt-4o");
+    expect(props.tooltipTitle).toBe("gpt-4o");
+    expect(props.triggerLabelPrefix).toBeUndefined();
+    expect(props.modelGroups.map((group) => [group.label, group.directItems])).toEqual([
+      ["XWork", true],
+      ["chat.toolbar.model.group.custom", true],
+    ]);
+    expect(props.modelGroups[0]!.items.map((item) => item.name)).toEqual(["claude-sonnet-5.5"]);
+    expect(props.modelGroups[1]!.items.map((item) => item.name)).toEqual(["gpt-4o"]);
+    // 官方模型用后端下发的 lobehub 图标名渲染；自定义模型沿用 provider logo。
+    const officialIcon = props.modelGroups[0]!.items[0]!.icon as { props: { name?: string } };
+    expect(officialIcon.props.name).toBe("Claude.Color");
+    expect(props.modelGroups[1]!.items[0]!.icon).toBeTruthy();
+    expect(props.triggerIcon).toBe(props.modelGroups[1]!.items[0]!.icon);
+    expect(props.triggerClassName).toContain("shrink-0");
+    expect(props.contentClassName).toContain("overflow-y-auto");
   });
 
   it("prewarm 未就绪时不把旧 configOptions 模型当作 Selection 来源", async () => {
@@ -674,7 +693,12 @@ describe("V4ComposerModelControls recovery", () => {
             },
             models: ["deepseek-v4-pro"],
           },
-          models: [{ modelId: "deepseek-v4-pro", config: completeDisabledModelConfig() }],
+          models: [
+            {
+              modelId: "deepseek-v4-pro",
+              config: completeDisabledModelConfig(),
+            },
+          ],
         },
       ],
     };
@@ -801,7 +825,9 @@ describe("V4ComposerModelControls recovery", () => {
         category: "thought_level",
         type: "select",
         currentValue: "off",
-        options: ["off", "low", "medium", "high", "max"].map((value) => ({ value })),
+        options: ["off", "low", "medium", "high", "max"].map((value) => ({
+          value,
+        })),
       },
     ];
 
@@ -1006,7 +1032,12 @@ describe("V4ComposerModelControls recovery", () => {
     undefined,
     { kind: "start-plan" },
     { kind: "individual-coding-plan" },
-    { kind: "team-coding-plan", organizationId: "org", projectId: "project", productId: "plan" },
+    {
+      kind: "team-coding-plan",
+      organizationId: "org",
+      projectId: "project",
+      productId: "plan",
+    },
   ] as const)(
     "Start balance follows composer selection independent of saved connection %j",
     (selection) => {

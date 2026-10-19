@@ -102,6 +102,12 @@ async function run() {
                 "export const useCodingPlanUpgradeDialog = () => ({ openCodingPlanUpgrade() {} }); export const useOptionalCodingPlanUpgradeDialog = () => null;",
               loader: "js",
             }));
+            // LobeIcon 依赖 Vite import.meta.glob；本场景只验证上下文浮层，不渲染模型图标。
+            builder.onLoad({ filter: /components[\\/]LobeIcon\.tsx$/ }, () => ({
+              contents:
+                "export const resolveLobeIcon = () => null; export const LobeIcon = () => null;",
+              loader: "js",
+            }));
           },
         },
       ],

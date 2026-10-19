@@ -63,7 +63,11 @@ export function resolveNewApiAccountProviders(input: {
     }
     const providerId = NEW_API_MODEL_PROVIDER_IDS[model.api_type];
     ids[providerId]!.push(model.model_id);
-    modelConfigs[providerId]![model.model_id] = { ...parsed.data, displayName: model.display_name };
+    modelConfigs[providerId]![model.model_id] = {
+      ...parsed.data,
+      displayName: model.display_name,
+      ...(model.icon ? { icon: model.icon } : {}),
+    };
   }
   const connectionKey = owner
     ? createHash("sha256").update(JSON.stringify(owner)).digest("hex")

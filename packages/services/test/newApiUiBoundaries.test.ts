@@ -4,7 +4,6 @@ import {
   resolveEntitledAccountProviderAccess,
   resolveAccountProviderInspectionAccess,
 } from "../../ui/src/lib/accountProviderAccess.js";
-import { shouldShowModelVisionBadge } from "../../ui/src/lib/modelVisionBadge.js";
 import {
   buildNativeCodingPlanUsageSource,
   resolveSidebarCurrentCodingPlanUsageSource,
@@ -66,11 +65,6 @@ test("Native inspection does not grant execution rights for an expired subscript
       ?.access,
     expired,
   );
-});
-
-test("Native capability metadata controls vision even for old official model names", () => {
-  assert.equal(shouldShowModelVisionBadge("glm-5.3", true, native), true);
-  assert.equal(shouldShowModelVisionBadge("glm-5.3", false, native), false);
 });
 
 test("Native usage remains account scoped for expired access and a custom selected model", () => {

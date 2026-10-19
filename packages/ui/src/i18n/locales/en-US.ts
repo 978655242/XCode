@@ -3827,7 +3827,6 @@ const enUS: Record<string, string> = {
   "settings.modelProvider.modelMetadata.invalid.reasoningLevelMap":
     "Reasoning parameter mapping is invalid",
   "settings.modelProvider.contextWindowBadgeLabel": "Context window: {value}",
-  "model.capability.vision": "Vision",
   "settings.modelProvider.advanced": "Advanced settings",
   "settings.modelProvider.advancedConfig": "Advanced settings",
   "settings.modelProvider.reasoning": "Reasoning settings",
@@ -5134,8 +5133,8 @@ const enUS: Record<string, string> = {
   "chat.contextUsage": "Context usage {used} of {total}",
   "chat.contextUsage.title": "Context windows",
   "chat.contextUsageDescription":
-  "chat.contextUsage.cacheHitRateUnknown": "Unknown",
     "Prompt text, tool calls, and responses all share this context window.",
+  "chat.contextUsage.cacheHitRateUnknown": "Unknown",
   "chat.contextUsage.cacheHitRate": "Average cache hit rate",
   "chat.contextUsage.breakdown": "Context sources",
   "chat.contextUsage.breakdown.messages": "Messages",
@@ -5267,6 +5266,7 @@ const enUS: Record<string, string> = {
   "chat.agentSwitch.failed": "Could not switch agent",
   "chat.toolbar.model.manageModels": "Manage models",
   "chat.toolbar.model.searchPlaceholder": "Search models...",
+  "chat.toolbar.model.group.custom": "Custom models",
   "chat.toolbar.model.empty": "No models found",
   "chat.toolbar.modelSwitch.stage.settingModel": "Switching model...",
   "chat.toolbar.modelSwitch.stage.fallbackConfigOption": "Falling back to config option API...",

@@ -15,11 +15,12 @@
     `API`；连接方式徽标使用无边框的弱表面圆形 pill，模型项本身不重复徽标。连接方式只在设置页切换，输入框菜单只消费当前 selection。
   - 只有一个 provider 时，一级菜单直接展示 model 列表，不额外包一层 provider。
   - 选中 model 使用 `DropdownMenuRadioItem` 保留单选状态；受当前运行任务限制的 model 使用禁用语义和锁定提示，不触发切换。
-  - 模型配置的输入类型包含任意非 Text 值时，模型名后紧跟本地化的“视觉 / Vision”紧凑徽标。徽标使用轻量圆形 pill：细边框、弱表面背景、`text-ui-xs` 中等字重；徽标属于左侧模型内容，行尾选中对号的位置不变。它只描述 provider registry 中已经声明的输入类型，不承诺当前 adapter 一定能发送相应附件。
+  - XCODE：模型名后不显示“视觉 / Vision”能力徽标（模型菜单与模型设置列表均不显示）；图片输入能力仍由 provider registry 的 `inputFormat` 决定附件校验，与展示无关。
   - `Ctrl+M` 只唤起模型菜单，不按顺序循环切换模型；模型切换必须由用户在菜单中明确选择。
   - trigger 文案切换时复用 toolbar rolling label 动效，和 mode / thought level 控件保持一致；系统开启 reduced motion 时直接静态替换。
-  - 自定义 provider 的显示身份按 `providerName.trim() || providerId` 解析，与菜单保持一致；名称缺失、空串或纯空白时，trigger 仍生成 `providerId/` 前缀及完整 title。前缀可见性继续由七档压缩决定。内置账号套餐维持只显示模型名的规则。
-  - composer trigger 按实际剩余空间执行七档累积压缩：Computer Use 正方形 → mode 正方形 → Plan 正方形 → think 图标＋小绿条 → 隐藏 provider-text → think 正方形（小绿条隐藏）→ model 正方形。每档够用即停，放宽时逆序恢复。模型名称显示时保持完整单行与下拉箭头，最后一档直接改为 28px 的 Lucide `Package` 图标按钮并隐藏箭头，不再额外按宽度阈值省略模型文字。具体规则见 [CUA composer 布局契约](../superpowers/specs/2026-08-18-cua-composer-entry-design.md)。provider 前缀与模型名必须保持结构化节点，不从最终文案按 `/` 切割；按钮 title 与 rolling 动画 key 继续使用完整身份文案。普通与 reduced motion 共用相同的单行容器结构，避免供应商与模型被截断样式分成两行。桌面分屏、普通 Web 和手机 Web 共用此规则。
+  - XCODE：composer 模型菜单不展示具体供应商，只分两组并各带组标题：`XWork`（`new-api-account` 官方模型）在前，`自定义模型`（其余本地/自配模型，i18n `chat.toolbar.model.group.custom`）在后；某组为空时不显示。两组图标统一使用与 New API 管理端同源的 @lobehub/icons：官方模型取 `/xcode/v1/models` 下发的 `icon`（模型 icon 优先，空则取供应商 icon）；自定义模型没有后端图标，按模型 ID 厂商关键词映射到同一套名称（`resolveModelLobeIcon`，如 Claude→`Claude.Color`、DeepSeek→`DeepSeek.Color`、GLM→`ZAI`，取值对齐后端 `defaultVendorIcons` 与当前供应商配置）。客户端用同版本 `@lobehub/icons-static-svg` 按名称懒加载，`X.Color` 有彩色资源时用彩色，否则用跟随主题前景色的单色；名称未知或未识别时回落 provider logo，再回落 `Package` 图标。trigger 只显示所选模型的图标与模型名，不显示供应商名或前缀；title 同为模型名。其他复用 `ModelConfigSelect` 的入口（子代理、定时任务、工作流设置）保留原供应商分组与身份文案。
+  - XCODE：composer 菜单按内容加宽（最小 16rem，最大 28rem 且不超过视口），模型名不截断；高度不超过 28rem 与可用空间，超出时滚动，`管理模型` 固定在底部。trigger 与其外层不再收缩截断，完整显示模型名；空间不足时由下述压缩规则直接收为图标。
+  - composer trigger 按实际剩余空间执行累积压缩：Computer Use 正方形 → mode 正方形 → Plan 正方形 → think 图标＋小绿条 → think 正方形（小绿条隐藏）→ model 正方形。每档够用即停，放宽时逆序恢复。模型名称显示时保持完整单行与下拉箭头，最后一档只保留 28px 的模型图标按钮并隐藏箭头。具体规则见 [CUA composer 布局契约](../superpowers/specs/2026-08-18-cua-composer-entry-design.md)；其中「隐藏 provider-text」一档因 composer 不再显示供应商而不会出现。桌面分屏、普通 Web 和手机 Web 共用此规则。
   - 模型项同样把模型 ID 当作不透明字符串；`openrouter/ox-alpha` 或更多层级的 `/` 不参与能力判定或名称拆分，选择值继续使用完整 ID。
   - 模型切换 pending 时，loading spinner 放在文案后面，避免模型名左侧宽度变化造成视觉跳动。
   - “管理模型”入口继续由调用方控制，只改变承载组件，不改变 settings 导航链路。

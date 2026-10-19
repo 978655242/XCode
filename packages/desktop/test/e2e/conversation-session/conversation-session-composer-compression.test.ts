@@ -15,10 +15,7 @@ import {
   setCurrentElectronRendererContentSize,
   restoreElectronRendererContentSize,
 } from "../helpers/desktop-app.js";
-import {
-  UPSTREAM_PROVIDER_ID,
-  UPSTREAM_SECONDARY_MODEL,
-} from "../helpers/upstream-provider.js";
+import { UPSTREAM_PROVIDER_ID, UPSTREAM_SECONDARY_MODEL } from "../helpers/upstream-provider.js";
 import {
   prepareV4ConversationE2E,
   loginWithApiKey,
@@ -57,7 +54,14 @@ async function snapshot() {
     const bar = thought?.querySelector(".bg-success") ?? null;
     const rect = (el: Element) => {
       const r = el.getBoundingClientRect();
-      return { x: r.x, y: r.y, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+      return {
+        x: r.x,
+        y: r.y,
+        right: r.right,
+        bottom: r.bottom,
+        width: r.width,
+        height: r.height,
+      };
     };
     const modelIcon = root.dataset.composerModelIcon === "true";
     const providerHidden = root.dataset.composerProviderCompact === "true";
@@ -90,8 +94,9 @@ async function snapshot() {
       label: model.querySelector(".overflow-hidden[title]")
         ? rect(model.querySelector(".overflow-hidden[title]")!)
         : null,
-      modelText: prefix?.nextElementSibling ? rect(prefix.nextElementSibling) : null,
-      providerText: prefix ? rect(prefix) : null,
+      modelText: model.querySelector(".overflow-hidden[title] > span")
+        ? rect(model.querySelector(".overflow-hidden[title] > span")!)
+        : null,
       title: model.querySelector("[title]")?.getAttribute("title") ?? null,
       controls: controls.map((el) => (el ? rect(el) : null)),
       model: rect(model),
@@ -110,8 +115,9 @@ function assertLayout(s: Snapshot) {
   );
   expected.push(s.stage >= 6 ? "icon" : s.stage >= 4 ? "true" : "full");
   assert.deepEqual(s.compact, expected, JSON.stringify(s));
-  assert.equal(s.prefixVisible, s.stage < 5, JSON.stringify(s));
-  assert.equal(s.barVisible, s.stage === 4 || s.stage === 5, JSON.stringify(s));
+  assert.equal(s.prefix, null, "composer 模型按钮不显示供应商前缀");
+  assert.ok(!s.text.includes("E2E/"), JSON.stringify(s));
+  assert.equal(s.barVisible, s.stage === 4, JSON.stringify(s));
   for (const [i, control] of s.controls.entries()) {
     assert.ok(control, "桌面各入口必须真实存在");
     if ((i < 3 && s.compact[i] === "true") || (i === 3 && s.stage >= 6)) {
@@ -124,7 +130,7 @@ function assertLayout(s: Snapshot) {
   if (s.modelIcon) assert.ok(Math.abs(s.model.width - 28) < 1 && Math.abs(s.model.height - 28) < 1);
   else assert.ok(s.text.includes(UPSTREAM_SECONDARY_MODEL), "模型文字必须保留到最后一档");
   if (!s.modelIcon) {
-    assert.ok(s.label && s.modelText, "有名称 provider 必须生成独立模型文字片段");
+    assert.ok(s.label && s.modelText, "模型名必须生成文字片段");
     assert.ok(
       s.modelText.x >= s.label.x - 1 && s.modelText.right <= s.label.right + 1,
       "模型文字不能横向截断",
@@ -133,11 +139,6 @@ function assertLayout(s: Snapshot) {
       s.modelText.y >= s.label.y - 2 && s.modelText.bottom <= s.label.bottom + 2,
       "模型文字不能落到第二行被裁掉",
     );
-    if (s.prefixVisible)
-      assert.ok(
-        s.providerText && Math.abs(s.providerText.y - s.modelText.y) < 1,
-        "provider 与 model 必须同一行",
-      );
   }
   if (s.barVisible) {
     assert.ok(s.bar && s.track && s.bar.width > 0 && s.bar.height > 0);
@@ -265,9 +266,10 @@ describe("Composer 七档压缩", () => {
         }
         if (state.stage === 7) break;
       }
+      // XCODE: composer 不再显示供应商前缀，原第 5 档（隐藏 provider-text）不再出现。
       assert.deepEqual(
         [...stages.keys()],
-        [0, 1, 2, 3, 4, 5, 6, 7],
+        [0, 1, 2, 3, 4, 6, 7],
         "必须观察到所有独立档位，不能只经过首尾状态",
       );
       for (const [stage, width] of [...stages.entries()].reverse()) {

@@ -27,6 +27,7 @@ function projectProviderSettingsProviders(
       kind: model.kind,
       modelId: model.modelId,
       displayName: model.displayName,
+      icon: model.icon,
       builtin: model.builtin,
       inheritedConfig: structuredClone(model.effectiveBuiltinConfig),
       personalConfig: structuredClone(model.personalExactConfig ?? {}),

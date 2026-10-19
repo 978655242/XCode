@@ -40,7 +40,11 @@ import type {
   SessionPhase,
   SessionUsageState,
 } from "@zcode/shared/zcode-protocol-v4";
-import { ModelConfigSelect, type ModelSelectGroup } from "@/ModelConfigSelect.js";
+import {
+  ModelConfigSelect,
+  type ModelSelectGroup,
+  type ModelSelectGroupItem,
+} from "@/ModelConfigSelect.js";
 import { Button } from "@/components/ui/button.js";
 import { HighspeedModelIndicator } from "@/highspeed/HighspeedModelIndicator.js";
 import { formatHighspeedRemainingTime } from "@/highspeed/highspeedTime.js";
@@ -61,7 +65,9 @@ import {
   resolveModelSelectTriggerDisplay,
   shouldShowManageModelsAction,
 } from "@/chat-input-toolbar/modelSelection.js";
-import { resolveV4ModelTriggerDisplay } from "@/v4/composer/modelTriggerDisplay.js";
+import { resolveModelLobeIcon } from "@/lib/modelBrandLogo.js";
+import { ProviderLogo } from "@/settings/model-provider-section/ProviderLogo.js";
+import { LobeIcon, resolveLobeIcon } from "@/components/LobeIcon.js";
 import {
   setPendingSettingsSectionIntent,
   setPendingSettingsUsageCodingPlanIntent,
@@ -110,7 +116,9 @@ import {
 export { V4ComposerModeSwitch } from "@/v4/composer/V4ComposerModeControls.js";
 
 const V4_COMPOSER_INPUT_SELECTOR = `[data-testid="${TID_V4_COMPOSER_INPUT}"]`;
-const MODEL_SELECTION_LOADING_STATE: ModelSelectionState = { status: "loading" };
+const MODEL_SELECTION_LOADING_STATE: ModelSelectionState = {
+  status: "loading",
+};
 
 /** 稳定空回调（热键 hook 单实例只处理本组件拥有的选项，其余动作占位）。 */
 function noop(): void {}
@@ -379,10 +387,6 @@ export interface V4ComposerToolbarProps {
   sessionId: string | null;
   phase: SessionPhase | null;
   provider?: ZCodeProvider;
-  /** 当前工具条是否运行在 Web 远控壳中。 */
-  isWebRemoteControl?: boolean;
-  /** 当前视口是否为手机输入布局。 */
-  isMobileViewport?: boolean;
   /** 草稿态（sessionId=null），仅区分新任务呈现，不改变选择来源。 */
   draftMode?: boolean;
   /** 当前 scope 的 Composer 选择；新任务与已有会话都只显示这份状态。 */
@@ -432,8 +436,6 @@ function V4ComposerModelControlsImpl({
   modelSelectionState = MODEL_SELECTION_LOADING_STATE,
   modelSelectionReload,
   provider,
-  isWebRemoteControl = false,
-  isMobileViewport = false,
   draftMode = false,
   draftConfig,
   usage,
@@ -863,8 +865,10 @@ function V4ComposerModelControlsImpl({
 
   const modelSelectGroups = useMemo<ModelSelectGroup[]>(() => {
     if (!modelSelectionView) return [];
-    return buildRegistryModelSelectGroups(displayProvider, modelSelectionView, {
-      apiKeyLabel: intl.formatMessage({ id: "settings.modelProvider.apiKey" }),
+    const groups = buildRegistryModelSelectGroups(displayProvider, modelSelectionView, {
+      apiKeyLabel: intl.formatMessage({
+        id: "settings.modelProvider.apiKey",
+      }),
       apiKeyBadgeLabel: intl.formatMessage({
         id: "settings.modelProvider.connectionMode.apiKeyBadge",
       }),
@@ -887,6 +891,40 @@ function V4ComposerModelControlsImpl({
         id: "settings.modelProvider.connectionMode.teamPlan",
       }),
     });
+    if (groups.length === 0) return [];
+    // XCODE: composer 只分「XWork」（New API 官方）与「自定义模型」两组，不展示具体供应商。
+    // 图标统一用后端同源的 @lobehub/icons：官方取后端下发名称，自定义按模型名映射同一套名称。
+    const providers = new Map(
+      modelSelectionView.providers.map((provider) => [provider.providerId, provider]),
+    );
+    const official: ModelSelectGroupItem[] = [];
+    const custom: ModelSelectGroupItem[] = [];
+    for (const item of groups.flatMap((group) => group.items)) {
+      const decoded = decodeCustomModelValue(item.value);
+      const provider = decoded ? providers.get(decoded.providerId) : undefined;
+      const iconName =
+        provider?.models.find((model) => model.modelId === decoded?.modelName)?.icon ??
+        resolveModelLobeIcon(decoded?.modelName ?? item.value);
+      const icon =
+        iconName && resolveLobeIcon(iconName) ? (
+          <LobeIcon name={iconName} className="size-4" />
+        ) : (
+          <ProviderLogo logo={provider?.config.logo} className="size-4" />
+        );
+      (provider?.config.access?.type === "new-api-account" ? official : custom).push({
+        ...item,
+        icon,
+      });
+    }
+    return [
+      { key: "composer-official", label: "XWork", directItems: true, items: official },
+      {
+        key: "composer-custom",
+        label: intl.formatMessage({ id: "chat.toolbar.model.group.custom" }),
+        directItems: true,
+        items: custom,
+      },
+    ].filter((group) => group.items.length > 0);
   }, [displayProvider, intl, modelSelectionView]);
 
   // 修复：恢复「管理模型」入口（老版 onManageModels = 打开设置页并定位模型供应商区）。
@@ -926,29 +964,14 @@ function V4ComposerModelControlsImpl({
   );
   const normalizedModelValue = triggerDisplay.value ?? "";
 
-  const modelTriggerDisplay = useMemo(() => {
-    // 非可选值（未选 / synthetic / 不可用）：占位文案或默认「选择模型」。
-    const fallbackLabel =
-      triggerDisplay.placeholder ?? intl.formatMessage({ id: "chat.toolbar.model.label" });
-    const providerName =
-      modelSelectionView?.providers.find(
-        (candidate) => candidate.providerId === effectiveConfig?.provider,
-      )?.providerName ?? undefined;
-    return resolveV4ModelTriggerDisplay({
-      modelGroups: modelSelectGroups,
-      normalizedValue: normalizedModelValue,
-      fallbackLabel,
-      providerId: effectiveConfig?.provider,
-      providerName,
-    });
-  }, [
-    effectiveConfig?.provider,
-    intl,
-    modelSelectionView,
-    modelSelectGroups,
-    normalizedModelValue,
-    triggerDisplay.placeholder,
-  ]);
+  const selectedModelItem = modelSelectGroups
+    .flatMap((group) => group.items)
+    .find((item) => item.value === normalizedModelValue);
+  // 非可选值（未选 / synthetic / 不可用）：占位文案或默认「选择模型」。
+  const modelTriggerLabel =
+    selectedModelItem?.name ??
+    triggerDisplay.placeholder ??
+    intl.formatMessage({ id: "chat.toolbar.model.label" });
   const handleModelValueChange = useCallback(
     (value: string) => {
       if (modelLocked) return;
@@ -1103,12 +1126,6 @@ function V4ComposerModelControlsImpl({
   // 模型留空是正常的待选择状态，包括已有会话；不能因为没有已选模型隐藏重选入口。
   // 有可选组时正常显示；无组但有「管理模型」入口时也显示，避免用户零模型入口。
   const modelMenuVisible = modelSelectGroups.length > 0 || showManageModelsAction;
-  // Bug 根因：手机端固定宽度的二级菜单没有消费 Radix 测得的当前方向可用宽度，
-  // 共享 min-w-32 还会阻止极窄空间继续收缩。保持二级交互，同时把窗口边缘作为硬上限。
-  const providerSubmenuClassName =
-    isWebRemoteControl && isMobileViewport
-      ? "w-40 min-w-0 max-w-(--radix-dropdown-menu-content-available-width)"
-      : undefined;
   useToolbarShortcutBindings({
     hasAnyOption: Boolean(modelOption) || Boolean(thoughtOption),
     toolbarDisabled: disabled || recoveryPending,
@@ -1166,7 +1183,7 @@ function V4ComposerModelControlsImpl({
       {highspeedPresented && highspeedModel ? (
         <HighspeedModelIndicator
           model={highspeedModel}
-          originalModel={modelTriggerDisplay.fullLabel}
+          originalModel={modelTriggerLabel}
           sweepActive={highspeedSweepActive}
           animateEntrance={highspeedEntranceAnimated}
         />
@@ -1193,10 +1210,8 @@ function V4ComposerModelControlsImpl({
         <ModelConfigSelect
           modelGroups={modelSelectGroups}
           normalizedValue={normalizedModelValue}
-          triggerLabel={modelTriggerDisplay.fullLabel}
-          triggerLabelPrefix={modelTriggerDisplay.providerPrefix}
-          triggerLabelValue={modelTriggerDisplay.modelLabel}
-          triggerLabelPrefixClassName="composer-provider-prefix inline group-data-[composer-provider-compact=true]/toolbar:hidden"
+          triggerLabel={modelTriggerLabel}
+          triggerIcon={selectedModelItem?.icon}
           showManageModelsAction={showManageModelsAction}
           manageModelsLabel={manageModelsLabel}
           onManageModels={handleOpenModelProviderSettings}
@@ -1210,7 +1225,7 @@ function V4ComposerModelControlsImpl({
           disabled={
             disabled || recoveryPending || modelLocked || modelSelectionState.status !== "ready"
           }
-          tooltipTitle={modelTriggerDisplay.fullLabel}
+          tooltipTitle={modelTriggerLabel}
           shortcutLabel={modelShortcutLabel}
           triggerRef={modelTriggerRef}
           open={!modelLocked && activeConfigPicker === "model"}
@@ -1219,10 +1234,10 @@ function V4ComposerModelControlsImpl({
           labelVisibilityClassName="hidden @sm/composer:inline-flex"
           indicatorClassName="block group-data-[composer-model-icon=true]/toolbar:hidden"
           triggerLabelClassName="block min-w-0 text-left group-data-[composer-model-icon=true]/toolbar:hidden [&>span]:max-w-full [&>span>span]:block [&>span>span]:truncate"
-          triggerClassName="composer-model-trigger group-data-[composer-model-icon=true]/toolbar:size-7 group-data-[composer-model-icon=true]/toolbar:p-0 group-data-[composer-model-icon=true]/toolbar:gap-0 group-data-[composer-model-icon=true]/toolbar:justify-center"
-          triggerIconClassName="hidden group-data-[composer-model-icon=true]/toolbar:inline-flex"
+          triggerClassName="composer-model-trigger shrink-0 group-data-[composer-model-icon=true]/toolbar:size-7 group-data-[composer-model-icon=true]/toolbar:p-0 group-data-[composer-model-icon=true]/toolbar:gap-0 group-data-[composer-model-icon=true]/toolbar:justify-center"
+          triggerIconClassName="inline-flex"
           focusSelectorOnClose={V4_COMPOSER_INPUT_SELECTOR}
-          providerSubmenuClassName={providerSubmenuClassName}
+          contentClassName="w-max min-w-64 max-w-[min(28rem,calc(100vw-2rem))] max-h-[min(28rem,var(--radix-dropdown-menu-content-available-height))] overflow-y-auto"
         />
       ) : null}
       {highspeedPresented && highspeedExpiresAt !== undefined ? (

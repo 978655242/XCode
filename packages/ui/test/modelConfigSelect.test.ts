@@ -1,11 +1,9 @@
 // @vitest-environment jsdom
 import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { cleanup, render, screen } from "@testing-library/react";
 import type { Locale } from "@zcode/shared";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip.js";
-import { MODEL_INPUT_CAPABILITY_BADGE_CLASS_NAME } from "@/components/ModelInputCapabilityBadge.js";
 import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import {
   MODEL_CONFIG_SELECT_BADGE_CLASS_NAME,
@@ -41,18 +39,6 @@ function renderWithTooltipProvider(element: ReactElement, locale: Locale = "zh-C
     ),
   );
 }
-
-function renderInteractive(element: ReactElement, locale: Locale) {
-  return render(
-    createElement(
-      ZCodeIntlProvider,
-      { initialLocale: locale },
-      createElement(TooltipProvider, null, element),
-    ),
-  );
-}
-
-afterEach(() => cleanup());
 
 describe("ModelConfigSelect menu hierarchy", () => {
   it("多个 provider 时展示 provider 一级菜单", () => {
@@ -128,68 +114,6 @@ describe("ModelConfigSelect badge style", () => {
     expect(classTokens).not.toContain("border-border");
     expect(classTokens).not.toContain("bg-secondary");
     expect(classTokens).not.toContain("text-ui-base");
-  });
-
-  it("视觉标签与连接方式标签使用一致的轻量圆形 pill", () => {
-    const classTokens = MODEL_INPUT_CAPABILITY_BADGE_CLASS_NAME.split(/\s+/);
-
-    expect(classTokens).toEqual(
-      expect.arrayContaining([
-        "rounded-full",
-        "border",
-        "border-border",
-        "bg-surface",
-        "px-1",
-        "py-px",
-        "text-ui-xs",
-        "font-medium",
-        "text-foreground-subtle",
-      ]),
-    );
-    expect(classTokens).not.toContain("rounded-md");
-    expect(classTokens).not.toContain("text-ui-sm");
-    expect(classTokens).not.toContain("font-mono");
-  });
-
-  it.each([
-    ["zh-CN", "视觉"],
-    ["en-US", "Vision"],
-  ] as const)("模型项在模型名后展示 %s 视觉标签并保留行尾选中区", (locale, label) => {
-    renderInteractive(
-      createElement(ModelConfigSelect, {
-        modelGroups: [
-          {
-            ...createGroup("Provider A"),
-            items: [
-              {
-                key: "vision-model",
-                value: "Provider A/openrouter/nvidia/ox-alpha",
-                name: "openrouter/nvidia/ox-alpha",
-                supportsVisionInput: true,
-              },
-            ],
-          },
-        ],
-        normalizedValue: "Provider A/openrouter/nvidia/ox-alpha",
-        triggerLabel: "openrouter/nvidia/ox-alpha",
-        showManageModelsAction: false,
-        lockReasonMessage: "Locked",
-        isItemLocked: () => false,
-        onValueChange: () => {},
-        open: true,
-        showProviderLevel: false,
-      }),
-      locale,
-    );
-
-    const badge = screen.getByLabelText(label);
-    const modelItem = badge.closest('[role="menuitemradio"]');
-    const modelName = modelItem?.querySelector('[title="openrouter/nvidia/ox-alpha"]');
-
-    expect(badge.getAttribute("data-model-input-capability")).toBe("vision");
-    expect(modelName).not.toBeNull();
-    expect(modelName?.compareDocumentPosition(badge)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(modelItem?.className.split(/\s+/)).toContain("pr-8");
   });
 });
 

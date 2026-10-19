@@ -12,7 +12,7 @@ export function createNewApiProviderAnchors(origin: string): ProviderConfigMap {
   return new ProviderConfigMap(
     Object.entries(NEW_API_MODEL_PROVIDER_IDS).map(([apiType, providerId]) => ({
       providerId,
-      providerName: apiType === "openai-chat-completions" ? "XWork·Plan" : `New API · ${apiType}`,
+      providerName: apiType === "openai-chat-completions" ? "XWork" : `New API · ${apiType}`,
       config: new ProviderConfig({
         group: "new-api-family",
         // XCODE: 前端仅开放 Chat Completions，保留其他协议的历史身份但不自动迁移。

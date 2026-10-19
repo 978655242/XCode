@@ -2811,10 +2811,10 @@ PA158 合并最新 staging 后 Linux Electron 复跑 1/1 通过，run `desktop-e
 
 ## CMP：Composer 压缩与 provider 身份
 
-| ID | 状态 | 自动化入口 | 证据 |
-| --- | --- | --- | --- |
-| CMP01 | covered | `packages/desktop/test/e2e/conversation-session/conversation-session-composer-compression.test.ts` | 已转正；独立 common + case fixture 回放 `desktop-e2e-20260919-050526-560`、默认回放 `desktop-e2e-20260919-050652-802` 均 1/1 通过：完整态、七档与逆序恢复，28px/绿条/文字边界/无重叠断言 |
-| CMP02 | covered | `packages/desktop/test/e2e/conversation-session/conversation-session-composer-provider-identity.test.ts` | 已修复并转正；正式独立 common + case fixture 回放 `desktop-e2e-20260919-053551-406` 1/1 通过；默认回放 `desktop-e2e-20260919-053632-804` 与 CMP01 合跑 2/2 通过。菜单和选择投影、bigmodel-api/ 前缀、完整 title 均通过；等待 rolling 退场标签收敛后断言 |
+| ID    | 状态        | 自动化入口                                                                                               | 证据                                                                                                                     |
+| ----- | ----------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| CMP01 | needs-rerun | `packages/desktop/test/e2e/conversation-session/conversation-session-composer-compression.test.ts`       | 2026-10-19 XWork composer 去掉供应商前缀后断言改为 0–4、6、7 档且无前缀；旧回放证据针对七档，新断言尚未在 E2E 回放中运行 |
+| CMP02 | needs-rerun | `packages/desktop/test/e2e/conversation-session/conversation-session-composer-provider-identity.test.ts` | 2026-10-19 改为平铺菜单不显示 provider、按钮仅图标＋模型名；新断言尚未在 E2E 回放中运行                                  |
 
 运行产物位于上述 run ID 对应的 `packages/desktop/.e2e-artifacts/` 目录，包含各档截图、`compression.json` 和 `nameless-provider.json`。CMP01、CMP02 均已转正，尚未加入 Docker/CI 容器准入。此次 provider ID 兜底只应用于当前模型选择器，历史及子代理文案保持原规则。相关单测 75/75 通过。macOS 本地 Electron 实测，未验证原生 Windows、手机远控、主题/动画偏好的全组合。
 

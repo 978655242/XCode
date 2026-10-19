@@ -2161,7 +2161,8 @@ function ConversationComposerImpl({
   const submitControlNode = useMemo(
     () => (
       <div className="flex min-w-0 items-center gap-1">
-        <span className="flex min-w-0 shrink items-center gap-1 overflow-hidden empty:hidden">
+        {/* XCODE: 不再收缩截断模型名；空间不足时由 useComposerToolbarFit 逐档收为图标。 */}
+        <span className="flex shrink-0 items-center gap-1 empty:hidden">
           <V4ComposerModelControls
             workspacePath={workspacePath}
             workspaceIdentity={workspaceIdentity}
@@ -2171,8 +2172,6 @@ function ConversationComposerImpl({
             sessionId={sessionId ?? null}
             phase={composerPhase}
             provider={provider}
-            isWebRemoteControl={isWebRemoteControl}
-            isMobileViewport={isMobileTextInputViewport}
             draftMode={draftMode}
             draftConfig={draftConfig}
             usage={composerUsage}

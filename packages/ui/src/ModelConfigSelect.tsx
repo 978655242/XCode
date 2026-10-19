@@ -45,14 +45,14 @@ import {
   shouldRestoreChatInputFocusAfterPickerClose,
 } from "@/lib/pickerFocus.js";
 import { RollingToolbarLabel } from "@/chat-input-toolbar/RollingToolbarLabel.js";
-import { ModelInputCapabilityBadge } from "@/components/ModelInputCapabilityBadge.js";
 
 export interface ModelSelectGroupItem {
   key: string;
   value: string;
   name: string;
   badgeLabel?: string;
-  supportsVisionInput?: boolean;
+  // XCODE: composer 平铺模型列表在模型名前展示品牌图标。
+  icon?: ReactNode;
 }
 
 export interface ModelSelectConnectionOption {
@@ -183,6 +183,8 @@ interface ModelConfigSelectProps {
   leadingItems?: readonly ModelSelectGroupItem[];
   /** 触发器里标签之后的小徽标（如「会话模型」「不可用」）；缺省即无。 */
   triggerBadge?: ReactNode;
+  /** XCODE: 覆盖下拉内容的尺寸样式（composer 需要更宽并可滚动）。 */
+  contentClassName?: string;
 }
 
 export const ModelConfigSelect = memo(function ModelConfigSelectComponent({
@@ -227,6 +229,7 @@ export const ModelConfigSelect = memo(function ModelConfigSelectComponent({
   contentAlign = "start",
   leadingItems,
   triggerBadge,
+  contentClassName,
 }: ModelConfigSelectProps) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const open = controlledOpen ?? uncontrolledOpen;
@@ -305,13 +308,13 @@ export const ModelConfigSelect = memo(function ModelConfigSelectComponent({
       const content = (
         <>
           <span className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
+            {item.icon}
             <span className="min-w-0 truncate" title={item.name}>
               {item.name}
             </span>
             {item.badgeLabel ? (
               <span className={MODEL_CONFIG_SELECT_BADGE_CLASS_NAME}>{item.badgeLabel}</span>
             ) : null}
-            {item.supportsVisionInput ? <ModelInputCapabilityBadge /> : null}
           </span>
           {itemLocked ? (
             <TooltipProvider>
@@ -554,6 +557,7 @@ export const ModelConfigSelect = memo(function ModelConfigSelectComponent({
             shouldShowProviderLevel
               ? "w-max min-w-48 max-w-[calc(100vw-2rem)]"
               : "w-48 max-h-72 overflow-y-auto",
+            contentClassName,
           )}
           align={contentAlign}
           side={contentSide}

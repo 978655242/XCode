@@ -152,6 +152,7 @@ export interface ResolvedProviderModelCandidate {
   readonly kind: "candidate";
   readonly modelId: ModelId;
   readonly displayName?: string;
+  readonly icon?: string;
   readonly source: "builtin" | "personal";
   readonly config: ModelConfig;
   readonly effectiveBuiltinConfig: ModelConfig;
@@ -176,6 +177,7 @@ export interface ResolvedProvider extends Pick<ProviderConfigRule, "templateId" 
 export interface ProviderModel {
   readonly modelId: ModelId;
   readonly displayName?: string;
+  readonly icon?: string;
   readonly config: RegistryModelConfig;
 }
 
@@ -291,7 +293,7 @@ export class ProviderConfigResolver {
       const providerExecutable =
         enabled && accessEntitled && accountCurrent && providerIssues.length === 0;
       const models = orderedModelIds.map((modelId): ResolvedProviderModel => {
-        const { displayName, ...nativeConfig } =
+        const { displayName, icon, ...nativeConfig } =
           input.accountModelConfigs?.[providerId]?.[modelId] ?? {};
         const modelConfig =
           config.access?.type === "new-api-account"
@@ -327,6 +329,7 @@ export class ProviderConfigResolver {
           kind: "candidate",
           modelId,
           ...(displayName !== undefined ? { displayName } : {}),
+          ...(icon !== undefined ? { icon } : {}),
           source: builtinIds.has(modelId) ? "builtin" : "personal",
           config: modelConfig,
           effectiveBuiltinConfig,
@@ -357,7 +360,7 @@ export class ProviderConfigResolver {
       }
       const validModels = models
         .filter((model) => model.executable)
-        .map(({ modelId, displayName, config: modelConfig }) => {
+        .map(({ modelId, displayName, icon, config: modelConfig }) => {
           const result = createRegistryModelConfig(modelConfig, [
             ...providerPath,
             "models",
@@ -368,6 +371,7 @@ export class ProviderConfigResolver {
           return Object.freeze({
             modelId,
             ...(displayName !== undefined ? { displayName } : {}),
+            ...(icon !== undefined ? { icon } : {}),
             config: result.config,
           });
         });

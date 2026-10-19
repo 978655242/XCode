@@ -111,7 +111,10 @@ window.appearance("light","zh-CN");
         },
       ],
       loader: { ".svg": "dataurl", ".png": "dataurl", ".css": "empty" },
-      define: { "process.env.NODE_ENV": JSON.stringify("test"), "import.meta.env": "{}" },
+      define: {
+        "process.env.NODE_ENV": JSON.stringify("test"),
+        "import.meta.env": "{}",
+      },
     });
     await writeFile(join(temporary, "renderer.js"), renderer.outputFiles[0].text);
     await writeFile(
@@ -162,22 +165,22 @@ window.appearance("light","zh-CN");
         clickCount: 1,
         ...point,
       });
-      win.webContents.sendInputEvent({ type: "mouseUp", button: "left", clickCount: 1, ...point });
+      win.webContents.sendInputEvent({
+        type: "mouseUp",
+        button: "left",
+        clickCount: 1,
+        ...point,
+      });
     };
     const state = () => observe("window.state");
     const settleMenus = () =>
       waitFor(
         'document.body.style.pointerEvents!=="none" && document.querySelector("[role=listbox],[role=menu]")===null',
       );
-    const chooseModel = async (label, group = nativeId) => {
+    const chooseModel = async (label) => {
       await settleMenus();
       await click(`document.querySelector(${JSON.stringify(modelTrigger)})`);
-      await waitFor('document.querySelector("[data-testid^=chat-model-select-group]")!==null');
-      const groupExpression = `[...document.querySelectorAll("[data-model-provider-key]")].find(element=>element.getAttribute("data-model-provider-key")==${JSON.stringify(group)} || element.textContent.includes(${JSON.stringify(group === nativeId ? "XWork·Plan" : "Fixture custom")}))`;
-      const hasItems = await observe(
-        `[...document.querySelectorAll("[data-testid^=chat-model-select-item]")].some(element=>element.textContent.includes(${JSON.stringify(label)}))`,
-      );
-      if (!hasItems) await click(groupExpression);
+      // composer 模型菜单为平铺列表，不再有供应商分组层。
       await waitFor(
         `[...document.querySelectorAll("[data-testid^=chat-model-select-item]")].some(element=>element.textContent.includes(${JSON.stringify(label)}))`,
       );
@@ -217,7 +220,14 @@ window.appearance("light","zh-CN");
       ["Missing metadata", "Bad CEL"],
     );
     await click(`document.querySelector(${JSON.stringify(modelTrigger)})`);
-    await waitFor('document.querySelector("[data-testid^=chat-model-select-group]")!==null');
+    await waitFor('document.querySelector("[data-testid^=chat-model-select-item]")!==null');
+    // composer 只分 XWork（官方）与自定义模型两组，不展示具体供应商名。
+    assert.deepEqual(
+      await observe(
+        '[...document.querySelectorAll("[data-testid^=chat-model-select-group]")].map(element=>element.textContent.trim())',
+      ),
+      ["XWork", "自定义模型"],
+    );
     assert.equal(
       await observe(
         'document.querySelector("[role=menu]").textContent.includes("Missing metadata") || document.querySelector("[role=menu]").textContent.includes("Bad CEL")',
@@ -261,8 +271,16 @@ window.appearance("light","zh-CN");
       "low",
     );
     await chooseLevel("max");
-    win.webContents.sendInputEvent({ type: "keyDown", keyCode: "T", modifiers: ["control"] });
-    win.webContents.sendInputEvent({ type: "keyUp", keyCode: "T", modifiers: ["control"] });
+    win.webContents.sendInputEvent({
+      type: "keyDown",
+      keyCode: "T",
+      modifiers: ["control"],
+    });
+    win.webContents.sendInputEvent({
+      type: "keyUp",
+      keyCode: "T",
+      modifiers: ["control"],
+    });
     await waitFor('window.state.stored?.options?.reasoningLevel==="disabled"');
     stage = "single and custom providers";
     await chooseModel("Capability single");
@@ -272,7 +290,7 @@ window.appearance("light","zh-CN");
       ),
       "true",
     );
-    await chooseModel("custom-model", "custom");
+    await chooseModel("custom-model");
     await openThought();
     assert.deepEqual(await levels(), ["neutral", "custom-deep"]);
     await click('document.querySelector("[data-testid=chat-thought-level-select-item-neutral]")');
