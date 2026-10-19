@@ -2,7 +2,7 @@
 
 流程见 [`BRANCHING.md`](./BRANCHING.md) 第 4 节。每次同步追加一节，最新的在最上面。
 
-已同步到：`upstream/main` @ `aac47556`（ZCode v3.15.1）
+已同步到：`upstream/main` @ `0a1fc56d`（ZCode v3.16.1）
 
 ## 模板
 
@@ -21,6 +21,33 @@
 
 单独 cherry-pick 的提交（如有）：
 ```
+
+## 2026-10-19 同步 upstream v3.16.1 (aac47556..0a1fc56d)
+
+- 同步目标：`main → sync/upstream-20261019 → XCode-main → release`；有冲突时按用户批准的受控 `sync/promote-20261019` 适配分支晋升。同步与晋升均保留 merge commit，不向 XCode-main 回流产品代码。
+- 执行依据：用户决定保留现有六项下游修复，不向上游提 PR；侧栏补丁在上游重构版上重新验证后决定是否仍需保留。
+
+| 上游提交 | 说明 | 分类（采纳/适配/拒绝） | 备注 / 拒绝原因 |
+| -------- | ---- | ---------------------- | --------------- |
+| `0a1fc56d` | v3.16.1：CLI 工具与 MCP、SQLite schema 与迁移、Desktop/Host/远程协议、共享 UI 与侧栏重构、架构门禁更新 | 采纳并适配 | 整体 merge，保留上游 SHA，不挑选提交；XWork 品牌、Native New API 与已批准修复只在产品晋升阶段适配，不回流到 XCode-main |
+
+第一阶段：
+
+- `main` 仅快进上游原始提交；`sync/upstream-20261019` 从已推送的 `origin/XCode-main` 切出，整体合并 `main`。
+- 自动合并无内容冲突；既有分支策略与上次同步适配继续保留。按新版本命令验证后才提交与创建 PR。
+
+验证与构建基线：
+
+- 使用 `mise.toml` 固定的 Node 24.14.0 与 pnpm 10.33.2；根 typecheck、lint（0 errors / 96 warnings）、全量架构检查、36 项架构回归、SQLite schema 检查及迁移/Gen UI/Worker/模型分组定向回归（6 文件、109 项）已通过。
+- CLI 包属于仓库根 workspace，并引用根 `@zcode/shared`、`@zcode/model-option-map`；从根安装并按上游依赖顺序构建，不在子 workspace 独立安装。构建真实 CLI 后，在隔离 HOME 下执行 `zcode.cjs --version` 输出 `0.17.0`。未更新现有 Desktop 的 bundled-agent，也未启动用户工作区；产品晋升后再做完整回归和侧栏 smoke。
+
+产品晋升要求：
+
+- 保留探针 `min(1024, max)`、docx settings 顺序、Gen UI 锁释放后 rescan、容量精确显示及缓存 unknown；侧栏以新版真实布局结果为准，不恢复上游已删除的旧组件。
+- 保留 Native New API 的认证归属、owner/lease、workspaceIdentity、桌面 continuous 与手机 replayable 边界；沿用上游新协议及迁移路径，不添加双状态或兼容别名。
+- 已用 `git merge-tree` 确认 release 与新上游存在内容冲突；晋升冲突必须在不向 XCode-main 回流产品代码的前提下解决。
+
+单独 cherry-pick 的提交：无。
 
 ## 2026-10-18 同步 upstream v3.15.1 (29628c9a..aac47556)
 
