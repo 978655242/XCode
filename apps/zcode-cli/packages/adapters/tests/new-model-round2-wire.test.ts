@@ -151,7 +151,7 @@ async function capture(
 }
 
 describe("Todo113 第二轮真实 SDK 序列化，不请求付费模型", () => {
-  it("Schema 能力在 binding 时冻结，后续配置不能改变已创建 Model", () => {
+  it("Schema 能力在 binding 时冻结，后续配置不能改变已创建 Model", async () => {
     const p = createRegistryProviderConfig(
       parseProviderConfig({
         group: "standard-personal",
@@ -160,7 +160,17 @@ describe("Todo113 第二轮真实 SDK 序列化，不请求付费模型", () => 
       }),
     );
     if (!p.ok) throw new Error("invalid fixture");
-    const execution = new AiSdkModelExecution({});
+    // XCODE: 缓存 usage 中间件包装后的 Model 不再暴露 provider 内部属性；改为断言真实请求体。
+    const bodies: Array<Record<string, unknown>> = [];
+    const execution = new AiSdkModelExecution(
+      {},
+      {
+        transport: async (url, init) => {
+          bodies.push(await new Request(url, init).json());
+          throw new Error("captured");
+        },
+      },
+    );
     const input = {
       providerId: "fixture",
       modelId: "gpt-5.4",
@@ -171,11 +181,25 @@ describe("Todo113 第二轮真实 SDK 序列化，不请求付费模型", () => 
     const old = execution.bindModel(input);
     input.supportsJsonSchemaOutput = false;
     const fresh = execution.bindModel(input);
-    expect(old.resolved.model).toHaveProperty("supportsStructuredOutputs", true);
-    expect(
+    const send = (model: unknown) =>
+      (
+        model as { doGenerate: (options: unknown) => Promise<unknown> }
+      )
+        .doGenerate({
+          prompt: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
+          responseFormat: { type: "json", schema: { type: "object" } },
+        })
+        .catch(() => undefined);
+    await send(old.resolved.model);
+    await send(
       old.resolveRequest({ options: { reasoningLevel: "none", maxOutputTokens: 100 } }).model,
-    ).toHaveProperty("supportsStructuredOutputs", true);
-    expect(fresh.resolved.model).toHaveProperty("supportsStructuredOutputs", false);
+    );
+    await send(fresh.resolved.model);
+    expect(bodies.map((body) => (body.response_format as { type?: string })?.type)).toEqual([
+      "json_schema",
+      "json_schema",
+      "json_object",
+    ]);
   });
   for (const id of ["gpt-5.4", "gpt-5.4-pro", "gpt-5.4-mini", "gpt-5.4-nano"]) {
     for (const level of id.endsWith("-pro") ? ["medium", "xhigh"] : ["none", "xhigh"]) {
