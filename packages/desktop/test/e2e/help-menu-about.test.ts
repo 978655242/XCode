@@ -128,6 +128,7 @@ async function assertAboutWindow() {
           const title = await window.webContents.executeJavaScript(
             'document.querySelector("#about-title")?.textContent',
           );
+          // XCODE: 展示名已迁移为 XWork；数据目录仍沿用 ZCode 身份。
           return (
             typeof title === "string" &&
             title.includes("XWork") &&
