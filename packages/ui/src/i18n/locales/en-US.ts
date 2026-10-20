@@ -19,7 +19,6 @@ const enUS: Record<string, string> = {
   "login.privateCredentialRecovery.title": "Private credentials need recovery",
   "login.privateCredentialRecovery.description":
     "Unlock your OS credential store or restore your XWork credential backup, then restart. Existing credentials have not been deleted; no alternative key or official account will be used.",
-  "settings.modelProvider.native.viewReset": "Period details · read only",
   "settings.modelProvider.native.viewPlans": "View subscription",
   "settings.usage.nativeAuthorization.active": "Active authorization",
   "settings.usage.nativeAuthorization.exhausted": "Quota exhausted",
@@ -5949,7 +5948,6 @@ const enUS: Record<string, string> = {
   "chat.agentSwitch.failed": "Could not switch agent",
   "chat.toolbar.model.manageModels": "Manage models",
   "chat.toolbar.model.searchPlaceholder": "Search models...",
-  "chat.toolbar.model.group.custom": "Custom models",
   "chat.toolbar.model.empty": "No models found",
   "chat.toolbar.modelSwitch.stage.settingModel": "Switching model...",
   "chat.toolbar.modelSwitch.stage.fallbackConfigOption": "Falling back to config option API...",

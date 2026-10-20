@@ -1,13 +1,12 @@
 import type { MouseEvent, UIEvent } from "react";
 import { useEffect, useRef, useState } from "react";
-import type { CodingPlanResetType, UsageQuotaLimit } from "@zcode/shared";
+import type { CodingPlanResetType } from "@zcode/shared";
 import { CheckIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { getContextQuotaMeterGridClass } from "@/chat-input-toolbar/contextQuotaMeterGrid.js";
 import { burstCodingPlanQuotaResetConfetti } from "@/lib/codingPlanQuotaResetConfetti.js";
-import { getRemainingSeconds, resetTypeAriaId, resetTypeLabelId } from "./quotaResetItem.js";
 
 const SUCCESS_DISPLAY_MS = 600;
 const ROW_EXIT_MS = 820;
@@ -32,7 +31,10 @@ export interface CodingPlanQuotaResetDialogResetItem {
 export interface CodingPlanQuotaResetDialogConfig {
   resetItems: CodingPlanQuotaResetDialogResetItem[];
   usageItems: CodingPlanQuotaResetDialogUsageItem[];
-  nativePeriod?: UsageQuotaLimit["native"];
+}
+
+function getRemainingSeconds(expiresAt: number, now: number): number {
+  return Math.max(0, Math.ceil((expiresAt - now) / 1_000));
 }
 
 /**
@@ -77,6 +79,18 @@ function readScrollMasks(viewport: HTMLDivElement) {
   };
 }
 
+function resetTypeLabelId(resetType: CodingPlanResetType) {
+  return resetType === "WEEK"
+    ? "codingPlan.quotaReset.dialog.week"
+    : "codingPlan.quotaReset.dialog.fiveHour";
+}
+
+function resetTypeAriaId(resetType: CodingPlanResetType) {
+  return resetType === "WEEK"
+    ? "codingPlan.quotaReset.resetAriaWeek"
+    : "codingPlan.quotaReset.resetAria";
+}
+
 export function CodingPlanQuotaResetDialog({
   config,
   open,
@@ -117,11 +131,11 @@ export function CodingPlanQuotaResetDialog({
   }, [open]);
 
   useEffect(() => {
-    if (!open || config.nativePeriod) return;
+    if (!open) return;
     setNow(Date.now());
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
-  }, [config.nativePeriod, open]);
+  }, [open]);
 
   useEffect(
     () => () => {
@@ -158,8 +172,7 @@ export function CodingPlanQuotaResetDialog({
     item: CodingPlanQuotaResetDialogResetItem,
     event: MouseEvent<HTMLButtonElement>,
   ) => {
-    // XCODE: Native 只读配置不能借用官方重置回调，即使旧机会状态还在。
-    if (config.nativePeriod || resettingType !== null || item.processing) return;
+    if (resettingType !== null || item.processing) return;
     const origin = event.currentTarget;
     setResettingType(item.resetType);
     try {
@@ -200,32 +213,8 @@ export function CodingPlanQuotaResetDialog({
         className="w-[min(480px,calc(100vw-2rem))] max-w-none gap-5"
       >
         <DialogTitle className="min-w-0 truncate pr-8 text-ui-lg font-medium text-foreground">
-          {intl.formatMessage({
-            id: config.nativePeriod
-              ? "settings.modelProvider.native.viewReset"
-              : "codingPlan.quotaReset.dialog.title",
-          })}
+          {intl.formatMessage({ id: "codingPlan.quotaReset.dialog.title" })}
         </DialogTitle>
-
-        {config.nativePeriod ? (
-          <div className="space-y-2 text-ui-base text-foreground-subtle">
-            <p>
-              {intl.formatMessage(
-                { id: "settings.usage.nativeQuotaPeriod" },
-                {
-                  period: intl.formatMessage({
-                    id: `settings.usage.nativePeriod.${config.nativePeriod.period}`,
-                  }),
-                },
-              )}
-              {config.nativePeriod.period === "custom"
-                ? ` · ${config.nativePeriod.resetCustomSeconds}s`
-                : ""}
-            </p>
-            <p>{config.nativePeriod.resetTimeZone}</p>
-            <p>{intl.formatMessage({ id: "settings.usage.nativeAdminReset" })}</p>
-          </div>
-        ) : null}
 
         <section aria-label={intl.formatMessage({ id: "codingPlan.quotaReset.dialog.remaining" })}>
           <div
@@ -244,23 +233,21 @@ export function CodingPlanQuotaResetDialog({
                     </span>
                   ) : null}
                 </div>
-                {!config.nativePeriod || item.percentage !== null ? (
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-background/50">
-                    <div
-                      className="h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none"
-                      style={{
-                        backgroundColor: item.color,
-                        width: `${Math.max(0, Math.min(100, item.percentage ?? 0))}%`,
-                      }}
-                    />
-                  </div>
-                ) : null}
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-background/50">
+                  <div
+                    className="h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none"
+                    style={{
+                      backgroundColor: item.color,
+                      width: `${Math.max(0, Math.min(100, item.percentage ?? 0))}%`,
+                    }}
+                  />
+                </div>
               </div>
             ))}
           </div>
         </section>
 
-        {!config.nativePeriod && visibleResetItems.length > 0 ? (
+        {visibleResetItems.length > 0 ? (
           <section
             aria-label={intl.formatMessage({ id: "codingPlan.quotaReset.dialog.resettable" })}
           >

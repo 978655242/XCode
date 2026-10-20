@@ -633,11 +633,21 @@ describe("V4ComposerModelControls recovery", () => {
     await act(async () => root.unmount());
   });
 
-  it("模型菜单分 XWork 与自定义模型两组，按钮只显示模型名，官方模型用后端图标", () => {
+  it("模型菜单：XWork 官方一组，自配模型按供应商分组，按钮只显示模型名", () => {
     mocks.modelSelectionView = {
       revision: 1,
       providers: [
         ...mocks.modelSelectionView!.providers,
+        {
+          providerId: "custom-deepseek",
+          providerName: "DeepSeek",
+          config: {
+            access: { type: "api-key", apiKey: "test-key" },
+            api: { type: "openai-chat-completions", baseUrl: "https://api.deepseek.example/v1" },
+            models: ["deepseek-v4-pro"],
+          },
+          models: [{ modelId: "deepseek-v4-pro", config: completeDisabledModelConfig() }],
+        },
         {
           providerId: "account:new-api-openai-chat-completions",
           providerName: "XWork",
@@ -670,12 +680,24 @@ describe("V4ComposerModelControls recovery", () => {
     expect(props.triggerLabel).toBe("gpt-4o");
     expect(props.tooltipTitle).toBe("gpt-4o");
     expect(props.triggerLabelPrefix).toBeUndefined();
-    expect(props.modelGroups.map((group) => [group.label, group.directItems])).toEqual([
-      ["XWork", true],
-      ["chat.toolbar.model.group.custom", true],
+    expect(props.modelGroups.map((group) => [group.key, group.label, group.labelBadge])).toEqual([
+      ["composer-official", "XWork", undefined],
+      [
+        "registry-provider:custom-openai",
+        "Custom OpenAI",
+        "settings.modelProvider.connectionMode.apiKeyBadge",
+      ],
+      [
+        "registry-provider:custom-deepseek",
+        "DeepSeek",
+        "settings.modelProvider.connectionMode.apiKeyBadge",
+      ],
     ]);
-    expect(props.modelGroups[0]!.items.map((item) => item.name)).toEqual(["claude-sonnet-5.5"]);
-    expect(props.modelGroups[1]!.items.map((item) => item.name)).toEqual(["gpt-4o"]);
+    expect(props.modelGroups.map((group) => group.items.map((item) => item.name))).toEqual([
+      ["claude-sonnet-5.5"],
+      ["gpt-4o"],
+      ["deepseek-v4-pro"],
+    ]);
     // 官方模型用后端下发的 lobehub 图标名；自定义模型复用同源品牌图标。
     const officialIcon = props.modelGroups[0]!.items[0]!.icon as { props: { name?: string } };
     expect(officialIcon.props.name).toBe("Claude.Color");
@@ -684,7 +706,8 @@ describe("V4ComposerModelControls recovery", () => {
     expect(props.triggerClassName).toContain("shrink-0");
     expect(props.composerOptions?.providerMenu?.groups.map((group) => group.label)).toEqual([
       "XWork",
-      "chat.toolbar.model.group.custom",
+      "Custom OpenAI",
+      "DeepSeek",
     ]);
     expect(props.composerOptions?.levels).toEqual(
       expect.arrayContaining([expect.objectContaining({ value: "disabled" })]),

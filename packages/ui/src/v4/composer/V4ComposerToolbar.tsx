@@ -492,7 +492,7 @@ function V4ComposerModelControlsImpl({
     // XCODE: 全局登录不代表当前模型使用订阅；按 Composer 选择隔离，恢复 API Key 模型原有上下文 UI。
     () =>
       isNewApiModelProviderId(effectiveConfig?.provider ?? "")
-        ? buildNativeCodingPlanUsageSource(providerSettingsView)
+        ? buildNativeCodingPlanUsageSource(providerSettingsView, effectiveConfig?.provider)
         : null,
     [effectiveConfig?.provider, providerSettingsView],
   );
@@ -949,14 +949,11 @@ function V4ComposerModelControlsImpl({
       modelGroupLabels,
     );
     if (groups.length === 0) return [];
-    // XCODE: composer 只分「XWork」（New API 官方）与「自定义模型」两组，不展示具体供应商。
-    // 图标统一用后端同源的 @lobehub/icons：官方取后端下发名称，自定义按模型名映射同一套名称。
+    // XCODE: 官方 New API 模型合并为「XWork」一组；自配供应商保持上游每供应商一组。图标统一用后端同源的 @lobehub/icons。
     const providers = new Map(
       modelSelectionView.providers.map((provider) => [provider.providerId, provider]),
     );
-    const official: ModelSelectGroupItem[] = [];
-    const custom: ModelSelectGroupItem[] = [];
-    for (const item of groups.flatMap((group) => group.items)) {
+    const withIcon = (item: ModelSelectGroupItem): ModelSelectGroupItem => {
       const decoded = decodeCustomModelValue(item.value);
       const provider = decoded ? providers.get(decoded.providerId) : undefined;
       const iconName =
@@ -968,21 +965,25 @@ function V4ComposerModelControlsImpl({
         ) : (
           <ProviderLogo logo={provider?.config.logo} className="size-4" />
         );
-      (provider?.config.access?.type === "new-api-account" ? official : custom).push({
-        ...item,
-        icon,
-      });
+      return { ...item, icon };
+    };
+    const official: ModelSelectGroupItem[] = [];
+    const custom: ModelSelectGroup[] = [];
+    for (const group of groups) {
+      const provider = providers.get(group.key.replace(/^registry-provider:/, ""));
+      if (provider?.config.access?.type === "new-api-account") {
+        official.push(...group.items.map(withIcon));
+      } else {
+        custom.push({ ...group, items: group.items.map(withIcon) });
+      }
     }
     return [
-      { key: "composer-official", label: "XWork", directItems: true, items: official },
-      {
-        key: "composer-custom",
-        label: intl.formatMessage({ id: "chat.toolbar.model.group.custom" }),
-        directItems: true,
-        items: custom,
-      },
-    ].filter((group) => group.items.length > 0);
-  }, [displayProvider, intl, modelGroupLabels, modelSelectionView]);
+      ...(official.length > 0
+        ? [{ key: "composer-official", label: "XWork", directItems: true, items: official }]
+        : []),
+      ...custom,
+    ];
+  }, [displayProvider, modelGroupLabels, modelSelectionView]);
 
   // 修复：恢复「管理模型」入口（老版 onManageModels = 打开设置页并定位模型供应商区）。
   const handleOpenModelProviderSettings = useCallback(() => {

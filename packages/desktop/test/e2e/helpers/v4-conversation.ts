@@ -1227,8 +1227,8 @@ export async function switchV4Model(provider: string, model: string, thought: st
     TID_CHAT_MODEL_SELECT_ITEM,
     encodeCustomModelValue(provider, model),
   );
-  // XCODE: 模型身份仍由编码值精确匹配，菜单导航改走产品分组而非供应商 ID。
-  const providerGroupTestIds = ["composer-official", "composer-custom"].map((key) =>
+  // XCODE: 官方模型在 XWork 合并组，自配模型在各自 registry 分组。
+  const providerGroupTestIds = ["composer-official", `registry-provider:${provider}`].map((key) =>
     testId(TID_CHAT_MODEL_SELECT_GROUP, key),
   );
   // 模型菜单是受控 DropdownMenu（pointerdown 打开），element.click() 不触发；

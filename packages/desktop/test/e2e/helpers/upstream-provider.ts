@@ -589,8 +589,8 @@ export async function selectUpstreamModelById(
 }
 
 interface SelectUpstreamProviderModelOptions {
-  /** XCODE: composer 只导航产品分组；连接身份由模型编码及现有配置断言验证。 */
-  providerGroupKey?: "composer-custom" | "composer-official";
+  /** 团队行使用完整连接身份；普通 Provider 默认沿用 registry key。 */
+  providerGroupKey?: string;
   afterModelItemClick?: () => Promise<boolean> | boolean;
   includePlainModelFallback?: boolean;
   providerId?: string;
@@ -604,7 +604,7 @@ export async function selectRegistryProviderModelById(
     includePlainModelFallback = true,
     providerId = UPSTREAM_PROVIDER_ID,
     providerName = UPSTREAM_PROVIDER_NAME,
-    providerGroupKey = "composer-custom",
+    providerGroupKey = `registry-provider:${providerId}`,
   }: SelectUpstreamProviderModelOptions = {},
 ) {
   const modelItemTestIds = getUpstreamProviderModelValues(modelId, {

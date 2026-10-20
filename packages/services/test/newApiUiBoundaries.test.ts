@@ -81,6 +81,26 @@ test("Native usage remains account scoped for expired access and a custom select
   assert.equal(selected.accountAccess.type, "new-api-account");
 });
 
+test("Native usage source follows the projected transport when anthropic-messages is absent", () => {
+  const chat = "account:new-api-openai-chat-completions";
+  const only = (providerId: string, connectionKey?: string) =>
+    ({
+      revision: "native:1",
+      providers: [
+        {
+          providerId,
+          providerName: "Native",
+          effectiveConfig: { access: native },
+          accountState: { availability: "available", connectionKey },
+        },
+      ],
+    }) as Parameters<typeof buildNativeCodingPlanUsageSource>[0];
+  assert.equal(buildNativeCodingPlanUsageSource(only(chat, "owner"))?.providerId, chat);
+  assert.equal(buildNativeCodingPlanUsageSource(only(chat, "owner"), chat)?.providerId, chat);
+  // 没有 Host owner 的静态 anchor 仍不能成为额度来源。
+  assert.equal(buildNativeCodingPlanUsageSource(only(chat)), null);
+});
+
 test("Native model menus omit catalog issues and keep selectable models", () => {
   const account = resolveNewApiAccountProviders({ owner, catalog, entitlements });
   const resolution = new ProviderConfigResolver().resolve({
