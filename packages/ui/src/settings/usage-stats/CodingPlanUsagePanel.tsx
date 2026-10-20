@@ -739,18 +739,6 @@ function CodingPlanQuotaCards({
                     {resetTime}
                   </span>
                 ) : null}
-                {card.limit.native ? (
-                  <p className="mt-1 text-ui-sm text-foreground-subtle">
-                    {intl.formatMessage(
-                      { id: "settings.usage.nativeQuotaAmounts" },
-                      {
-                        used: card.limit.native.used,
-                        total: card.limit.native.total ?? "∞",
-                        remaining: card.limit.native.remaining ?? "∞",
-                      },
-                    )}
-                  </p>
-                ) : null}
               </div>
               {!card.limit.native?.unlimited ? (
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-background">
