@@ -7,7 +7,7 @@ import {
   createPartId,
   type SharedContextImportCommitBundle,
 } from "@zcode/contracts";
-import { SqliteSessionStore } from "../../../apps/zcode-cli/packages/adapters/src/storage/session-store/sqlite-session-store.js";
+import { createSqliteSessionStore } from "../../../apps/zcode-cli/packages/adapters/src/storage/session-store/sqlite-session-store.js";
 
 function bundle(): SharedContextImportCommitBundle {
   const sessionId = createSessionId("owner-fenced-import");
@@ -53,7 +53,7 @@ function bundle(): SharedContextImportCommitBundle {
 }
 
 test("actual SQLite import rolls back session, context and provenance when owner changes during repository awaits", async () => {
-  const store = new SqliteSessionStore({ dbPath: ":memory:" });
+  const store = await createSqliteSessionStore({ dbPath: ":memory:" });
   const input = bundle();
   let owner = "A";
   input.assertCurrent = () => {

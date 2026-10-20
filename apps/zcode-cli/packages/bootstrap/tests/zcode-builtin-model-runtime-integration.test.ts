@@ -39,14 +39,19 @@ describe("真实 ZCode Built-in Config 到 Active Model", () => {
     const modelId = "GLM-5.3";
     const registry = resolveOneBuiltinProvider(providerId, {
       personalProviders: new ProviderConfigMap([
-        {
+        [
           providerId,
-          templateId: "zai-standard-api",
-          config: new ProviderConfig({
-            group: "standard-personal",
-            access: new ApiKeyAccessConfig({ apiKey: "test-zai-api-key" }),
-          }),
-        },
+          // XCODE: 保留产品目录的 API 模板 ID；按新版实例配置复制，不再依赖 templateId 隐式继承。
+          zcodeBuiltin.providerTemplates
+            .get("zai-standard-api")!
+            .config.withPersonalModelIds([modelId])
+            .overlay(
+              new ProviderConfig({
+                group: "standard-personal",
+                access: new ApiKeyAccessConfig({ apiKey: "test-zai-api-key" }),
+              }),
+            ),
+        ],
       ]),
     });
     const capture = captureRuntime(registry);
@@ -75,7 +80,7 @@ describe("真实 ZCode Built-in Config 到 Active Model", () => {
 
   it("Account 约束 Built-in 成员后仍由 Personal Overlay 最后覆盖", () => {
     const providerId = "account:zai-start-plan";
-    const modelId = "GLM-5.3";
+    const modelId = "GLM-5.2";
     const registry = resolveOneBuiltinProvider(providerId, {
       accountProviders: new ProviderConfigMap([
         [
@@ -87,11 +92,7 @@ describe("真实 ZCode Built-in Config 到 Active Model", () => {
         ],
       ]),
       personalProviders: new ProviderConfigMap([
-        {
-          providerId,
-          providerName: "Personal final label",
-          config: new ProviderConfig(),
-        },
+        [providerId, new ProviderConfig({ visibility: "hidden" })],
       ]),
     });
     const capture = captureRuntime(registry);
@@ -103,8 +104,8 @@ describe("真实 ZCode Built-in Config 到 Active Model", () => {
     expect(registry.getProvider(providerId)?.models.map(({ modelId: id }) => id)).toEqual([
       modelId,
     ]);
-    expect(registry.getProvider(providerId)?.providerName).toBe("Personal final label");
     expect(capture.created[0]?.providerConfig).toMatchObject({
+      visibility: "hidden",
       access: {
         type: "zhipu-account",
         accountType: "zai",

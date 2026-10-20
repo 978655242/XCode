@@ -39,9 +39,10 @@ try {
         js: `import { createRequire as smokeCreateRequire } from "node:module"; const require = smokeCreateRequire(${JSON.stringify(new URL("../package.json", import.meta.url).href)});`,
       },
     });
-    const env = { ...process.env };
+    // XCODE: runner 独占临时目录；Electron/GPU 完全退出后再删除 profile，避免缓存写入竞态。
+    const env = { ...process.env, TMPDIR: temporary, TMP: temporary, TEMP: temporary };
     delete env.ELECTRON_RUN_AS_NODE;
-    const result = spawnSync(electron, [output], {
+    const result = spawnSync(electron, [output, temporary], {
       env,
       stdio: "inherit",
       timeout:

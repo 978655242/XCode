@@ -1,7 +1,12 @@
 # Push 前 affected 单测比较基线
 
-首次推送新分支时，远端 ref 没有可比较的 commit，affected 单测 runner 会回退到默认基线。默认基线优先使用 `origin/staging`，再使用 `origin/release`（XCode 产品主干，开发分支从 release 切出，见 `docs/xcode/BRANCHING.md`）、`origin/HEAD`、`origin/main`、`origin/master`、`main`、`master`。上游仓库没有 `release` 分支时该候选自动跳过，行为不变。
+v3.16.1 使用上游新版 `scripts/affected-unit-tests/scope.mjs` 解析比较范围，由 Vitest 官方选择关联测试。旧的默认分支候选 helper 只保留上游架构检查仍在使用的接口，不再承担 affected 范围解析。
 
-不再按锁文件、package、Vitest、TypeScript 或门禁脚本等文件名强制执行全量测试。只要存在可用比较基线，就统一根据实际变更运行 affected/related 单测。
+- 显式 `--base`、`ZCODE_AFFECTED_TEST_BASE`、`ZCODE_PRE_PUSH_BASE` 按此顺序优先，覆盖 hook 提供的远端基线。
+- 已存在远端分支使用远端 SHA；重写历史后改用双方 merge-base。
+- 首次推送没有远端 SHA：`sync/upstream-*` 使用已审核的 `origin/XCode-main`，普通开发与 `sync/promote-*` 使用产品主干 `origin/release`，均取与 HEAD 的 merge-base。手动 push 范围没有 ref 输入时按当前分支角色选择。`main` 仅镜像上游，不充当产品测试基线，也不创建 `staging` 别名。
+- 预期集成分支缺失、无公共祖先、推送目标不是 HEAD、工作区有未提交/未跟踪改动时，严格报错；不自动 stash、不猜测其他分支、不退回全量来掩盖配置问题。
+- 配置或公共依赖令 Vitest 选中整个根套件时，按上游规则明确提示“未执行测试”后成功退出；它不构成测试通过的证据，完整验证需另外执行 `pnpm test:unit`。
+- XWork 保留的 `node:test` 用例继续由既有 `test:unit:node` 独立执行，并在根 Vitest 中排除；不能误扫、漏跑或与上游已迁入 Vitest 的测试重复执行。
 
-只有找不到任何可用基线，或删除了无法交给 Vitest related 分析的源码文件时，才执行全量 `pnpm test:unit`。
+架构检查保留上游独立的显式/CI/remote SHA/upstream 选择顺序。没有这些基线时，其默认候选在 XWork 优先 `origin/release`，再沿用上游候选；不以镜像 `main` 误算产品历史差异。affected 首推仍采用上述按分支角色严格选择的规则，不借架构检查的宽松 fallback 掩盖缺失远端。

@@ -102,7 +102,17 @@ describe("Published MCS and search final Anthropic wire", () => {
       });
     });
     try {
-      const adapter = new AiSdkModelAdapter({ env: {}, retry: { maxAttempts: 1 } });
+      const adapter = new AiSdkModelAdapter({
+        env: {},
+        retry: { maxAttempts: 1 },
+        // 本用例验证模型配置与 wire；安全端口注入离线透传，独立安全契约用例覆盖官方版本校验。
+        requestSecurityState: {
+          createExecution: () => ({
+            protectTransport: ({ transport }) => transport,
+            take: () => [],
+          }),
+        },
+      });
       expect(modelConfig.config.properties.supportsNativeWebSearch).toBe(search);
       const model = adapter.createModel({
         providerId: createModelProviderId(providerId),
@@ -114,6 +124,7 @@ describe("Published MCS and search final Anthropic wire", () => {
           reasoningLevel: config.optionSpecs!.reasoningLevel!.values!.at(-1)!,
         },
       });
+      expect(model.properties.supportsNativeWebSearch).toBe(search);
       await model.generateText({
         messages: buildProviderRequestMessages({
           useMidConversationSystem: model.properties.supportsMidConversationSystem,

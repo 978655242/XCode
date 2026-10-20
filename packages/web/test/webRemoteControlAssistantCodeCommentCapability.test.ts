@@ -21,7 +21,6 @@ describe("web remote control Assistant code-comment capability", () => {
     const onOpenCodeViewer = vi.fn();
 
     expect(projection.visibleText).toBe("已完成审查。\n");
-    expect(projection.visibleText).not.toContain("::code-comment");
     expect(cards).toHaveLength(1);
 
     render(

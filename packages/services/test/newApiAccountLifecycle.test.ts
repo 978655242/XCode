@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import type { NewApiSessionBundle } from "@zcode/shared";
+import type { NewApiOwner, NewApiSessionBundle, OAuthSessionState } from "@zcode/shared";
 import { createCredentialCipherProvider } from "../src/credential/providers/credentialCipherProvider.js";
 import { NewApiAccountService } from "../src/new-api/newApiAccountService.js";
 import { NewApiClient } from "../src/new-api/newApiClient.js";
@@ -70,7 +70,7 @@ const failure = (code: string, status: number) =>
     { status, headers: { "content-type": "application/json" } },
   );
 
-async function fixture() {
+async function fixture(onOwnerChanged?: (owner: NewApiOwner | null) => void | Promise<void>) {
   const dir = await mkdtemp(join(tmpdir(), "xcode-native-lifecycle-"));
   const credentialsFile = join(dir, "credentials.json");
   const cipherProvider = createCredentialCipherProvider({
@@ -143,14 +143,18 @@ async function fixture() {
     now: () => now,
     onOwnerChanged: (owner) => {
       owners.push(owner);
+      return onOwnerChanged?.(owner);
     },
   });
+  const sessionEvents: OAuthSessionState[] = [];
+  service.oauth.onDidChangeSession((state) => sessionEvents.push(state));
   const callback = (state: string) =>
     `zcode://oauth/callback?provider=new-api&state=${state}&code=${state}`;
   return {
     service,
     repo,
     owners,
+    sessionEvents,
     revoked,
     callback,
     credentialsFile,
@@ -182,6 +186,61 @@ async function fixture() {
   };
 }
 
+test("Native session events follow accepted owners without treating token rotation as a new login", async () => {
+  const f = await fixture();
+  try {
+    await f.login();
+    assert.deepEqual(f.sessionEvents, ["signed-out", "signed-in"]);
+    await f.service.oauth.refreshToken();
+    assert.deepEqual(f.sessionEvents, ["signed-out", "signed-in"]);
+    f.setExchange(async () => bundle("2", "sid-2", "refresh-b"));
+    const next = await f.service.oauth.startOAuth("new-api");
+    assert.equal(f.service.getOwner(), null);
+    assert.deepEqual(f.sessionEvents, ["signed-out", "signed-in", "signed-out"]);
+    await f.service.oauth.handleCallback(f.callback(next.state));
+    assert.equal(f.service.getOwner()?.userId, "2");
+    assert.deepEqual(f.sessionEvents, ["signed-out", "signed-in", "signed-out", "signed-in"]);
+    await f.service.oauth.logout();
+    assert.deepEqual(f.sessionEvents, [
+      "signed-out",
+      "signed-in",
+      "signed-out",
+      "signed-in",
+      "signed-out",
+    ]);
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("owner invalidation notifies before cleanup and canceled owner activation never emits signed-in", async () => {
+  const entered = barrier<void>();
+  const release = barrier<void>();
+  const f = await fixture(async (owner) => {
+    if (owner) {
+      entered.resolve();
+      await release.promise;
+    } else {
+      assert.equal(f.sessionEvents.at(-1), "signed-out");
+    }
+  });
+  try {
+    const start = await f.service.oauth.startOAuth("new-api");
+    const callback = f.service.oauth.handleCallback(f.callback(start.state));
+    await entered.promise;
+    assert.equal(f.sessionEvents.includes("signed-in"), false);
+    await f.service.oauth.cancelPending();
+    release.resolve();
+    assert.equal(await callback, null);
+    assert.equal(f.service.getOwner(), null);
+    assert.equal(await f.repo.loadActive(), null);
+    assert.equal(f.sessionEvents.includes("signed-in"), false);
+  } finally {
+    release.resolve();
+    await f.dispose();
+  }
+});
+
 test("late A exchange cannot publish or persist over B, and revokes the actual late SID", async () => {
   const f = await fixture();
   try {
@@ -204,6 +263,8 @@ test("late A exchange cannot publish or persist over B, and revokes the actual l
     assert.equal(f.service.getOwner()?.userId, "2");
     assert.equal((await f.repo.loadActive())?.bundle.session_id, "sid-2");
     assert.deepEqual(f.revoked, ["sid-1"]);
+    assert.equal(f.sessionEvents.filter((state) => state === "signed-in").length, 1);
+    assert.equal(f.sessionEvents.at(-1), "signed-in");
   } finally {
     await f.dispose();
   }
@@ -230,6 +291,7 @@ test("cancel after exchange and during atomic commit compensates persistence", a
     assert.equal(f.service.getOwner(), null);
     assert.equal(await f.repo.loadActive(), null);
     assert.deepEqual(f.revoked, ["sid-1"]);
+    assert.equal(f.sessionEvents.includes("signed-in"), false);
   } finally {
     await f.dispose();
   }
@@ -312,12 +374,14 @@ test("503 restore preserves recoverable record, explicit session revocation remo
     const before = await f.repo.loadActive();
     f.setMeError(failure("XCODE_BACKEND_UNAVAILABLE", 503));
     const unavailable = await f.service.oauth.restoreCachedSessionState();
+    assert.deepEqual(f.sessionEvents, ["signed-out", "signed-in"]);
     assert.equal(unavailable.status, "unavailable");
     assert.deepEqual(await f.repo.loadActive(), before);
     f.setMeError(failure("XCODE_SESSION_INVALID", 401));
     assert.equal((await f.service.oauth.restoreCachedSessionState()).status, "signed-out");
     assert.equal(f.service.getOwner(), null);
     assert.equal(await f.repo.loadActive(), null);
+    assert.equal(f.sessionEvents.at(-1), "signed-out");
     const store = JSON.parse(await readFile(f.credentialsFile, "utf8"));
     assert.equal(store["official-cloud:unowned"], f.legacy);
     assert.equal(store.zcodeJwtToken, f.legacy);
@@ -361,6 +425,7 @@ test("Renderer OAuth projection exposes no Host session or private implementatio
   try {
     await f.login();
     const approved = [
+      "onDidChangeSession",
       "getProviders",
       "getActiveProvider",
       "restoreCachedSession",
@@ -425,9 +490,12 @@ test("cold restore never publishes cached profile during 503, then refreshes an 
   try {
     await f.login();
     const cold = f.newService();
+    const restoredEvents: OAuthSessionState[] = [];
+    cold.oauth.onDidChangeSession((state) => restoredEvents.push(state));
     f.setMeError(failure("XCODE_BACKEND_UNAVAILABLE", 503));
     assert.equal((await cold.oauth.restoreCachedSessionState()).status, "unavailable");
     assert.equal(cold.getOwner(), null);
+    assert.deepEqual(restoredEvents, []);
     assert.equal(await cold.oauth.getActiveProvider(), null);
     assert.ok(await f.repo.loadActive());
     f.setMeError(null);
@@ -436,6 +504,9 @@ test("cold restore never publishes cached profile during 503, then refreshes an 
     assert.equal(cold.getOwner()?.userId, "1");
     assert.equal(f.refreshCalls(), 1);
     assert.equal((await f.repo.loadActive())?.bundle.refresh_token, "refresh-2");
+    assert.deepEqual(restoredEvents, ["signed-in"]);
+    await cold.oauth.restoreCachedSessionState();
+    assert.deepEqual(restoredEvents, ["signed-in"]);
   } finally {
     await f.dispose();
   }

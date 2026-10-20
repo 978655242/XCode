@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow } from "electron";
@@ -13,9 +12,11 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 const trigger = '[data-testid="chat-context-usage-trigger"]';
 const popup = '[data-slot="hover-card-content"]';
 
+assert.ok(process.argv[2], "Launch this fixture with runNewApiElectronSmokes.mjs");
+
 // XCODE: 真实 Composer 切换必须隔离缓存订阅，不能只测试额度 mapper 或替换浮层组件。
 async function run() {
-  const temporary = await mkdtemp(join(tmpdir(), "xwork-composer-context-"));
+  const temporary = await mkdtemp(join(process.argv[2], "xwork-composer-context-"));
   app.setPath("userData", temporary);
   let win;
   let exitCode = 0;
@@ -271,7 +272,6 @@ async function run() {
     console.error(stage, error);
   } finally {
     clearTimeout(deadline);
-    await rm(temporary, { recursive: true, force: true });
     app.exit(exitCode);
   }
 }

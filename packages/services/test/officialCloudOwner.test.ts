@@ -507,10 +507,7 @@ for (const family of ["bigmodel", "zai"] as const) {
             const headers = new Headers(init?.headers);
             let data: unknown;
             if (url.pathname.endsWith("/getCustomerInfo")) {
-              assert.equal(
-                headers.get("Authorization"),
-                family === "zai" ? `Bearer ${loginToken}` : loginToken,
-              );
+              assert.equal(headers.get("Authorization"), loginToken);
               data = {
                 organizations: [
                   {
@@ -520,6 +517,10 @@ for (const family of ["bigmodel", "zai"] as const) {
                 ],
               };
             } else if (url.pathname.endsWith("/querySubscribeDetail")) {
+              assert.equal(
+                headers.get("Authorization"),
+                family === "zai" ? `Bearer ${loginToken}` : loginToken,
+              );
               assert.equal(headers.get("bigmodel-organization"), "official-org");
               assert.equal(headers.get("bigmodel-project"), "official-project");
               data = {
@@ -529,6 +530,14 @@ for (const family of ["bigmodel", "zai"] as const) {
                 productId: "team-coding",
               };
             } else if (url.pathname.endsWith("/api_keys")) {
+              assert.equal(
+                headers.get("Authorization"),
+                !team && family === "zai" ? `Bearer ${loginToken}` : loginToken,
+              );
+              if (team) {
+                assert.equal(headers.get("bigmodel-organization"), "official-org");
+                assert.equal(headers.get("bigmodel-project"), "official-project");
+              }
               data = [
                 {
                   apiKey: "official-key-id",

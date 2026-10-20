@@ -125,8 +125,7 @@ describe("runner request options", () => {
   it("keeps empty-user wire content valid for generate and stream", () => {
     for (const createOptions of [createGenerateTextOptions, createStreamTextOptions]) {
       const options = createOptions(runnerInput({ messages: [{ role: "user", content: "" }] }));
-      expect(options.messages).toEqual([{ role: "user", content: expect.any(String) }]);
-      expect(options.messages[0]?.content).not.toBe("");
+      expect(options.messages).toEqual([{ role: "user", content: "(no content)" }]);
     }
   });
 
@@ -146,12 +145,15 @@ describe("runner request options", () => {
     );
     for (const createOptions of [createGenerateTextOptions, createStreamTextOptions]) {
       expect(createOptions(input).messages[0]?.content).toEqual([
-        { type: "text", text: expect.any(String) },
+        {
+          type: "text",
+          text: "[Attached image/png]\n[Media omitted from provider request because the selected model does not support image input.]",
+        },
       ]);
     }
   });
 
-  it("omits unsupported video before OpenAI Responses serialization", () => {
+  it("omits video with a text notice when model metadata declares it unsupported", () => {
     const input = runnerInput(
       {
         messages: [
@@ -166,9 +168,12 @@ describe("runner request options", () => {
       { providerKind: "openai", properties: createTestModelProperties({ supportsVideo: false }) },
     );
     for (const createOptions of [createGenerateTextOptions, createStreamTextOptions]) {
-      expect(createOptions(input).messages[0]?.content).toEqual([
-        { type: "text", text: expect.any(String) },
-      ]);
+      const content = createOptions(input).messages[0]?.content;
+      expect(content).toEqual([{ type: "text", text: expect.any(String) }]);
+      if (Array.isArray(content) && content[0]?.type === "text") {
+        expect(content[0].text.trim().length).toBeGreaterThan(0);
+      }
+      expect(JSON.stringify(content)).not.toContain("dmlkZW8=");
     }
   });
 

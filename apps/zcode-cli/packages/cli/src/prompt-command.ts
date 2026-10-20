@@ -1,4 +1,6 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
+import type { ToolSearchMode } from "@zcode/contracts";
+import { createCliProviderRefreshReporter } from "./provider-runtime-env.js";
 import { extname } from "node:path";
 import { formatJson, type PresentationSurface } from "@zcode/core";
 import type { RunContext, GlobalOptions } from "@zcode/shared-types";
@@ -77,6 +79,7 @@ export const runPrompt = async (
   resumeRequest: CliResumeRequest = { continueSession: false },
   toolDisallowlist?: readonly string[],
   forceMcs = false,
+  toolsearchMode: ToolSearchMode = "off",
   presentationSurface: PresentationSurface = "terminal",
   workflowMode: DynamicWorkflowMode = DEFAULT_CLI_WORKFLOW_MODE,
 ): Promise<number> => {
@@ -239,6 +242,7 @@ export const runPrompt = async (
     });
     browserRuntime = createCliHeadlessBrowserRuntime(options, deps);
     app = await createApp({
+      modelSelectionMode: "cli-default",
       browserControlPort: browserRuntime?.browserControlPort,
       env: appEnv,
       // headless 没有交互审批面，core 因此退到 deny broker，于是 CreateWorkflow 的
@@ -258,6 +262,7 @@ export const runPrompt = async (
       runtimeConfig: {
         ...(mode ? { mode } : {}),
         ...(toolDisallowlist ? { toolDisallowlist } : {}),
+        toolSearch: { mode: toolsearchMode },
         ...(forceMcs ? { midConversationSystem: { mode: "force" as const } } : {}),
         ...resolveWorkflowModeRuntimeConfig(workflowMode),
         memory: { extractionEnabled: options.memoryBench === true },
@@ -671,4 +676,3 @@ function writeHeadlessWorkspaceHookTrustDiagnostic(
     ].join("\n") + "\n",
   );
 }
-import { createCliProviderRefreshReporter } from "./provider-runtime-env.js";

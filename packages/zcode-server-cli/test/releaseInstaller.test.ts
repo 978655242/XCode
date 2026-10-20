@@ -1,3 +1,4 @@
+import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -49,8 +50,10 @@ describe("release installer", () => {
       }),
       "utf8",
     );
+    await mkdir(layout.serverRoot, { recursive: true });
+    await writeFile(layout.uninstalledFile, JSON.stringify({ uninstalled: true }), "utf8");
+    await writeFile(join(layout.serverRoot, "KEEP_UNKNOWN.txt"), "preserve", "utf8");
     const archivePath = join(root, "release.tar.gz");
-    const { execFile } = await import("node:child_process");
     await new Promise<void>((resolve, reject) =>
       execFile("tar", ["-czf", archivePath, "zcode-server-linux-x64"], { cwd: root }, (error) =>
         error ? reject(error) : resolve(),
@@ -68,6 +71,12 @@ describe("release installer", () => {
     const launcher = await readFile(join(layout.stableBinDir, "zcode"), "utf8");
     expect(launcher).toContain("current.json");
     expect(launcher).toContain('"$ROOT/releases"/*)');
+    await expect(readFile(layout.uninstalledFile, "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    await expect(readFile(join(layout.serverRoot, "KEEP_UNKNOWN.txt"), "utf8")).resolves.toBe(
+      "preserve",
+    );
   });
 
   it("installs a Windows zip and writes a launcher that is safe for quoted paths", async () => {
@@ -96,7 +105,6 @@ describe("release installer", () => {
       "utf8",
     );
     const archivePath = join(root, "release.zip");
-    const { execFile } = await import("node:child_process");
     // Bugfix: Windows 本机没有 Info-ZIP 的 `zip` 命令；System32 自带 bsdtar，`tar -a`
     // 可按 .zip 后缀写归档，与产品 stageRelease 在 Windows 上的产包方式一致。
     await new Promise<void>((resolve, reject) =>
@@ -118,24 +126,23 @@ describe("release installer", () => {
     expect(launcher).toContain("ZCODE_SERVER_ROOT");
   });
 
-  // Bugfix: 该用例验证 POSIX shell 版 stable launcher 的 fail-closed 输出，靠 shebang
-  // 直接执行 shell 脚本；Windows 无法 spawn 无扩展名脚本（ENOENT），只在 POSIX 宿主运行。
+  // Bugfix: Windows 没有 /bin/sh；由系统 shell 读取脚本，避免 macOS XProtect 首次 exec 扫描排队。
   it.skipIf(process.platform === "win32")(
     "fails closed when the POSIX stable launcher reads an external current release",
     async () => {
       const root = await mkdtemp(join(tmpdir(), "zcode-release-launcher-boundary-"));
       const layout = resolveServerLayout(join(root, "server"));
-      await writeStableLauncher(layout, "linux");
+      const launcherPath = await writeStableLauncher(layout, "linux");
+      expect((await readFile(launcherPath, "utf8")).startsWith("#!/bin/sh\n")).toBe(true);
+      expect((await stat(launcherPath)).mode & 0o111).not.toBe(0);
       await writeFile(
         layout.currentFile,
         JSON.stringify({ version: "1.0.0", releaseDir: join(root, "outside") }),
         "utf8",
       );
-      const { execFile } = await import("node:child_process");
+      // XCODE: 同时保留 fail-closed 的退出码及 stdout 断言，不只检查执行失败。
       const result = await new Promise<{ error: Error | null; stdout: string }>((resolve) => {
-        execFile(join(layout.stableBinDir, "zcode"), [], (error, stdout) =>
-          resolve({ error, stdout }),
-        );
+        execFile("/bin/sh", [launcherPath], (error, stdout) => resolve({ error, stdout }));
       });
       expect(result.error).toMatchObject({ code: 1 });
       expect(result.stdout).toBe("");
@@ -173,7 +180,6 @@ describe("release installer", () => {
       "utf8",
     );
     const archivePath = join(root, "release.tar.gz");
-    const { execFile } = await import("node:child_process");
     await new Promise<void>((resolve, reject) =>
       execFile("tar", ["-czf", archivePath, "zcode-server-linux-x64"], { cwd: root }, (error) =>
         error ? reject(error) : resolve(),
@@ -228,7 +234,6 @@ describe("release installer", () => {
       "utf8",
     );
     const archivePath = join(root, "release.tar.gz");
-    const { execFile } = await import("node:child_process");
     await new Promise<void>((resolve, reject) =>
       execFile("tar", ["-czf", archivePath, "zcode-server-linux-x64"], { cwd: root }, (error) =>
         error ? reject(error) : resolve(),

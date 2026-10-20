@@ -284,12 +284,12 @@ function createWorkflowChildRuntime(
     options.childSessionId,
     {
       ...deps.runtimeConfig,
-      // XCODE: 首轮执行边界才初始化 shell；不能从创建 App 时的旧 config 复制空快照。
-      bashShellSelection: deps.runtime.getSessionShellSelection(),
       agentName: options.workflowKind === "expert" ? "zcode-expert" : "zcode-workflow",
       // workflow child 不在 Guarded 合同内；只隔离父任务模式，不继承审批。
       mode: "yolo",
       modelSelection: deps.runtime.getSessionModelSelection(),
+      // XCODE: 父 Shell 在首条输入才解析，不能继承 app 创建时尚未初始化的静态配置。
+      bashShellSelection: deps.runtime.getSessionShellSelection(),
       parentSessionId: deps.sessionId,
       taskType: "workflow_child",
       workingDirectory: deps.workingDirectory,

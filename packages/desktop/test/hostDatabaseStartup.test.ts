@@ -12,17 +12,19 @@ vi.mock("@zcode/services/storage-startup", () => ({
     ).resolveZCodeAgentSpawnCwd(...(args as [never])),
   markTasksStoragePrepared: fixtures.mark,
 }));
-vi.mock("../src/host/storagePreparationProcesses.js", () => ({
+vi.mock("../src/host/database-startup/storagePreparationProcesses.js", () => ({
   prepareHostStorage: fixtures.host,
   prepareSessionStorage: fixtures.session,
 }));
-import { createHostDatabaseStartup } from "../src/host/hostDatabaseStartup.js";
+import { createHostDatabaseStartup } from "../src/host/database-startup/hostDatabaseStartup.js";
 
 it("prepares actual restored working directories before publishing services, without a fake workspace", async () => {
   const dir = await mkdtemp(join(tmpdir(), "zcode-startup-cwd-"));
   const sequence: string[] = [];
+  const { promise: hostPrepared, resolve: finishHostPreparation } = Promise.withResolvers<void>();
   fixtures.host.mockImplementation(async () => {
     sequence.push("host");
+    await hostPrepared;
   });
   fixtures.session.mockImplementation(async ({ cwd }) => {
     sequence.push(cwd);
@@ -37,12 +39,18 @@ it("prepares actual restored working directories before publishing services, wit
     publish: () => {},
     onFailure: () => {},
   });
+  const starting = startup.coordinator.start();
   try {
-    await startup.coordinator.start();
+    await vi.waitFor(() => expect(sequence).toEqual(["host"]));
+    expect(startup.coordinator.snapshot.phase).not.toBe("ready");
+    finishHostPreparation();
+    await starting;
     expect(sequence).toEqual(["host", dir, "services"]);
     expect(startup.coordinator.snapshot.startupId).toBe("host-startup-test");
     expect(startup.coordinator.snapshot.phase).toBe("ready");
   } finally {
+    finishHostPreparation();
+    await starting;
     startup.dispose();
     await rm(dir, { recursive: true, force: true });
   }

@@ -14,6 +14,7 @@ import {
   parseProcessAccountProviderConfigSnapshot,
 } from "../src/app/process-provider-registry-runtime.js";
 import { ZCodeProtocolAgentServer } from "../src/zcode-protocol/server.js";
+import { createTestProviderRegistry } from "./helpers/registry-backed-test-app.js";
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -21,10 +22,11 @@ afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup();
 });
 
-async function startRuntime() {
+async function startRuntime(env: Readonly<Record<string, string | undefined>> = {}) {
   const directory = await mkdtemp(join(tmpdir(), "account-delivery-"));
   cleanups.push(() => rm(directory, { recursive: true, force: true }));
   const started = await startProcessProviderRegistryRuntime({
+    ...env,
     [ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV]: fileURLToPath(
       new URL("../../../../../config/provider/zcode-builtin.json", import.meta.url),
     ),
@@ -97,6 +99,78 @@ describe("托管 Worker 账号交付", () => {
     });
     expect(refresh).toHaveBeenCalledTimes(2);
     expect(started.runtime.registryService.getSnapshot()?.account.revision).toBe(next.revision);
+  });
+
+  it("Native 完整能力与 owner 同一快照应用，缺失能力或 current 时失败关闭", async () => {
+    const origin = "http://127.0.0.1:3001";
+    const started = await startRuntime({ NEW_API_BASE_URL: origin });
+    const providerId = "account:new-api-anthropic-messages";
+    const modelId = "native-model";
+    const modelConfig = createTestProviderRegistry([{ providerId, modelId }])
+      .getModel(providerId, modelId)!
+      .config.toJSON();
+    const owner = { origin, userId: "1", sid: "native-session", authGeneration: 1 };
+    const envelope = {
+      revision: `account:sha256:${"a".repeat(64)}`,
+      basedOnZCodeBuiltinRevision: started.snapshot.config.zcodeBuiltinRevision,
+      providers: {
+        [providerId]: {
+          access: {
+            type: "new-api-account",
+            accountType: "new-api",
+            mode: "private-subscription",
+            entitled: true,
+          },
+          builtinModelIds: [modelId],
+        },
+      },
+      states: {
+        [providerId]: { availability: "available", entitled: true, current: true },
+      },
+      owner,
+      modelConfigs: { [providerId]: { [modelId]: modelConfig } },
+      catalogIssues: [],
+      catalogRevision: "catalog-1",
+      authorizationRevision: "authorization-1",
+    };
+    const snapshot = parseProcessAccountProviderConfigSnapshot(envelope);
+    await expect(started.syncAccountProviderConfig(snapshot)).resolves.toMatchObject({
+      appliedRevision: envelope.revision,
+    });
+    const applied = started.runtime.registryService.getSnapshot();
+    expect(applied?.sourceRevisions.account).toBe(envelope.revision);
+    expect(applied?.account.owner).toEqual(owner);
+    expect(applied?.account.modelConfigs).toEqual(envelope.modelConfigs);
+    expect(applied?.account.authorizationRevision).toBe("authorization-1");
+    expect(started.runtime.registryService.getModel(providerId, modelId)?.config.toJSON()).toEqual(
+      modelConfig,
+    );
+    expect(() =>
+      parseProcessAccountProviderConfigSnapshot({ ...envelope, modelConfigs: {} }),
+    ).toThrow("Native complete model config missing");
+    expect(() =>
+      parseProcessAccountProviderConfigSnapshot({
+        ...envelope,
+        states: {
+          [providerId]: { availability: "available", entitled: true, current: false },
+        },
+      }),
+    ).toThrow("Native Account owner/current missing");
+    const waiting = parseProcessAccountProviderConfigSnapshot({
+      ...envelope,
+      revision: `account:sha256:${"b".repeat(64)}`,
+      basedOnZCodeBuiltinRevision: "builtin-not-delivered",
+      owner: { ...owner, sid: "next-session", authGeneration: 2 },
+      authorizationRevision: "authorization-2",
+    });
+    await expect(started.syncAccountProviderConfig(waiting)).resolves.toMatchObject({
+      appliedRevision: envelope.revision,
+    });
+    expect(started.runtime.registryService.getSnapshot()?.account.revision).toBe(waiting.revision);
+    expect(started.runtime.registryService.getSnapshot()?.sourceRevisions.account).toBe(
+      envelope.revision,
+    );
+    expect(started.runtime.registryService.getModel(providerId, modelId)).toBeUndefined();
   });
 
   it("普通账号有权益却缺 current 时拒绝交付，不能宽松放行", () => {

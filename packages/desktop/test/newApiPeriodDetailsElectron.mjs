@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow } from "electron";
@@ -10,9 +9,11 @@ const requireServices = createRequire(new URL("../../services/package.json", imp
 const { build } = requireServices("esbuild");
 const requireRoot = createRequire(new URL("../../../package.json", import.meta.url));
 const root = fileURLToPath(new URL("../../../", import.meta.url));
+assert.ok(process.argv[2], "Launch this fixture with runNewApiElectronSmokes.mjs");
+
 // XCODE: 不在 Electron ESM 入口顶层等待 ready，避免启动互锁。
 async function run() {
-  const temporary = await mkdtemp(join(tmpdir(), "xwork-period-details-"));
+  const temporary = await mkdtemp(join(process.argv[2], "xwork-period-details-"));
   app.setPath("userData", temporary);
   let win;
   let exitCode = 0;
@@ -174,7 +175,6 @@ async function run() {
     console.error(error);
   } finally {
     clearTimeout(deadline);
-    await rm(temporary, { recursive: true, force: true });
     app.exit(exitCode);
   }
 }

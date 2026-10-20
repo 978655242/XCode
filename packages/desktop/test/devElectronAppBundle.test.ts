@@ -10,7 +10,6 @@ import {
   DEV_ELECTRON_BUNDLE_FORMAT,
   patchDevElectronInfoPlist,
   prepareDevElectronAppBundle,
-  resolveDevElectronAppBundlePath,
 } from "../scripts/devElectronAppBundle.mjs";
 
 const tempRoots: string[] = [];
@@ -41,21 +40,16 @@ describe("dev Electron app bundle", () => {
 
     const patched = patchDevElectronInfoPlist(source, rendererUrl);
 
+    // XCODE: 展示品牌独立于持久化身份，开发 bundle 不改协议和应用标识。
+    expect(DEV_ELECTRON_APP_NAME).toBe("XWork Dev");
+    expect(DEV_ELECTRON_APP_BUNDLE_ID).toBe("dev.zcode.app.development");
+    expect(DEV_ELECTRON_PROTOCOL_SCHEME).toBe("zcode");
+
     expect(patched).toContain(`<string>${DEV_ELECTRON_APP_NAME}</string>`);
     expect(patched).toContain(`<string>${DEV_ELECTRON_APP_BUNDLE_ID}</string>`);
     expect(patched).toContain("<key>CFBundleURLTypes</key>");
     expect(patched).toContain(`<string>${DEV_ELECTRON_PROTOCOL_SCHEME}</string>`);
     expect((patched.match(/<key>CFBundleURLTypes<\/key>/gu) ?? []).length).toBe(1);
-  });
-
-  it("derives a stable ignored bundle path per Electron version and architecture", () => {
-    expect(
-      resolveDevElectronAppBundlePath({
-        runtimeRoot: "/tmp/zcode-runtime",
-        electronVersion: "41.0.3",
-        arch: "arm64",
-      }),
-    ).toBe(`/tmp/zcode-runtime/41.0.3-arm64/${DEV_ELECTRON_APP_NAME}.app`);
   });
 
   it("makes the macOS dev launcher use the prepared bundle executable", async () => {
@@ -67,47 +61,52 @@ describe("dev Electron app bundle", () => {
   });
 
   // macOS bundle preparation creates a directory symlink; Windows CI may lack that privilege.
-  it.skipIf(process.platform === "win32")("copies the runtime and patches only the Dev bundle plist", async () => {
-    const root = await mkdtemp(join(tmpdir(), "zcode-dev-bundle-test-"));
-    tempRoots.push(root);
-    const sourceApp = join(root, "source", "Electron.app");
-    const sourceContents = join(sourceApp, "Contents");
-    await mkdir(join(sourceContents, "Resources"), { recursive: true });
-    await writeFile(
-      join(sourceContents, "Info.plist"),
-      `<?xml version="1.0"?><plist version="1.0"><dict>
+  it.skipIf(process.platform === "win32")(
+    "copies the runtime and patches only the Dev bundle plist",
+    async () => {
+      const root = await mkdtemp(join(tmpdir(), "zcode-dev-bundle-test-"));
+      tempRoots.push(root);
+      const sourceApp = join(root, "source", "Electron.app");
+      const sourceContents = join(sourceApp, "Contents");
+      await mkdir(join(sourceContents, "Resources"), { recursive: true });
+      await writeFile(
+        join(sourceContents, "Info.plist"),
+        `<?xml version="1.0"?><plist version="1.0"><dict>
 <key>CFBundleDisplayName</key><string>Electron</string>
 <key>CFBundleIdentifier</key><string>com.github.Electron</string>
 <key>CFBundleName</key><string>Electron</string>
 <key>CFBundleIconFile</key><string>electron.icns</string>
 </dict></plist>\n`,
-      "utf8",
-    );
-    const outputRoot = join(root, "runtime");
+        "utf8",
+      );
+      const outputRoot = join(root, "runtime");
 
-    const result = await prepareDevElectronAppBundle({
-      appSourcePath,
-      rendererUrl,
-      electronAppPath: sourceApp,
-      runtimeRoot: outputRoot,
-      electronVersion: "41.0.3",
-      arch: "arm64",
-    });
+      const result = await prepareDevElectronAppBundle({
+        appSourcePath,
+        rendererUrl,
+        electronAppPath: sourceApp,
+        runtimeRoot: outputRoot,
+        electronVersion: "41.0.3",
+        arch: "arm64",
+      });
 
-    expect(result.appPath).toBe(`${outputRoot}/41.0.3-arm64/${DEV_ELECTRON_APP_NAME}.app`);
-    expect(result.executablePath).toBe(
-      `${outputRoot}/41.0.3-arm64/${DEV_ELECTRON_APP_NAME}.app/Contents/MacOS/Electron`,
-    );
-    const plist = await readFile(join(result.appPath, "Contents", "Info.plist"), "utf8");
-    expect(plist).toContain("dev.zcode.app.development");
-    expect(plist).toContain("<string>zcode</string>");
-    expect(plist).toContain("<key>CFBundleIconFile</key>");
-    expect(plist).toContain("<string>xcode.icns</string>");
-    expect(await readFile(join(result.appPath, "Contents", "Resources", "xcode.icns"))).toEqual(
-      await readFile(new URL("../build/icon.icns", import.meta.url)),
-    );
-    expect(await readlink(join(result.appPath, "Contents", "Resources", "app"))).toBe(appSourcePath);
-  });
+      expect(result.appPath).toBe(`${outputRoot}/41.0.3-arm64/${DEV_ELECTRON_APP_NAME}.app`);
+      expect(result.executablePath).toBe(
+        `${outputRoot}/41.0.3-arm64/${DEV_ELECTRON_APP_NAME}.app/Contents/MacOS/Electron`,
+      );
+      const plist = await readFile(join(result.appPath, "Contents", "Info.plist"), "utf8");
+      expect(plist).toContain("dev.zcode.app.development");
+      expect(plist).toContain("<string>zcode</string>");
+      expect(plist).toContain("<key>CFBundleIconFile</key>");
+      expect(plist).toContain("<string>xcode.icns</string>");
+      expect(await readFile(join(result.appPath, "Contents", "Resources", "xcode.icns"))).toEqual(
+        await readFile(new URL("../build/icon.icns", import.meta.url)),
+      );
+      expect(await readlink(join(result.appPath, "Contents", "Resources", "app"))).toBe(
+        appSourcePath,
+      );
+    },
+  );
 
   // Windows 普通用户无符号链接权限（需开发者模式），fs.symlink EPERM；覆盖由 CI Linux 承担。
   it.skipIf(process.platform === "win32")(
@@ -158,147 +157,156 @@ describe("dev Electron app bundle", () => {
     },
   );
 
-  it.skipIf(process.platform === "win32")("rebuilds a cached bundle whose stamp predates the current layout format", async () => {
-    const root = await mkdtemp(join(tmpdir(), "zcode-dev-bundle-format-test-"));
-    tempRoots.push(root);
-    const sourceApp = join(root, "source", "Electron.app");
-    const sourceContents = join(sourceApp, "Contents");
-    const sourceMacOS = join(sourceContents, "MacOS");
-    await mkdir(sourceMacOS, { recursive: true });
-    await mkdir(join(sourceContents, "Resources"), { recursive: true });
-    await writeFile(
-      join(sourceContents, "Info.plist"),
-      `<?xml version="1.0"?><plist version="1.0"><dict>
+  it.skipIf(process.platform === "win32")(
+    "rebuilds a cached bundle whose stamp predates the current layout format",
+    async () => {
+      const root = await mkdtemp(join(tmpdir(), "zcode-dev-bundle-format-test-"));
+      tempRoots.push(root);
+      const sourceApp = join(root, "source", "Electron.app");
+      const sourceContents = join(sourceApp, "Contents");
+      const sourceMacOS = join(sourceContents, "MacOS");
+      await mkdir(sourceMacOS, { recursive: true });
+      await mkdir(join(sourceContents, "Resources"), { recursive: true });
+      await writeFile(
+        join(sourceContents, "Info.plist"),
+        `<?xml version="1.0"?><plist version="1.0"><dict>
 <key>CFBundleDisplayName</key><string>Electron</string>
 <key>CFBundleIdentifier</key><string>com.github.Electron</string>
 <key>CFBundleName</key><string>Electron</string>
 <key>CFBundleIconFile</key><string>electron.icns</string>
 </dict></plist>\n`,
-      "utf8",
-    );
-    await writeFile(join(sourceMacOS, "Electron"), "source-v1", "utf8");
-    const outputRoot = join(root, "runtime");
+        "utf8",
+      );
+      await writeFile(join(sourceMacOS, "Electron"), "source-v1", "utf8");
+      const outputRoot = join(root, "runtime");
 
-    const first = await prepareDevElectronAppBundle({
-      appSourcePath,
-      rendererUrl,
-      electronAppPath: sourceApp,
-      runtimeRoot: outputRoot,
-      electronVersion: "41.0.3",
-      arch: "arm64",
-    });
-    const stampPath = join(outputRoot, "41.0.3-arm64", ".zcode-dev-electron-source.json");
-    const stamp = JSON.parse(await readFile(stampPath, "utf8"));
-    expect(stamp.format).toBe(DEV_ELECTRON_BUNDLE_FORMAT);
-    // 模拟旧版脚本留下的缓存：没有 format 字段，源二进制指纹却仍然匹配。
-    await writeFile(
-      stampPath,
-      JSON.stringify({ size: stamp.size, mtimeMs: stamp.mtimeMs }),
-      "utf8",
-    );
-    await writeFile(join(first.appPath, "Contents", "MacOS", "Electron"), "stale-copy", "utf8");
+      const first = await prepareDevElectronAppBundle({
+        appSourcePath,
+        rendererUrl,
+        electronAppPath: sourceApp,
+        runtimeRoot: outputRoot,
+        electronVersion: "41.0.3",
+        arch: "arm64",
+      });
+      const stampPath = join(outputRoot, "41.0.3-arm64", ".zcode-dev-electron-source.json");
+      const stamp = JSON.parse(await readFile(stampPath, "utf8"));
+      expect(stamp.format).toBe(DEV_ELECTRON_BUNDLE_FORMAT);
+      // 模拟旧版脚本留下的缓存：没有 format 字段，源二进制指纹却仍然匹配。
+      await writeFile(
+        stampPath,
+        JSON.stringify({ size: stamp.size, mtimeMs: stamp.mtimeMs }),
+        "utf8",
+      );
+      await writeFile(join(first.appPath, "Contents", "MacOS", "Electron"), "stale-copy", "utf8");
 
-    await prepareDevElectronAppBundle({
-      appSourcePath,
-      rendererUrl,
-      electronAppPath: sourceApp,
-      runtimeRoot: outputRoot,
-      electronVersion: "41.0.3",
-      arch: "arm64",
-    });
+      await prepareDevElectronAppBundle({
+        appSourcePath,
+        rendererUrl,
+        electronAppPath: sourceApp,
+        runtimeRoot: outputRoot,
+        electronVersion: "41.0.3",
+        arch: "arm64",
+      });
 
-    expect(await readFile(join(first.appPath, "Contents", "MacOS", "Electron"), "utf8")).toBe(
-      "source-v1",
-    );
-  });
+      expect(await readFile(join(first.appPath, "Contents", "MacOS", "Electron"), "utf8")).toBe(
+        "source-v1",
+      );
+    },
+  );
 
-  it.skipIf(process.platform === "win32")("rebuilds the ignored bundle when the source Electron launcher changes", async () => {
-    const root = await mkdtemp(join(tmpdir(), "zcode-dev-bundle-refresh-test-"));
-    tempRoots.push(root);
-    const sourceApp = join(root, "source", "Electron.app");
-    const sourceContents = join(sourceApp, "Contents");
-    const sourceMacOS = join(sourceContents, "MacOS");
-    await mkdir(sourceMacOS, { recursive: true });
-    await mkdir(join(sourceContents, "Resources"), { recursive: true });
-    await writeFile(
-      join(sourceContents, "Info.plist"),
-      `<?xml version="1.0"?><plist version="1.0"><dict>
+  it.skipIf(process.platform === "win32")(
+    "rebuilds the ignored bundle when the source Electron launcher changes",
+    async () => {
+      const root = await mkdtemp(join(tmpdir(), "zcode-dev-bundle-refresh-test-"));
+      tempRoots.push(root);
+      const sourceApp = join(root, "source", "Electron.app");
+      const sourceContents = join(sourceApp, "Contents");
+      const sourceMacOS = join(sourceContents, "MacOS");
+      await mkdir(sourceMacOS, { recursive: true });
+      await mkdir(join(sourceContents, "Resources"), { recursive: true });
+      await writeFile(
+        join(sourceContents, "Info.plist"),
+        `<?xml version="1.0"?><plist version="1.0"><dict>
 <key>CFBundleDisplayName</key><string>Electron</string>
 <key>CFBundleIdentifier</key><string>com.github.Electron</string>
 <key>CFBundleName</key><string>Electron</string>
 <key>CFBundleIconFile</key><string>electron.icns</string>
 </dict></plist>\n`,
-      "utf8",
-    );
-    await writeFile(join(sourceMacOS, "Electron"), "source-v1", "utf8");
-    const outputRoot = join(root, "runtime");
+        "utf8",
+      );
+      await writeFile(join(sourceMacOS, "Electron"), "source-v1", "utf8");
+      const outputRoot = join(root, "runtime");
 
-    const first = await prepareDevElectronAppBundle({
-      appSourcePath,
-      rendererUrl,
-      electronAppPath: sourceApp,
-      runtimeRoot: outputRoot,
-      electronVersion: "41.0.3",
-      arch: "arm64",
-    });
-    await writeFile(join(sourceMacOS, "Electron"), "source-v2", "utf8");
+      const first = await prepareDevElectronAppBundle({
+        appSourcePath,
+        rendererUrl,
+        electronAppPath: sourceApp,
+        runtimeRoot: outputRoot,
+        electronVersion: "41.0.3",
+        arch: "arm64",
+      });
+      await writeFile(join(sourceMacOS, "Electron"), "source-v2", "utf8");
 
-    await prepareDevElectronAppBundle({
-      appSourcePath,
-      rendererUrl,
-      electronAppPath: sourceApp,
-      runtimeRoot: outputRoot,
-      electronVersion: "41.0.3",
-      arch: "arm64",
-    });
+      await prepareDevElectronAppBundle({
+        appSourcePath,
+        rendererUrl,
+        electronAppPath: sourceApp,
+        runtimeRoot: outputRoot,
+        electronVersion: "41.0.3",
+        arch: "arm64",
+      });
 
-    expect(await readFile(join(first.appPath, "Contents", "MacOS", "Electron"), "utf8")).toBe(
-      "source-v2",
-    );
-  });
+      expect(await readFile(join(first.appPath, "Contents", "MacOS", "Electron"), "utf8")).toBe(
+        "source-v2",
+      );
+    },
+  );
 
-  it.skipIf(process.platform === "win32")("reuses the ignored bundle when the source Electron launcher is unchanged", async () => {
-    const root = await mkdtemp(join(tmpdir(), "zcode-dev-bundle-reuse-test-"));
-    tempRoots.push(root);
-    const sourceApp = join(root, "source", "Electron.app");
-    const sourceContents = join(sourceApp, "Contents");
-    const sourceMacOS = join(sourceContents, "MacOS");
-    await mkdir(sourceMacOS, { recursive: true });
-    await mkdir(join(sourceContents, "Resources"), { recursive: true });
-    await writeFile(
-      join(sourceContents, "Info.plist"),
-      `<?xml version="1.0"?><plist version="1.0"><dict>
+  it.skipIf(process.platform === "win32")(
+    "reuses the ignored bundle when the source Electron launcher is unchanged",
+    async () => {
+      const root = await mkdtemp(join(tmpdir(), "zcode-dev-bundle-reuse-test-"));
+      tempRoots.push(root);
+      const sourceApp = join(root, "source", "Electron.app");
+      const sourceContents = join(sourceApp, "Contents");
+      const sourceMacOS = join(sourceContents, "MacOS");
+      await mkdir(sourceMacOS, { recursive: true });
+      await mkdir(join(sourceContents, "Resources"), { recursive: true });
+      await writeFile(
+        join(sourceContents, "Info.plist"),
+        `<?xml version="1.0"?><plist version="1.0"><dict>
 <key>CFBundleDisplayName</key><string>Electron</string>
 <key>CFBundleIdentifier</key><string>com.github.Electron</string>
 <key>CFBundleName</key><string>Electron</string>
 <key>CFBundleIconFile</key><string>electron.icns</string>
 </dict></plist>\n`,
-      "utf8",
-    );
-    await writeFile(join(sourceMacOS, "Electron"), "source-v1", "utf8");
-    const outputRoot = join(root, "runtime");
+        "utf8",
+      );
+      await writeFile(join(sourceMacOS, "Electron"), "source-v1", "utf8");
+      const outputRoot = join(root, "runtime");
 
-    const first = await prepareDevElectronAppBundle({
-      appSourcePath,
-      rendererUrl,
-      electronAppPath: sourceApp,
-      runtimeRoot: outputRoot,
-      electronVersion: "41.0.3",
-      arch: "arm64",
-    });
-    // 重建会先 rm 整个 bundle 目录；用一个标记文件证明第二次确实走了缓存命中。
-    const marker = join(first.appPath, "Contents", "cache-witness");
-    await writeFile(marker, "kept", "utf8");
+      const first = await prepareDevElectronAppBundle({
+        appSourcePath,
+        rendererUrl,
+        electronAppPath: sourceApp,
+        runtimeRoot: outputRoot,
+        electronVersion: "41.0.3",
+        arch: "arm64",
+      });
+      // 重建会先 rm 整个 bundle 目录；用一个标记文件证明第二次确实走了缓存命中。
+      const marker = join(first.appPath, "Contents", "cache-witness");
+      await writeFile(marker, "kept", "utf8");
 
-    await prepareDevElectronAppBundle({
-      appSourcePath,
-      rendererUrl,
-      electronAppPath: sourceApp,
-      runtimeRoot: outputRoot,
-      electronVersion: "41.0.3",
-      arch: "arm64",
-    });
+      await prepareDevElectronAppBundle({
+        appSourcePath,
+        rendererUrl,
+        electronAppPath: sourceApp,
+        runtimeRoot: outputRoot,
+        electronVersion: "41.0.3",
+        arch: "arm64",
+      });
 
-    expect(await readFile(marker, "utf8")).toBe("kept");
-  });
+      expect(await readFile(marker, "utf8")).toBe("kept");
+    },
+  );
 });

@@ -4,14 +4,17 @@ import type { ModelSelectionView } from "@zcode/services";
 import { buildRegistryModelSelectGroups } from "../src/lib/modelSelectionGroups.js";
 
 describe("model selection groups", () => {
-  it("保留带前缀和多段斜杠的精确模型 ID", () => {
+  it("保留精确模型 ID 和供应商品牌；vision 能力只在设置页展示", () => {
     const modelId = "upstream/family/vision-preview";
     const view: ModelSelectionView = {
       revision: 1,
       providers: [
         {
           providerId: "aggregator",
-          config: { api: { type: "openai-chat-completions", baseUrl: "https://example.test/v1" } },
+          config: {
+            api: { type: "openai-chat-completions", baseUrl: "https://example.test/v1" },
+            logo: { type: "builtin", key: "deepseek" },
+          },
           models: [{ modelId, config: { properties: { inputFormat: { supportsImage: true } } } }],
         },
       ],
@@ -23,6 +26,11 @@ describe("model selection groups", () => {
         name: modelId,
       },
     ]);
+    expect(buildRegistryModelSelectGroups("glm", view)[0]?.logo).toEqual({
+      type: "builtin",
+      key: "deepseek",
+    });
+    expect(view.providers[0]?.models[0]?.config.properties?.inputFormat?.supportsImage).toBe(true);
   });
   it("直接把 Registry API Provider 投影为有序模型组", () => {
     const selectionView: ModelSelectionView = {
@@ -67,6 +75,7 @@ describe("model selection groups", () => {
       {
         key: "registry-provider:anthropic-api",
         label: "Anthropic API",
+        labelBadge: "API",
         items: [
           {
             key: "registry-provider:anthropic-api:claude-a",
@@ -83,6 +92,7 @@ describe("model selection groups", () => {
       {
         key: "registry-provider:openai-api",
         label: "OpenAI API",
+        labelBadge: "API",
         items: [
           {
             key: "registry-provider:openai-api:model-a",

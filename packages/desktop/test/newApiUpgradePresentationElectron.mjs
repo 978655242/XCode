@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, ipcMain } from "electron";
@@ -23,8 +22,10 @@ const webRoot = resolve(root, "../new-api/web");
 const requireDesktop = createRequire(new URL("../package.json", import.meta.url));
 const requireRoot = createRequire(new URL("../../../package.json", import.meta.url));
 
+assert.ok(process.argv[2], "Launch this fixture with runNewApiElectronSmokes.mjs");
+
 async function run() {
-  const temporary = await mkdtemp(join(tmpdir(), "xwork-upgrade-electron-"));
+  const temporary = await mkdtemp(join(process.argv[2], "xwork-upgrade-electron-"));
   app.setPath("userData", join(temporary, "profile"));
   let win, vite, fixture, fixtureOrigin;
   const counters = { writes: 0 };
@@ -367,7 +368,6 @@ async function run() {
     // 保留最后一个窗口直到异步清理结束，避免默认退出0抢在 app.exit(1) 前掩盖断言失败。
     await vite?.close();
     await (fixture?.close() ?? Promise.resolve());
-    await rm(temporary, { recursive: true, force: true });
     app.exit(exitCode);
   }
 }

@@ -89,8 +89,6 @@ describe("incoming reminder delimiter boundary", () => {
         if (mode !== "legal-MCS") {
           expect(String(rendered.content).startsWith("<system-reminder>\n")).toBe(true);
           expect(String(rendered.content).endsWith("\n</system-reminder>")).toBe(true);
-        }
-        if (mode !== "legal-MCS") {
           expect(
             String(result.messages[index]!.content).match(/<\/?system-reminder\b/gi),
           ).toHaveLength(2);

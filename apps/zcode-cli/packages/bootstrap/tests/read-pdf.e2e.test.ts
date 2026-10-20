@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { createNodeExecutionAdapter } from "@zcode/adapters/exec";
 import { createNodeFileSystemAdapter } from "@zcode/adapters/fs";
 import { createJimpImageProcessorAdapter } from "@zcode/adapters/image";
-import { AiSdkModelAdapter } from "@zcode/adapters/model";
+import { createPdfProviderFixture } from "./helpers/pdf-provider-fixture.js";
 import { createPopplerPdfDocumentAdapter } from "@zcode/adapters/pdf";
 import {
   createInMemorySessionEventStore,
@@ -25,10 +25,6 @@ import {
   type PdfDocumentPort,
 } from "@zcode/contracts";
 import { AgentRuntime } from "@zcode/core";
-import { ProviderRegistry } from "@zcode/provider";
-import { ApiProviderModelRuntime } from "../src/app/provider-registry-model-runtime.js";
-import { createApiKeyProviderConfig } from "./provider-config-fixtures.js";
-import { createTestProviderRegistry } from "./helpers/registry-backed-test-app.js";
 import { createTestRuntimeModel } from "./helpers/test-agent-runtime.js";
 
 const CHAT_MODEL = {
@@ -52,20 +48,20 @@ describe("Read PDF provider and cold-resume E2E", () => {
       rootDir: join(root, "artifacts"),
       videoCacheRootDir: join(root, "video-cache"),
     };
-    const liveStore = createSqliteSessionStore({ dbPath: databasePath });
+    const liveStore = await createSqliteSessionStore({ dbPath: databasePath });
     let liveStoreClosed = false;
-    let resumedStore: ReturnType<typeof createSqliteSessionStore> | undefined;
+    let resumedStore: Awaited<ReturnType<typeof createSqliteSessionStore>> | undefined;
     let liveRuntime: AgentRuntime | undefined;
     let resumedRuntime: AgentRuntime | undefined;
 
     const createRuntime = (
-      sessionStore: ReturnType<typeof createSqliteSessionStore>,
+      sessionStore: Awaited<ReturnType<typeof createSqliteSessionStore>>,
     ): AgentRuntime =>
       new AgentRuntime(
         sessionId,
         {
           mode: "yolo",
-          modelSelection: { ...CHAT_MODEL, options: { reasoningLevel: "high" } },
+          modelSelection: { ...CHAT_MODEL, options: { reasoningLevel: "disabled" } },
           modelStreaming: "off",
           workingDirectory: root,
         },
@@ -74,7 +70,9 @@ describe("Read PDF provider and cold-resume E2E", () => {
           eventStore: createInMemorySessionEventStore(),
           fileSystemPort: createNodeFileSystemAdapter(),
           imageProcessorPort: passthroughImageProcessor,
-          modelFactory: createChatModelFactory(capture.baseURL),
+          modelFactory: createPdfProviderFixture(capture.baseURL, CHAT_MODEL.providerId, [
+            { modelId: CHAT_MODEL.modelId, supportsPdf: true },
+          ]).modelFactory,
           pdfDocumentPort: deterministicPdfDocument,
           sessionStore,
         },
@@ -92,7 +90,7 @@ describe("Read PDF provider and cold-resume E2E", () => {
       liveRuntime.beginShutdown();
       liveStore.close();
       liveStoreClosed = true;
-      resumedStore = createSqliteSessionStore({ dbPath: databasePath });
+      resumedStore = await createSqliteSessionStore({ dbPath: databasePath });
       resumedRuntime = createRuntime(resumedStore);
       await resumedRuntime.resumeFromStore();
       await resumedRuntime.executeTurn("Continue after cold resume.");
@@ -186,28 +184,6 @@ async function commandSucceeds(command: string, args: string[]): Promise<boolean
   return await new Promise((resolve) => {
     execFile(command, args, { timeout: 5_000 }, (error) => resolve(error === null));
   });
-}
-
-function createChatModelFactory(baseURL: string) {
-  const providerId = String(CHAT_MODEL.providerId);
-  const modelId = String(CHAT_MODEL.modelId);
-  const provider = createTestProviderRegistry([CHAT_MODEL]).getProvider(providerId)!;
-  const runtime = new ApiProviderModelRuntime({
-    registry: new ProviderRegistry([
-      {
-        ...provider,
-        config: createApiKeyProviderConfig({
-          apiKey: "pdf-e2e-key",
-          apiFormat: "openai-chat-completions",
-          baseURL: `${baseURL}/v1`,
-          models: [modelId],
-        }),
-      },
-    ]),
-    modelAdapter: new AiSdkModelAdapter({ env: {}, retry: { maxAttempts: 1 } }),
-  });
-  runtime.start();
-  return runtime.modelFactory;
 }
 
 const deterministicPdfDocument: PdfDocumentPort = {

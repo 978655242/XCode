@@ -162,7 +162,8 @@ export function createOfficialCloudMaterialLoader(options: {
     const customer = customerSchema.parse(
       await remote.fetchRemoteData(`${host}/api/biz/customer/getCustomerInfo`, {
         method: "GET",
-        headers: { Authorization: authorization },
+        // XCODE: 与上游项目 Token resolver 共用 customerInfo 裸业务 token 契约，不能套 Z.ai Key 管理的 Bearer。
+        headers: { Authorization: credentials.accessToken },
       }),
     );
     let access: ZCodeAccountAccess | null = null;

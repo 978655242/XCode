@@ -14,7 +14,7 @@ const allowedNetworkBoundaryFiles = new Set([
   // 只读 node:http 的 IncomingMessage 类型，把已到手的响应交给 http/index.ts 与 proxy-fetch.ts，不发请求。
   "packages/adapters/src/network/incoming-response.ts",
   "packages/adapters/src/network/proxy-fetch.ts",
-  // MCP transport 使用既有 proxy-fetch，并仅在该 Adapter 边界关闭重复网络采集。
+  // MCP 的局部 fetch 由 createNetworkProxyFetch 注入，仅包裹网络观测范围，不直接使用全局 fetch。
   "packages/adapters/src/mcp/network.ts",
   "packages/cli/src/provider-runtime-env.ts",
   // WebFetch 工具只读取 node:http 状态码，真实请求由注入的执行端口完成。

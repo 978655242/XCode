@@ -6,7 +6,9 @@ import {
   type OAuthCallbackResult,
   type OAuthProviderId,
   type OAuthStartResponse,
+  type OAuthSessionState,
 } from "@zcode/shared";
+import { Emitter } from "@zcode/rpc";
 import type { IOAuthService } from "../oauth/oauth.js";
 import type { NewApiProviderAdapter } from "../oauth/providers/newApiProviderAdapter.js";
 import type { NewApiSessionRepo, NewApiStoredSession } from "./newApiSessionRepo.js";
@@ -36,6 +38,7 @@ import {
 
 export class NewApiAccountService {
   readonly oauth: IOAuthService;
+  #sessionChanges = new Emitter<OAuthSessionState>();
   #adapter: NewApiProviderAdapter;
   #repo: NewApiSessionRepo;
   #now: () => number;
@@ -60,9 +63,14 @@ export class NewApiAccountService {
     this.#adapter = dependencies.adapter;
     this.#repo = dependencies.repo;
     this.#now = dependencies.now ?? Date.now;
-    this.#onOwnerChanged = dependencies.onOwnerChanged ?? (() => {});
+    this.#onOwnerChanged = (owner) => {
+      // XCODE: 主身份失效立即通知现有 OAuth 消费者，不等待官方连接/Provider 清理或撤销网络。
+      if (!owner) this.#sessionChanges.fire("signed-out");
+      return dependencies.onOwnerChanged?.(owner);
+    };
     // XCODE: RPC 只注册显式公开投影，Host 的 SID、refresh 与 relay 凭据永不进入反射对象。
     this.oauth = Object.freeze({
+      onDidChangeSession: this.#sessionChanges.event,
       getProviders: async () => [{ ...this.#adapter.meta }],
       getActiveProvider: async () => (this.#owner ? NEW_API_PROVIDER_ID : null),
       restoreCachedSession: async () => cachedSessionProfile(await this.#restore()),
@@ -248,6 +256,7 @@ export class NewApiAccountService {
         }
         this.#pending = null;
         published = true;
+        this.#sessionChanges.fire("signed-in");
         return { kind: "session", provider: NEW_API_PROVIDER_ID, userInfo };
       });
       if (published && displaced && displaced.bundle.session_id !== bundle.session_id) {
@@ -300,7 +309,7 @@ export class NewApiAccountService {
         this.#readNow,
         () => this.#refresh(),
       );
-      await this.#mutate(async () => {
+      const restoredOwner = await this.#mutate(async () => {
         if (generation !== this.#generation || !this.#session)
           throw sessionError("XCODE_STALE_OWNER");
         if (!this.#owner) {
@@ -311,8 +320,12 @@ export class NewApiAccountService {
             this.#owner = null;
             throw error;
           }
+          return true;
         }
+        return false;
       });
+      if (generation !== this.#generation) return { status: "signed-out" };
+      if (restoredOwner) this.#sessionChanges.fire("signed-in");
       if (generation !== this.#generation) return { status: "signed-out" };
       return { status: "authenticated", userInfo };
     } catch (error) {

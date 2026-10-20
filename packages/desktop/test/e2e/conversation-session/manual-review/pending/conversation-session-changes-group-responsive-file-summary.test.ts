@@ -6,7 +6,7 @@ import {
   TID_TASK_SETTINGS_BUTTON,
   TID_TOOL_SUMMARY_TRIGGER,
   testId,
-} from "@zcode/shared";
+} from "@zcode/shared/test-ids";
 import { clearAppData, clickTestIdByDom, readSettings } from "../../../helpers/desktop-app.js";
 import {
   toggleLatestConversationToolGroup,

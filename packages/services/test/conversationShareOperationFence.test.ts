@@ -249,7 +249,7 @@ test("actual import passes its fence through awaited session MCP preparation bef
   const entered = barrier();
   const release = barrier();
   const agent = createZCodeAgentService();
-  const repo = new TaskIndexRepo(join(f.dir, "task-index.sqlite"));
+  const repo = new TaskIndexRepo(undefined, undefined, join(f.dir, "task-index.sqlite"));
   const syncer = createZCodeTaskIndexSyncer({ agentService: agent, taskIndexRepo: repo });
   let broadcasts = 0;
   const subscription = syncer.onDynamicWorkspaceEvent(f.dir)(() => {
@@ -317,12 +317,26 @@ test("real task index transaction rejects a captured owner lost while SQLite adm
   const entered = barrier();
   const release = barrier();
   const agent = createZCodeAgentService();
-  const repo = new TaskIndexRepo(join(f.dir, "task-index.sqlite"));
+  const repo = new TaskIndexRepo(undefined, undefined, join(f.dir, "task-index.sqlite"));
   const syncer = createZCodeTaskIndexSyncer({ agentService: agent, taskIndexRepo: repo });
-  const persist = repo.syncTaskMetaAtGroupedTop.bind(repo);
-  repo.syncTaskMetaAtGroupedTop = async (params) => {
+  agent.reconcileSessionsIndexV4 = async ({ sessionIds }) => ({
+    sessions: sessionIds.map((sessionId) => ({
+      sessionId,
+      exists: true as const,
+      deleted: false,
+      title: "Shared content",
+      titleSource: "generated" as const,
+      createdAt: 1,
+      updatedAt: 1,
+    })),
+  });
+  const persist = repo.applyCliFacts.bind(repo);
+  let persistenceAttempts = 0;
+  repo.applyCliFacts = async (params) => {
+    assert.equal(params.assertCurrent, operation.assertCurrentSync);
     entered.resolve();
     await release.promise;
+    persistenceAttempts++;
     return persist(params);
   };
   const snapshot = zcodeSessionStateSnapshotSchema.parse({
@@ -364,7 +378,6 @@ test("real task index transaction rejects a captured owner lost while SQLite adm
   });
   try {
     const pending = syncer.syncSnapshotAndBroadcast(snapshot, {
-      moveGroupedTaskToTop: true,
       broadcastReason: "task_meta_changed",
       assertCurrent: operation.assertCurrentOwner,
       assertCurrentSync: operation.assertCurrentSync,
@@ -375,6 +388,12 @@ test("real task index transaction rejects a captured owner lost while SQLite adm
     release.resolve();
     await rejected;
     assert.deepEqual(await repo.listTaskMetas({ workspacePath: f.dir }), []);
+    assert.equal(persistenceAttempts, 1);
+    const database = await repo.getOrganizationDatabase();
+    assert.deepEqual(
+      database.prepare("SELECT task_id FROM tasks WHERE task_id=?").all(snapshot.session.sessionId),
+      [],
+    );
     assert.equal(broadcasts, 0);
   } finally {
     release.resolve();

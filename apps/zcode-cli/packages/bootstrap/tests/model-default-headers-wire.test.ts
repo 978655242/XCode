@@ -302,7 +302,9 @@ describe("模型请求默认 Header：Bootstrap → Adapter → 真实 SDK", () 
     );
     expect(requests).toHaveLength(1);
     expect(requests[0]!.headers.get("x-zcode-app-version")).toBe(CLIENT_VERSION);
+    // 标题用途不改变宿主会话分类；两个 Header 分别表达归属和用途。
     expect(requests[0]!.headers.get("x-zcode-session-type")).toBe("main");
+    expect(requests[0]!.headers.get("x-zcode-query-source")).toBe("session_title");
     // 既有请求归因会去掉内部 sess_ 前缀；本次不改变服务端看到的会话身份格式。
     expect(requests[0]!.headers.get("x-session-id")).toBe("header-title-session");
     expect(requests[0]!.headers.get("x-zcode-trace-id")).toBeTruthy();

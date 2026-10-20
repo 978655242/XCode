@@ -11,6 +11,10 @@ test("Host private namespaces are denied for every public credential operation",
     await assert.rejects(service.load(key), denied);
     await assert.rejects(service.save(key, "attacker-replacement"), denied);
     await assert.rejects(service.delete(key), denied);
+    await assert.rejects(
+      service.recoverUnreadable(key, () => {}),
+      denied,
+    );
   }
 });
 

@@ -57,11 +57,32 @@
 
 主账号 logout、换号、refresh 失效、明确 SID/key 撤销立即清理可执行授权，失效 in-flight 请求/缓存及本机 worker credentials；尽力调用服务端 logout，并按真实结果处理网络失败。不宣称本机离线删除等于已经服务端撤销。
 
+主会话事件复用 `IOAuthService.onDidChangeSession`，由 `NewApiAccountService` 的同一 owner 状态机发布，不另建 UI 认证缓存。事件只携带 `signed-in` / `signed-out`：
+
+- 退出、换号、取消和明确撤销先同步失效 owner/代次，再发布 `signed-out`，最后执行现有 `onOwnerChanged` 派生清理与撤销；订阅者回读时不得仍得到旧有效 owner。
+- 登录只有在 Me 核验、原子 commit、owner hook 及最终代次/期限 fence 均接受后发布 `signed-in`。冷恢复首次确认 owner 同样发布；迟到或取消的激活不能发布登录成功。
+- 同 SID 正常 refresh 不模拟退出/登录；503 不发伪造退出事件。独立官方云连接的登录、刷新或退出仅更新自身事件，不改变 Native 主会话事实。
+- 现有远控认证同步 hook 消费真实事件并使迟到初始 UI 恢复投影失效；不以头像、设置更新或成功计数重新推断会话变更。
+
+```mermaid
+sequenceDiagram
+  participant A as Native account owner
+  participant C as OAuth 事件消费者
+  participant D as 官方连接与 Provider 派生清理
+  A->>A: 失效旧 owner / 代次
+  A-->>C: signed-out
+  A->>D: 现有 onOwnerChanged
+  A->>A: 新 Me + commit + owner hook + 最终 fence
+  A-->>C: 仅已接受的新 owner 发布 signed-in
+```
+
 Account refresh 的过期失败不能恢复启动请求时捕获的旧授权；失败失效基于当前快照。logout、换号、官方连接失效与新 owner 的已发布状态不被旧异常覆盖。
 
 官方云凭据退出主账号时锁定/隐藏，按用户要求保留安全存储；再次登录**同一个原生 user_id**才允许恢复。切换其他主用户不得迁移、借用或暴露它们。旧全局、没有明确主账号 owner 的官方凭据不自动认领给第一位私有用户；保留原数据，要求该用户独立完成真实官方登录后形成新 namespace。
 
 官方云 Project Access Token 使用上游 material 的真实 `expiresAt` 与刷新规则；请求期由既有官方凭据 resolver 解析，过期 token 不因安全库中仍有记录就继续执行。刷新前后校验主 owner 与官方 credential generation，静态 Registry 投影不发起网络刷新。
+
+官方云项目定位复用上游 `ProjectAccessTokenClient` 的分接口鉴权契约：两个 family 的 `getCustomerInfo` 均使用裸业务 token；个人 Key 管理仅 Z.ai 添加 Bearer，团队 Key 管理使用裸业务 token 和组织/项目 header；项目短期 Token 签发使用 Bearer。目录加载器的首次身份读取与后续项目定位必须遵守同一契约，不复制长期 Key secret，也不回退私有主账号凭据。
 
 ```mermaid
 sequenceDiagram

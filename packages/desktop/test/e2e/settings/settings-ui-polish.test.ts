@@ -1,6 +1,13 @@
 import { mkdir } from "node:fs/promises";
+import { ModelConfig, ModelOptionSpecsConfig } from "@zcode/provider";
+import { NodePersonalProviderConfigRepository } from "@zcode/provider-node";
 import { join } from "node:path";
+import { encodeCustomModelValue } from "@zcode/shared";
 import {
+  TID_CHAT_MODEL_SELECT_ITEM,
+  TID_CHAT_MODEL_SELECT_GROUP,
+  TID_CHAT_MODEL_SELECT_TRIGGER,
+  TID_SETTINGS_BACK_BUTTON,
   TID_LOGIN_TRIGGER,
   TID_MODEL_PROVIDER_ADD_PROVIDER_BUTTON,
   TID_MODEL_PROVIDER_ADD_MODEL_BUTTON,
@@ -16,9 +23,10 @@ import {
   TID_SETTINGS_SECTION_NAV,
   TID_TASK_SETTINGS_BUTTON,
   testId,
-} from "@zcode/shared";
+} from "@zcode/shared/test-ids";
 import {
   DEFAULT_WORKSPACE,
+  getE2EAppDataPaths,
   clearAppData,
   clickTestIdByDom,
   clickTestIdByWebDriver,
@@ -44,7 +52,11 @@ describe("设置页 UI polish E2E", () => {
   });
 
   beforeEach(async () => {
+    // 上一个用例可能停在设置页，先真实关闭遮挡层再操作侧栏项目。
+    const back = $(sel(TID_SETTINGS_BACK_BUTTON));
+    if (await back.isDisplayed()) await back.click();
     await prepareV4ConversationE2E({ skipProvider: true });
+    // prepare 已保证默认项目草稿；窄屏检查会收起侧栏，不能再无条件 hover 新建。
     await waitForWorkspaceApp(DEFAULT_WORKSPACE, 30000);
   });
 
@@ -52,6 +64,9 @@ describe("设置页 UI polish E2E", () => {
     if (process.platform !== "win32") return;
     await clickTestIdByDom(TID_TASK_SETTINGS_BUTTON, { timeout: 15000 });
     await $(sel(TID_SETTINGS_PAGE)).waitForDisplayed({ timeout: 15000 });
+    const panel = await $('[data-settings-panel-frame="true"]');
+    expect(((await panel.getAttribute("class")) ?? "").split(/\s+/)).toContain("rounded-md");
+    expect(await panel.getCSSProperty("border-top-left-radius")).toMatchObject({ value: "6px" });
     expect(
       await $('[data-testid="settings-page"] svg.lucide-circle-question-mark').isDisplayed(),
     ).toBe(true);
@@ -70,17 +85,29 @@ describe("设置页 UI polish E2E", () => {
         const panel = document.querySelector<HTMLElement>('[data-settings-panel-frame="true"]');
         return panel ? getComputedStyle(panel).borderTopRightRadius : null;
       }),
-    ).toBe("5px");
+    ).toBe("6px");
     expect(
       await browser.execute(() => {
         const logo = document.querySelector<HTMLElement>(
-          '[data-testid="settings-page"] img[alt="ZCode"]',
+          '[data-testid="settings-page"] [data-testid="settings-logo"]',
         );
         if (!logo) return null;
         const rect = logo.getBoundingClientRect();
         return { left: rect.left, top: rect.top };
       }),
     ).toEqual({ left: 17, top: 19 });
+    const settingsLogo = await $('[data-testid="settings-logo"]');
+    // XCODE: 产品窗口使用 XWork 品牌资产，不恢复上游 Z 图形的黑底 SVG 底座。
+    expect(await settingsLogo.getAttribute("aria-label")).toBe("XWork");
+    expect(await settingsLogo.$("img").getSize("width")).toBe(20);
+    expect(await settingsLogo.$("animate").isExisting()).toBe(false);
+    for (const theme of ["light", "dark"]) {
+      await setPresentation({ locale: "zh-CN", theme });
+      expect(await settingsLogo.$("img").getSize("width")).toBe(20);
+      const screenshotDir = join(process.cwd(), ".e2e-artifacts", "desktop-logo");
+      await mkdir(screenshotDir, { recursive: true });
+      await browser.saveScreenshot(join(screenshotDir, `settings-${theme}.png`));
+    }
     expect(
       await browser.execute(() => {
         const help = document
@@ -98,7 +125,19 @@ describe("设置页 UI polish E2E", () => {
           closeRightInset: window.innerWidth - closeRect.right,
         };
       }),
-    ).toEqual({ helpTop: 15, closeTop: 15, closeRightInset: 13 });
+    ).toEqual({ helpTop: 17, closeTop: 17, closeRightInset: 15 });
+    expect(
+      await browser.execute(() => {
+        const content = document.querySelector('[data-settings-content-frame="true"]')!;
+        const panel = document.querySelector('[data-settings-panel-frame="true"]')!;
+        const style = getComputedStyle(content);
+        return {
+          right: style.paddingRight,
+          bottom: style.paddingBottom,
+          top: panel.getBoundingClientRect().top - content.getBoundingClientRect().top,
+        };
+      }),
+    ).toEqual({ right: "6px", bottom: "6px", top: 6 });
   });
 
   it("UP-01: 头像菜单按 language、theme、zoom 顺序展示偏好入口", async function () {
@@ -573,6 +612,35 @@ describe("设置页 UI polish E2E", () => {
           models: [REASONING_EDITOR_MODEL_ID],
           name: "Reasoning Editor E2E",
         });
+        // 本例验证推荐配置的继承编辑；通用 replay 的 disabled 精确覆盖会遮住推荐档位。
+        const repository = new NodePersonalProviderConfigRepository({
+          filePath: getE2EAppDataPaths().configFile,
+          pollingIntervalMs: false,
+        });
+        try {
+          await repository.update((current) => {
+            const model = current.models.getExactRule(
+              REASONING_EDITOR_PROVIDER_ID,
+              REASONING_EDITOR_MODEL_ID,
+            )!.config;
+            return {
+              ...current,
+              models: current.models.setExact(
+                REASONING_EDITOR_PROVIDER_ID,
+                REASONING_EDITOR_MODEL_ID,
+                new ModelConfig({
+                  ...model,
+                  optionSpecs: new ModelOptionSpecsConfig({
+                    ...model.optionSpecs,
+                    reasoningLevel: undefined,
+                  }),
+                }),
+              ),
+            };
+          });
+        } finally {
+          repository.dispose();
+        }
       },
     });
     await openModelProviderSettings();
@@ -585,18 +653,26 @@ describe("设置页 UI polish E2E", () => {
     );
     await openModelMetadataDialog(REASONING_EDITOR_MODEL_ID);
 
+    // Todo141 将输入能力和推理配置移到默认收起的高级区；先验证折叠，再由真实点击展开。
+    const advanced = $('[data-model-advanced-trigger="true"]');
+    await expect(advanced).toHaveAttribute("aria-expanded", "false");
+    expect(await $('[data-model-max-output="true"] input').isDisplayed()).toBe(true);
+    expect(await $('[data-model-reasoning-level-editor="true"]').isDisplayed()).toBe(false);
+    await advanced.click();
+    await expect(advanced).toHaveAttribute("aria-expanded", "true");
+
     expect(
       await browser.execute(() =>
         Array.from(document.querySelectorAll<HTMLElement>("[data-model-settings-group]")).map(
           (element) => element.dataset.modelSettingsGroup,
         ),
       ),
-    ).toEqual(["basic", "tokens", "modalities", "capabilities", "reasoning", "advanced"]);
+    ).toEqual(["basic", "tokens", "tokens", "modalities", "capabilities", "reasoning"]);
     expect(
       await browser.execute(
         () => document.querySelectorAll("[data-model-settings-group] > h3").length,
       ),
-    ).toBe(1);
+    ).toBe(0);
     expect(
       await browser.execute(() => {
         // Todo125 分组标题包含独立帮助按钮，不能再冒充单字段 label。
@@ -652,9 +728,9 @@ describe("设置页 UI polish E2E", () => {
       }),
     ).toEqual({
       count: 3,
-      iconCount: 3,
-      structuredOutputUsesLayers: true,
-      checkboxCount: 0,
+      iconCount: 0,
+      structuredOutputUsesLayers: false,
+      checkboxCount: 3,
       roles: ["checkbox", "checkbox", "checkbox"],
       states: ["false", "false", "false"],
       personalOverrides: ["true", "true", "true"],
@@ -682,17 +758,15 @@ describe("设置页 UI polish E2E", () => {
     ).toEqual({
       cancelSize: "lg",
       cancelVariant: "ghost",
-      saveBeforeCancel: true,
+      saveBeforeCancel: false,
       saveSize: "lg",
       saveVariant: "default",
     });
     expect(
       await browser.execute(() => ({
-        advancedGroupExists: Boolean(
-          document.querySelector('[data-model-settings-group="advanced"]'),
-        ),
+        advancedGroupExists: Boolean(document.querySelector('[data-model-advanced="true"]')),
         advancedTriggerExists: Boolean(
-          document.querySelector('[data-model-settings-advanced-trigger="true"]'),
+          document.querySelector('[data-model-advanced-trigger="true"]'),
         ),
         reasoningHasLevelsAndMapping: Boolean(
           document.querySelector(
@@ -705,7 +779,7 @@ describe("设置页 UI polish E2E", () => {
       })),
     ).toEqual({
       advancedGroupExists: true,
-      advancedTriggerExists: false,
+      advancedTriggerExists: true,
       reasoningHasLevelsAndMapping: true,
     });
     expect(await $('[data-model-reasoning-level-editor="true"]').isDisplayed()).toBe(true);
@@ -717,7 +791,7 @@ describe("设置页 UI polish E2E", () => {
       await browser.execute(
         () => document.querySelectorAll('[data-model-modality-lock="true"]').length,
       ),
-    ).toBe(2);
+    ).toBe(1);
     await setRendererViewport(390, 844);
     try {
       for (const presentation of [
@@ -942,21 +1016,21 @@ describe("设置页 UI polish E2E", () => {
         const group = document.querySelector<HTMLElement>(
           '[data-model-settings-group="reasoning"]',
         );
-        const mfjs = document.querySelector<HTMLElement>(
-          '[data-model-settings-group="advanced"] [role="checkbox"]',
+        const capability = document.querySelector<HTMLElement>(
+          '[data-model-settings-group="capabilities"] [role="checkbox"]',
         );
         return {
           chips: chips.map((chip) => chip.dataset.personalOverride),
           map: map?.dataset.personalOverride,
           outerHighlighted: group?.className.includes("border-primary") ?? false,
-          mfjsDecorations: mfjs?.querySelectorAll("svg, [data-model-option-checkbox]").length,
+          capabilityCheckboxes: capability?.querySelectorAll("[data-model-option-checkbox]").length,
         };
       }),
     ).toEqual({
       chips: ["true", "true", "true"],
       map: "true",
       outerHighlighted: false,
-      mfjsDecorations: 0,
+      capabilityCheckboxes: 1,
     });
     await clickVisibleButton(/保存|Save/);
     // 修复原因：Dialog 有关闭动画。若立即用 DOM click 重开，会穿透尚未卸载的遮罩层，
@@ -1005,7 +1079,7 @@ describe("设置页 UI polish E2E", () => {
       iconUsesSuccess: true,
       neutralSurface: true,
     });
-    await openModelMetadataDialog(REASONING_EDITOR_MODEL_ID);
+    await openModelMetadataDialog(REASONING_EDITOR_MODEL_ID, true);
     await browser.waitUntil(
       async () => (await readReasoningLevelValues()).join("/") === "high/low/max",
       {
@@ -1016,8 +1090,7 @@ describe("设置页 UI polish E2E", () => {
     expect(await $('[data-model-reasoning-level-map-editor="true"] textarea').getValue()).toBe(
       personalReasoningMapInput,
     );
-    const followSwitch =
-      '[data-model-identity-row="true"] [data-model-recommended-config="true"] [role="switch"]';
+    const followSwitch = '[data-model-recommended-config="true"] [role="switch"]';
     expect(await $(followSwitch).getAttribute("aria-checked")).toBe("true");
     await $(followSwitch).click();
     expect(await $(followSwitch).getAttribute("aria-checked")).toBe("false");
@@ -1043,8 +1116,10 @@ describe("设置页 UI polish E2E", () => {
     expect(await $('[data-model-reasoning-level-map-editor="true"] textarea').getValue()).toBe(
       editedAfterReset,
     );
-    // 能力由真实表单保存；视觉标签只在模型设置列表显示，composer 菜单不显示。
-    await $('[data-model-input-modality="image"]').click();
+    // XCODE: 切回推荐配置后按真实状态开启视觉，仅设置列表展示能力标签。
+    const imageInput = $('[data-model-input-modality="image"]');
+    if ((await imageInput.getAttribute("aria-pressed")) !== "true") await imageInput.click();
+    await expect(imageInput).toHaveAttribute("aria-pressed", "true");
     await clickVisibleButton(/保存|Save/);
     await $('[data-model-settings-scroll="true"]').waitForExist({ reverse: true });
     for (const presentation of [
@@ -1058,6 +1133,32 @@ describe("设置页 UI polish E2E", () => {
       await badge.waitForDisplayed();
       expect(await badge.getText()).toMatch(/视觉|Vision/);
     }
+    await clickTestIdByDom(TID_SETTINGS_BACK_BUTTON);
+    await clickTestIdByWebDriver(TID_CHAT_MODEL_SELECT_TRIGGER);
+    // XCODE: 复用合并菜单的产品分组入口，不恢复具体供应商分类。
+    await $('[data-testid="composer-provider-trigger"]').click();
+    await $(sel(testId(TID_CHAT_MODEL_SELECT_GROUP, "composer-custom"))).click();
+    const modelItem = $(
+      sel(
+        testId(
+          TID_CHAT_MODEL_SELECT_ITEM,
+          encodeCustomModelValue(REASONING_EDITOR_PROVIDER_ID, REASONING_EDITOR_MODEL_ID),
+        ),
+      ),
+    );
+    try {
+      await modelItem.waitForDisplayed();
+    } catch (error) {
+      const menu = await browser.execute(() =>
+        Array.from(
+          document.querySelectorAll<HTMLElement>(
+            '[role="menu"], [role="listbox"], [data-testid^="chat-model-select"]',
+          ),
+        ).map((element) => ({ id: element.dataset.testid, text: element.innerText })),
+      );
+      throw new Error(`视觉模型候选未显示：${JSON.stringify(menu)}`, { cause: error });
+    }
+    expect(await modelItem.$('[data-model-input-capability="vision"]').isExisting()).toBe(false);
   });
 
   it("MP-UI-05-remote: 远程 workspace 下也不显示配置同步入口", async function () {
@@ -1089,7 +1190,7 @@ describe("设置页 UI polish E2E", () => {
 });
 
 async function verifyModelEditorFocusFeedback(): Promise<void> {
-  const selector = '[data-model-settings-group="advanced"] [role="checkbox"]';
+  const selector = '[data-model-settings-group="capabilities"] [role="checkbox"]';
   const button = $(selector);
   await button.scrollIntoView();
   const outside = $('[data-model-settings-footer="true"] button');
@@ -1152,7 +1253,7 @@ async function readModelOrder(): Promise<string[]> {
   );
 }
 
-async function openModelMetadataDialog(modelId: string) {
+async function openModelMetadataDialog(modelId: string, expandAdvanced = false) {
   const clicked = await browser.execute((targetModelId) => {
     const row = document.querySelector<HTMLElement>(
       `[data-model-provider-model-id="${CSS.escape(targetModelId)}"]`,
@@ -1171,6 +1272,7 @@ async function openModelMetadataDialog(modelId: string) {
       ),
     { timeout: 15000, timeoutMsg: "模型配置弹窗没有出现" },
   );
+  if (expandAdvanced) await $('[data-model-advanced-trigger="true"]').click();
 }
 
 async function readReasoningLevelValues(): Promise<string[]> {
@@ -1189,7 +1291,7 @@ async function closeAndReopenModelEditor(action: "save" | "cancel") {
     async () => !(await $('[data-model-reasoning-level-editor="true"]').isExisting()),
     { timeout: 15000, timeoutMsg: "模型编辑弹窗没有关闭" },
   );
-  await openModelMetadataDialog(REASONING_EDITOR_MODEL_ID);
+  await openModelMetadataDialog(REASONING_EDITOR_MODEL_ID, true);
 }
 
 async function clickVisibleButton(label: RegExp) {
