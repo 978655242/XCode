@@ -70,6 +70,7 @@ import {
 } from "@/chat-input-toolbar/modelSelection.js";
 import { resolveModelLobeIcon } from "@/lib/modelBrandLogo.js";
 import { ProviderLogo } from "@/settings/model-provider-section/ProviderLogo.js";
+import { ZCodeAboutLogo } from "@/components/ui/ZCodeAboutLogo.js";
 import { LobeIcon, resolveLobeIcon } from "@/components/LobeIcon.js";
 import {
   setPendingSettingsSectionIntent,
@@ -974,12 +975,31 @@ function V4ComposerModelControlsImpl({
       if (provider?.config.access?.type === "new-api-account") {
         official.push(...group.items.map(withIcon));
       } else {
-        custom.push({ ...group, items: group.items.map(withIcon) });
+        // 供应商标题按名称/ID 走同一套映射，和模型项图标一致；未识别时保留配置 logo。
+        const iconName = resolveModelLobeIcon(
+          `${provider?.providerName ?? ""} ${provider?.providerId ?? ""}`,
+        );
+        custom.push({
+          ...group,
+          ...(iconName && resolveLobeIcon(iconName)
+            ? { icon: <LobeIcon name={iconName} className="size-4" /> }
+            : {}),
+          items: group.items.map(withIcon),
+        });
       }
     }
     return [
       ...(official.length > 0
-        ? [{ key: "composer-official", label: "XWork", directItems: true, items: official }]
+        ? [
+            {
+              key: "composer-official",
+              label: "XWork",
+              // 与设置页官方订阅入口同一品牌 LOGO。
+              icon: <ZCodeAboutLogo className="size-4" />,
+              directItems: true,
+              items: official,
+            },
+          ]
         : []),
       ...custom,
     ];

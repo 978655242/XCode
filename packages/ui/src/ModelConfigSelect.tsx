@@ -81,6 +81,8 @@ export interface ModelSelectGroup {
   label: string;
   labelBadge?: string;
   logo?: ProviderConfigObject["logo"];
+  // XCODE: composer 供应商标题与模型项共用 @lobehub/icons；未设置时回落 logo。
+  icon?: ReactNode;
   directItems?: boolean;
   selectedOptionKey?: string;
   connectionOptions?: ModelSelectConnectionOption[];
