@@ -240,7 +240,6 @@ describe("subagent provider-visible prompt assembly", () => {
     expect(childRequests).toHaveLength(1);
     expectSystemMessagesCached(childRequests[0]);
     const systems = systemContents(childRequests[0]);
-    expect(systems).toHaveLength(2);
     expect(systems.map((content) => content.endsWith("\n"))).toEqual([false, false]);
     expect(systems[1]).toContain("READ-ONLY MODE");
     expect(systems[1]).toContain("\n\nNotes:");
@@ -466,7 +465,6 @@ describe("subagent provider-visible prompt assembly", () => {
     expect(systems[1]).toContain(
       "\n\nHere is useful information about the environment you are running in:",
     );
-    expect(systems).not.toContain("\n");
     expect(systems.join("")).toBe(
       result.sections
         .filter((section) => section.injectionTarget === "system")

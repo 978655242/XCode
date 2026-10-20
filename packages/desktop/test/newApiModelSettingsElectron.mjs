@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, ipcMain } from "electron";
@@ -69,8 +68,10 @@ const snapshot = (status, title = "Fixture Plan A", used = "40") => ({
   },
 });
 
+assert.ok(process.argv[2], "Launch this fixture with runNewApiElectronSmokes.mjs");
+
 async function run() {
-  const temporary = await mkdtemp(join(tmpdir(), "xwork-model-settings-electron-"));
+  const temporary = await mkdtemp(join(process.argv[2], "xwork-model-settings-electron-"));
   app.setPath("userData", join(temporary, "profile"));
   let win,
     vite,
@@ -310,7 +311,6 @@ mount("zh-CN");
   } finally {
     clearTimeout(deadline);
     await vite?.close();
-    await rm(temporary, { recursive: true, force: true });
     win?.destroy();
     app.exit(exitCode);
   }

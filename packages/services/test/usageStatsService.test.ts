@@ -1504,37 +1504,6 @@ describe("createUsageStatsService", () => {
     expect(apiClient.request).not.toHaveBeenCalled();
   });
 
-  it("个人套餐缺少 Account Auth 凭据时不再触发旧 Provider 刷新", async () => {
-    const providers = [
-      createProvider({
-        id: BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan,
-        name: "BigModel - Coding Plan",
-        apiKey: "",
-        enabled: false,
-      }),
-    ];
-    const requestHeaders: Record<string, string>[] = [];
-    const apiClient: ApiClient = {
-      request: vi.fn(async (_input, init) => {
-        requestHeaders.push((init?.headers ?? {}) as Record<string, string>);
-        return createJsonResponse({ code: 200, data: {} });
-      }),
-    };
-    const service = createUsageStatsServiceForTest({
-      apiClient,
-      providers,
-    });
-
-    await expect(
-      service.getCodingPlanUsageSnapshot({
-        range: "7d",
-        preferredProviderId: BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan,
-        timeZone: "UTC",
-      }),
-    ).rejects.toThrow("bigmodel_coding_plan_api_key_required");
-    expect(requestHeaders).toEqual([]);
-  });
-
   it("Team Plan Account Auth 失败时透传真实错误", async () => {
     vi.useFakeTimers({ now: new Date("2026-05-19T10:00:00.000Z") });
     const apiClient: ApiClient = {

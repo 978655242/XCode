@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -13,11 +13,13 @@ const requireRoot = createRequire(new URL("../../../package.json", import.meta.u
 const requireDesktop = createRequire(new URL("../package.json", import.meta.url));
 const nativeId = "account:new-api-openai-chat-completions";
 const modelTrigger = '[data-testid="chat-model-select-trigger"]';
-const thoughtTrigger = '[data-testid="chat-thought-level-select-trigger"]';
-const thoughtItems = '[data-testid^="chat-thought-level-select-item-"]';
+const thoughtSlider = '[data-testid="composer-thought-slider"]';
+const providerTrigger = '[data-testid="composer-provider-trigger"]';
+
+assert.ok(process.argv[2], "Launch this fixture with runNewApiElectronSmokes.mjs");
 
 async function run() {
-  const temporary = await mkdtemp(join(tmpdir(), "xwork-model-capabilities-electron-"));
+  const temporary = await mkdtemp(join(process.argv[2], "xwork-model-capabilities-electron-"));
   app.setPath("userData", join(temporary, "profile"));
   let win, vite, host;
   let exitCode = 0;
@@ -65,17 +67,21 @@ function Scene(){
   const control=useDraftConfigControl({workspacePath:"/isolated-capability-fixture",sessionId:null,agentStartupAllowed:false,modelSelectionService});
   const read=control.modelSelectionRead;
   const view=read.state.status==="ready"?read.state.view:null;
+  // XCODE: 与 SessionPane 一致，保留目录仅供连续键盘展示；提交仍只接受 ready View。
+  const displayView=view??(read.state.status==="loading"?read.state.catalog:null);
   const [picker,setPicker]=useState(null);
   const submission=createComposerSubmissionConfig(control.draftConfig,view);
   window.state={stored:control.composerDraft.modelSelection,effective:control.draftConfig.modelSelection,status:read.state.status,issue:view?.selectionIssue,canSubmit:submission!==null,providers:view?.providers};
   window.restore=selection=>flushSync(()=>control.replaceComposerDraft({text:"synthetic input",mode:"build",planEnabled:false,modelSelection:selection}));
   window.peek=()=>modelSelectionService.getView({selection:control.composerDraft.modelSelection??null});
+  // XCODE: SessionPane 分离操作来源模型与显式档位，fixture 使用同一真实 callback 合同。
+  const selectModel=(provider,model,_sourceModel,reasoningLevel)=>control.handleDraftSelectModel(provider,model,reasoningLevel);
   return <section className="@container/composer rounded-2xl border bg-card p-3" id="composer-surface">
     <div className="min-h-16 text-ui-base text-foreground-subtle" contentEditable suppressContentEditableWarning data-testid="v4-composer-input">Synthetic isolated input</div>
     <div ref={toolbarRef} className="group/toolbar flex items-end gap-3">
       <div className="flex min-w-0 flex-1 items-center" data-composer-leading-actions><div className="flex shrink-0 items-center gap-1" data-composer-leading-content /></div>
       <div className="ml-auto flex shrink-0 items-center justify-end gap-1.5" data-composer-trailing-actions>
-      <V4ComposerModelControls workspacePath="/isolated-capability-fixture" sessionId={null} phase={null} draftMode draftConfig={control.draftConfig} modelSelectionView={view} modelSelectionState={read.state} modelSelectionReload={read.reload} usage={null} disabled={false} activeConfigPicker={picker} onConfigPickerOpenChange={(next,open)=>setPicker(open?next:null)} onSelectModel={control.handleDraftSelectModel} onSelectThought={control.handleDraftSelectThought} onSwitchMode={control.handleDraftSwitchMode}/>
+      <V4ComposerModelControls workspacePath="/isolated-capability-fixture" sessionId={null} phase={null} draftMode draftConfig={control.draftConfig} modelSelectionView={displayView} modelSelectionState={read.state} modelSelectionReload={read.reload} modelSelectionRefresh={read.refresh} usage={null} disabled={false} activeConfigPicker={picker} onConfigPickerOpenChange={(next,open)=>setPicker(open?next:null)} onSelectModel={selectModel} onSelectThought={control.handleDraftSelectThought} onSwitchMode={control.handleDraftSwitchMode}/>
       <Button size="icon-md" aria-label="Submit" data-testid="fixture-submit" disabled={!submission} onClick={()=>{const frozen=createComposerSubmissionConfig(control.draftConfig,view);if(frozen)window.submissions.push(frozen)}}><ArrowUpIcon className="size-4"/></Button>
       </div>
     </div>
@@ -177,39 +183,99 @@ window.appearance("light","zh-CN");
       waitFor(
         'document.body.style.pointerEvents!=="none" && document.querySelector("[role=listbox],[role=menu]")===null',
       );
-    const chooseModel = async (label) => {
-      await settleMenus();
-      await click(`document.querySelector(${JSON.stringify(modelTrigger)})`);
-      // composer 模型菜单为平铺列表，不再有供应商分组层。
-      await waitFor(
-        `[...document.querySelectorAll("[data-testid^=chat-model-select-item]")].some(element=>element.textContent.includes(${JSON.stringify(label)}))`,
-      );
-      await click(
-        `[...document.querySelectorAll("[data-testid^=chat-model-select-item]")].find(element=>element.textContent.includes(${JSON.stringify(label)}))`,
-      );
-      await waitFor(
-        `window.state.status==="ready" && window.state.stored?.modelId===${JSON.stringify(label === "Capability A" ? "capability-a" : label === "Capability B" ? "capability-b" : label === "Capability single" ? "capability-single" : "custom-model")}`,
-      );
+    const closeMenus = async () => {
+      for (let depth = 0; depth < 3; depth++) {
+        if (!(await observe('document.querySelector("[role=menu]")!==null'))) break;
+        win.webContents.sendInputEvent({ type: "keyDown", keyCode: "Escape" });
+        win.webContents.sendInputEvent({ type: "keyUp", keyCode: "Escape" });
+        await observe(
+          "new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))",
+        );
+      }
       await settleMenus();
     };
+    const openModels = async () => {
+      await closeMenus();
+      await click(`document.querySelector(${JSON.stringify(modelTrigger)})`);
+      await waitFor(`document.querySelector(${JSON.stringify(providerTrigger)})!==null`);
+    };
+    const openProviders = async () => {
+      await observe(`document.querySelector(${JSON.stringify(providerTrigger)}).focus()`);
+      win.webContents.sendInputEvent({ type: "keyDown", keyCode: "Right" });
+      win.webContents.sendInputEvent({ type: "keyUp", keyCode: "Right" });
+      await waitFor('document.querySelector("[data-composer-provider-list]")!==null');
+    };
+    const chooseModel = async (label) => {
+      const modelId = {
+        "Capability A": "capability-a",
+        "Capability B": "capability-b",
+        "Capability single": "capability-single",
+        "custom-model": "custom-model",
+      }[label];
+      assert.ok(modelId, `Unknown fixture model ${label}`);
+      const providerId = modelId === "custom-model" ? "custom" : nativeId;
+      const value = `custom:${encodeURIComponent(providerId)}:${encodeURIComponent(modelId)}`;
+      const selector = `[data-testid="chat-model-select-item-${value}"]`;
+      await openModels();
+      if (!(await observe(`document.querySelector(${JSON.stringify(selector)})!==null`))) {
+        await openProviders();
+        const groupKey = providerId === nativeId ? "composer-official" : "composer-custom";
+        await click(`document.querySelector('[data-model-provider-key="${groupKey}"]')`);
+        await waitFor(
+          `window.state.status==="ready" && document.querySelector(${JSON.stringify(selector)})!==null && document.querySelector(${JSON.stringify(modelTrigger)}).disabled===false`,
+        );
+      }
+      await click(`document.querySelector(${JSON.stringify(selector)})`);
+      await waitFor(
+        `window.state.status==="ready" && window.state.canSubmit && window.state.stored?.providerId===${JSON.stringify(providerId)} && window.state.stored?.modelId===${JSON.stringify(modelId)}`,
+      );
+      await closeMenus();
+    };
     const openThought = async () => {
-      await settleMenus();
-      await click(`document.querySelector(${JSON.stringify(thoughtTrigger)})`);
-      await waitFor(`document.querySelector(${JSON.stringify(thoughtItems)})!==null`);
+      await openModels();
+      await waitFor(`document.querySelector(${JSON.stringify(thoughtSlider)})!==null`);
     };
     const levels = () =>
       observe(
-        `[...document.querySelectorAll(${JSON.stringify(thoughtItems)})].map(element=>element.getAttribute("data-testid").slice("chat-thought-level-select-item-".length))`,
+        `JSON.parse(document.querySelector(${JSON.stringify(thoughtSlider)}).dataset.levels)`,
       );
+    const selectOpenLevel = async (level) => {
+      const declared = await levels();
+      const index = declared.indexOf(level);
+      assert.ok(index >= 0, `Host did not declare reasoning level ${level}`);
+      const waitForLevel = async (position) => {
+        const expected = declared[position];
+        await waitFor(
+          `window.state.status==="ready" && window.state.stored?.options?.reasoningLevel===${JSON.stringify(expected)} && document.querySelector(${JSON.stringify(thoughtSlider)})?.getAttribute("aria-disabled")==="false" && Number(document.querySelector(${JSON.stringify(thoughtSlider)})?.value)===${position}`,
+        );
+        assert.equal(
+          await observe(
+            `document.activeElement===document.querySelector(${JSON.stringify(thoughtSlider)})`,
+          ),
+          true,
+          "Host re-resolution must preserve the focused slider",
+        );
+      };
+      await waitFor(
+        `document.querySelector(${JSON.stringify(thoughtSlider)})?.getAttribute("aria-disabled")==="false"`,
+      );
+      await observe(`document.querySelector(${JSON.stringify(thoughtSlider)}).focus()`);
+      win.webContents.sendInputEvent({ type: "keyDown", keyCode: "Home" });
+      win.webContents.sendInputEvent({ type: "keyUp", keyCode: "Home" });
+      await waitForLevel(0);
+      for (let step = 1; step <= index; step++) {
+        win.webContents.sendInputEvent({ type: "keyDown", keyCode: "Right" });
+        win.webContents.sendInputEvent({ type: "keyUp", keyCode: "Right" });
+        await waitForLevel(step);
+      }
+      const expectedSelection = (await state()).stored;
+      assert.equal(expectedSelection.options.reasoningLevel, level);
+      assert.deepEqual((await observe("window.peek()")).effectiveSelection, expectedSelection);
+    };
     const chooseLevel = async (level) => {
       await openThought();
-      await click(
-        `document.querySelector('[data-testid="chat-thought-level-select-item-${level}"]')`,
-      );
-      await waitFor(
-        `window.state.status==="ready" && window.state.stored?.options?.reasoningLevel===${JSON.stringify(level)}`,
-      );
-      await settleMenus();
+      await selectOpenLevel(level);
+      await closeMenus();
     };
     await waitFor('window.state?.status==="ready"');
     stage = "catalog diagnostics stay in settings, not in the model picker";
@@ -219,14 +285,14 @@ window.appearance("light","zh-CN");
       ),
       ["Missing metadata", "Bad CEL"],
     );
-    await click(`document.querySelector(${JSON.stringify(modelTrigger)})`);
+    await openModels();
     await waitFor('document.querySelector("[data-testid^=chat-model-select-item]")!==null');
-    // composer 只分 XWork（官方）与自定义模型两组，不展示具体供应商名。
+    await openProviders();
     assert.deepEqual(
       await observe(
-        '[...document.querySelectorAll("[data-testid^=chat-model-select-group]")].map(element=>element.textContent.trim())',
+        '[...document.querySelectorAll("[data-composer-provider-list] [data-model-provider-key]")].map(element=>element.dataset.modelProviderKey).sort()',
       ),
-      ["XWork", "自定义模型"],
+      ["composer-custom", "composer-official"],
     );
     assert.equal(
       await observe(
@@ -246,23 +312,43 @@ window.appearance("light","zh-CN");
       join(tmpdir(), "xwork-model-picker-selectable.png"),
       (await win.webContents.capturePage()).toPNG(),
     );
-    win.webContents.sendInputEvent({ type: "keyDown", keyCode: "Escape" });
-    win.webContents.sendInputEvent({ type: "keyUp", keyCode: "Escape" });
-    await settleMenus();
+    await closeMenus();
     stage = "original menus and highest new-model choices";
     assert.deepEqual(
       (await state()).providers.map((provider) => provider.providerId),
       [nativeId, "custom"],
     );
     await chooseModel("Capability B");
-    assert.equal((await state()).stored.options.reasoningLevel, "high");
+    const expectedB = {
+      providerId: nativeId,
+      modelId: "capability-b",
+      options: { reasoningLevel: "high" },
+    };
+    assert.deepEqual((await state()).stored, expectedB);
+    assert.deepEqual((await observe("window.peek()")).effectiveSelection, expectedB);
     await chooseModel("Capability A");
-    assert.equal((await state()).stored.options.reasoningLevel, "max");
+    const expectedA = {
+      providerId: nativeId,
+      modelId: "capability-a",
+      options: { reasoningLevel: "max" },
+    };
+    assert.deepEqual((await state()).stored, expectedA);
+    assert.deepEqual((await observe("window.peek()")).effectiveSelection, expectedA);
     await openThought();
     assert.deepEqual(await levels(), ["disabled", "low", "high", "max"]);
-    await click('document.querySelector("[data-testid=chat-thought-level-select-item-low]")');
+    assert.equal(
+      await observe(`document.querySelector(${JSON.stringify(thoughtSlider)}).value`),
+      "3",
+    );
+    assert.notEqual(
+      await observe(
+        `document.querySelector(${JSON.stringify(thoughtSlider)}).getAttribute("aria-valuetext")`,
+      ),
+      "—",
+    );
+    await selectOpenLevel("low");
     await waitFor('window.state.stored?.options?.reasoningLevel==="low" && window.state.canSubmit');
-    await settleMenus();
+    await closeMenus();
     await click('document.querySelector("[data-testid=fixture-submit]")');
     await waitFor("window.submissions.length===1");
     await chooseLevel("high");
@@ -284,16 +370,23 @@ window.appearance("light","zh-CN");
     await waitFor('window.state.stored?.options?.reasoningLevel==="disabled"');
     stage = "single and custom providers";
     await chooseModel("Capability single");
+    await openModels();
     assert.equal(
-      await observe(
-        `document.querySelector(${JSON.stringify(thoughtTrigger)}).getAttribute("data-thought-level-fixed")`,
-      ),
-      "true",
+      await observe(`document.querySelector(${JSON.stringify(thoughtSlider)})===null`),
+      true,
     );
+    assert.ok(
+      await observe(
+        'document.querySelector("[data-testid=composer-thought-value]")?.textContent.trim().length>0',
+      ),
+    );
+    assert.equal((await state()).stored.options.reasoningLevel, "disabled");
+    await closeMenus();
     await chooseModel("custom-model");
     await openThought();
     assert.deepEqual(await levels(), ["neutral", "custom-deep"]);
-    await click('document.querySelector("[data-testid=chat-thought-level-select-item-neutral]")');
+    await selectOpenLevel("neutral");
+    await closeMenus();
     await chooseModel("Capability A");
     await chooseLevel("low");
     stage = "view-only versus actual Host refresh";
@@ -345,7 +438,7 @@ window.appearance("light","zh-CN");
       await observe(`window.appearance(${JSON.stringify(theme)},${JSON.stringify(locale)})`);
       await waitFor('window.state.status==="ready" && window.state.canSubmit');
       await waitFor(
-        `document.querySelector(${JSON.stringify(modelTrigger)})?.textContent.includes("Capability A") && document.querySelector(${JSON.stringify(thoughtTrigger)})?.disabled===false`,
+        `document.querySelector(${JSON.stringify(modelTrigger)})?.textContent.includes("Capability A") && document.querySelector(${JSON.stringify(modelTrigger)})?.disabled===false`,
       );
       win.webContents.sendInputEvent({ type: "mouseMove", x: 10, y: 10 });
       await waitFor('document.querySelector("[role=tooltip]")===null');
@@ -353,10 +446,13 @@ window.appearance("light","zh-CN");
         "new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))).then(()=>Promise.all(document.body.getAnimations({subtree:true}).filter(animation=>animation.effect?.getTiming().iterations!==Infinity).map(animation=>animation.finished.catch(()=>{}))))",
       );
       const geometry = await observe(
-        `(()=>{const model=document.querySelector(${JSON.stringify(modelTrigger)}),thought=document.querySelector(${JSON.stringify(thoughtTrigger)});const a=model.getBoundingClientRect(),b=thought.getBoundingClientRect();return{model:{x:a.x,right:a.right,width:a.width},thought:{x:b.x,right:b.right,width:b.width},font:getComputedStyle(thought).fontSize,theme:document.documentElement.className}})()`,
+        `(()=>{const model=document.querySelector(${JSON.stringify(modelTrigger)});const thought=[...model.querySelectorAll("[data-composer-thought-label],[data-testid=composer-thought-meter]")].find(element=>element.getBoundingClientRect().width>0);if(!thought)throw new Error("Missing combined effort presentation");const a=model.getBoundingClientRect(),b=thought.getBoundingClientRect();return{model:{x:a.x,right:a.right,width:a.width},thought:{x:b.x,right:b.right,width:b.width},font:getComputedStyle(thought).fontSize,theme:document.documentElement.className}})()`,
       );
-      assert.ok(geometry.model.x >= 0 && geometry.thought.right <= width);
-      assert.ok(geometry.model.right <= geometry.thought.x + 1);
+      assert.ok(geometry.model.x >= 0 && geometry.model.right <= width);
+      assert.ok(
+        geometry.thought.x >= geometry.model.x &&
+          geometry.thought.right <= geometry.model.right + 1,
+      );
       assert.ok(
         geometry.model.width > 0 && geometry.thought.width > 0 && parseFloat(geometry.font) > 0,
       );
@@ -381,7 +477,6 @@ window.appearance("light","zh-CN");
     clearTimeout(deadline);
     host?.dispose();
     await vite?.close();
-    await rm(temporary, { recursive: true, force: true });
     win?.destroy();
     app.exit(exitCode);
   }

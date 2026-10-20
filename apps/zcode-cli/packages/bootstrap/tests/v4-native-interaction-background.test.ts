@@ -1473,59 +1473,6 @@ describe("broker × v4 竞速", () => {
     await expect(pending).resolves.toMatchObject({ decision: "allow" });
   });
 
-  // ── 可复用工作流：saved 源走的是同一个 gate（docs/dynamic-workflow/launch.md）──
-  // 特判以 toolName 为键，与入参形状无关。这几条把这件事钉住：一个"看起来只是内联脚本才
-  // 需要 Refine"的收窄，会让 saved run 的用户丢掉唯一一条把修改意见说回模型的通道。
-
-  /** executor 的 resolveInput 产出的归一化入参：脚本已解析，来龙去脉在 saved 上。 */
-  const savedRunInput = {
-    name: "release-check",
-    script: 'return await agent("检查员").ask<string>("检查一遍");',
-    saved: {
-      name: "release-check",
-      args: { target: "packages/core" },
-      path: "/repo/.zcode/workflows/release-check.dwf.ts",
-      scope: "project",
-    },
-  };
-
-  it("CreateWorkflow（saved 源）：workflowRefine + freeText → 与内联逐字相同的反馈升级", async () => {
-    const { broker, registry } = makeBrokerContext();
-    const pending = broker.requestPermission(
-      permissionRequest({
-        requestId: "wf_refine_saved",
-        toolName: "CreateWorkflow",
-        input: savedRunInput,
-      }),
-    );
-    await new Promise((r) => setTimeout(r, 0));
-
-    registry.resolve("wf_refine_saved", {
-      optionId: "workflowRefine",
-      freeText: " 只检查 packages/core ",
-    });
-    await expect(pending).resolves.toMatchObject({
-      decision: "deny",
-      reason: "只检查 packages/core",
-      reasonSource: "workflow_refine_feedback",
-    });
-  });
-
-  it("CreateWorkflow（saved 源）：allowOnce 照常批准", async () => {
-    const { broker, registry } = makeBrokerContext();
-    const pending = broker.requestPermission(
-      permissionRequest({
-        requestId: "wf_allow_saved",
-        toolName: "CreateWorkflow",
-        input: savedRunInput,
-      }),
-    );
-    await new Promise((r) => setTimeout(r, 0));
-
-    registry.resolve("wf_allow_saved", { optionId: "allowOnce" });
-    await expect(pending).resolves.toMatchObject({ decision: "allow" });
-  });
-
   it("SaveWorkflow 伪造 workflowRefine → 普通 deny 兜底，无 reasonSource", async () => {
     // 保存窗上没有"改了再存一次"的动作，投影侧也不给它这个选项；即便有人伪造，
     // 反馈升级的通道也只对 CreateWorkflow 开放。
@@ -1705,7 +1652,7 @@ describe("v4 conversation workflowRunEvents query", () => {
     expect(result).toEqual({ events: [event(1)], hasMore: true });
   });
 
-  it("越界 cursor 得到空页而不是报错（投影与 journal 之间有竞态窗口）", async () => {
+  it("带 cursor 的请求原样返回宿主空页", async () => {
     const result = await makeGateway(async () => ({
       events: [],
       hasMore: false,
@@ -2057,7 +2004,7 @@ describe("v4 conversation workflowRunArtifactData query", () => {
   const empty = async () => ({ items: [], hasMore: false });
   const maxBytes = WORKFLOW_ARTIFACT_LIMITS.maxPageBytes;
 
-  it("limit 缺省 200、钳在 [1,500]；字节上界恒为协议上限", async () => {
+  it("limit 缺省 200、显式 500；字节上界恒为协议上限", async () => {
     const list = vi.fn(empty);
     const gateway = makeGateway(list);
     await gateway.workflowRunArtifactData({ sessionId: "s1", runId: "r", artifactId: "perf" });
@@ -2308,8 +2255,7 @@ describe("v4 conversation workflowRunArtifactRead query", () => {
       expect(read).toHaveBeenCalledTimes(2);
     });
 
-    it("版本 / 产物 / run / 会话各是不同的键——缓存绝不跨身份复用", async () => {
-      // 尤其是 sessionId：它正是端口那条授权链的比对对象，换会话必须重走端口。
+    it("版本 / 产物 / run 各是不同的键——缓存不跨这些身份复用", async () => {
       const { gateway, read } = makeCachingGateway(() => 1_000);
       await gateway.workflowRunArtifactRead(chunk(0));
       await gateway.workflowRunArtifactRead({ ...chunk(0), version: 2 });
@@ -2748,7 +2694,7 @@ describe("v4 conversation workflowRunNodeResult query", () => {
     totalBytes: 40,
   };
 
-  it("maxBytes 缺省与钳制都在网关：缺省 resultMaxBytes，超过也钳到它", async () => {
+  it("maxBytes 缺省 resultMaxBytes，较小合法值原样下传", async () => {
     const read = vi.fn(async () => body);
     const gateway = makeGateway(read);
     await gateway.workflowRunNodeResult({

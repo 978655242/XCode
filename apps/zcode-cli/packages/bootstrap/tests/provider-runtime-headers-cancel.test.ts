@@ -1,16 +1,22 @@
 import { expect, it, vi } from "vitest";
+// 大型工厂模块在准备阶段加载，避免转换开销占用端口行为用例的超时预算。
+import { createWorkspaceZCodeApp } from "../src/zcode-protocol/workspace-model-runtime.js";
 import { createProviderRuntimeHeadersPort } from "../src/zcode-protocol/provider-runtime-headers.js";
 import type { ZCodeProtocolAgentServerContext } from "../src/zcode-protocol/server-types.js";
 import type { ZCodeAppOptions } from "../src/app/types.js";
 import type { ZCodeProviderRuntimeHeadersRequestParams } from "@zcode/shared";
+import { createModelExecutionContext } from "../src/session-execution/index.js";
+import {
+  zcodeSessionSendParamsSchema,
+  zcodeProviderRuntimeHeadersRequestParamsSchema,
+  zcodeProviderRuntimeHeadersResponseSchema,
+} from "@zcode/shared";
 const workspace = {
   workspacePath: "/work",
   workspaceIdentity: "ssh:host:/work",
   workspaceKey: "ssh:host:/work",
 };
 it("真实工厂同样装配唯一请求端口，完整账号事实透传而不写旧 ModelRef", async () => {
-  const { createWorkspaceZCodeApp } =
-    await import("../src/zcode-protocol/workspace-model-runtime.js");
   const requestAuth = { apiKey: "team-key", headers: { "X-Team": "team-a" } };
   const requestClient = vi.fn(
     async (_method: string, _params: ZCodeProviderRuntimeHeadersRequestParams) => ({
@@ -181,12 +187,6 @@ it("无人应答在总时限后失败并取消，迟到响应失效且下一请�
 });
 
 it("闲时 scope 经过执行投影和私有反向 RPC 保留，SSH workspace 身份不变", async () => {
-  const { createModelExecutionContext } = await import("../src/app/model-execution-context.js");
-  const {
-    zcodeSessionSendParamsSchema,
-    zcodeProviderRuntimeHeadersRequestParamsSchema,
-    zcodeProviderRuntimeHeadersResponseSchema,
-  } = await import("@zcode/shared");
   const accountScope = "a".repeat(64);
   const execution = createModelExecutionContext(
     zcodeSessionSendParamsSchema.parse({

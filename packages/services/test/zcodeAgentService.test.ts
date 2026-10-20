@@ -18,7 +18,10 @@ import { createZCodeAgentService } from "../src/zcode-agent/zcodeAgentService.js
 import { ZCodeAgentProcessManager } from "../src/zcode-agent/zcodeAgentProcessManager.js";
 import type { ZCodeProtocolClient } from "../src/zcode-agent/zcodeProtocolClient.js";
 import { ZCODE_AGENT_MCP_STATUS_MODE_UNSUPPORTED_ERROR_CODE } from "../src/zcode-agent/zcodeAgentErrors.js";
-import type { ZCodeAgentServiceEvent } from "../src/zcode-agent/zcodeAgent.js";
+import {
+  sessionCreateAdmission,
+  type ZCodeAgentServiceEvent,
+} from "../src/zcode-agent/zcodeAgent.js";
 import { getTasksIndexDatabasePath, setDataBaseDir } from "../src/paths.js";
 
 const protocolModelProperties = {
@@ -1668,6 +1671,80 @@ describe("createZCodeAgentService", () => {
     await service.disposeAllAndWait();
   });
 
+  it("reserves native create ownership before sending the assigned session ID", async () => {
+    const workspacePath = mkdtempSync(join(tmpdir(), "zcode-native-project-"));
+    createdDirs.push(workspacePath);
+    const scriptPath = join(workspacePath, "agent.cjs");
+    const logPath = join(workspacePath, "protocol.log");
+    writeFileSync(scriptPath, SHELL_SETTINGS_SNAPSHOT_FAKE_AGENT);
+    const prepareSessionCreation = vi.fn(async (_target: unknown, _fence?: () => void) => [
+      "/extra",
+    ]);
+    const service = createReadyZCodeAgentService({
+      prepareSessionCreation,
+      commandResolver: () => ({ command: process.execPath, args: [scriptPath, logPath] }),
+    });
+    try {
+      await service.createSession({ workspacePath, projectId: "p" });
+      const create = readFileSync(logPath, "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line))
+        .find((entry) => entry.method === "session/create");
+      expect(prepareSessionCreation).toHaveBeenCalledWith(
+        expect.objectContaining({ projectId: "p", sessionId: create.params.sessionId }),
+        undefined,
+      );
+      expect(create.params.sessionId).toBeTypeOf("string");
+      expect(create.params.additionalDirectories).toEqual(["/extra"]);
+      expect(create.params).not.toHaveProperty("projectId");
+      prepareSessionCreation.mockRejectedValueOnce(new Error("storage failed"));
+      await expect(service.createSession({ workspacePath })).rejects.toThrow("storage failed");
+      expect(
+        readFileSync(logPath, "utf8")
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+          .filter((entry) => entry.method === "session/create"),
+      ).toHaveLength(1);
+      let current = true;
+      const assertCurrentSync = () => {
+        if (!current) throw new Error("owner revoked");
+      };
+      const onCommitted = vi.fn();
+      prepareSessionCreation.mockImplementationOnce(async (_target, fence) => {
+        current = false;
+        fence?.();
+        return ["/extra"];
+      });
+      await expect(
+        service.createSession({
+          workspacePath,
+          projectId: "p",
+          [sessionCreateAdmission]: {
+            assertCurrent: async () => assertCurrentSync(),
+            assertCurrentSync,
+            onCommitted,
+          },
+        }),
+      ).rejects.toThrow("owner revoked");
+      expect(prepareSessionCreation).toHaveBeenLastCalledWith(
+        expect.objectContaining({ projectId: "p", sessionId: expect.any(String) }),
+        assertCurrentSync,
+      );
+      expect(
+        readFileSync(logPath, "utf8")
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+          .filter((entry) => entry.method === "session/create"),
+      ).toHaveLength(1);
+      expect(onCommitted).not.toHaveBeenCalled();
+    } finally {
+      await service.disposeAllAndWait();
+    }
+  });
+
   it("passes session tool lists through protocol session/create", async () => {
     const workspacePath = mkdtempSync(join(tmpdir(), "zcode-agent-service-tool-list-"));
     createdDirs.push(workspacePath);
@@ -2009,6 +2086,7 @@ describe("createZCodeAgentService", () => {
             askUserQuestionAutoResolutionEnabled: boolean;
             nativeSearchEnhancementsEnabled: boolean;
             memoryEnabled: boolean;
+            toolSearchMode?: "auto" | "local" | "off";
           }>
         >
       >;
@@ -2017,6 +2095,7 @@ describe("createZCodeAgentService", () => {
         nativeSearchEnhancementsEnabled: boolean;
         subagentRuntimeConfigEnabled: boolean;
         memoryEnabled: boolean;
+        toolSearchMode?: "auto" | "local" | "off";
         modelContextBudgetStrategy: "legacy" | "preflight-v1";
       };
       expectedErrorCode?: number;
@@ -2025,11 +2104,13 @@ describe("createZCodeAgentService", () => {
       {
         name: "current-setting",
         resolver: vi.fn(async () => ({
+          toolSearchMode: "auto",
           askUserQuestionAutoResolutionEnabled: false,
           nativeSearchEnhancementsEnabled: false,
           memoryEnabled: false,
         })),
         expectedResult: {
+          toolSearchMode: "auto",
           askUserQuestionAutoResolutionEnabled: false,
           nativeSearchEnhancementsEnabled: false,
           subagentRuntimeConfigEnabled: false,
@@ -2041,6 +2122,7 @@ describe("createZCodeAgentService", () => {
       {
         name: "missing-resolver",
         expectedResult: {
+          toolSearchMode: "off",
           askUserQuestionAutoResolutionEnabled: true,
           nativeSearchEnhancementsEnabled: true,
           subagentRuntimeConfigEnabled: false,
@@ -2101,13 +2183,13 @@ describe("createZCodeAgentService", () => {
                   nativeSearchEnhancementsEnabled: boolean;
                   subagentRuntimeConfigEnabled: boolean;
                   memoryEnabled: boolean;
+                  toolSearchMode?: "auto" | "local" | "off";
                   modelContextBudgetStrategy: "legacy" | "preflight-v1";
                 };
               },
           )
           .find((entry) => entry.method === "session/requestRuntimePreferences:response");
 
-        expect(response, testCase.name).toBeDefined();
         if (testCase.expectedResult) {
           expect(response?.result, testCase.name).toEqual(testCase.expectedResult);
           expect(response?.error, testCase.name).toBeUndefined();

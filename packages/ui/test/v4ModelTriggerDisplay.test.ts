@@ -3,6 +3,7 @@ import { BUILTIN_MODEL_PROVIDER_IDS } from "@zcode/shared";
 import type { ModelSelectGroup } from "@/ModelConfigSelect.js";
 import {
   formatProviderModelLabel,
+  resolveV4ModelTriggerDisplay,
   resolveV4ModelTriggerLabel,
 } from "@/v4/composer/modelTriggerDisplay.js";
 
@@ -90,42 +91,6 @@ describe("resolveV4ModelTriggerLabel", () => {
     ).toBe("deepseek/deepseek-v4-flash");
   });
 
-  it("手机 Web 与桌面共享完整身份文案，由 composer 容器断点负责视觉裁剪", () => {
-    const group = createGroup({
-      key: "default-deepseek",
-      label: "deepseek",
-      modelName: "deepseek-v4-flash",
-    });
-
-    expect(
-      resolveV4ModelTriggerLabel({
-        modelGroups: [group],
-        normalizedValue: "custom:default-deepseek:deepseek-v4-flash",
-        fallbackLabel: "选择模型",
-        providerId: "default-deepseek",
-        providerName: "deepseek",
-      }),
-    ).toBe("deepseek/deepseek-v4-flash");
-  });
-
-  it("桌面宽视口打开 Web 远控时仍显示自定义供应商名", () => {
-    const group = createGroup({
-      key: "default-deepseek",
-      label: "deepseek",
-      modelName: "deepseek-v4-flash",
-    });
-
-    expect(
-      resolveV4ModelTriggerLabel({
-        modelGroups: [group],
-        normalizedValue: "custom:default-deepseek:deepseek-v4-flash",
-        fallbackLabel: "选择模型",
-        providerId: "default-deepseek",
-        providerName: "deepseek",
-      }),
-    ).toBe("deepseek/deepseek-v4-flash");
-  });
-
   it("当前编码值失效时使用既有占位回落", () => {
     expect(
       resolveV4ModelTriggerLabel({
@@ -152,5 +117,74 @@ describe("formatProviderModelLabel", () => {
     expect(formatProviderModelLabel("custom-deepseek", "test-deepseek", "deepseek-v4-flash")).toBe(
       "test-deepseek/deepseek-v4-flash",
     );
+  });
+});
+
+describe("resolveV4ModelTriggerDisplay", () => {
+  it.each([undefined, "", "   "])(
+    "名称为 %s 时以 providerId 保留完整身份和前缀",
+    (providerName) => {
+      const group = createGroup({
+        key: "bigmodel-api",
+        label: "bigmodel-api",
+        modelName: "GLM-5.3",
+      });
+      expect(
+        resolveV4ModelTriggerDisplay({
+          modelGroups: [group],
+          normalizedValue: "custom:bigmodel-api:GLM-5.3",
+          fallbackLabel: "选择模型",
+          providerId: "bigmodel-api",
+          providerName,
+        }),
+      ).toEqual({
+        fullLabel: "bigmodel-api/GLM-5.3",
+        providerPrefix: "bigmodel-api/",
+        modelLabel: "GLM-5.3",
+      });
+    },
+  );
+
+  it("保留完整身份并把自定义供应商前缀拆成响应式展示节点", () => {
+    const group = createGroup({
+      key: "default-deepseek",
+      label: "deepseek",
+      modelName: "deepseek-v4-flash",
+    });
+
+    expect(
+      resolveV4ModelTriggerDisplay({
+        modelGroups: [group],
+        normalizedValue: "custom:default-deepseek:deepseek-v4-flash",
+        fallbackLabel: "选择模型",
+        providerId: "default-deepseek",
+        providerName: "deepseek",
+      }),
+    ).toEqual({
+      fullLabel: "deepseek/deepseek-v4-flash",
+      providerPrefix: "deepseek/",
+      modelLabel: "deepseek-v4-flash",
+    });
+  });
+
+  it("内置供应商没有可隐藏的 provider 前缀", () => {
+    const group = createGroup({
+      key: BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan,
+      label: "Z.ai - Coding Plan",
+      modelName: "GLM-5.2",
+    });
+
+    expect(
+      resolveV4ModelTriggerDisplay({
+        modelGroups: [group],
+        normalizedValue: `custom:${BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan}:GLM-5.2`,
+        fallbackLabel: "选择模型",
+        providerId: BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan,
+        providerName: "Z.ai - Coding Plan",
+      }),
+    ).toEqual({
+      fullLabel: "GLM-5.2",
+      modelLabel: "GLM-5.2",
+    });
   });
 });

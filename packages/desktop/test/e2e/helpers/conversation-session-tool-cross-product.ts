@@ -1,7 +1,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { resolveE2ERuntimePath } from "./e2e-runtime-paths.js";
-import { getV4ConfigProjection, switchV4Mode } from "./v4-conversation.js";
+import { getV4ConfigProjection, switchV4Mode } from "#e2e/helpers/v4-conversation";
 
 export const TOOL_CROSS_PRODUCT_ROOT = resolveE2ERuntimePath(
   "conversation-session-tool-cross-product",
@@ -95,10 +95,12 @@ export async function cleanupToolCrossProductFixtures() {
 }
 
 export async function ensureToolCrossProductFullAccessMode() {
-  // XCODE: 权限已从 Select 迁到 DropdownMenu，复用 V4 稳定定位，不再按旧 role/翻译文案查找。
-  if ((await getV4ConfigProjection()).mode !== "yolo") {
-    await switchV4Mode("yolo");
+  if ((await getV4ConfigProjection()).mode === "yolo") {
+    return;
   }
+  // Bug 根因：模式菜单已迁移为 DropdownMenu，旧 Select option 查询永远找不到 yolo。
+  // 复用当前 V4 控件，并只以当前 composer 的模式投影确认，不读取其他工作区配置。
+  await switchV4Mode("yolo");
   await browser.waitUntil(async () => (await getV4ConfigProjection()).mode === "yolo", {
     timeout: 30000,
     timeoutMsg: "工具叉乘 e2e 没有切换到 Full access/yolo mode",

@@ -17,7 +17,7 @@ import {
 import { type ModelRequest } from "@zcode/contracts";
 import { AiSdkModelAdapter } from "../../../apps/zcode-cli/packages/adapters/src/model/runner.js";
 import { ApiProviderModelRuntime } from "../../../apps/zcode-cli/packages/bootstrap/src/app/provider-registry-model-runtime.js";
-import { createModelExecutionContext } from "../../../apps/zcode-cli/packages/bootstrap/src/app/model-execution-context.js";
+import { createModelExecutionContext } from "../../../apps/zcode-cli/packages/bootstrap/src/session-execution/index.js";
 import {
   buildOffPeakRequestAuth,
   resolveOffPeakCredentials,

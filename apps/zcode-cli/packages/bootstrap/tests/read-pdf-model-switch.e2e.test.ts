@@ -5,7 +5,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createNodeFileSystemAdapter } from "@zcode/adapters/fs";
 import { createConfig } from "@zcode/adapters/config";
-import { AiSdkModelAdapter } from "@zcode/adapters/model";
+import { createPdfProviderFixture } from "./helpers/pdf-provider-fixture.js";
+import type { ModelSelection as ModelRef, ProviderRegistry } from "@zcode/provider";
 import {
   createInMemorySessionEventStore,
   createNodeToolArtifactStore,
@@ -17,14 +18,9 @@ import {
   createProjectId,
   createRootTraceContext,
   createSessionId,
-  type ModelRef,
   type PdfDocumentPort,
 } from "@zcode/contracts";
 import { AgentRuntime } from "@zcode/core";
-import { ModelConfig, ModelPropertiesConfig, ProviderRegistry } from "@zcode/provider";
-import { ApiProviderModelRuntime } from "../src/app/provider-registry-model-runtime.js";
-import { createApiKeyProviderConfig } from "./provider-config-fixtures.js";
-import { createTestProviderRegistry } from "./helpers/registry-backed-test-app.js";
 
 import { createSessionFacade } from "../src/app/session-facade.js";
 
@@ -44,14 +40,17 @@ describe("Read PDF model capability switching E2E", () => {
     const root = await mkdtemp(join(tmpdir(), "zcode-read-pdf-model-switch-e2e-"));
     const pdfPath = join(root, "switchable.pdf");
     const sessionId = createSessionId("read-pdf-model-switch-e2e");
-    const sessionStore = createSqliteSessionStore({ dbPath: join(root, "session.sqlite") });
+    const sessionStore = await createSqliteSessionStore({ dbPath: join(root, "session.sqlite") });
     const capture = await startChatCaptureServer(pdfPath);
-    const modelRuntime = createModelSwitchRuntime(capture.baseURL);
+    const fixture = createPdfProviderFixture(capture.baseURL, PROVIDER_ID, [
+      { modelId: PDF_CAPABLE_MODEL.modelId, supportsPdf: true },
+      { modelId: PDF_INCAPABLE_MODEL.modelId, supportsPdf: false },
+    ]);
     const runtime = new AgentRuntime(
       sessionId,
       {
         mode: "yolo",
-        modelSelection: { ...PDF_CAPABLE_MODEL, options: { reasoningLevel: "high" } },
+        modelSelection: { ...PDF_CAPABLE_MODEL, options: { reasoningLevel: "disabled" } },
         modelStreaming: "off",
         workingDirectory: root,
       },
@@ -63,13 +62,13 @@ describe("Read PDF model capability switching E2E", () => {
         }),
         eventStore: createInMemorySessionEventStore(),
         fileSystemPort: createNodeFileSystemAdapter(),
-        modelFactory: modelRuntime.modelFactory,
+        modelFactory: fixture.modelFactory,
         pdfDocumentPort,
         sessionStore,
       },
     );
     const modelSwitcher = createModelSwitcher({
-      providerRegistry: modelRuntime.registry,
+      providerRegistry: fixture.registry,
       root,
       runtime,
       sessionId,
@@ -85,7 +84,7 @@ describe("Read PDF model capability switching E2E", () => {
 
       await modelSwitcher.setModel({
         ...PDF_INCAPABLE_MODEL,
-        options: { reasoningLevel: "high" },
+        options: { reasoningLevel: "disabled" },
       });
       await runtime.executeTurn("Continue without PDF support.");
 
@@ -94,7 +93,7 @@ describe("Read PDF model capability switching E2E", () => {
 
       await modelSwitcher.setModel({
         ...PDF_CAPABLE_MODEL,
-        options: { reasoningLevel: "high" },
+        options: { reasoningLevel: "disabled" },
       });
       await runtime.executeTurn("Continue after restoring PDF support.");
 
@@ -123,7 +122,7 @@ function createModelSwitcher(input: {
   root: string;
   runtime: AgentRuntime;
   sessionId: ReturnType<typeof createSessionId>;
-  sessionStore: ReturnType<typeof createSqliteSessionStore>;
+  sessionStore: Awaited<ReturnType<typeof createSqliteSessionStore>>;
 }) {
   return createSessionFacade({
     configResult: createConfig({ env: {}, skipUserConfig: true, workingDirectory: input.root }),
@@ -146,43 +145,6 @@ function createModelSwitcher(input: {
     untrustedProjectMcpServers: new Set(),
     workingDirectory: input.root,
   });
-}
-
-function createModelSwitchRuntime(baseURL: string) {
-  const providerId = String(PROVIDER_ID);
-  const provider = createTestProviderRegistry([PDF_CAPABLE_MODEL, PDF_INCAPABLE_MODEL]).getProvider(
-    providerId,
-  )!;
-  const registry = new ProviderRegistry([
-    {
-      ...provider,
-      config: createApiKeyProviderConfig({
-        apiKey: "pdf-model-switch-e2e-key",
-        apiFormat: "openai-chat-completions",
-        baseURL: `${baseURL}/v1`,
-        models: [PDF_CAPABLE_MODEL.modelId, PDF_INCAPABLE_MODEL.modelId],
-      }),
-      models: provider.models.map((model) => ({
-        ...model,
-        config: model.config.overlay(
-          new ModelConfig({
-            properties: new ModelPropertiesConfig({
-              inputFormat: {
-                ...model.config.properties.inputFormat,
-                supportsPdf: model.modelId === PDF_CAPABLE_MODEL.modelId,
-              },
-            }),
-          }),
-        ),
-      })),
-    },
-  ]);
-  const runtime = new ApiProviderModelRuntime({
-    registry,
-    modelAdapter: new AiSdkModelAdapter({ env: {}, retry: { maxAttempts: 1 } }),
-  });
-  runtime.start();
-  return { registry, modelFactory: runtime.modelFactory };
 }
 
 async function startChatCaptureServer(pdfPath: string): Promise<{

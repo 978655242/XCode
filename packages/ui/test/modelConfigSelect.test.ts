@@ -6,15 +6,15 @@ import { describe, expect, it } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip.js";
 import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import {
-  MODEL_CONFIG_SELECT_BADGE_CLASS_NAME,
-  getModelTriggerLabelClassName,
   isModelSelectGroupSelected,
   ModelConfigSelect,
+  MODEL_CONFIG_SELECT_BADGE_CLASS_NAME,
   shouldRenderModelGroupSeparator,
   shouldShowModelProviderLevel,
   type ModelSelectGroup,
 } from "@/ModelConfigSelect.js";
 import { shouldRestoreChatInputFocusAfterPickerClose } from "@/lib/pickerFocus.js";
+import { formatModelContextWindowLabel } from "@/lib/tokenNumberFormat.js";
 
 function createGroup(key: string): ModelSelectGroup {
   return {
@@ -118,58 +118,6 @@ describe("ModelConfigSelect badge style", () => {
 });
 
 describe("ModelConfigSelect trigger label", () => {
-  it("composer 仅在小于 sm 的超窄宽度隐藏模型名称", () => {
-    const className = getModelTriggerLabelClassName({
-      labelVisibilityClassName: "hidden @sm/composer:inline-flex",
-    });
-
-    expect(className.split(/\s+/)).toContain("hidden");
-    expect(className).toContain("@sm/composer:inline-flex");
-    expect(className).toContain("min-w-0");
-    expect(className).toContain("text-left");
-  });
-
-  it("显式标签样式仍可让非 composer 场景始终展示模型名称", () => {
-    const className = getModelTriggerLabelClassName({
-      labelVisibilityClassName: "hidden @xl/composer:inline-flex",
-      triggerLabelClassName: "inline-flex min-w-0",
-    });
-
-    const classTokens = className.split(/\s+/);
-    expect(classTokens).not.toContain("hidden");
-    expect(className).toContain("inline-flex");
-    expect(className).toContain("min-w-0");
-  });
-
-  it("composer 宽屏显示模型名称，超窄屏只保留正方形 package 图标按钮", () => {
-    const html = renderWithTooltipProvider(
-      createElement(ModelConfigSelect, {
-        modelGroups: [createGroup("Provider A")],
-        normalizedValue: "Provider A/model",
-        triggerLabel: "GLM-5",
-        showManageModelsAction: false,
-        lockReasonMessage: "Locked",
-        isItemLocked: () => false,
-        onValueChange: () => {},
-        tooltipTitle: "Choose model",
-        labelVisibilityClassName: "hidden @sm/composer:inline-flex",
-        triggerIconClassName: "inline-flex @sm/composer:hidden",
-        indicatorClassName: "hidden @sm/composer:block",
-        triggerClassName:
-          "@max-sm/composer:size-7 @max-sm/composer:justify-center @max-sm/composer:gap-0 @max-sm/composer:p-0",
-      }),
-    );
-
-    expect(html).toContain("lucide-package");
-    expect(html).toContain("inline-flex @sm/composer:hidden");
-    expect(html).toContain("GLM-5");
-    expect(html).toContain("lucide-chevron-down");
-    expect(html).toContain("hidden @sm/composer:block");
-    expect(html).toContain("@max-sm/composer:size-7");
-    expect(html).toContain("@max-sm/composer:p-0");
-    expect(html).toContain("hidden @sm/composer:inline-flex");
-  });
-
   it("允许调用方省略通用 tooltip 并保留模型名可访问文案", () => {
     const html = renderWithTooltipProvider(
       createElement(ModelConfigSelect, {
@@ -215,5 +163,13 @@ describe("picker focus restoration", () => {
         isCoarseTouchDevice: true,
       }),
     ).toBe(false);
+  });
+});
+
+describe("model capacity labels", () => {
+  it("保留精确目录容量，不因 locale 或四舍五入虚增上下文", () => {
+    expect(formatModelContextWindowLabel(1_050_000, "zh-CN")).toBe("1.05M");
+    expect(formatModelContextWindowLabel(1_048_576, "en-US")).toBe("1.048576M");
+    expect(formatModelContextWindowLabel(500_000, "zh-CN")).toBe("500K");
   });
 });

@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, WebContentsView, webContents, session } from "electron";
@@ -27,9 +26,11 @@ import {
 } from "./newApiWebRequestGuardAssertions.mjs";
 process.env.VITE_ZCODE_E2E_STORE_BRIDGE = "1";
 
+assert.ok(process.argv[2], "Launch this fixture with runNewApiElectronSmokes.mjs");
+
 // XCODE: Main ESM 在模块求值结束后才触发 ready，异步 smoke 不阻塞入口模块。
 async function run() {
-  const dataDirectory = await mkdtemp(join(tmpdir(), "xcode-handoff-electron-"));
+  const dataDirectory = await mkdtemp(join(process.argv[2], "xcode-handoff-electron-"));
   app.setPath("userData", dataDirectory);
   const { origin, counters, close: closeFixtureServer } = await createHandoffFixtureServer();
   const deadline = setTimeout(() => {
@@ -392,7 +393,6 @@ async function run() {
       await setNativePlanWebviewOwner(win.id, null);
     }
     await closeFixtureServer();
-    await rm(dataDirectory, { recursive: true, force: true });
     app.exit(exitCode);
   }
 }

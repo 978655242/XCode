@@ -11,13 +11,15 @@ import {
   type OAuthProviderMeta,
   BIGMODEL_PROVIDER_ID,
   NEW_API_PROVIDER_ID,
+  ZAI_PROVIDER_ID,
+} from "@zcode/shared";
+import {
   TID_LOGIN_USE_API_KEY_BUTTON,
   TID_OAUTH_CANCEL,
   TID_OAUTH_ERROR,
   TID_OAUTH_LOGIN_BUTTON,
-  ZAI_PROVIDER_ID,
   testId,
-} from "@zcode/shared";
+} from "@zcode/shared/test-ids";
 import { Alert, AlertDescription } from "./components/ui/alert.js";
 import { Button } from "./components/ui/button.js";
 import { ZCodeAboutLogo } from "@/components/ui/ZCodeAboutLogo.js";

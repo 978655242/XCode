@@ -56,6 +56,9 @@ const connection = new ZCodeProtocolNdjsonConnection({
         status: updates === 1 ? "received" : "unchanged",
       }};
     }
+    if (message.method === zcodeProtocolMethods.providerRefreshRegistry) {
+      return { id: message.id, result: { refreshed: true } };
+    }
     if (message.method === "v4/command") {
       return { id: message.id, result: {
         commandId: message.params.commandId,
@@ -180,9 +183,14 @@ await connection.waitForClose();
           const admitted = await transcript();
           assert.deepEqual(
             admitted.map((entry) => entry.method),
-            ["provider/updateAccountConfig", "provider/updateAccountConfig", "v4/command"],
+            [
+              "provider/updateAccountConfig",
+              "provider/updateAccountConfig",
+              "provider/refreshRegistry",
+              "v4/command",
+            ],
           );
-          const forwarded = admitted[2].params;
+          const forwarded = admitted[3].params;
           assert.equal(forwarded.commandId, envelope.commandId);
           assert.equal(forwarded.clientId, envelope.clientId);
           assert.equal(forwarded.sessionId, envelope.sessionId);
@@ -197,7 +205,9 @@ await connection.waitForClose();
             [
               "provider/updateAccountConfig",
               "provider/updateAccountConfig",
+              "provider/refreshRegistry",
               "v4/command",
+              "provider/refreshRegistry",
               "v4/command",
             ],
           );

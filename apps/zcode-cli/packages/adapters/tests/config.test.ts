@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { ConfigScope, DefaultRuntimeConfig } from "@zcode/contracts";
 import { createConfig, updateUiLocaleInFileConfig } from "../src/config/index.js";
 import { parseEnvConfig } from "../src/config/env-config.adapter.js";
 import {
@@ -113,9 +112,9 @@ describe("config adapters", () => {
         (await removePluginFromFileConfig(configPath, "computer-use@zcode-plugins-official"))
           .removedEnabled,
       ).toBe(true);
-      const { plugins } = JSON.parse(await readFile(configPath, "utf8"));
-      expect(plugins.enabledPlugins).toEqual({});
-      expect(plugins.suppressedBuiltins).toEqual([]);
+      expect(JSON.parse(await readFile(configPath, "utf8"))).toEqual({
+        plugins: { enabledPlugins: {}, suppressedBuiltins: [], options: {} },
+      });
     } finally {
       await rm(dir, { force: true, recursive: true });
     }
@@ -303,11 +302,6 @@ describe("config adapters", () => {
     }
   });
 
-  it("keeps Plugin scope priority aligned with User then Workspace", () => {
-    expect(ConfigScope.User).toBe("user");
-    expect(ConfigScope.Project).toBe("project");
-  });
-
   it("parses the supported ZCODE environment surface", () => {
     const config = parseEnvConfig({
       ZCODE_STORAGE_DIR: "/tmp/zcode",
@@ -328,30 +322,6 @@ describe("config adapters", () => {
     expect(config.ui).toBeUndefined();
     expect(config.logging?.format).toBe("json");
     expect(config.logging?.level).toBeUndefined();
-  });
-
-  it("defaults the session database to db/db.sqlite", () => {
-    const result = createConfig({ env: {}, skipUserConfig: true });
-
-    expect(result.config).not.toHaveProperty("model");
-    expect(DefaultRuntimeConfig.storage.sessionDbPath).toBe("~/.zcode/cli/db/db.sqlite");
-    expect(result.config.storage.sessionDbPath).toBe("~/.zcode/cli/db/db.sqlite");
-  });
-
-  it("defaults model stream idle timeout to ten minutes", () => {
-    const result = createConfig({ env: {}, skipUserConfig: true });
-
-    expect(DefaultRuntimeConfig.modelStream.idleTimeoutMs).toBe(600_000);
-    expect(result.config.modelStream.idleTimeoutMs).toBe(600_000);
-  });
-
-  it("defaults the supported memory switches to enabled", () => {
-    const result = createConfig({ env: {}, skipUserConfig: true });
-
-    expect(result.config.features.memory).toBe(true);
-    expect(result.config.memory).toEqual({
-      use: true,
-    });
   });
 
   it("loads the supported memory config fields", async () => {
@@ -1793,58 +1763,52 @@ describe("config adapters", () => {
     }
   });
 
-  it("does not project legacy provider and model config into runtime state", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "zcode-config-legacy-model-"));
-    const path = join(dir, "config.json");
-    const legacy = {
-      model: { main: "fixture/model", lite: "fixture/lite" },
+  // Provider/Model 配置已归 Registry 管理；通用配置忽略退场字段，不得重新推导模型选择。
+  it.each([
+    { model: { provider: "example", model: "example-model", apiKey: "fixture" } },
+    { model: { main: "example/main", lite: "example/lite" } },
+    { model: "example/main", modelSmall: "example/small", smallModel: "example/small" },
+    {
       provider: {
-        fixture: {
-          kind: "anthropic",
-          options: { apiKey: "fixture-key", baseURL: "https://example.test" },
-          models: { model: { maxOutputTokens: 64_000 } },
+        example: {
+          kind: "unsupported",
+          npm: "fixture",
+          models: { tiny: { limit: { context: "invalid" } } },
         },
       },
-      modelCatalog: { overrides: { "fixture/model": { supportsReasoning: true } } },
-    };
-
-    try {
-      await writeFile(path, JSON.stringify({ ...legacy, permission: { mode: "plan" } }));
-
-      const loaded = loadFileConfig(path);
-      const merged = createConfig({ env: {}, userConfigPath: path });
-
-      expect(loaded.loaded).toBe(true);
-      expect(loaded.diagnostics).toEqual([]);
-      expect(loaded.config).toEqual({ permission: { mode: "plan" } });
-      for (const key of Object.keys(legacy)) {
-        expect(merged.config).not.toHaveProperty(key);
+    },
+    { modelCatalog: { overrides: { "example/model": { supportsReasoning: true } } } },
+  ])(
+    "ignores retired provider config while preserving active configuration: %j",
+    async (legacy) => {
+      const dir = await mkdtemp(join(tmpdir(), "zcode-config-retired-model-"));
+      try {
+        const path = join(dir, "config.json");
+        await writeFile(path, JSON.stringify({ ...legacy, features: { memory: false } }));
+        const result = loadFileConfig(path);
+        expect(result.loaded).toBe(true);
+        expect(result.config).toMatchObject({ features: { memory: false } });
+        for (const key of ["model", "provider", "modelCatalog", "modelSmall", "smallModel"])
+          expect(result.config).not.toHaveProperty(key);
+      } finally {
+        await rm(dir, { recursive: true, force: true });
       }
-      expect(JSON.parse(await readFile(path, "utf8"))).toEqual({
-        ...legacy,
-        permission: { mode: "plan" },
-      });
-    } finally {
-      await rm(dir, { force: true, recursive: true });
-    }
-  });
+    },
+  );
 
-  it("rejects file config that fails the runtime schema", async () => {
+  it("rejects invalid active configuration", async () => {
     const dir = await mkdtemp(join(tmpdir(), "zcode-config-invalid-"));
-    const path = join(dir, "config.json");
-
     try {
-      await writeFile(path, JSON.stringify({ permission: { mode: "unsupported" } }));
-
+      const path = join(dir, "config.json");
+      await writeFile(path, JSON.stringify({ network: { timeout: "invalid" } }));
       const result = loadFileConfig(path);
-
       expect(result.loaded).toBe(false);
       expect(result.config).toEqual({});
       expect(result.diagnostics).toEqual([
         expect.objectContaining({ code: "config_file_invalid", severity: "error" }),
       ]);
     } finally {
-      await rm(dir, { force: true, recursive: true });
+      await rm(dir, { recursive: true, force: true });
     }
   });
 

@@ -1,6 +1,18 @@
-import { afterEach, vi } from "vitest";
+import { afterEach, inject, vi } from "vitest";
 import { existsSync } from "node:fs";
+import { mkdtemp } from "node:fs/promises";
 import { join } from "node:path";
+
+declare module "vitest" {
+  export interface ProvidedContext {
+    xcodeUnitTestRoot: string;
+  }
+}
+
+// XCODE: 每份用例在导入服务前获得独立 HOME，数据库与备份均不能落到用户目录。
+const testHome = await mkdtemp(join(inject("xcodeUnitTestRoot"), "home-"));
+process.env.HOME = testHome;
+process.env.USERPROFILE = testHome;
 
 process.env.GIT_CONFIG_COUNT = "2";
 
@@ -22,7 +34,8 @@ process.env.GIT_CONFIG_KEY_1 = "core.eol";
 process.env.GIT_CONFIG_VALUE_1 = "lf";
 process.env.ZCODE_TEST_RELEASE_TARGET = process.env.ZCODE_TEST_RELEASE_TARGET ?? "darwin";
 process.env.ZCODE_TEST_RELEASE_ARCH = process.env.ZCODE_TEST_RELEASE_ARCH ?? "aarch64";
-process.env.ZCODE_TEST_CLIENT_CONFIG_PLATFORM = process.env.ZCODE_TEST_CLIENT_CONFIG_PLATFORM ?? "darwin-aarch64";
+process.env.ZCODE_TEST_CLIENT_CONFIG_PLATFORM =
+  process.env.ZCODE_TEST_CLIENT_CONFIG_PLATFORM ?? "darwin-aarch64";
 // Bugfix: 桌面端会把自定义 dataBaseDir 通过环境变量注入到 host/git 子进程。
 // 很多服务层单测只通过覆盖 HOME 来隔离临时目录；若保留该变量，路径解析会继续优先命中真实 dataBaseDir，
 // 从而导致“终端本地跑通过，但应用内 git push 触发 pre-push 时大量用例误写到同一目录”。

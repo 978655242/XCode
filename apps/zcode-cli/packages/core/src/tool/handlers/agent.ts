@@ -283,6 +283,7 @@ export const taskToolEntry: ToolEntry = {
   capability: "Claude Code-compatible alias for launching a XWork subagent",
   metadata: {
     ...agentToolEntry.metadata,
+    shouldDefer: true,
     name: TASK_TOOL_NAME,
     providerVisible: false,
     description: [
@@ -299,6 +300,7 @@ function createTaskToolEntryFromAgent(entry: ToolEntry): ToolEntry {
     capability: "Claude Code-compatible alias for launching a XWork subagent",
     metadata: {
       ...entry.metadata,
+      shouldDefer: true,
       name: TASK_TOOL_NAME,
       providerVisible: false,
       description: [

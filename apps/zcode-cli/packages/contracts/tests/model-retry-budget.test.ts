@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  ModelRetryBudget,
-  modelNetworkStatusEventJsonSchema,
-  type ModelTextRequest,
-} from "../src/model/index.js";
+import { ModelRetryBudget, modelNetworkStatusEventJsonSchema } from "../src/model/index.js";
 import {
   getCurrentModelInvocationContext,
   runWithModelInvocationContext,
@@ -13,12 +9,6 @@ import {
 // 状态事件用 maxAttempts = 0 表示无上限，协议 schema 的下界因此是 0。
 describe("ModelRetryBudget", () => {
   it("is a runtime-only request field and stays out of the model request JSON schema", async () => {
-    const request: ModelTextRequest = {
-      model: "test/model",
-      messages: [],
-      modelRetryBudget: ModelRetryBudget.Unbounded,
-    };
-    expect(request.modelRetryBudget).toBe("unbounded");
     const { modelTextRequestJsonSchema } = await import("../src/model/index.js");
     const properties = (modelTextRequestJsonSchema as { properties: Record<string, unknown> })
       .properties;

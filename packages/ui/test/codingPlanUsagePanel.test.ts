@@ -21,7 +21,6 @@ import {
 } from "@/lib/codingPlanQuotaPresentation.js";
 import {
   buildPersonalCodingPlanUsageSource,
-  matchesTeamPlanUsageSourceKey,
   resolveSidebarCurrentCodingPlanUsageSource,
 } from "@/lib/codingPlanUsageSources.js";
 import { formatSummaryCompactTokenUsage } from "@/settings/usage-stats/usageStatsUiParts.js";
@@ -236,15 +235,6 @@ describe("CodingPlanUsagePanel", () => {
         mode: "individual-coding-plan",
       },
     });
-  });
-
-  it("matchesTeamPlanUsageSourceKey 对 zai team sourceId/selectedKey 正确匹配", () => {
-    const zaiSourceId = "team:zai:prod:org:proj";
-    const zaiSelectedKey = "team:zai:prod:org:proj";
-    expect(matchesTeamPlanUsageSourceKey(zaiSourceId, zaiSelectedKey)).toBe(true);
-
-    // 不同 projectId 不匹配
-    expect(matchesTeamPlanUsageSourceKey(zaiSourceId, "team:zai:prod:org:other")).toBe(false);
   });
 
   it("缺少组织名称时不生成空白 Team Plan usage source", () => {

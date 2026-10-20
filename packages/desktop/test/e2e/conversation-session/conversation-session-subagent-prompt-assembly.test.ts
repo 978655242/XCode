@@ -13,7 +13,7 @@ import { waitForToolCallBlockByToolName } from "../helpers/conversation-session-
 import {
   assertVisibleV4UserMessagesNotContaining,
   sendV4Prompt,
-  startNewV4Draft,
+  prepareV4ConversationE2E,
   waitForV4AssistantMessageContaining,
   waitForV4ComposerText,
   waitForV4ConversationState,
@@ -104,8 +104,9 @@ describe("会话区 subagent prompt assembly E2E", () => {
     });
 
     // Bug 根因：四类请求复用同一历史会话会在第二轮前触发 compact，令本 case
-    // 混入无关的压缩 fixture；保持同一窗口，但用新任务隔离每类 child trajectory。
-    await startNewV4Draft();
+    // 混入无关的压缩 fixture；保持同一窗口，用项目内新任务隔离每类 child trajectory。
+    // 全局新建会改变 cwd，导致 custom child 缺少本项目的 AGENTS.md 指令。
+    await prepareV4ConversationE2E({ skipProvider: true });
     await runSubagentPromptAssemblyScenario({
       // XCODE: Explore 提示词展示名已迁移为 XWork（explore.ts）。
       agentPromptIncludes: ["You are XWork Explore", "READ-ONLY MODE"],
@@ -118,7 +119,7 @@ describe("会话区 subagent prompt assembly E2E", () => {
       subagentType: "Explore",
     });
 
-    await startNewV4Draft();
+    await prepareV4ConversationE2E({ skipProvider: true });
     await runSubagentPromptAssemblyScenario({
       agentPromptIncludes: [
         "You are the E2E custom prompt assembly reviewer.",
@@ -135,7 +136,7 @@ describe("会话区 subagent prompt assembly E2E", () => {
       subagentType: CUSTOM_AGENT_NAME,
     });
 
-    await startNewV4Draft();
+    await prepareV4ConversationE2E({ skipProvider: true });
     await runSubagentPromptAssemblyScenario({
       agentPromptIncludes: [
         "You are the isolated E2E custom prompt assembly reviewer.",

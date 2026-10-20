@@ -6,7 +6,9 @@ import {
   TID_LOGIN_USE_API_KEY_BUTTON,
   TID_TASK_SETTINGS_BUTTON,
   TID_CHAT_MODEL_SELECT_TRIGGER,
-} from "@zcode/shared";
+  TID_CHAT_MODEL_SELECT_GROUP,
+  testId,
+} from "@zcode/shared/test-ids";
 import {
   clearAppData,
   DEFAULT_WORKSPACE,
@@ -36,7 +38,7 @@ async function settledSnapshot() {
     return {
       prefix: trigger.querySelector(".composer-provider-prefix")?.textContent ?? null,
       title: trigger.querySelector("[title]")?.getAttribute("title") ?? null,
-      icon: Boolean(trigger.querySelector("img, svg")),
+      icon: Boolean(trigger.querySelector('img[src], span[style*="mask-image"]')),
     };
   }, TID_CHAT_MODEL_SELECT_TRIGGER);
 }
@@ -65,6 +67,7 @@ describe("Composer provider 身份回归", () => {
     await clearAppData();
   });
 
+  // XCODE: 菜单按产品分组，不暴露具体供应商；按钮保留模型品牌图标。
   it("CMP02: bigmodel-api 没有 providerName 时菜单与按钮只显示模型名和图标", async function () {
     this.timeout(120000);
     await prepareV4ConversationE2E();
@@ -101,6 +104,8 @@ describe("Composer provider 身份回归", () => {
     try {
       const trigger = $(`[data-testid="${TID_CHAT_MODEL_SELECT_TRIGGER}"]`);
       await trigger.click();
+      await $('[data-testid="composer-provider-trigger"]').click();
+      await $(`[data-testid="${testId(TID_CHAT_MODEL_SELECT_GROUP, "composer-custom")}"]`).click();
       const menu = await $('[role="menu"]').getText();
       assert.ok(menu.includes("GLM-5.3"), "菜单必须展示模型");
       assert.ok(menu.includes("自定义模型"), "自配模型归入「自定义模型」分组");
@@ -110,7 +115,7 @@ describe("Composer provider 身份回归", () => {
       await browser.waitUntil(
         async () => {
           const current = await settledSnapshot();
-          return current.prefix === null && current.title === "GLM-5.3";
+          return current.prefix === null && current.title === "GLM-5.3" && current.icon;
         },
         { timeout: 5000, timeoutMsg: "模型按钮未收敛到仅模型名" },
       );

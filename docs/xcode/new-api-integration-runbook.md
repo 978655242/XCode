@@ -158,7 +158,7 @@ pnpm fmt:check
 pnpm architecture:check --changed
 ```
 
-`pnpm test:unit` 顺序执行 Vitest 与上述 Node 原生测试；`test:unit:affected` 同样保留 Node 账户/凭据回归。`node:test` 文件不交给 Vitest 收集，避免将其报告成“0 test”或遗漏原生 mock.module 的隔离语义。
+`pnpm test:unit` 顺序执行 Vitest 与上述 Node 原生测试；`verify:pre-push` 先以 `--scope push` 执行上游 affected 入口，再独立运行 `test:unit:node`。不能把 `--scope` 追加到含 `&&` 的 wrapper 末端而误传给 Node runner。`node:test` 文件不交给 Vitest 收集，避免将其报告成“0 test”或遗漏原生 mock.module 的隔离语义。
 
 `newApiComposerContextElectron.mjs` 已纳入上述 Electron smoke 入口：真实 Composer/额度 hooks 验证自定义 API Key 空草稿不显示订阅、三个 Native transport 保留额度、Native 缓存切换到自定义模型后只展示上下文且 hover 不读取订阅、切回 Native/清空选择，以及触摸按下的上下文展示。全局侧栏与设置额度保持主账号来源；对话浮层跟随当前结构化模型选择。
 

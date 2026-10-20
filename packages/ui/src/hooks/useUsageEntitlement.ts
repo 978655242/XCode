@@ -10,6 +10,7 @@ import { useOptionalBaseWorkspaceServices } from "@/hooks/useWorkspaceServices.j
 import { useStableAccountAccess } from "@/hooks/useStableAccountAccess.js";
 import { useUsageAccountScope } from "@/hooks/useUsageAccountScope.js";
 import { selectUsageAccountState } from "@/lib/usageAccountScope.js";
+import { useZCodeStoreWithDefault } from "@/store/StoreProvider.js";
 import { logger } from "@/logger.js";
 import {
   readCachedUsageEntitlementSnapshot,
@@ -165,10 +166,6 @@ export function useUsageEntitlementWithService(
   // Web/SSR 场景可能只渲染侧栏或设置入口，没有挂载 ServiceProvider。
   // 这里降级为空快照，避免 Usage banner 因服务上下文缺失阻断整棵 UI。
   const accountScope = useUsageAccountScope(options.preferredProviderId, options.accountAccess);
-  const enabled =
-    (options.enabled ?? true) &&
-    Boolean(usageStatsService) &&
-    (!accountScope.native || Boolean(accountScope.ownerKey));
   const includeSubscription = options.includeSubscription ?? false;
   const preferredProviderId = options.preferredProviderId;
   // Provider Settings schema 每次解析会产生等值新对象，不能因引用变化重启权益请求。
@@ -176,8 +173,20 @@ export function useUsageEntitlementWithService(
   const allowDisabledPreferredProvider = options.allowDisabledPreferredProvider === true;
   const requirePreferredProvider = options.requirePreferredProvider === true;
   const allowEnvApiKey = options.allowEnvApiKey;
-  // XCODE: Native 不读写旧的无 owner localStorage；其短期缓存只存在当前主登录命名空间。
-  const cacheKey = accountScope.native ? "" : (options.cacheKey?.trim() ?? "");
+  const authScope = useZCodeStoreWithDefault(
+    (store) => (store.user ? `${store.user.id}:${store.authSessionSeq}` : "signed-out"),
+    "unscoped",
+  );
+  const enabled =
+    (options.enabled ?? true) &&
+    Boolean(usageStatsService) &&
+    authScope !== "signed-out" &&
+    (!accountScope.native || Boolean(accountScope.ownerKey));
+  const suppliedCacheKey = options.cacheKey?.trim() ?? "";
+  const freshnessCacheKey =
+    authScope === "unscoped" ? suppliedCacheKey : `${suppliedCacheKey}:auth:${authScope}`;
+  // XCODE: Native 仅按当前 owner 共享内存快照，不读写旧的无 owner localStorage。
+  const cacheKey = !accountScope.native && suppliedCacheKey ? freshnessCacheKey : "";
   const refreshOnMount = options.refreshOnMount ?? false;
   const mountRefreshReason = options.mountRefreshReason ?? "initial";
   const requestOptions = useMemo(
@@ -202,25 +211,27 @@ export function useUsageEntitlementWithService(
   const freshnessKey = useMemo(
     () =>
       buildEntitlementFreshnessKey({
-        cacheKey,
+        cacheKey: freshnessCacheKey,
         options: requestOptions,
         ownerKey: accountScope.ownerKey,
       }),
-    [cacheKey, requestOptions, accountScope.ownerKey],
+    [freshnessCacheKey, requestOptions, accountScope.ownerKey],
   );
-  const activeScopeRef = useRef<string | null>(null);
-  const activeServiceRef = useRef(usageStatsService);
-  activeScopeRef.current = enabled ? freshnessKey : null;
-  activeServiceRef.current = usageStatsService;
+
+  // 原因：effect 清理之前也可能收到旧回包；请求归属必须跟随渲染时的服务、身份和 enabled。
+  const requestScope = useMemo(() => ({}), [usageStatsService, enabled, freshnessKey]);
+  const currentRequestScope = useRef<object | null>(requestScope);
+  currentRequestScope.current = requestScope;
+  useEffect(() => {
+    currentRequestScope.current = requestScope;
+    return () => {
+      if (currentRequestScope.current === requestScope) currentRequestScope.current = null;
+    };
+  }, [requestScope]);
 
   const refresh = useCallback(
     async (refreshOptions: UsageEntitlementRefreshOptions = {}) => {
-      if (
-        !enabled ||
-        !usageStatsService ||
-        activeScopeRef.current !== freshnessKey ||
-        activeServiceRef.current !== usageStatsService
-      ) {
+      if (!enabled || !usageStatsService || currentRequestScope.current !== requestScope) {
         return;
       }
       const reason = refreshOptions.reason ?? "manual";
@@ -326,10 +337,9 @@ export function useUsageEntitlementWithService(
               : requestOptions,
         });
         if (
+          currentRequestScope.current !== requestScope ||
           requestVersionRef.current !== requestVersion ||
-          !sharedRequest.isCurrent() ||
-          activeScopeRef.current !== freshnessKey ||
-          activeServiceRef.current !== usageStatsService
+          !sharedRequest.isCurrent()
         ) {
           return;
         }
@@ -357,10 +367,9 @@ export function useUsageEntitlementWithService(
         writeCachedUsageEntitlementSnapshot({ cacheKey, snapshot });
       } catch (error) {
         if (
+          currentRequestScope.current !== requestScope ||
           requestVersionRef.current !== requestVersion ||
-          !sharedRequest.isCurrent() ||
-          activeScopeRef.current !== freshnessKey ||
-          activeServiceRef.current !== usageStatsService
+          !sharedRequest.isCurrent()
         ) {
           return;
         }
@@ -405,7 +414,7 @@ export function useUsageEntitlementWithService(
         });
       }
     },
-    [cacheKey, enabled, freshnessKey, requestOptions, usageStatsService],
+    [cacheKey, enabled, freshnessKey, requestOptions, usageStatsService, requestScope],
   );
 
   useEffect(() => {
@@ -416,11 +425,7 @@ export function useUsageEntitlementWithService(
       usageStatsService,
       freshnessKey,
       listener: (snapshot, error) => {
-        if (
-          activeScopeRef.current !== freshnessKey ||
-          activeServiceRef.current !== usageStatsService
-        )
-          return;
+        if (currentRequestScope.current !== requestScope) return;
         latestSnapshotRef.current = snapshot;
         setState({
           scopeKey: freshnessKey,
@@ -430,7 +435,7 @@ export function useUsageEntitlementWithService(
         });
       },
     });
-  }, [enabled, freshnessKey, usageStatsService]);
+  }, [enabled, freshnessKey, usageStatsService, requestScope]);
 
   useEffect(() => {
     if (!enabled) {

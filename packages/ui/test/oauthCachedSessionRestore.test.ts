@@ -4,7 +4,7 @@ import { applyCachedOAuthSessionRestoreResult } from "@/root/oauthCachedSessionR
 describe("applyCachedOAuthSessionRestoreResult", () => {
   it("clears the displayed user, shows one expiry alert, then opens reauthentication", async () => {
     const setUser = vi.fn();
-    const requestAlert = vi.fn(async () => undefined);
+    const requestAlert = vi.fn(async () => true);
     const onReauthenticationRequired = vi.fn();
 
     await applyCachedOAuthSessionRestoreResult({
@@ -34,4 +34,30 @@ describe("applyCachedOAuthSessionRestoreResult", () => {
       onReauthenticationRequired.mock.invocationCallOrder[0],
     );
   });
+
+  it.each(["before-alert", "during-alert"])(
+    "does not reopen Native credential recovery after a new login %s",
+    async (timing) => {
+      let signedOut = timing !== "before-alert";
+      const setUser = vi.fn();
+      const onReauthenticationRequired = vi.fn();
+      const requestAlert = vi.fn(async () => {
+        signedOut = false;
+        return true;
+      });
+
+      await applyCachedOAuthSessionRestoreResult({
+        result: { status: "unavailable", reason: "credential-recovery-required" },
+        setUser,
+        requestAlert,
+        onReauthenticationRequired,
+        shouldReauthenticate: async () => signedOut,
+        copy: { title: "Private credentials need recovery" },
+      });
+
+      expect(requestAlert).toHaveBeenCalledTimes(timing === "before-alert" ? 0 : 1);
+      expect(setUser).toHaveBeenCalledTimes(timing === "before-alert" ? 0 : 1);
+      expect(onReauthenticationRequired).not.toHaveBeenCalled();
+    },
+  );
 });

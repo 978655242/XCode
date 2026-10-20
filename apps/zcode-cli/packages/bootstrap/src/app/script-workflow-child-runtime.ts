@@ -134,8 +134,6 @@ export function createScriptWorkflowAgentRuntime(input: {
     input.childSessionId,
     {
       ...inheritedConfig,
-      // XCODE: 初始 config 早于首轮 shell 初始化，子 runtime 必须继承父 runtime 当前快照。
-      bashShellSelection: input.deps.runtime.getSessionShellSelection(),
       ...(systemPrompt === undefined ? {} : { systemPrompt }),
       agentName: input.request.opts?.agentType ?? "zcode-workflow",
       maxTurns: input.request.opts?.maxTurns ?? input.deps.runtimeConfig.maxTurns,
@@ -144,6 +142,8 @@ export function createScriptWorkflowAgentRuntime(input: {
       // 「Permissions inside a run」）。
       mode: "yolo",
       modelSelection,
+      // XCODE: 父 Shell 在首条输入才解析，子会话须继承已初始化快照，不能复制初始空配置。
+      bashShellSelection: input.deps.runtime.getSessionShellSelection(),
       parentSessionId: input.deps.sessionId,
       subagents: { enabled: false },
       taskType: "workflow_child",

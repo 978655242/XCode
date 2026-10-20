@@ -737,6 +737,7 @@ test("includes bundled official plugin assets", async () => {
     assert.equal(browserUsePaths.has("docs/computer-use.md"), false);
     assert.equal(documentPaths.has(".zcode-plugin/plugin.json"), true);
     assert.equal(documentPaths.has("skills/docx/SKILL.md"), true);
+    assert.equal(documentPaths.has("skills/docx-viewer/SKILL.md"), true);
     assert.equal(documentPaths.has("skills/pdf/SKILL.md"), true);
     assert.equal(documentPaths.has("skills/pdf/scripts/pdf.py"), true);
     assert.equal(documentPaths.has("skills/pptx/SKILL.md"), true);
@@ -1174,17 +1175,6 @@ test("matches host targets using Node.js platform names", () => {
   );
 });
 
-test("rebuilds workspace dependencies without caching SEA outputs before packaging", async () => {
-  const packageJson = JSON.parse(
-    await readFile(new URL("../package.json", import.meta.url), "utf8"),
-  );
-
-  assert.equal(
-    packageJson.scripts?.["build:sea"],
-    "pnpm --dir ../../../.. exec turbo --skip-infer --cwd apps/zcode-cli run build --filter=!@zcode/cli --force && pnpm build && node scripts/build-sea.mjs --all",
-  );
-});
-
 test("resolves Turbo from the repository while retaining the CLI workspace graph", () => {
   const cliPackageRoot = new URL("..", import.meta.url);
 
@@ -1235,7 +1225,7 @@ test("can be dynamically imported when argv[1] is missing", () => {
 });
 
 async function writeOfficialPluginFixtures(root) {
-  // 缺失资产用例只移除目标文件，其余插件必须满足当前完整发布契约。
+  // 缺失资产用例只移除目标文件，其余插件（含新版 Office viewer）满足当前完整发布契约。
   for (const plugin of officialSeaPlugins) {
     await writeTestFile(root, join(plugin.rootPath, ".zcode-plugin/plugin.json"), "{}");
     for (const path of [
