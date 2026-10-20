@@ -4,7 +4,7 @@ v3.16.1 使用上游新版 `scripts/affected-unit-tests/scope.mjs` 解析比较�
 
 - 显式 `--base`、`ZCODE_AFFECTED_TEST_BASE`、`ZCODE_PRE_PUSH_BASE` 按此顺序优先，覆盖 hook 提供的远端基线。
 - 已存在远端分支使用远端 SHA；重写历史后改用双方 merge-base。
-- 首次推送没有远端 SHA：`sync/upstream-*` 使用已审核的 `origin/XCode-main`，普通开发与 `sync/promote-*` 使用产品主干 `origin/release`，均取与 HEAD 的 merge-base。手动 push 范围没有 ref 输入时按当前分支角色选择。`main` 仅镜像上游，不充当产品测试基线，也不创建 `staging` 别名。
+- 首次推送没有远端 SHA：所有分支（含 `sync/upstream-*`）统一使用产品主干 `origin/release`，取与 HEAD 的 merge-base；手动 push 范围没有 ref 输入时同样如此。`main` 仅镜像上游，不充当产品测试基线，也不创建 `staging` 别名。
 - 预期集成分支缺失、无公共祖先、推送目标不是 HEAD、工作区有未提交/未跟踪改动时，严格报错；不自动 stash、不猜测其他分支、不退回全量来掩盖配置问题。
 - 配置或公共依赖令 Vitest 选中整个根套件时，按上游规则明确提示“未执行测试”后成功退出；它不构成测试通过的证据，完整验证需另外执行 `pnpm test:unit`。
 - XWork 保留的 `node:test` 用例继续由既有 `test:unit:node` 独立执行，并在根 Vitest 中排除；不能误扫、漏跑或与上游已迁入 Vitest 的测试重复执行。
