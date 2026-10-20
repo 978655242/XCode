@@ -728,6 +728,7 @@ function CodingPlanQuotaCards({
                   />
                 ) : null}
               </div>
+              {/* XCODE: 沿用原版剩余百分比，避免内部 quota 数值与服务端货币额度混淆。 */}
               <div className="mt-1 flex min-w-0 items-baseline gap-1.5">
                 <span className="text-ui-xl font-semibold text-foreground">
                   {card.limit.native?.unlimited
@@ -738,18 +739,6 @@ function CodingPlanQuotaCards({
                   <span className="min-w-0 truncate text-ui-base text-foreground-subtle">
                     {resetTime}
                   </span>
-                ) : null}
-                {card.limit.native ? (
-                  <p className="mt-1 text-ui-sm text-foreground-subtle">
-                    {intl.formatMessage(
-                      { id: "settings.usage.nativeQuotaAmounts" },
-                      {
-                        used: card.limit.native.used,
-                        total: card.limit.native.total ?? "∞",
-                        remaining: card.limit.native.remaining ?? "∞",
-                      },
-                    )}
-                  </p>
                 ) : null}
               </div>
               {!card.limit.native?.unlimited ? (
