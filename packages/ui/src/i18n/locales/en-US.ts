@@ -41,15 +41,16 @@ const enUS: Record<string, string> = {
   "chat.error.noNativeModel":
     "No New API model is available. Ask your administrator to check the assigned subscription and model access, or configure a custom model.",
   "settings.usage.native.currentPeriod": "Current subscription period",
+  "settings.usage.native.planLimits": "Plan limits",
+  "settings.usage.native.remaining": "{percentage} remaining",
+  "settings.usage.native.resetsAt": "Resets {time}",
   "settings.usage.nativeOfficialScope": "Official cloud · {family} · {name} (independently billed)",
   "settings.usage.nativeOfficialConnectDescription":
     "Official MCP quota is separate from your private subscription. Connect an official account to read its real quota.",
   "settings.usage.nativeOfficialConnect": "Connect {family}",
-  "settings.usage.nativeAccount": "New API account usage — all recorded keys and funding sources",
   "settings.usage.nativeLoadingDescription": "Reading recorded usage for the New API account.",
   "settings.usage.nativeStartDate": "Start date",
   "settings.usage.nativeEndDate": "End date",
-  "settings.usage.nativeQuotaPeriod": "Private subscription · {period}",
   "settings.usage.nativeAdminReset":
     "Read-only quota. Reset, renew or replace through your administrator.",
   "settings.usage.nativeUnlimited": "Unlimited",
@@ -4592,7 +4593,7 @@ const enUS: Record<string, string> = {
   "settings.usage.entitlementFiveHourUsage": "5-hour remaining",
   "settings.usage.entitlementWeeklyUsage": "Weekly remaining",
   "settings.usage.entitlementMonthlyMcpUsage": "Tool calls",
-  "settings.usage.entitlementServerMcpUsage": "XWork MCP",
+  "settings.usage.entitlementServerMcpUsage": "Official MCP",
   "settings.usage.entitlementResetAt": "Resets {time}",
   "settings.usage.entitlementUsageDetails": "Tool usage detail",
   "settings.usage.entitlementPromptCap": "5-hour prompt pool",

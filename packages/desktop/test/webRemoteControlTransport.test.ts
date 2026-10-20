@@ -32,10 +32,16 @@ async function fixture(
   const states: string[] = [];
   const stateEvents = new EventEmitter();
   const errors: Error[] = [];
+  const tokenRequests: Promise<string>[] = [];
   const transport = new WebRemoteControlDeviceTransport({
     relayWsUrl: relay.wsUrl,
     deviceMid: "mid-1",
-    getToken: (signal) => createWebRemoteControlV2Http(relay.httpUrl).token("jwt", signal),
+    getToken: (signal) => {
+      const pending = createWebRemoteControlV2Http(relay.httpUrl).token("jwt", signal);
+      tokenRequests.push(pending);
+      stateEvents.emit("token-request");
+      return pending;
+    },
     resolveDeviceSid: async () => device.device_sid,
     meta: { name: "My desktop", platform: "darwin", version: "3.13.0" },
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -52,7 +58,23 @@ async function fixture(
     if (states.at(-1) !== state)
       await once(stateEvents, `state:${state}`, { signal: AbortSignal.timeout(5000) });
   };
-  return { relay, transport, states, errors, device, request, waitForState };
+  // XCODE: 等调用方收到真实 HTTP 结果后再推进 fake clock，避免 30ms 等待抢在重试计时器前。
+  const waitForTokenRequest = async (count: number) => {
+    while (tokenRequests.length < count)
+      await once(stateEvents, "token-request", { signal: AbortSignal.timeout(5000) });
+    await tokenRequests[count - 1]!.catch(() => undefined);
+  };
+  return {
+    relay,
+    transport,
+    states,
+    errors,
+    device,
+    request,
+    waitForState,
+    tokenRequests,
+    waitForTokenRequest,
+  };
 }
 
 async function settle() {
@@ -136,18 +158,18 @@ describe("desktop relay V2 transport", () => {
     });
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
     f.transport.start();
-    await settle();
+    await f.waitForTokenRequest(1);
     let count = 1;
     const tokenCalls = () =>
       f.relay.httpCalls.filter((call) => call.path.endsWith("/token")).length;
     for (const ms of [1000, 2000, 4000, 8000, 16000, 30000, 30000]) {
       expect(tokenCalls()).toBe(count);
       await vi.advanceTimersByTimeAsync(ms - 1);
-      await settle();
+      expect(f.tokenRequests).toHaveLength(count);
       expect(tokenCalls()).toBe(count);
       await vi.advanceTimersByTimeAsync(1);
-      await settle();
       count++;
+      await f.waitForTokenRequest(count);
     }
     failure = undefined;
     await vi.advanceTimersByTimeAsync(30000);
@@ -155,10 +177,12 @@ describe("desktop relay V2 transport", () => {
     expect(f.states.at(-1)).toBe("waiting_terminal");
     failure = "network";
     f.relay.disconnect({ role: "device" });
-    await settle();
+    await f.waitForState("connecting");
     const before = tokenCalls();
-    await vi.advanceTimersByTimeAsync(1000);
-    await settle();
+    await vi.advanceTimersByTimeAsync(999);
+    expect(f.tokenRequests).toHaveLength(before);
+    await vi.advanceTimersByTimeAsync(1);
+    await f.waitForTokenRequest(before + 1);
     expect(tokenCalls()).toBe(before + 1);
     expect(f.states.at(-1)).toBe("connecting");
   });

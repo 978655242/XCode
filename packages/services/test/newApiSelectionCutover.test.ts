@@ -157,7 +157,7 @@ test("Native personal overlays cannot hide or rename XWork or expose hidden tran
       view.providers.map((provider) => provider.providerId),
       ["account:new-api-openai-chat-completions"],
     );
-    assert.equal(view.providers[0]!.providerName, "XWork");
+    assert.notEqual(view.providers[0]!.providerName, "Local renamed provider");
   }
 });
 

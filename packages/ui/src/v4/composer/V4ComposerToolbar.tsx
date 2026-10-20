@@ -950,7 +950,7 @@ function V4ComposerModelControlsImpl({
       modelGroupLabels,
     );
     if (groups.length === 0) return [];
-    // XCODE: 官方 New API 模型合并为「XWork」一组；自配供应商保持上游每供应商一组。图标统一用后端同源的 @lobehub/icons。
+    // XCODE: 官方 New API 模型合并为「XWork Zen」一组；自配供应商保持上游每供应商一组。图标统一用后端同源的 @lobehub/icons。
     const providers = new Map(
       modelSelectionView.providers.map((provider) => [provider.providerId, provider]),
     );
@@ -993,7 +993,7 @@ function V4ComposerModelControlsImpl({
         ? [
             {
               key: "composer-official",
-              label: "XWork",
+              label: "XWork Zen",
               // 与设置页官方订阅入口同一品牌 LOGO。
               icon: <ZCodeAboutLogo className="size-4" />,
               directItems: true,

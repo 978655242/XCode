@@ -229,7 +229,8 @@ function resolveSettingsUsageCodingPlanTabLabel({
   index: number;
   source: CodingPlanUsageSource;
 }): string {
-  if (source.accountAccess.type === "new-api-account") return source.label;
+  // XCODE: 用量统计的 Native 来源使用产品展示名。
+  if (source.accountAccess.type === "new-api-account") return "XWork Zen";
   if (isTeamCodingPlanUsageSource(source)) {
     return source.label.replace(/^BigModel\s*-\s*/i, "").trim() || source.label;
   }

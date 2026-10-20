@@ -634,7 +634,7 @@ describe("V4ComposerModelControls recovery", () => {
     await act(async () => root.unmount());
   });
 
-  it("模型菜单：XWork 官方一组，自配模型按供应商分组，按钮只显示模型名", () => {
+  it("模型菜单：官方模型合为一组，自配模型按供应商分组，按钮只显示模型名", () => {
     mocks.modelSelectionView = {
       revision: 1,
       providers: [
@@ -681,18 +681,15 @@ describe("V4ComposerModelControls recovery", () => {
     expect(props.triggerLabel).toBe("gpt-4o");
     expect(props.tooltipTitle).toBe("gpt-4o");
     expect(props.triggerLabelPrefix).toBeUndefined();
-    expect(props.modelGroups.map((group) => [group.key, group.label, group.labelBadge])).toEqual([
-      ["composer-official", "XWork", undefined],
-      [
-        "registry-provider:custom-openai",
-        "Custom OpenAI",
-        "settings.modelProvider.connectionMode.apiKeyBadge",
-      ],
-      [
-        "registry-provider:custom-deepseek",
-        "DeepSeek",
-        "settings.modelProvider.connectionMode.apiKeyBadge",
-      ],
+    // XCODE: 验证分组和连接标识，不将品牌文案固化为行为断言。
+    expect(props.modelGroups.map((group) => group.labelBadge)).toEqual([
+      undefined,
+      "settings.modelProvider.connectionMode.apiKeyBadge",
+      "settings.modelProvider.connectionMode.apiKeyBadge",
+    ]);
+    expect(props.modelGroups.slice(1).map((group) => group.label)).toEqual([
+      "Custom OpenAI",
+      "DeepSeek",
     ]);
     expect(props.modelGroups.map((group) => group.items.map((item) => item.name))).toEqual([
       ["claude-sonnet-5.5"],
@@ -710,11 +707,6 @@ describe("V4ComposerModelControls recovery", () => {
     expect(props.modelGroups[2]!.icon).toBeTruthy();
     expect(props.modelGroups[2]!.icon).toEqual(props.modelGroups[2]!.items[0]!.icon);
     expect(props.triggerClassName).toContain("shrink-0");
-    expect(props.composerOptions?.providerMenu?.groups.map((group) => group.label)).toEqual([
-      "XWork",
-      "Custom OpenAI",
-      "DeepSeek",
-    ]);
     expect(props.composerOptions?.levels).toEqual(
       expect.arrayContaining([expect.objectContaining({ value: "disabled" })]),
     );

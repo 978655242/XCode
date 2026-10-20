@@ -81,8 +81,11 @@ async function run() {
         return children;
       }
       // 设置页用量统计：真实 CodingPlanUsagePanel 与 hooks，按授权状态切换后端快照。
-      window.renderUsagePage = (status) => {
-        const native = { ...entitlement, status, subscription: status === "unassigned" ? null : entitlement.subscription, quota: status === "unassigned" ? null : entitlement.quota };
+      window.renderUsagePage = (status, quotaOverrides = {}) => {
+        const quota = status === "exhausted"
+          ? { ...entitlement.quota, used: "100", remaining: "0", used_percentage: 100 }
+          : { ...entitlement.quota, ...quotaOverrides };
+        const native = { ...entitlement, status, subscription: status === "unassigned" ? null : entitlement.subscription, quota: status === "unassigned" ? null : quota };
         const scoped = usageServicesFor(native);
         flushSync(() => renderer.render(null));
         flushSync(() => renderer.render(
@@ -186,24 +189,70 @@ async function run() {
       assert.doesNotMatch(shown, /authorization|Period details|Reset/i, status);
     }
     assert.deepEqual(await observe("window.periodCalls"), []);
-    // 设置页用量统计：授权状态在页头可见；失效套餐的额度仍可只读查看（与浮层的“未开通”区分），未分配不显示额度卡。
-    const usagePageText = (status) =>
-      observe(`(async () => { window.renderUsagePage(${JSON.stringify(status)});
+    // 设置页只展示真实剩余进度：耗尽为 0，过期/撤销仍可只读查看，未分配不制造额度卡。
+    const usagePageText = (status, quota = {}) =>
+      observe(`(async () => { window.renderUsagePage(${JSON.stringify(status)}, ${JSON.stringify(quota)});
       const root = document.getElementById("root");
       for (let i = 0; i < 100 && !/Consumption records/.test(root.innerText); i++) await new Promise(r => setTimeout(r, 50));
       return root.innerText; })()`);
-    for (const [status, label, hasQuota] of [
-      ["active", "Active authorization", true],
-      ["exhausted", "Quota exhausted", true],
-      ["expired", "Authorization expired", true],
-      ["revoked", "Authorization revoked", true],
-      ["unassigned", "No subscription assigned", false],
+    const quotaCardView = () =>
+      observe(`(() => {
+      const card = document.querySelector('[role="group"][aria-label]');
+      if (!card) return null;
+      const meter = card.querySelector('[role="progressbar"]');
+      return { progress: meter ? {
+        remaining: Number(meter.getAttribute("aria-valuenow")),
+        width: meter.firstElementChild.style.width,
+        visiblePercentage: card.innerText.match(/\\d+(?:\\.\\d+)?%/)?.[0] ?? null,
+      } : null, resetAt: card.querySelector("time")?.dateTime ?? null, text: card.innerText };
+    })()`);
+    for (const [status, remaining] of [
+      ["active", 75],
+      ["exhausted", 0],
+      ["expired", 75],
+      ["revoked", 75],
+      ["unassigned", null],
     ]) {
-      const page = await usagePageText(status);
-      assert.match(page, new RegExp(`New API account usage .* · ${label}`), status);
-      assert.match(page, /Consumption records/, status);
-      if (hasQuota) assert.match(page, /Private subscription · Monthly\n75%/, status);
-      else assert.doesNotMatch(page, /Private subscription|75%/, status);
+      await usagePageText(status);
+      const card = await quotaCardView();
+      if (remaining === null) assert.equal(card, null, status);
+      else {
+        assert.deepEqual(
+          card?.progress,
+          {
+            remaining,
+            width: `${remaining}%`,
+            visiblePercentage: `${remaining}%`,
+          },
+          status,
+        );
+        assert.equal(card.resetAt, "2026-11-01T16:00:00.000Z", status);
+      }
+    }
+    await usagePageText("active", {
+      used: "13",
+      remaining: "87",
+      used_percentage: 13,
+      reset_period: "never",
+      last_reset_time: null,
+      next_reset_time: null,
+    });
+    const neverReset = await quotaCardView();
+    assert.deepEqual(neverReset?.progress, {
+      remaining: 87,
+      width: "87%",
+      visiblePercentage: "87%",
+    });
+    assert.equal(neverReset.resetAt, null, "never must not imply a scheduled reset");
+    for (const quota of [
+      { unlimited: true, total: null, remaining: null, used_percentage: null },
+      { used_percentage: null },
+    ]) {
+      await usagePageText("active", quota);
+      const card = await quotaCardView();
+      assert.ok(card, "unlimited or unknown quota must keep its card");
+      assert.equal(card.progress, null, "unlimited or unknown quota has no finite meter");
+      assert.doesNotMatch(card.text, /\d+(?:\.\d+)?%/);
     }
     assert.deepEqual(await observe("window.periodCalls"), []);
     win.webContents.debugger.attach("1.3");
