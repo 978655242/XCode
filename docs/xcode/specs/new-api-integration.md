@@ -175,7 +175,7 @@ group 为 `new-api-family`，不要按每个套餐新建 provider ID。模型归
 
 Native Provider 归类为 ordinary model-selection 行为，但 access 仍为 managed account；不套原 `account-plan` 的“唯一 current Provider 自动 remap”，避免三种 transport 产生歧义。选择由实际 provider+model ref 决定，不自动转成另一协议或模型。
 
-XWork 前端仅开放 `account:new-api-openai-chat-completions`，展示名称固定为 `XWork`。另两个 anchor 使用现有 `visibility: hidden`，不进入模型设置、聊天模型选择或默认候选；历史 ref 保留但不自动迁移，重新选择可见模型。底层协议契约与管理员模型归属不改，不把其他 transport 的模型移入 Chat Completions。可见入口即使目录为空也保留，按真实权限和配置显示不可用。用户自配 Provider 与独立官方云连接不受影响。
+XWork 前端仅开放 `account:new-api-openai-chat-completions`，模型设置与对话模型选择中的提供商展示名称固定为 `XWork Zen`。另两个 anchor 使用现有 `visibility: hidden`，不进入模型设置、聊天模型选择或默认候选；历史 ref 保留但不自动迁移，重新选择可见模型。底层协议契约与管理员模型归属不改，不把其他 transport 的模型移入 Chat Completions。可见入口即使目录为空也保留，按真实权限和配置显示不可用。用户自配 Provider 与独立官方云连接不受影响。
 
 模型设置遵循 [原版呈现规格](new-api-model-settings-ui.md)：托管入口复用现有标题、编程套餐状态卡、个人/团队入口，数据只取 Native `/plans` 与 `/entitlements`。参考价只在相同币种/完整周期的启用模板中比较；团队明确不支持。独立官方连接操作保留在使用统计 MCP 区，不在套餐详情另造横幅。UI 投影按既有 connectionKey、登录 epoch、服务实例与请求序号隔离，换号/退出首帧清空旧数据，查询失败不解释为未开通。
 
@@ -307,6 +307,7 @@ secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或
 - 设置页「用量统计」的私有额度卡使用「套餐限额」区与圆角描边卡片：标题为「当前订阅周期」，下一行左侧显示真实重置时间或周期规则，右侧显示「剩余 xx%」，底部沿用官方 ZCode 原有进度条的颜色、轨道、间距、圆角、最小宽度和动效。保留刷新入口和管理员说明，不直接展示 IANA 时区字符串或「已用／总额／剩余 quota」原始数值。
 - 重置时间继续按服务端时区与 offset 格式化；`never` 显示「不自动重置」，不制造每周限额或倒计时。有限额度沿用原版剩余比例与精度，耗尽进度为 0；无限额度显示「无限制」，未知比例显示占位，二者均不绘制有限进度条。此规则仅约束用量统计额度卡，模型设置页与官方额度卡保持现有契约。
 - 设置页「用量统计」不展示顶部的「New API 账号用量 — 全部已记录的 Key 与资金来源 · 授权有效」说明行及其动态授权状态文案；统计口径保持不变。
+- 设置页「用量统计」的 Native 来源标签显示为「XWork Zen」；此展示名不改变账号、Provider ID 或统计口径。
 - raw ID/额度/计数在 HTTP 和 shared 边界使用十进制字符串。显示转换需有限且安全；金额/扣费不参与客户端计算。超过安全整数的精确值不能无标记截断，图表使用显示精度，不用于账务。
 - AccountUsageSnapshot 的 consume_record_count 映射为“消费记录数”，不要填入标为模型调用次数的旧字段。扩展 DTO 的原 modelCallCount 为可空，并提供明确 consumptionRecordCount/source kind；官方来源仍可保留真实 modelCallCount。
 - prompt/completion/total token 由日志实际字段；charged/refunded/net quota 依 canonical。真实无消费桶可补零；未知指标不能借此补零。
