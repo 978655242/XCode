@@ -728,6 +728,7 @@ function CodingPlanQuotaCards({
                   />
                 ) : null}
               </div>
+              {/* XCODE: 沿用原版剩余百分比，避免内部 quota 数值与服务端货币额度混淆。 */}
               <div className="mt-1 flex min-w-0 items-baseline gap-1.5">
                 <span className="text-ui-xl font-semibold text-foreground">
                   {card.limit.native?.unlimited
