@@ -660,7 +660,7 @@ function CodingPlanQuotaCards({
                   ),
                 )
               : formatUsageStatsQuotaResetTime(locale, card.limit.nextResetTime);
-          // XCODE: 私有单周期调整信息布局，进度条沿用官方样式。
+          // XCODE: 私有单周期调整信息布局，沿用官方卡片表面以保留原进度轨道对比。
           if (native) {
             const value = native.unlimited
               ? intl.formatMessage({ id: "settings.usage.nativeUnlimited" })
@@ -673,7 +673,7 @@ function CodingPlanQuotaCards({
                 key={card.key}
                 role="group"
                 aria-label={card.label}
-                className="min-w-0 flex-1 rounded-2xl border border-border bg-background px-5 py-4"
+                className="min-w-0 flex-1 rounded-2xl border border-border bg-surface/70 px-5 py-4"
               >
                 <p className="text-ui-base font-medium text-foreground">{card.label}</p>
                 <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-ui-base text-foreground-subtle">

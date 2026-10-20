@@ -304,7 +304,7 @@ secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或
 - 新增来源/范围判别，支持 private-user entitlement，不能硬塞 `scope=team` 或 fake org/project。
 - 原 QuotaSnapshot 的 five-hour/week/TOKENS_LIMIT 桶识别改为原生 reset_period/nextResetTime/真实 quota 单位；保留原 panel/card 容器，但不得继续显示一个假第二周期。
 - 原 percentage 表示**已用比例**，剩余显示才做 100-percentage。unlimited 单独显示“无限制”，total/remaining/percentage 为 null，不能显示为 0。
-- 设置页「用量统计」的私有额度卡使用「套餐限额」区与圆角描边卡片：标题为「当前订阅周期」，下一行左侧显示真实重置时间或周期规则，右侧显示「剩余 xx%」，底部沿用官方 ZCode 原有进度条的颜色、轨道、间距、圆角、最小宽度和动效。保留刷新入口和管理员说明，不直接展示 IANA 时区字符串或「已用／总额／剩余 quota」原始数值。
+- 设置页「用量统计」的私有额度卡使用「套餐限额」区与圆角描边卡片：标题为「当前订阅周期」，下一行左侧显示真实重置时间或周期规则，右侧显示「剩余 xx%」，底部沿用官方 ZCode 原有进度条的颜色、轨道、间距、圆角、最小宽度和动效。卡片背景沿用官方额度卡表面，与原进度轨道保持可见对比。保留刷新入口和管理员说明，不直接展示 IANA 时区字符串或「已用／总额／剩余 quota」原始数值。
 - 重置时间继续按服务端时区与 offset 格式化；`never` 显示「不自动重置」，不制造每周限额或倒计时。有限额度沿用原版剩余比例与精度，耗尽进度为 0；无限额度显示「无限制」，未知比例显示占位，二者均不绘制有限进度条。此规则仅约束用量统计额度卡，模型设置页与官方额度卡保持现有契约。
 - 设置页「用量统计」不展示顶部的「New API 账号用量 — 全部已记录的 Key 与资金来源 · 授权有效」说明行及其动态授权状态文案；统计口径保持不变。
 - 设置页「用量统计」的 Native 来源标签显示为「XWork Zen」；此展示名不改变账号、Provider ID 或统计口径。
