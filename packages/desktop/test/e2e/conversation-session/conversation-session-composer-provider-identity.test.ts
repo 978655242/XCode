@@ -67,8 +67,8 @@ describe("Composer provider 身份回归", () => {
     await clearAppData();
   });
 
-  // XCODE: 菜单按产品分组，不暴露具体供应商；按钮保留模型品牌图标。
-  it("CMP02: bigmodel-api 没有 providerName 时菜单与按钮只显示模型名和图标", async function () {
+  // XCODE: 按钮保留模型品牌图标，供应商层与上游一致。
+  it("CMP02: bigmodel-api 没有 providerName 时菜单显示 provider ID，按钮只显示模型名和图标", async function () {
     this.timeout(120000);
     await prepareV4ConversationE2E();
     await restartIntoWorkspacePreservingProfile(DEFAULT_WORKSPACE, {
@@ -105,11 +105,12 @@ describe("Composer provider 身份回归", () => {
       const trigger = $(`[data-testid="${TID_CHAT_MODEL_SELECT_TRIGGER}"]`);
       await trigger.click();
       await $('[data-testid="composer-provider-trigger"]').click();
-      await $(`[data-testid="${testId(TID_CHAT_MODEL_SELECT_GROUP, "composer-custom")}"]`).click();
+      await $(
+        `[data-testid="${testId(TID_CHAT_MODEL_SELECT_GROUP, "registry-provider:bigmodel-api")}"]`,
+      ).click();
       const menu = await $('[role="menu"]').getText();
       assert.ok(menu.includes("GLM-5.3"), "菜单必须展示模型");
-      assert.ok(menu.includes("自定义模型"), "自配模型归入「自定义模型」分组");
-      assert.ok(!menu.includes("bigmodel-api"), "composer 菜单不显示具体供应商");
+      assert.ok(menu.includes("bigmodel-api"), "供应商列表显示无名称 provider 的 ID");
       await browser.keys("Escape");
       // rolling 动画短暂保留旧标签；等待实际展示收敛，避免读取退场节点。
       await browser.waitUntil(

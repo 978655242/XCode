@@ -35,6 +35,13 @@ async function run() {
       import { ServiceProvider } from "./packages/ui/src/hooks/useServices.tsx";
       import { mapNewApiEntitlement } from "./packages/services/src/new-api/newApiUsageMapper.ts";
       import { CodingPlanUsageBarChart } from "./packages/ui/src/settings/usage-stats/CodingPlanUsageBarChart.tsx";
+      import { CodingPlanUsagePanel } from "./packages/ui/src/settings/usage-stats/CodingPlanUsagePanel.tsx";
+      import { mapNewApiUsage } from "./packages/services/src/new-api/newApiUsageMapper.ts";
+      import { TooltipProvider } from "./packages/ui/src/components/ui/tooltip.tsx";
+      import { useLayoutEffect } from "react";
+      import { PlatformProvider } from "./packages/ui/src/hooks/usePlatform.tsx";
+      import { StoreProvider, useZCodeStore } from "./packages/ui/src/store/StoreProvider.tsx";
+      import { connectProviderSettingsSnapshot } from "./packages/ui/src/lib/providerSettingsSnapshot.ts";
       const providerId = "account:new-api-anthropic-messages";
       const accountAccess = { type: "new-api-account", accountType: "new-api", mode: "private-subscription", entitled: true };
       const entitlement = {
@@ -46,17 +53,64 @@ async function run() {
       };
       window.periodCalls = [];
       const forbidden = (method) => async () => { window.periodCalls.push(method); throw new Error("Native must not call official " + method); };
+      // 用量 hook 按服务实例缓存权益快照；每个授权状态使用独立服务实例，保证真实重读。
+      const usageServicesFor = (native) => ({ ...services, usageStatsService: { ...services.usageStatsService,
+        getEntitlementSnapshot: async (request) => mapNewApiEntitlement(native, request.preferredProviderId) } });
+      const usage = { schema_version: 1, server_time: 1800000000000, as_of: 1800000000000, scope: "new-api-account",
+        source: "native-consume-logs", retention_basis: "all-retained-consume-logs", time_zone: "UTC",
+        range_start_date: "2026-10-14", range_end_date: "2026-10-20", granularity: "day",
+        display: { quota_per_unit: "500000", display_type: "USD", currency: "USD", currency_symbol: "$", usd_to_currency_rate: null },
+        summary: { consume_record_count: "3", prompt_tokens: "10", completion_tokens: "5", total_tokens: "15", charged_quota: "20", refunded_quota: "0", net_quota: "20" },
+        buckets: [], models: [], unsupported_metrics: ["agent_duration", "tool_usage", "cache_tokens", "reasoning_tokens", "decode_speed"] };
       const services = { usageStatsService: {
         getCodingPlanResetStatus: forbidden("status"), getCodingPlanResetOpportunity: forbidden("opportunity"),
-        useCodingPlanReset: forbidden("reset"), markCodingPlanResetHistoryRead: forbidden("history")
-      } };
-      const config = { availableProviders: [{ providerId, accountAccess, label: "New API" }],
-        entitlements: [{ providerId, accountAccess, snapshot: mapNewApiEntitlement(entitlement, providerId), loading: false, error: null }],
-        modelProvidersLoading: false, selectedProviderId: providerId };
+        useCodingPlanReset: forbidden("reset"), markCodingPlanResetHistoryRead: forbidden("history"),
+        getCodingPlanUsageSnapshot: async (request) => mapNewApiUsage(usage, request.range, request.preferredProviderId)
+      }, broadcastService: { onMessage: () => ({ dispose() {} }), send: async () => {} },
+        settingService: { get: async () => ({}) },
+        oauthService: { getProviders: async () => [{ id: "new-api" }] },
+        officialCloudConnectionService: { getSnapshot: async () => ({ status: "disconnected" }), onDidChange: () => ({ dispose() {} }) } };
+      // 与 Composer smoke 一致：Host provider 快照带 opaque owner，Native 用量才会按账号作用域请求。
+      window.usageSettings = connectProviderSettingsSnapshot({
+        getView: async () => ({ revision: 1, providers: [{ providerId, providerName: "New API", effectiveConfig: { access: accountAccess }, accountState: { connectionKey: "fixture-owner" } }] }),
+        onDidChange: () => ({ dispose() {} })
+      });
+      function SignedIn({ children }) {
+        const setUser = useZCodeStore(state => state.setUser);
+        useLayoutEffect(() => setUser({ id: "1", name: "Fixture" }), [setUser]);
+        return children;
+      }
+      // 设置页用量统计：真实 CodingPlanUsagePanel 与 hooks，按授权状态切换后端快照。
+      window.renderUsagePage = (status) => {
+        const native = { ...entitlement, status, subscription: status === "unassigned" ? null : entitlement.subscription, quota: status === "unassigned" ? null : entitlement.quota };
+        const scoped = usageServicesFor(native);
+        flushSync(() => renderer.render(null));
+        flushSync(() => renderer.render(
+          <ServiceProvider services={scoped}><PlatformProvider platform={{}}><StoreProvider broadcastService={services.broadcastService}>
+            <ZCodeIntlProvider initialLocale="en-US"><TooltipProvider><SignedIn>
+              <CodingPlanUsagePanel key={status} loadingSources={false} selectedSource={{ id: providerId, providerId, label: "New API", accountAccess }} />
+            </SignedIn></TooltipProvider></ZCodeIntlProvider>
+          </StoreProvider></PlatformProvider></ServiceProvider>
+        ));
+      };
+      const configFor = (status, quota = entitlement.quota) => {
+        const value = { ...entitlement, status, quota, subscription: status === "unassigned" ? null : entitlement.subscription };
+        return { availableProviders: [{ providerId, accountAccess, label: "New API" }],
+          entitlements: [{ providerId, accountAccess, snapshot: mapNewApiEntitlement(value, providerId), loading: false, error: null }],
+          modelProvidersLoading: false, selectedProviderId: providerId };
+      };
+      let config = configFor("active");
       function Panel() {
         const { intl, locale } = useZCodeIntl();
         return <ChatCodingPlanUsageRemainingPanel config={config} intl={intl} locale={locale} />;
       }
+      window.renderPanel = (status, withQuota = true) => {
+        config = configFor(status, withQuota ? entitlement.quota : null);
+        flushSync(() => renderer.render(
+          <ServiceProvider services={services}><ZCodeIntlProvider initialLocale="en-US"><Panel /></ZCodeIntlProvider></ServiceProvider>
+        ));
+        return document.getElementById("root").innerText;
+      };
       const renderer = createRoot(document.getElementById("root"));
       window.renderUsageChart = (granularity, xTime) => flushSync(() => renderer.render(
         <ZCodeIntlProvider initialLocale="en-US"><CodingPlanUsageBarChart granularity={granularity}
@@ -99,41 +153,59 @@ async function run() {
     );
     await win.webContents.executeJavaScript(bundle.outputFiles[0].text);
     const observe = (expression) => win.webContents.executeJavaScript(expression);
-    assert.equal(await observe("document.querySelector('[role=dialog]') === null"), true);
-    assert.equal(
-      await observe(
-        `(() => { const button = [...document.querySelectorAll('button')].find(b => b.textContent.includes('Period details')); if (!button) return false; button.click(); return true; })()`,
-      ),
-      true,
-    );
-    // A real DOM interaction must reveal the mounted Radix dialog, not only toggle a state/config fixture.
-    assert.equal(
-      await observe(
-        `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(!!document.querySelector('[role=dialog]')))))`,
-      ),
-      true,
-    );
-    const text = await observe("document.querySelector('[role=dialog]').textContent");
-    assert.match(text, /Period details · read only/);
-    assert.match(text, /Monthly/);
-    assert.match(text, /Read-only quota\. Reset, renew or replace through your administrator\./);
+    // 浮层与原生 ZCode 一致：只渲染额度条，Native 不追加授权行、只读按钮或独立弹窗。
+    const text = await observe("document.getElementById('root').textContent");
     assert.match(text, /75%/);
-    assert.match(text, /server-local/);
-    assert.match(text, /Nov 2, 2026, 12:00 AM/);
-    assert.doesNotMatch(text, /Five.hour|Weekly quota|Reset quota/);
+    assert.doesNotMatch(
+      text,
+      /Period details|Active authorization|Five.hour|Weekly quota|Reset quota/,
+    );
+    assert.equal(await observe("document.querySelectorAll('.bg-surface-hover').length"), 1);
+    assert.equal(
+      await observe(
+        "[...document.querySelectorAll('button')].some(b => /Period details|Reset/.test(b.textContent))",
+      ),
+      false,
+    );
+    assert.equal(await observe("document.querySelector('[role=dialog]') === null"), true);
     assert.deepEqual(await observe("window.periodCalls"), []);
-    assert.equal(
-      await observe(
-        `(() => { document.querySelector('[role=dialog] button').click(); return true; })()`,
-      ),
-      true,
-    );
-    assert.equal(
-      await observe(
-        `new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(document.querySelector('[role=dialog]') === null))))`,
-      ),
-      true,
-    );
+    // 后端对 expired/revoked 仍下发 quota；失效套餐必须走原生“未开通”提示，不能显示剩余额度。
+    for (const [status, withQuota, valid] of [
+      ["active", true, true],
+      ["exhausted", true, true],
+      ["expired", true, false],
+      ["revoked", true, false],
+      ["unassigned", false, false],
+    ]) {
+      const shown = await observe(`window.renderPanel(${JSON.stringify(status)}, ${withQuota})`);
+      if (valid) assert.match(shown, /Current subscription period\n75%/, status);
+      else {
+        assert.match(shown, /Usage remaining\nNo active Coding Plan/, status);
+        assert.doesNotMatch(shown, /Current subscription period|75%/, status);
+      }
+      assert.doesNotMatch(shown, /authorization|Period details|Reset/i, status);
+    }
+    assert.deepEqual(await observe("window.periodCalls"), []);
+    // 设置页用量统计：授权状态在页头可见；失效套餐的额度仍可只读查看（与浮层的“未开通”区分），未分配不显示额度卡。
+    const usagePageText = (status) =>
+      observe(`(async () => { window.renderUsagePage(${JSON.stringify(status)});
+      const root = document.getElementById("root");
+      for (let i = 0; i < 100 && !/Consumption records/.test(root.innerText); i++) await new Promise(r => setTimeout(r, 50));
+      return root.innerText; })()`);
+    for (const [status, label, hasQuota] of [
+      ["active", "Active authorization", true],
+      ["exhausted", "Quota exhausted", true],
+      ["expired", "Authorization expired", true],
+      ["revoked", "Authorization revoked", true],
+      ["unassigned", "No subscription assigned", false],
+    ]) {
+      const page = await usagePageText(status);
+      assert.match(page, new RegExp(`New API account usage .* · ${label}`), status);
+      assert.match(page, /Consumption records/, status);
+      if (hasQuota) assert.match(page, /Private subscription · Monthly\n75%/, status);
+      else assert.doesNotMatch(page, /Private subscription|75%/, status);
+    }
+    assert.deepEqual(await observe("window.periodCalls"), []);
     win.webContents.debugger.attach("1.3");
     await win.webContents.debugger.sendCommand("Emulation.setTimezoneOverride", {
       timezoneId: "America/Los_Angeles",
@@ -161,11 +233,9 @@ async function run() {
     );
     console.log(
       JSON.stringify({
-        nativePeriodActionOpensDialog: true,
-        singleReadOnlyPeriod: true,
-        administratorExplanation: true,
+        singleNativeQuotaMeter: true,
+        noExtraNativeRowOrDialog: true,
         noOfficialResetCalls: true,
-        closeTransition: true,
         dailyLabels,
         hourlyLabels,
       }),

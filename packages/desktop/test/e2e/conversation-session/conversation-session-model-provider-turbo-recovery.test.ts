@@ -258,7 +258,13 @@ async function selectTurboDraft(thoughtLevel: "disabled" | "enabled") {
   await selectUpstreamProviderModelById(E2E_PLAN_TURBO_MODEL, {
     providerId: E2E_BIGMODEL_PLAN_PROVIDER_ID,
     providerName: "BigModel Coding Plan E2E",
-    providerGroupKey: "composer-custom",
+    providerGroupKey: JSON.stringify([
+      "bigmodel",
+      "team-coding-plan",
+      "product-team-a",
+      "org-team-a",
+      "proj-team-a",
+    ]),
     includePlainModelFallback: false,
   });
   // Turbo 切换后 UI 会先投影默认档位；若目标恰好等于投影值，通用 helper 会因

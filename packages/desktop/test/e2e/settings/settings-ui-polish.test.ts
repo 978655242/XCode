@@ -1135,9 +1135,11 @@ describe("设置页 UI polish E2E", () => {
     }
     await clickTestIdByDom(TID_SETTINGS_BACK_BUTTON);
     await clickTestIdByWebDriver(TID_CHAT_MODEL_SELECT_TRIGGER);
-    // XCODE: 复用合并菜单的产品分组入口，不恢复具体供应商分类。
+    // 合并模型菜单先打开 Provider 分组，再进入具体模型列表。
     await $('[data-testid="composer-provider-trigger"]').click();
-    await $(sel(testId(TID_CHAT_MODEL_SELECT_GROUP, "composer-custom"))).click();
+    await $(
+      sel(testId(TID_CHAT_MODEL_SELECT_GROUP, `registry-provider:${REASONING_EDITOR_PROVIDER_ID}`)),
+    ).click();
     const modelItem = $(
       sel(
         testId(

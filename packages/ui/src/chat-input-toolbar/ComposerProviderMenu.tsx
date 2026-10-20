@@ -118,7 +118,7 @@ export function ComposerProviderMenu({
   );
   const title = (
     <span className="flex min-w-0 flex-1 items-center gap-1.5">
-      {group ? <ProviderLogo logo={group.logo} className="size-4" /> : null}
+      {group ? (group.icon ?? <ProviderLogo logo={group.logo} className="size-4" />) : null}
       <span className="truncate">{group?.label ?? "—"}</span>
       {group ? <ProviderAccessBadge group={group} /> : null}
     </span>

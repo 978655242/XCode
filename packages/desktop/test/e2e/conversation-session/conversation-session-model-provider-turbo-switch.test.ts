@@ -51,7 +51,13 @@ describe("模型 Provider Turbo 跨能力切换 E2E", () => {
     await selectUpstreamProviderModelById(E2E_PLAN_TURBO_MODEL, {
       providerId: E2E_BIGMODEL_PLAN_PROVIDER_ID,
       providerName: "BigModel Coding Plan E2E",
-      providerGroupKey: "composer-custom",
+      providerGroupKey: JSON.stringify([
+        "bigmodel",
+        "team-coding-plan",
+        "product-team-a",
+        "org-team-a",
+        "proj-team-a",
+      ]),
       includePlainModelFallback: false,
     });
     await waitForSelectedModel(E2E_BIGMODEL_PLAN_PROVIDER_ID, E2E_PLAN_TURBO_MODEL);
@@ -77,7 +83,13 @@ describe("模型 Provider Turbo 跨能力切换 E2E", () => {
     await selectUpstreamProviderModelById(E2E_PLAN_DEFAULT_MODEL, {
       providerId: E2E_BIGMODEL_PLAN_PROVIDER_ID,
       providerName: "BigModel Coding Plan E2E",
-      providerGroupKey: "composer-custom",
+      providerGroupKey: JSON.stringify([
+        "bigmodel",
+        "team-coding-plan",
+        "product-team-a",
+        "org-team-a",
+        "proj-team-a",
+      ]),
       includePlainModelFallback: false,
     });
     await waitForSelectedModel(E2E_BIGMODEL_PLAN_PROVIDER_ID, E2E_PLAN_DEFAULT_MODEL);

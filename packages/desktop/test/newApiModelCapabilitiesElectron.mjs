@@ -219,7 +219,7 @@ window.appearance("light","zh-CN");
       await openModels();
       if (!(await observe(`document.querySelector(${JSON.stringify(selector)})!==null`))) {
         await openProviders();
-        const groupKey = providerId === nativeId ? "composer-official" : "composer-custom";
+        const groupKey = providerId === nativeId ? "composer-official" : "registry-provider:custom";
         await click(`document.querySelector('[data-model-provider-key="${groupKey}"]')`);
         await waitFor(
           `window.state.status==="ready" && document.querySelector(${JSON.stringify(selector)})!==null && document.querySelector(${JSON.stringify(modelTrigger)}).disabled===false`,
@@ -292,7 +292,7 @@ window.appearance("light","zh-CN");
       await observe(
         '[...document.querySelectorAll("[data-composer-provider-list] [data-model-provider-key]")].map(element=>element.dataset.modelProviderKey).sort()',
       ),
-      ["composer-custom", "composer-official"],
+      ["composer-official", "registry-provider:custom"],
     );
     assert.equal(
       await observe(

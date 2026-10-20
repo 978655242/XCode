@@ -18,7 +18,6 @@ const zhCN: Record<string, string> = {
   "login.privateCredentialRecovery.title": "私有凭据需要人工恢复",
   "login.privateCredentialRecovery.description":
     "请解锁操作系统凭据存储，或恢复 XWork 凭据备份后重启。现有凭据未被删除，也不会改用其他密钥或官方账号。",
-  "settings.modelProvider.native.viewReset": "周期详情 · 只读",
   "settings.modelProvider.native.viewPlans": "查看订阅套餐",
   "settings.usage.nativeAuthorization.active": "授权有效",
   "settings.usage.nativeAuthorization.exhausted": "额度已耗尽",
@@ -5572,7 +5571,6 @@ const zhCN: Record<string, string> = {
   "chat.agentSwitch.failed": "切换 Agent 失败",
   "chat.toolbar.model.manageModels": "管理模型",
   "chat.toolbar.model.searchPlaceholder": "搜索模型...",
-  "chat.toolbar.model.group.custom": "自定义模型",
   "chat.toolbar.model.empty": "未找到匹配模型",
   "chat.toolbar.modelSwitch.stage.settingModel": "正在切换模型...",
   "chat.toolbar.modelSwitch.stage.fallbackConfigOption": "正在回退配置接口...",

@@ -317,7 +317,8 @@ Native 主权益的 mcpQuota 必须 null，不能暗示新私有套餐附带官�
 #### 对话上下文浮层的模型来源边界
 
 - Composer 的结构化 `modelSelection.providerId` 是当前模型展示的唯一来源；不借 Session 旧值或全局登录账号补值。
-- 仅当前选择属于 New API Registry 的模型时，对话浮层展示 Native 订阅额度、授权状态和只读周期入口。
+- 仅当前选择属于 New API Registry 的模型时，对话浮层展示 Native 订阅额度。展示与原生 ZCode 一致：只有原生「剩余额度」标题、头部「查看」入口和一根「当前订阅周期」额度条；不加授权状态行、只读周期按钮或独立周期弹窗（授权状态与周期详情在设置页的用量统计里看）。
+- Native 额度属于账号，不属于某个 transport：浮层以当前所选 Native provider 为优先来源，未投影或无 owner 时回退到其余已连接的 Native provider；任一 transport（Anthropic Messages、OpenAI Chat Completions、OpenAI Responses）单独存在都必须能显示额度。原生 `ChatCodingPlanUsageRemainingPanel` 原样复用，不改 UI。
 - 自定义 API Key、本地模型及其他非 Native 模型不得展示或通过 hover 查询 Native 订阅；官方 Coding/Start 模型继续沿原有各自来源读取。
 - 自定义模型复用接入 New API 前的 `ChatContextUsage` 布局：上下文总量/容量、占比进度条，以及运行时实际提供的组成和缓存命中率。没有真实用量的新对话不显示上下文触发器，不补假 0 或假 100%。
 - 切换 Native → 自定义模型或清空选择时，即使账号订阅已缓存，浮层也立即移除无关订阅；切回 Native 后保留其真实订阅展示。侧栏及设置中的主账号额度不受影响。

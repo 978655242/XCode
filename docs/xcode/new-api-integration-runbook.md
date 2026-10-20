@@ -124,7 +124,7 @@ macOS/Windows 使用 Electron `safeStorage`；Linux 的 `basic_text`、无可用
 
 - 图表是 Native **账号级**消费/退款日志，不是当前 workspace、当前套餐或单一 relay key 的汇总。历史已下架模型仍保留真实统计；跨用户数据不能混入。
 - 指定套餐卡只有单周期额度/剩余和真实 reset 時刻，unlimited 为明确空限额；不模拟官方三窗口、额外 reset 机会、工具调用总数或成功动画。
-- 聊天用量面板点击「周期详情 · 只读」须打开现有单周期弹窗，显示服务端周期/重置时刻与管理员说明；没有官方机会也能打开，不能调用官方 opportunity/reset 或出现五小时/周双窗口。
+- 聊天用量浮层与原生 ZCode 一致：Native 只显示一根「当前订阅周期」额度条和原生「查看」入口，不显示授权状态行、「周期详情 · 只读」按钮或周期弹窗；不能调用官方 opportunity/reset 或出现五小时/周双窗口。授权状态、周期与管理员说明在设置页用量统计查看。
 - 自定义日期使用合法 calendar date 与 IANA timezone，按服务端范围投影；DST 不能按固定 24 小时补造桶。Signed quota/net 值、精确计数及无数据字段保留实际语义。
 - 默认 `server-local` 不是 IANA 名称：用量日桶以服务端 `YYYY-MM-DD` 标签归日，today 小时桶以服务端 `range_start_date` 归日；保留带 offset 的小时标签与 DST 重复桶，包括横轴和 tooltip。不能用电脑时区、UTC 日期或当前额度 offset 重建历史用量日历。工具详情的总计与卡片一样按 availability 显示“暂不提供”，不能将空 series 转为业务零。
 - 客户端购买/升级入口打开同源只读 `/xcode/plans`。短期 handoff 一次性使用，放在 owner 专属临时 WebView partition；禁止跨源导航、购买、下载、弹窗及权限获取，退出/owner 变化清 Cookie、Storage 和 Cache。

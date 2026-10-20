@@ -88,20 +88,27 @@ export function buildPersonalCodingPlanUsageSource({
   };
 }
 
-/** Native usage belongs to the primary account, not the currently selected model transport. */
+/** Native usage belongs to the primary account; any connected Native transport exposes it. */
 export function buildNativeCodingPlanUsageSource(
   view: ProviderSettingsView | null | undefined,
+  preferredProviderId?: string | null,
 ): CodingPlanUsageSource | null {
-  const providerId = NEW_API_MODEL_PROVIDER_IDS["anthropic-messages"];
-  const resolved = resolveAccountProviderInspectionAccess(view, providerId);
-  // XCODE: 静态 Native anchor 退出后仍在，必须有 Host 的 opaque owner 才能成为当前账号用量来源。
-  if (
-    resolved?.access.type !== "new-api-account" ||
-    !view?.providers.find((provider) => provider.providerId === providerId)?.accountState
-      ?.connectionKey
-  )
-    return null;
-  return { id: providerId, providerId, label: "New API", accountAccess: resolved.access };
+  // XCODE: 修复原因：曾固定读取 anthropic-messages，目录只投影 chat-completions 时额度面板整段消失；
+  // 按当前所选 transport 优先，再回退其余 Native transport，三者共享同一账号权益。
+  const candidates = Object.values(NEW_API_MODEL_PROVIDER_IDS).sort(
+    (a, b) => Number(b === preferredProviderId) - Number(a === preferredProviderId),
+  );
+  for (const providerId of candidates) {
+    const resolved = resolveAccountProviderInspectionAccess(view, providerId);
+    // XCODE: 静态 Native anchor 退出后仍在，必须有 Host 的 opaque owner 才能成为当前账号用量来源。
+    if (
+      resolved?.access.type === "new-api-account" &&
+      view?.providers.find((provider) => provider.providerId === providerId)?.accountState
+        ?.connectionKey
+    )
+      return { id: providerId, providerId, label: "New API", accountAccess: resolved.access };
+  }
+  return null;
 }
 
 export type CurrentSidebarCodingPlanUsageSource =
