@@ -368,6 +368,108 @@ describe("ChatCodingPlanUsageRemainingPanel MCP 额度", () => {
   });
 });
 
+describe("ChatCodingPlanUsageRemainingPanel Native 单周期额度", () => {
+  const renderNative = (native: {
+    unlimited: boolean;
+    usedPercentage: number | null;
+    nextResetTime: number;
+    resetTimeZone: string;
+    resetUtcOffsetSeconds: number;
+  }) => {
+    codingPlanQuotaResetUiMock.current = codingPlanQuotaResetUiMock.createValue();
+    return renderToStaticMarkup(
+      createElement(ChatCodingPlanUsageRemainingPanel, {
+        config: {
+          availableProviders: [
+            createCodingPlanProvider(BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan),
+          ],
+          entitlements: [
+            {
+              providerId: BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan,
+              loading: false,
+              error: null,
+              snapshot: {
+                source: "new-api",
+                generatedAt: 1,
+                authenticated: true,
+                provider: {
+                  id: BUILTIN_MODEL_PROVIDER_IDS.zaiIndividualCodingPlan,
+                  name: "New API",
+                },
+                remaining: null,
+                subscription: activeSubscription,
+                quota: {
+                  source: "new-api",
+                  level: "Fixture",
+                  limits: [
+                    {
+                      type: "NATIVE_QUOTA",
+                      percentage: native.usedPercentage ?? undefined,
+                      nextResetTime: native.nextResetTime,
+                      usageDetails: [],
+                      native: {
+                        unlimited: native.unlimited,
+                        total: native.unlimited ? null : "100",
+                        used: "25",
+                        remaining: native.unlimited ? null : "75",
+                        usedPercentage: native.usedPercentage,
+                        period: "monthly",
+                        resetCustomSeconds: "0",
+                        lastResetTime: null,
+                        nextResetTime: native.nextResetTime,
+                        resetTimeZone: native.resetTimeZone,
+                        resetUtcOffsetSeconds: native.resetUtcOffsetSeconds,
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+          modelProvidersLoading: false,
+        },
+        intl: { formatMessage: ({ id }: { id: string }) => id } as never,
+        locale: "en-US",
+      }),
+    );
+  };
+
+  it("重置日期按 Native 服务端时区展示，不借用户电脑时区", () => {
+    // UTC 8月20日 20:00 在 Asia/Shanghai 已是 8月21日；server-local +9h 同样跨到 21日。
+    const resetAt = Date.UTC(2025, 7, 20, 20);
+    expect(
+      renderNative({
+        unlimited: false,
+        usedPercentage: 25,
+        nextResetTime: resetAt,
+        resetTimeZone: "Asia/Shanghai",
+        resetUtcOffsetSeconds: 0,
+      }),
+    ).toContain("Aug 21");
+    expect(
+      renderNative({
+        unlimited: false,
+        usedPercentage: 25,
+        nextResetTime: resetAt,
+        resetTimeZone: "server-local",
+        resetUtcOffsetSeconds: 9 * 3600,
+      }),
+    ).toContain("Aug 21");
+  });
+
+  it("无限额度不画空进度条，有限额度保留进度条", () => {
+    const base = {
+      nextResetTime: Date.UTC(2025, 7, 21, 12),
+      resetTimeZone: "UTC",
+      resetUtcOffsetSeconds: 0,
+    };
+    expect(renderNative({ ...base, unlimited: true, usedPercentage: null })).not.toContain(
+      "width:0%",
+    );
+    expect(renderNative({ ...base, unlimited: false, usedPercentage: 25 })).toContain("width:75%");
+  });
+});
+
 describe("ChatCodingPlanUsageRemainingPanel refresh action", () => {
   it("远端刷新成功时用 loading 与成功勾临时代替详情入口", () => {
     vi.useFakeTimers();

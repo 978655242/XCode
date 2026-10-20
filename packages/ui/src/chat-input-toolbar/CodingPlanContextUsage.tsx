@@ -158,15 +158,18 @@ function ChatCodingPlanUsageMeter({
           ) : null}
         </div>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-surface-hover">
-        <div
-          className={cn(
-            "h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none",
-            boundedPercentage > 0 ? "min-w-1.5" : undefined,
-          )}
-          style={{ backgroundColor: color, width: `${boundedPercentage}%` }}
-        />
-      </div>
+      {/* 修复原因：无限额度/未知百分比没有有限进度，画空条会被误读为已用尽；与设置页额度卡一致隐藏。 */}
+      {Number.isFinite(percentage) ? (
+        <div className="h-1.5 overflow-hidden rounded-full bg-surface-hover">
+          <div
+            className={cn(
+              "h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none",
+              boundedPercentage > 0 ? "min-w-1.5" : undefined,
+            )}
+            style={{ backgroundColor: color, width: `${boundedPercentage}%` }}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -273,13 +276,26 @@ export function ChatCodingPlanUsageRemainingPanel({
           key: "nativePeriod",
           label: intl.formatMessage({ id: "settings.usage.native.currentPeriod" }),
           limit: nativeQuotaLimit,
-          resetTime: nativeQuotaLimit.nextResetTime
-            ? formatQuotaResetTime({
-                locale,
-                value: nativeQuotaLimit.nextResetTime,
-                format: "date",
-              })
-            : undefined,
+          // 修复原因：Native 重置日按服务端时区展示（server-local 用权威 offset），
+          // 与设置页 CodingPlanUsagePanel 一致，不借用户电脑时区，避免跨日边界显示不同日期。
+          resetTime:
+            nativeQuotaLimit.native?.nextResetTime != null
+              ? new Intl.DateTimeFormat(locale, {
+                  timeZone:
+                    nativeQuotaLimit.native.resetTimeZone === "server-local"
+                      ? "UTC"
+                      : nativeQuotaLimit.native.resetTimeZone,
+                  month: "short",
+                  day: "numeric",
+                }).format(
+                  new Date(
+                    nativeQuotaLimit.native.nextResetTime +
+                      (nativeQuotaLimit.native.resetTimeZone === "server-local"
+                        ? nativeQuotaLimit.native.resetUtcOffsetSeconds * 1000
+                        : 0),
+                  ),
+                )
+              : undefined,
         }
       : null,
     fiveHourTokenLimit
