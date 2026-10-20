@@ -525,14 +525,7 @@ function CodingPlanQuotaCards({
       ? [
           {
             key: "native",
-            label: intl.formatMessage(
-              { id: "settings.usage.nativeQuotaPeriod" },
-              {
-                period: intl.formatMessage({
-                  id: `settings.usage.nativePeriod.${nativeLimit.native!.period}`,
-                }),
-              },
-            ),
+            label: intl.formatMessage({ id: "settings.usage.native.currentPeriod" }),
             limit: nativeLimit,
             progressColor: "var(--color-usage-chart-1)",
           },
@@ -611,7 +604,9 @@ function CodingPlanQuotaCards({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h3 className="text-ui-lg font-medium text-foreground">
-            {intl.formatMessage({ id: "settings.usage.quotaTitle" })}
+            {intl.formatMessage({
+              id: nativeLimit ? "settings.usage.native.planLimits" : "settings.usage.quotaTitle",
+            })}
           </h3>
           {(fiveHourCardVisible && resetUi.entry) || (weeklyCardVisible && resetUi.week.entry) ? (
             <CodingPlanQuotaResetOpportunity
@@ -644,13 +639,11 @@ function CodingPlanQuotaCards({
       {nativeLimit ? (
         <p className="text-ui-base text-foreground-subtle">
           {intl.formatMessage({ id: "settings.usage.nativeAdminReset" })}
-          {" · "}
-          {nativeLimit.native!.resetTimeZone}
         </p>
       ) : null}
       <div className={quotaCardsLayoutClass}>
         {cards.map((card) => {
-          const percentage = getQuotaRemainingPercentage(card.limit) ?? 0;
+          const percentage = getQuotaRemainingPercentage(card.limit);
           const native = card.limit.native;
           const resetTime =
             native?.nextResetTime != null
@@ -667,6 +660,59 @@ function CodingPlanQuotaCards({
                   ),
                 )
               : formatUsageStatsQuotaResetTime(locale, card.limit.nextResetTime);
+          // XCODE: 私有单周期调整信息布局，进度条沿用官方样式。
+          if (native) {
+            const value = native.unlimited
+              ? intl.formatMessage({ id: "settings.usage.nativeUnlimited" })
+              : intl.formatMessage(
+                  { id: "settings.usage.native.remaining" },
+                  { percentage: formatQuotaRemainingPercentage(locale, card.limit) },
+                );
+            return (
+              <div
+                key={card.key}
+                role="group"
+                aria-label={card.label}
+                className="min-w-0 flex-1 rounded-2xl border border-border bg-background px-5 py-4"
+              >
+                <p className="text-ui-base font-medium text-foreground">{card.label}</p>
+                <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-ui-base text-foreground-subtle">
+                  {resetTime && native.nextResetTime != null ? (
+                    <time dateTime={new Date(native.nextResetTime).toISOString()}>
+                      {intl.formatMessage(
+                        { id: "settings.usage.native.resetsAt" },
+                        { time: resetTime },
+                      )}
+                    </time>
+                  ) : (
+                    <span>
+                      {intl.formatMessage({ id: `settings.usage.nativePeriod.${native.period}` })}
+                    </span>
+                  )}
+                  <span className="ml-auto shrink-0 tabular-nums">{value}</span>
+                </div>
+                {!native.unlimited && percentage != null ? (
+                  <div
+                    role="progressbar"
+                    aria-label={card.label}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={percentage}
+                    aria-valuetext={value}
+                    className="mt-3 h-2 overflow-hidden rounded-full bg-background"
+                  >
+                    <div
+                      className="min-w-2 h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
+                      style={{
+                        width: `${percentage}%`,
+                        backgroundColor: card.progressColor,
+                      }}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            );
+          }
           return (
             <div key={card.key} className="min-w-0 flex-1 rounded-xl bg-surface/70 p-4">
               {/* min-h 与重置动作(h-5)对齐:没有动作的额度卡也保持同高,避免同排数值/进度条错位。 */}
@@ -715,12 +761,9 @@ function CodingPlanQuotaCards({
                   />
                 ) : null}
               </div>
-              {/* XCODE: 沿用原版剩余百分比，避免内部 quota 数值与服务端货币额度混淆。 */}
               <div className="mt-1 flex min-w-0 items-baseline gap-1.5">
                 <span className="text-ui-xl font-semibold text-foreground">
-                  {card.limit.native?.unlimited
-                    ? intl.formatMessage({ id: "settings.usage.nativeUnlimited" })
-                    : formatQuotaRemainingPercentage(locale, card.limit)}
+                  {formatQuotaRemainingPercentage(locale, card.limit)}
                 </span>
                 {resetTime ? (
                   <span className="min-w-0 truncate text-ui-base text-foreground-subtle">
@@ -728,17 +771,15 @@ function CodingPlanQuotaCards({
                   </span>
                 ) : null}
               </div>
-              {!card.limit.native?.unlimited ? (
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-background">
-                  <div
-                    className="min-w-2 h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
-                    style={{
-                      width: `${percentage}%`,
-                      backgroundColor: card.progressColor,
-                    }}
-                  />
-                </div>
-              ) : null}
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-background">
+                <div
+                  className="min-w-2 h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
+                  style={{
+                    width: `${percentage ?? 0}%`,
+                    backgroundColor: card.progressColor,
+                  }}
+                />
+              </div>
             </div>
           );
         })}

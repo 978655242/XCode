@@ -38,6 +38,9 @@ const zhCN: Record<string, string> = {
   "chat.error.noNativeModel":
     "当前没有可用的 New API 模型。请联系管理员检查指定套餐与模型权限，或配置自定义模型。",
   "settings.usage.native.currentPeriod": "当前订阅周期",
+  "settings.usage.native.planLimits": "套餐限额",
+  "settings.usage.native.remaining": "剩余 {percentage}",
+  "settings.usage.native.resetsAt": "{time} 重置",
   "settings.usage.nativeOfficialScope": "官方云 · {family} · {name}（独立计费）",
   "settings.usage.nativeOfficialConnectDescription":
     "官方 MCP 额度与私人订阅分开。连接官方账号后读取其真实额度。",
@@ -45,7 +48,6 @@ const zhCN: Record<string, string> = {
   "settings.usage.nativeLoadingDescription": "正在读取 New API 账号的消费记录。",
   "settings.usage.nativeStartDate": "开始日期",
   "settings.usage.nativeEndDate": "结束日期",
-  "settings.usage.nativeQuotaPeriod": "私人订阅 · {period}",
   "settings.usage.nativeAdminReset": "额度仅供读取。重置、续期或更换套餐请联系管理员。",
   "settings.usage.nativeUnlimited": "无限制",
   "settings.usage.nativeQuotaAmounts": "已用 {used} · 总额 {total} · 剩余 {remaining} quota",

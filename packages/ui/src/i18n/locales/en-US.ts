@@ -41,6 +41,9 @@ const enUS: Record<string, string> = {
   "chat.error.noNativeModel":
     "No New API model is available. Ask your administrator to check the assigned subscription and model access, or configure a custom model.",
   "settings.usage.native.currentPeriod": "Current subscription period",
+  "settings.usage.native.planLimits": "Plan limits",
+  "settings.usage.native.remaining": "{percentage} remaining",
+  "settings.usage.native.resetsAt": "Resets {time}",
   "settings.usage.nativeOfficialScope": "Official cloud · {family} · {name} (independently billed)",
   "settings.usage.nativeOfficialConnectDescription":
     "Official MCP quota is separate from your private subscription. Connect an official account to read its real quota.",
@@ -48,7 +51,6 @@ const enUS: Record<string, string> = {
   "settings.usage.nativeLoadingDescription": "Reading recorded usage for the New API account.",
   "settings.usage.nativeStartDate": "Start date",
   "settings.usage.nativeEndDate": "End date",
-  "settings.usage.nativeQuotaPeriod": "Private subscription · {period}",
   "settings.usage.nativeAdminReset":
     "Read-only quota. Reset, renew or replace through your administrator.",
   "settings.usage.nativeUnlimited": "Unlimited",

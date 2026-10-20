@@ -290,12 +290,12 @@ secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或
 
 ### 7.1 统计口径必须拆开
 
-| 视图            | 数据范围                                                                                 |
-| --------------- | ---------------------------------------------------------------------------------------- |
-| App Usage       | 当前本机 Agent 数据库，原统计不改                                                        |
-| 私有额度卡      | 唯一 XCode 指定实例；只有一个真实 quota 周期                                             |
-| 私有云用量/图表 | New API 账号全部已记录消费/退款；包括其他 native key、订阅和钱包 |
-| 官方 MCP/云任务 | 独立官方连接的官方范围/账务；不并入 Native 套餐卡或 Native 账号图表                      |
+| 视图            | 数据范围                                                            |
+| --------------- | ------------------------------------------------------------------- |
+| App Usage       | 当前本机 Agent 数据库，原统计不改                                   |
+| 私有额度卡      | 唯一 XCode 指定实例；只有一个真实 quota 周期                        |
+| 私有云用量/图表 | New API 账号全部已记录消费/退款；包括其他 native key、订阅和钱包    |
+| 官方 MCP/云任务 | 独立官方连接的官方范围/账务；不并入 Native 套餐卡或 Native 账号图表 |
 
 `getCodingPlanUsageSnapshot` 调 canonical `/usage`；`getEntitlementSnapshot` 调 `/entitlements`；旧 monitor 路径不再决定主私有权益。`getAppUsageSnapshot` 保留本地实现。generic `getSnapshot` 按明确数据源调用；私有不可用时不降级为本地或官方 monitor。
 
@@ -304,7 +304,8 @@ secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或
 - 新增来源/范围判别，支持 private-user entitlement，不能硬塞 `scope=team` 或 fake org/project。
 - 原 QuotaSnapshot 的 five-hour/week/TOKENS_LIMIT 桶识别改为原生 reset_period/nextResetTime/真实 quota 单位；保留原 panel/card 容器，但不得继续显示一个假第二周期。
 - 原 percentage 表示**已用比例**，剩余显示才做 100-percentage。unlimited 单独显示“无限制”，total/remaining/percentage 为 null，不能显示为 0。
-- 设置页「用量统计」的私有额度卡沿用 ZCode 的剩余百分比、进度条和真实重置时刻，不展示新增的「已用／总额／剩余 quota」原始数值明细。有限额度沿用原版百分比精度；无限额度仍明确显示「无限制」。此规则仅约束用量统计额度卡，模型设置页的订阅摘要保持现有契约。
+- 设置页「用量统计」的私有额度卡使用「套餐限额」区与圆角描边卡片：标题为「当前订阅周期」，下一行左侧显示真实重置时间或周期规则，右侧显示「剩余 xx%」，底部沿用官方 ZCode 原有进度条的颜色、轨道、间距、圆角、最小宽度和动效。保留刷新入口和管理员说明，不直接展示 IANA 时区字符串或「已用／总额／剩余 quota」原始数值。
+- 重置时间继续按服务端时区与 offset 格式化；`never` 显示「不自动重置」，不制造每周限额或倒计时。有限额度沿用原版剩余比例与精度，耗尽进度为 0；无限额度显示「无限制」，未知比例显示占位，二者均不绘制有限进度条。此规则仅约束用量统计额度卡，模型设置页与官方额度卡保持现有契约。
 - 设置页「用量统计」不展示顶部的「New API 账号用量 — 全部已记录的 Key 与资金来源 · 授权有效」说明行及其动态授权状态文案；统计口径保持不变。
 - raw ID/额度/计数在 HTTP 和 shared 边界使用十进制字符串。显示转换需有限且安全；金额/扣费不参与客户端计算。超过安全整数的精确值不能无标记截断，图表使用显示精度，不用于账务。
 - AccountUsageSnapshot 的 consume_record_count 映射为“消费记录数”，不要填入标为模型调用次数的旧字段。扩展 DTO 的原 modelCallCount 为可空，并提供明确 consumptionRecordCount/source kind；官方来源仍可保留真实 modelCallCount。
