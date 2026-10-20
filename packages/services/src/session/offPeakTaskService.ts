@@ -31,7 +31,7 @@ import {
 } from "./offPeakServerClient.js";
 import { OffPeakCodingPlanUnavailableError } from "./offPeakRuntimeModel.js";
 import type { ModelSelection, ModelSelectionValidation } from "@zcode/provider";
-import { OffPeakResidentExecutions } from "./offPeakResidentExecutions.js";
+import { OffPeakResidentExecutions } from "#src/task-facts/index.js";
 
 /** 轮询下限/上限与失败退避（服务端 next_poll_after 优先，钳制防打爆/防饿死）。 */
 export const OFF_PEAK_SYNC_MIN_INTERVAL_MS = 5_000;

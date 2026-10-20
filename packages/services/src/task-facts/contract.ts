@@ -1,6 +1,11 @@
 import type { ZCodeTaskMeta, ZCodeWorkspaceTaskListChanged } from "@zcode/shared";
 import type { SessionSummary, SessionsIndexReconcileResult } from "@zcode/shared/zcode-protocol-v4";
 
+/** XCODE: Host 内部执行准入端口；原 fence 对象透传，不复制账号身份或凭据。 */
+export type TaskExecutionOwnerFence = (() => Promise<void>) & {
+  assertCurrentSync?: () => void;
+};
+
 export interface TaskWorkspace {
   workspacePath: string;
   workspaceIdentity?: string;

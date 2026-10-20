@@ -4,7 +4,7 @@ import type {
   OffPeakControlResult,
   OffPeakLifecycleNotification,
 } from "@zcode/shared";
-import { OffPeakResidentExecutions } from "../src/session/offPeakResidentExecutions.js";
+import { OffPeakResidentExecutions } from "../src/task-facts/index.js";
 
 function fixture() {
   const control = vi.fn<(input: OffPeakControlParams) => Promise<OffPeakControlResult>>(

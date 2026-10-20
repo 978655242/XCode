@@ -20,6 +20,8 @@ export type {
   TaskFactTarget,
   TaskFactMutation,
 } from "#src/task-facts/contract.js";
+export { OffPeakResidentExecutions } from "./offPeakResidentExecutions.js";
+export type { TaskExecutionOwnerFence } from "./contract.js";
 
 export function createTaskFacts(options: {
   store: TaskFactStore;

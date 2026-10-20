@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { OffPeakResidentExecutions } from "../src/session/offPeakResidentExecutions.js";
+import { OffPeakResidentExecutions } from "../src/task-facts/index.js";
 import type { OffPeakLifecycleNotification } from "@zcode/shared";
 
 function fixture() {

@@ -4,7 +4,7 @@ import type {
   OffPeakLifecycleNotification,
   OffPeakOutcome,
 } from "@zcode/shared";
-import type { OffPeakOwnerFence } from "./offPeakServerClient.js";
+import type { TaskExecutionOwnerFence } from "./contract.js";
 
 type RequestAuth = Extract<OffPeakControlParams, { action: "replace_ticket" }>["requestAuth"];
 interface TicketDelivery {
@@ -20,7 +20,7 @@ interface Registration {
   control(input: OffPeakControlParams): Promise<OffPeakControlResult>;
   complete(outcome: OffPeakOutcome): Promise<void>;
   disposed?(): void;
-  assertCurrent?: OffPeakOwnerFence;
+  assertCurrent?: TaskExecutionOwnerFence;
 }
 interface ResidentExecution extends Registration {
   ready: Promise<void>;
@@ -34,7 +34,7 @@ interface ResidentExecution extends Registration {
   releasedTickets: Set<string>;
 }
 
-/** Host 只关联驻留执行和票据请求；后台工作清单与完成判断仍由 CLI 唯一维护。 */
+/** XCODE: 驻留票据交接归 task-facts；Host 只关联请求，CLI 仍独占后台生命周期事实。 */
 export class OffPeakResidentExecutions {
   private readonly runs = new Map<string, ResidentExecution>();
 
@@ -43,10 +43,10 @@ export class OffPeakResidentExecutions {
       renew(
         taskId: string,
         current: () => boolean,
-        assertCurrent?: OffPeakOwnerFence,
+        assertCurrent?: TaskExecutionOwnerFence,
       ): Promise<void>;
-      takeover(taskId: string, assertCurrent?: OffPeakOwnerFence): Promise<void>;
-      release(ticketId: string, assertCurrent?: OffPeakOwnerFence): Promise<void>;
+      takeover(taskId: string, assertCurrent?: TaskExecutionOwnerFence): Promise<void>;
+      release(ticketId: string, assertCurrent?: TaskExecutionOwnerFence): Promise<void>;
     },
   ) {}
 
@@ -122,7 +122,7 @@ export class OffPeakResidentExecutions {
   has(taskId: string): boolean {
     return this.runs.has(taskId);
   }
-  discardTicket(ticketId: string, assertCurrent?: OffPeakOwnerFence): Promise<void> {
+  discardTicket(ticketId: string, assertCurrent?: TaskExecutionOwnerFence): Promise<void> {
     return this.deps.release(ticketId, assertCurrent);
   }
 

@@ -51,6 +51,7 @@
 
 - 上游同步已通过 PR #12 合入 `XCode-main`（`d8c0d170`）；受控晋升规则先由 PR #11 合入 `release`。`sync/promote-20261019` 从 release 切出，首个提交保留 release 与已审查 XCode-main 两个父提交，不向同步分支回流产品代码。
 - 采用上游 session-execution、runtime-subagents、CLI facts 单写入与新版菜单/思考滑杆；迁移 Native owner、请求栅栏与公开服务接口的调用者，移除旧执行上下文、旧同步入口及无消费者的凭据包装，不添加兼容别名。已发布 Native migration 内容/校验值保持不变，schema baseline 按当前源码重新生成。
+- 正式提交后的 pre-push 检出了驻留票据 helper 的 `unmanaged-new-file`：将其纯结构迁至既有 `task-facts` 命令交接 owner，经公开 index 迁移唯一生产消费者和两个测试；CLI 仍独占后台事实，原 owner fence 对象原样透传。未改 policy、baseline 或 exception；迁移后根 typecheck、11 项驻留交接回归与 185 项 Native Node 回归通过。PR 模板同步补齐受控晋升路径。
 - 五项独立下游修复继续保留；侧栏采用上游单导航 `overflow-clip` 与右侧文件管理器，删除旧双面板及其 `inert` 补丁，不恢复 CollapsedRail。完整隔离 Desktop 中 31 项目/80 文件、两轮文件树往返、真实纵滚、焦点、账号菜单及横向位移验收通过，详见[侧栏规格](./specs/workspace-sidebar-layout.md)。
 - 根 `pnpm test:unit` 完整通过：Vitest 2041 文件、19858 项通过，2 文件/9 项跳过；随后原生 Node 185 项全部通过。测试入口在导入业务模块前隔离 HOME 与数据根，迁移备份也不再落入调用者目录；真实 SQLite/备份 red-green 回归覆盖该边界。
 - 根 `pnpm typecheck`、`pnpm lint`（0 errors / 315 warnings）、`pnpm architecture:check --changed`（0 违规）、SQLite schema 检查（8 项与两份 baseline）及修改文件格式检查通过。CLI 根目录 Turbo 入口在本机缺少可执行文件，改用根 workspace 的 `pnpm --recursive --filter './apps/zcode-cli/packages/*' typecheck` 完成现有包脚本，不另装子 workspace 或增加依赖。
