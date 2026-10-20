@@ -42,7 +42,6 @@ const zhCN: Record<string, string> = {
   "settings.usage.nativeOfficialConnectDescription":
     "官方 MCP 额度与私人订阅分开。连接官方账号后读取其真实额度。",
   "settings.usage.nativeOfficialConnect": "连接 {family}",
-  "settings.usage.nativeAccount": "New API 账号用量 — 全部已记录的 Key 与资金来源",
   "settings.usage.nativeLoadingDescription": "正在读取 New API 账号的消费记录。",
   "settings.usage.nativeStartDate": "开始日期",
   "settings.usage.nativeEndDate": "结束日期",
@@ -4312,7 +4311,7 @@ const zhCN: Record<string, string> = {
   "settings.usage.entitlementFiveHourUsage": "5 小时剩余",
   "settings.usage.entitlementWeeklyUsage": "每周剩余",
   "settings.usage.entitlementMonthlyMcpUsage": "工具调用",
-  "settings.usage.entitlementServerMcpUsage": "XWork MCP",
+  "settings.usage.entitlementServerMcpUsage": "官方 MCP",
   "settings.usage.entitlementResetAt": "重置 {time}",
   "settings.usage.entitlementUsageDetails": "工具用量拆分",
   "settings.usage.entitlementPromptCap": "5 小时 Prompt 池",

@@ -45,7 +45,6 @@ const enUS: Record<string, string> = {
   "settings.usage.nativeOfficialConnectDescription":
     "Official MCP quota is separate from your private subscription. Connect an official account to read its real quota.",
   "settings.usage.nativeOfficialConnect": "Connect {family}",
-  "settings.usage.nativeAccount": "New API account usage — all recorded keys and funding sources",
   "settings.usage.nativeLoadingDescription": "Reading recorded usage for the New API account.",
   "settings.usage.nativeStartDate": "Start date",
   "settings.usage.nativeEndDate": "End date",
@@ -4592,7 +4591,7 @@ const enUS: Record<string, string> = {
   "settings.usage.entitlementFiveHourUsage": "5-hour remaining",
   "settings.usage.entitlementWeeklyUsage": "Weekly remaining",
   "settings.usage.entitlementMonthlyMcpUsage": "Tool calls",
-  "settings.usage.entitlementServerMcpUsage": "XWork MCP",
+  "settings.usage.entitlementServerMcpUsage": "Official MCP",
   "settings.usage.entitlementResetAt": "Resets {time}",
   "settings.usage.entitlementUsageDetails": "Tool usage detail",
   "settings.usage.entitlementPromptCap": "5-hour prompt pool",

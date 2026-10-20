@@ -261,19 +261,6 @@ export function CodingPlanUsagePanel({
 
   return (
     <div className="space-y-5">
-      {nativeSource ? (
-        <p className="text-ui-base text-foreground-subtle">
-          {intl.formatMessage({ id: "settings.usage.nativeAccount" })}
-          {effectiveEntitlementSnapshot?.authorizationStatus ? (
-            <>
-              {" · "}
-              {intl.formatMessage({
-                id: `settings.usage.nativeAuthorization.${effectiveEntitlementSnapshot.authorizationStatus}`,
-              })}
-            </>
-          ) : null}
-        </p>
-      ) : null}
       <CodingPlanRangeSelector range={range} onRangeChange={setRange} />
       {range === "custom" ? (
         <div className="flex flex-wrap gap-3">
