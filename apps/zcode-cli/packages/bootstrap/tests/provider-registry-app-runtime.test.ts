@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as executionAdapters from "@zcode/adapters/exec";
 import { createSqliteSessionStore } from "@zcode/adapters/storage";
 import {
   SESSION_ENTRY_MODEL_SELECTION,
@@ -66,6 +67,7 @@ describe("ZCode App Provider Registry runtime", () => {
       skipUserConfig: true,
     } as const;
 
+    const execution = vi.spyOn(executionAdapters, "createNodeExecutionAdapter");
     const configured = await createZCodeApp({
       ...common,
       configuredDefaultModelSelection: {
@@ -74,6 +76,10 @@ describe("ZCode App Provider Registry runtime", () => {
         options: { reasoningLevel: "low" },
       },
     });
+    expect(execution).toHaveBeenCalledWith(
+      expect.objectContaining({ bashOutputTempDir: tmpdir() }),
+    );
+    execution.mockRestore();
     expect(configured.getModel()).toBe("provider-a/model-b");
     expect(configured.getThoughtLevel()).toBe("low");
     await configured.close?.();

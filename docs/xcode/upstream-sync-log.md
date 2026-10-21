@@ -2,7 +2,7 @@
 
 流程见 [`BRANCHING.md`](./BRANCHING.md) 第 4 节。每次同步追加一节，最新的在最上面。
 
-已同步到：`upstream/main` @ `0a1fc56d`（ZCode v3.16.1）
+已同步到：`upstream/main` @ `3c5b2276`（ZCode v3.16.2）
 
 ## 模板
 
@@ -21,6 +21,27 @@
 
 单独 cherry-pick 的提交（如有）：
 ```
+
+## 2026-10-21 同步 upstream v3.16.2 (0a1fc56d..3c5b2276)
+
+- 同步 PR：#18
+- 首次按两分支模型执行：`main` 快进到 `3c5b2276` 并推送 → `sync/upstream-20261021` 从 `release` 切出 → `git merge --no-ff main` → PR 到 `release`（Create a merge commit）。
+
+| 上游提交   | 说明                                                                                                      | 分类（采纳/适配/拒绝） | 备注 / 拒绝原因                                       |
+| ---------- | --------------------------------------------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------- |
+| `3c5b2276` | v3.16.2：Bash 临时输出路径隔离、只读/辅助会话类型、远控 HTTP 兼容、server-cli NAS 符号链接与打包、UI 更新 | 采纳并适配             | 整体 merge，保留上游 SHA；13 个文件冲突按下方取舍解决 |
+
+冲突文件及取舍：
+
+- `README.md`、`README.en.md`：保留 XWork 同步日志格式，追加 v3.16.2 条目。
+- `apps/zcode-cli/docs/design/v2/tool/00-tool-change-chain.md`：两侧新增章节并存（XWork ReplyToChannel schema + 上游 Bash 临时输出）。
+- `bash-direct-execution.test.ts`、`bash-shutdown.test.ts`：融合，保留 XWork 隔离 HOME 的 `processEnv`，加入上游 `bashOutputTempDir`。
+- `server-operations.ts`、`v4-bridge.ts`、`zcodeAgentService.ts`、`zcodeTaskServiceAdapter.ts`：仅导入头冲突，保留 `// XCODE:` 标记并采用上游新增导入。
+- `provider-registry-app-runtime.test.ts`、`releaseInstaller.test.ts`：导入并集。
+- `stableLauncher.ts`：保留 XWork Server 文案，采用上游 `cd -P`/`pwd -P` 修复及注释。
+- `composerModelThinking.test.ts`：采用上游拆分后的用例；新用例沿用 XWork 不显示 Vision 徽标的预期（`// XCODE:` 注释）。
+
+单独 cherry-pick 的提交：无。
 
 ## 2026-10-19 同步 upstream v3.16.1 (aac47556..0a1fc56d)
 

@@ -1,4 +1,5 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
+import { isAuxiliarySessionKind } from "@zcode/shared";
 import { createBotTopicAdmission } from "#src/zcode-agent/botTopicAdmission.js";
 import {
   readBotGroupRuntimeSnapshot,
@@ -1430,7 +1431,7 @@ export function createZCodeTaskServiceAdapter(
     snapshot: ZCodeSessionStateSnapshot,
     broadcastReason: ZCodeWorkspaceTaskListChanged["reason"] | null = "task_status_changed",
   ): Promise<ZCodeTaskMeta> {
-    if (snapshot.session.sessionKind === "subagent_child") return snapshotToMeta(snapshot);
+    if (isAuxiliarySessionKind(snapshot.session.sessionKind)) return snapshotToMeta(snapshot);
     return rememberIndexedTaskMeta(
       await taskIndexSyncer.syncSnapshotAndBroadcast(snapshot, {
         broadcastReason,

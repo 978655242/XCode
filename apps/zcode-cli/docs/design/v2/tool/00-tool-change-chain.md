@@ -4,6 +4,13 @@
 
 `ReplyToChannel` 的 provider 可见输出使用互斥状态分支的 `oneOf`，避免直接投影 Zod union 生成供应商不接受的 `anyOf`。运行时仍使用严格 union 校验，不放宽字段、状态或工具执行权限。
 
+## Bash 临时输出路径隔离
+
+主应用及 workflow 子运行时装配 tmp 父目录 → execution adapter 实际准备具名输出文件 →
+不可用时复用原 storageRoot 文件准备 → 确定唯一输出路径 → 现有前后台执行、进度、结果与文件入口。
+模型 schema 和 App 协议不变，stdout/stderr 仍直接写 fd。覆盖降级、取消/关闭与准备竞争、
+前后台路径一致性、Windows 原生搜索自引用及崩溃后的具名文件保留；不迁移历史输出。
+存储统计仍限现有数据根，完整合同见 `04-bash.md` 和根目录 `docs/tmpdir-storage-paths-spec.md`。
 ## 自定义 Agent Memory 工具投影（2026-10-15）
 
 Runtime 从当前父轮 Agent definitions 快照派生有效工具，启动配置、注入 reader 和 Host
