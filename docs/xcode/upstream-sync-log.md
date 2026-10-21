@@ -24,7 +24,7 @@
 
 ## 2026-10-21 同步 upstream v3.16.2 (0a1fc56d..3c5b2276)
 
-- 同步 PR：待创建
+- 同步 PR：#18
 - 首次按两分支模型执行：`main` 快进到 `3c5b2276` 并推送 → `sync/upstream-20261021` 从 `release` 切出 → `git merge --no-ff main` → PR 到 `release`（Create a merge commit）。
 
 | 上游提交   | 说明                                                                                                      | 分类（采纳/适配/拒绝） | 备注 / 拒绝原因                                       |
