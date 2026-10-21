@@ -89,6 +89,13 @@ test("upstream sync merges into release with mirror and sync-log requirements", 
   rejects(repo.pr(repo.sync(), "sync/upstream-20261019", "main"), /必须是 release/);
   rejects(repo.pr(repo.sync(repo.emptyTree), "sync/upstream-20261019"), /必须更新/);
   rejects(repo.pr(repo.release, "sync/upstream-20261019"), /没有引入新的上游/);
+  rejects(
+    repo.pr(
+      repo.commit([repo.upstream], "sync: cut from main", repo.tree),
+      "sync/upstream-20261019",
+    ),
+    /必须包含当前 origin\/release/,
+  );
   repo.ref("refs/remotes/origin/main", repo.root);
   rejects(repo.pr(repo.sync(), "sync/upstream-20261019"), /镜像中还没有/);
 });

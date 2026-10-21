@@ -84,6 +84,12 @@ async function checkPr() {
   const touchesSyncLog = changedFiles.includes(SYNC_LOG);
 
   if (isSync) {
+    // 同步 PR 直接进入产品主干：必须从当前 release 切出，防止误从 main 切出后覆盖 XWork 改动。
+    if (!(await isAncestor(TRUNK_REF, headSha))) {
+      errors.push(
+        `同步分支必须包含当前 origin/${TRUNK_BRANCH}：从 ${TRUNK_BRANCH} 切出并合入最新 ${TRUNK_BRANCH} 后再合并 ${MIRROR_BRANCH}。`,
+      );
+    }
     if (upstreamCount === 0) {
       errors.push(
         "同步分支没有引入新的上游提交。先把 main 快进到 upstream/main，再 `git merge --no-ff main`。",
