@@ -6,7 +6,9 @@ import { DEFAULT_LOCALE, type SupportedLocale } from "@zcode/i18n";
 import type { TuiRequestPermission } from "@zcode/tui";
 import type { GlobalOptions } from "@zcode/shared-types";
 import type { DynamicWorkflowMode } from "@zcode/shared";
-import { createCommandCenter, parseSlashCommand } from "./command-center.js";
+import { parseSlashCommand } from "./command-center.js";
+// XCODE: XWork Zen Plan 命令经组合层接入，上游命令中心原样委托。
+import { createTuiZenCommandDeps, createXworkCommandCenter } from "./xwork/index.js";
 import type { CommandCenterApp } from "./command-center.js";
 import { resolveDisplayLocale } from "./locale.js";
 import { createCliHeadlessBrowserRuntime } from "./headless-browser.js";
@@ -246,7 +248,7 @@ export function createTuiSubmitPrompt(
     return modeState.current;
   };
 
-  const commandCenter = createCommandCenter({
+  const commandCenter = createXworkCommandCenter({
     forkApp: async (targetCheckpointId) => {
       const activeApp = await getApp();
       const result = await activeApp.forkFromCheckpoint?.({ targetCheckpointId });
@@ -311,7 +313,7 @@ export function createTuiSubmitPrompt(
     },
     setMode: setCliMode,
     workflowMode,
-  });
+  }, createTuiZenCommandDeps(processRuntime)); // XCODE: Zen 依赖。
 
   const submitPrompt: TuiPromptHandler = async (input, options) => {
     const previousRequestPermission = activeRequestPermission;

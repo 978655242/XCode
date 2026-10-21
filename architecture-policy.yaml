@@ -732,6 +732,40 @@ modules:
     layers:
       ui: .
     owner: conversation
+  # XCODE: XWork CLI Zen Plan 模块（只追加，不改上游条目）。
+  - id: cli-zen-auth
+    roots:
+      - apps/zcode-cli/packages/adapters/src/auth/zen
+    managed: true
+    requires: [shared, zcode-cli]
+    publicEntrypoints:
+      - apps/zcode-cli/packages/adapters/src/auth/zen/index.ts
+      - apps/zcode-cli/packages/adapters/src/auth/zen/contract.ts
+    layers:
+      adapters: .
+    owner: cli
+  - id: cli-zen-account
+    roots:
+      - apps/zcode-cli/packages/bootstrap/src/zen
+    managed: true
+    requires: [shared, cli-zen-auth, provider, zcode-cli]
+    publicEntrypoints:
+      - apps/zcode-cli/packages/bootstrap/src/zen/index.ts
+      - apps/zcode-cli/packages/bootstrap/src/zen/contract.ts
+    layers:
+      app: .
+    owner: cli
+  - id: cli-xwork
+    roots:
+      - apps/zcode-cli/packages/cli/src/xwork
+    managed: true
+    requires: [cli-arguments, zcode-cli]
+    publicEntrypoints:
+      - apps/zcode-cli/packages/cli/src/xwork/index.ts
+      - apps/zcode-cli/packages/cli/src/xwork/contract.ts
+    layers:
+      app: .
+    owner: cli
 
 global:
   # 临时时间戳（2026-09-10）：unmanaged-new-file 只约束此日期之后首次入库的文件。

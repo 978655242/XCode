@@ -1,4 +1,6 @@
 // Bootstrap public API surface.
+// XCODE: 独立 Zen 账号入口，凭据由 CLI 专属 runtime 管理。
+export { loginZenCli, logoutZenCli, createZenAccount } from "./zen/index.js";
 
 export * from "./app/create-app.js";
 export type {
@@ -38,7 +40,8 @@ export type {
   CreateDefaultProviderEndpointRoutingPortOptions,
   ResolveProcessProviderEndpointRoutingPortOptions,
 } from "./provider-endpoint-routing.js";
-export { startProcessProviderRegistryRuntime } from "./app/process-provider-registry-runtime.js";
+// XCODE: 公开入口指向 Zen 组合层（同名、同参数，未启用 Zen 时与上游一致）。
+export { startProcessProviderRegistryRuntime } from "./zen/index.js";
 export type { ProcessProviderRegistryRuntimeOptions } from "./app/process-provider-registry-runtime.js";
 export {
   addZCodePluginMarketplace,

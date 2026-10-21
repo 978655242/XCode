@@ -199,6 +199,7 @@ test("desktop agent builds minify the app-facing JS bundle", () => {
 
 test("CLI bundle externalizes native koffi so esbuild does not parse platform .node files", () => {
   assert.ok(resolveBuildExternal().includes("koffi"));
+  assert.ok(resolveBuildExternal().includes("@napi-rs/keyring"));
 });
 
 test("every shared package export has an exact build alias, including SQLite migrations", async () => {

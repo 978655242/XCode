@@ -1,0 +1,131 @@
+// XCODE: XWork 顶层命令组合层：`login zen` / `logout zen` / 帮助追加在此处理，其余参数原样委托上游 run。
+import { formatJson } from "@zcode/core";
+import { resolveLocale } from "@zcode/i18n";
+import type { RunContext } from "@zcode/shared-types";
+import { parseGlobalArgs } from "../arguments.js";
+import { loadBootstrapModule } from "../bootstrap-loader.js";
+import type { BootstrapModule, RunDependencies } from "../cli-types.js";
+import { resolveCliCwd } from "../cwd.js";
+import { loadCliDotenv } from "../env.js";
+import { detectCliLocale } from "../locale.js";
+import { run } from "../run.js";
+import { registerCliShutdownHandlers } from "../shutdown.js";
+
+// 撤销请求本身有 15 秒 HTTP 期限；给补偿留出完成时间，超时仍退出不挂起终端。
+const ZEN_LOGIN_SHUTDOWN_TIMEOUT_MS = 16_000;
+
+export interface XworkRunDependencies extends RunDependencies {
+  loginZenCli?: BootstrapModule["loginZenCli"];
+  logoutZenCli?: BootstrapModule["logoutZenCli"];
+}
+
+const zenHelp = {
+  "en-US": "\nXWork Zen Plan:\n  login zen [--no-browser]  Sign in to XWork Zen Plan\n  logout zen                Sign out of XWork Zen Plan\n",
+  "zh-CN": "\nXWork Zen Plan：\n  login zen [--no-browser]  登录 XWork Zen Plan\n  logout zen                退出 XWork Zen Plan\n",
+} as const;
+
+function parseZenInvocation(argv: string[]) {
+  let parsed: ReturnType<typeof parseGlobalArgs>;
+  try {
+    parsed = parseGlobalArgs(argv);
+  } catch {
+    return null; // 解析错误交给上游输出用法。
+  }
+  const [name, target, ...rest] = parsed.positionals;
+  if ((name === "login" || name === "logout") && target === "zen" && rest.length === 0)
+    return { command: name, values: parsed.values };
+  const isHelp = parsed.values.help === true || (name === "help" && target === undefined);
+  return isHelp ? { command: "help" as const, values: parsed.values } : null;
+}
+
+/** 覆盖 stdout.write 只追加帮助，不改上游帮助字符串。 */
+function withHelpAppended(ctx: RunContext, text: string): RunContext {
+  const stdout = Object.create(ctx.stdout) as NodeJS.WriteStream;
+  let appended = false;
+  stdout.write = ((chunk: string | Uint8Array, ...args: never[]) => {
+    const result = ctx.stdout.write(chunk, ...args);
+    if (!appended) {
+      appended = true;
+      ctx.stdout.write(text);
+    }
+    return result;
+  }) as NodeJS.WriteStream["write"];
+  return { ...ctx, stdout };
+}
+
+export async function runXwork(ctx: RunContext, deps: XworkRunDependencies = {}): Promise<number> {
+  const invocation = parseZenInvocation(ctx.argv);
+  if (!invocation) return run(ctx, deps);
+  const env = deps.env ?? process.env;
+  if (invocation.command === "help") {
+    // 与上游帮助相同的语言判定：--locale 优先，缺省或 auto 时按环境检测。
+    const requested = invocation.values.locale as string | undefined;
+    const locale = resolveLocale(requested ?? "auto", detectCliLocale(env));
+    return run(withHelpAppended(ctx, zenHelp[locale]), deps);
+  }
+  const json = invocation.values.json === true;
+  try {
+    const cwd = resolveCliCwd({
+      cwd: deps.cwd ?? process.cwd,
+      requestedCwd: invocation.values.cwd as string | undefined,
+    });
+    const dotenv = (deps.loadDotenv ?? loadCliDotenv)({ cwd, env });
+    if (dotenv.error)
+      throw new Error(`Failed to load environment file: ${dotenv.path}`, { cause: dotenv.error });
+    if (invocation.command === "login") {
+      const login = deps.loginZenCli ?? (await loadBootstrapModule()).loginZenCli;
+      // 修复：服务端已签发 SID 后 Ctrl+C 若直接终止进程，bootstrap finally 中的精确撤销没有机会执行。
+      // 这里把信号转成 abort，并等待补偿完成再退出。
+      const interrupt = new AbortController();
+      let loginSettled: Promise<void> = Promise.resolve();
+      const unregisterShutdown = registerCliShutdownHandlers({
+        abort: () => interrupt.abort(new Error("ZEN_AUTH_CANCELED")),
+        cleanup: () => loginSettled,
+        cleanupTimeoutMs: deps.shutdownCleanupTimeoutMs ?? ZEN_LOGIN_SHUTDOWN_TIMEOUT_MS,
+        ...(deps.exitProcess ? { exitProcess: deps.exitProcess } : {}),
+        ...(deps.shutdownProcess ? { process: deps.shutdownProcess } : {}),
+      });
+      // Zen 授权拥有独立回环与 SID，结果不输出凭据路径或 token。
+      const loginPromise = login({
+        env,
+        noBrowser: invocation.values["no-browser"] === true,
+        signal: interrupt.signal,
+        onAuthorizeUrl: (url) => {
+          if (json)
+            ctx.stderr.write(`${JSON.stringify({ event: "authorize", provider: "zen", url })}\n`);
+          else ctx.stdout.write(`Open on this computer to sign in to XWork Zen Plan:\n${url}\n`);
+        },
+      });
+      loginSettled = loginPromise.then(
+        () => undefined,
+        () => undefined,
+      );
+      let result: Awaited<typeof loginPromise>;
+      try {
+        result = await loginPromise;
+      } finally {
+        if (!interrupt.signal.aborted) unregisterShutdown();
+      }
+      ctx.stdout.write(
+        json
+          ? formatJson({ status: "ready", provider: "zen", user: result.user })
+          : `Signed in to XWork Zen Plan as ${result.user.display_name || result.user.username}.\nSelect a Zen model with /model.\n`,
+      );
+      return 0;
+    }
+    const logout = deps.logoutZenCli ?? (await loadBootstrapModule()).logoutZenCli;
+    const result = await logout({ env });
+    ctx.stdout.write(
+      json
+        ? formatJson({ provider: "zen", ...result })
+        : result.serverRevoked
+          ? "Signed out of XWork Zen Plan.\n"
+          : "Local Zen credentials cleared; server revocation could not be confirmed.\n",
+    );
+    return 0;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    ctx.stderr.write(json ? formatJson({ status: "error", provider: "zen", message }) : `Error: ${message}\n`);
+    return 1;
+  }
+}

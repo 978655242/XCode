@@ -18,6 +18,8 @@
 
 ## 配置与边界
 
+独立 CLI Zen（2026-10-21）：本机 `~/.local/bin/zcode` 使用 `feature/cli-zen-plan-implementation` worktree 的 Node bundle，支持 `login zen`、`logout zen` 及 TUI `/login zen`、`/logout zen`。显式设置 `NEW_API_BASE_URL`；浏览器必须与 CLI 同机。正式服务须先部署 New API 的 `9cffe3717`（客户端与 SID 归属）和 `16024d865`（授权页面）或其合并结果。当前 3001 未因本次实现而升级，不能据 CLI 帮助出现 Zen 推断正式服务可登录。隔离 Chrome→Go→CLI 冷恢复→真实 prompt→本机合成上游→退出验收通过，无外部计费调用；Windows/Linux、SEA 原生资源和完整 PTY 工具交互未实跑。详细证据及限制见 [CLI Zen spec](../../apps/zcode-cli/docs/design/v2/zen-plan.md)。删除功能 worktree 前须重新安装命令，启动器依赖该目录及相邻 node_modules。
+
 - Node 版本使用 `mise.toml`，pnpm 使用根 `package.json`。本次验证使用 Node 24.14.0 / pnpm 10.33.2。
 - 只有显式 `NEW_API_BASE_URL` 且本机桌面 Local Host 才启用私有组合，没有默认 3001。Main 安全库、Host 与 scheduler 使用相同 dotenv→已定义 process env 优先级；显式空 process 值遮蔽 dotenv。未配置的原非私有桌面、独立 Web/远程路径保留；已启用后任何认证、目录或资金错误都不回退到原官方身份或钱包。
 - Origin 必须是精确 origin，不能含路径、query、fragment、用户名或密码；HTTP 仅允许 loopback。生产操作员明确设置后端 `XCODE_INTEGRATION_ENABLED`、与客户端完全一致的 `XCODE_PUBLIC_ORIGIN`，并验证实际二进制、挂载及数据库。

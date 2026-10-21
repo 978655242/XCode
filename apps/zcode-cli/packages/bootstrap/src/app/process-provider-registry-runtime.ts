@@ -5,6 +5,7 @@ import {
   parseAccountProviderConfigMap,
   type AccountProviderConfigSnapshot,
   type AccountProviderStates,
+  type AccountProviderResolver,
 } from "@zcode/provider";
 import {
   isBuiltinModelProviderId,
@@ -32,12 +33,19 @@ import {
   readStandaloneAccountProviderConfigSnapshot,
 } from "./standalone-account-provider-runtime.js";
 
+/** XCODE: 账号解析结果；下游来源在同一轮次内合并，保持 AccountProviderService 为唯一发布者。 */
+export type ProcessAccountResolution = Awaited<ReturnType<AccountProviderResolver>>;
 export interface ProcessProviderRegistryRuntimeOptions {
   /** Standalone Prompt CLI / TUI 自己拥有账号凭据与旧配置的一次性导入。 */
   readonly standalone?: {
     readonly credentialStore?: SharedZCodeCredentialStore;
     readonly legacyCliUserConfigFilePath?: string;
     readonly onAccountInitializationError?: (error: unknown) => void;
+    /** XCODE: 下游扩展点；未注入时行为与上游一致。 */
+    readonly extendAccountResolution?: (
+      resolved: ProcessAccountResolution,
+      configRevision: string,
+    ) => Promise<ProcessAccountResolution>;
     readonly request?: typeof fetch;
     readonly onBuiltinRefreshError?: (error: unknown) => void;
     readonly onBuiltinRefreshResult?: (event: ZCodeBuiltinRefreshEvent) => void;
@@ -103,10 +111,13 @@ export async function startProcessProviderRegistryRuntime(
                     providers: configuredProviders,
                   },
                 );
-                return {
+                const resolved = {
                   providers: snapshot.providers,
                   states: snapshot.states ?? {},
                 };
+                // XCODE: 下游扩展点，未注入时行为与上游一致。
+                const extend = options.standalone?.extendAccountResolution;
+                return extend ? extend(resolved, configRevision) : resolved;
               },
             });
             standaloneAccount.onDidRefreshError(({ error }) => {

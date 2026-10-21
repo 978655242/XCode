@@ -42,6 +42,23 @@ Windows PowerShell 示例：
 
 ## 自检与模型设置
 
+### XWork Zen Plan
+
+服务器需已启用 `xwork-cli` 授权；旧的仅支持桌面深链的服务器需要先升级。
+显式配置 `NEW_API_BASE_URL` 为你的 New API origin，然后运行：
+
+```sh
+zcode login zen
+zcode                         # TUI 中使用 /model 选择 Zen 模型
+zcode logout zen
+```
+
+TUI `/login` 首项为 XWork Zen Plan，也可直接 `/login zen`、`/logout zen`。
+登录在同一台电脑的浏览器完成，`--no-browser` 只打印 URL，不提供跨机 SSH 授权。
+CLI 使用独立设备会话和系统钥匙串；Linux 需可用 Secret Service，不降级到明文凭据。
+它不会复制桌面会话或自动替换原默认模型。无参数 `logout` 保持官方账号退出语义。
+套餐购买、续费在浏览器完成；网络失败不表示服务端撤销成功。
+
 ```sh
 zcode --version
 zcode --help
