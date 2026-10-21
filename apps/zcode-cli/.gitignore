@@ -24,3 +24,6 @@ vendor
 
 # Lowering 的人工可审查契约快照不是 tsc 产物，干净 checkout 也必须可运行测试。
 !packages/dynamic-workflow/tests/lowering/expected/*.js
+
+# XCODE: 本地运行 CLI 单测时 SQLite 迁移备份可能落在包根（测试隔离缺陷），不得入库。
+/backup/
