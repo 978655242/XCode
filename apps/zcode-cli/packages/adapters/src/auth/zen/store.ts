@@ -16,8 +16,16 @@ export function zenKeychainAccount(directory: string): string {
   return `credential-encryption-key:${scope}`;
 }
 
+// XCODE: 原生钥匙串模块的加载由入口层提供：普通 Node bundle 直接从 node_modules 加载，
+// SEA 单文件包从内嵌资源解包后加载。adapter 不感知打包形态。
+type KeyringModule = typeof import("@napi-rs/keyring");
+let keyringModuleLoader: () => Promise<KeyringModule> = () => import("@napi-rs/keyring");
+export function setZenKeyringModuleLoader(loader: () => Promise<KeyringModule>): void {
+  keyringModuleLoader = loader;
+}
+
 export async function createZenSystemKeyStore(directory: string): Promise<ZenSecureKeyStore> {
-  const { AsyncEntry } = await import("@napi-rs/keyring");
+  const { AsyncEntry } = await keyringModuleLoader();
   const entry = new AsyncEntry("XWork CLI Zen", zenKeychainAccount(directory), {
     linux: { store: "secret-service" },
   });

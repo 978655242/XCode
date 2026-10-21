@@ -4,7 +4,7 @@
  */
 export const cliXworkModule = {
   id: "cli-xwork",
-  requires: ["cli-arguments", "zcode-cli"],
+  requires: ["cli-arguments", "cli-sea-keyring", "zcode-cli"],
   provides: ["cli-xwork"],
   publicEntrypoints: ["index.ts", "contract.ts"],
 } as const;

@@ -10,6 +10,8 @@ import { loadCliDotenv } from "../env.js";
 import { detectCliLocale } from "../locale.js";
 import { run } from "../run.js";
 import { registerCliShutdownHandlers } from "../shutdown.js";
+import { setZenKeyringModuleLoader } from "@zcode/adapters/auth";
+import { loadCliKeyringModule } from "../sea-keyring/index.js";
 
 // 撤销请求本身有 15 秒 HTTP 期限；给补偿留出完成时间，超时仍退出不挂起终端。
 const ZEN_LOGIN_SHUTDOWN_TIMEOUT_MS = 16_000;
@@ -54,6 +56,9 @@ function withHelpAppended(ctx: RunContext, text: string): RunContext {
 }
 
 export async function runXwork(ctx: RunContext, deps: XworkRunDependencies = {}): Promise<number> {
+  // Zen 安全存储在 SEA 中从内嵌资源加载原生钥匙串绑定；普通 bundle 仍走 node_modules。
+  // 放在所有命令前：TUI、--prompt 与 login/logout zen 都可能读取 Zen 凭据。
+  setZenKeyringModuleLoader(() => loadCliKeyringModule());
   const invocation = parseZenInvocation(ctx.argv);
   if (!invocation) return run(ctx, deps);
   const env = deps.env ?? process.env;

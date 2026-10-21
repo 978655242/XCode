@@ -759,12 +759,23 @@ modules:
     roots:
       - apps/zcode-cli/packages/cli/src/xwork
     managed: true
-    requires: [cli-arguments, zcode-cli]
+    requires: [cli-arguments, cli-sea-keyring, zcode-cli]
     publicEntrypoints:
       - apps/zcode-cli/packages/cli/src/xwork/index.ts
       - apps/zcode-cli/packages/cli/src/xwork/contract.ts
     layers:
       app: .
+    owner: cli
+  - id: cli-sea-keyring
+    roots:
+      - apps/zcode-cli/packages/cli/src/sea-keyring
+    managed: true
+    requires: []
+    publicEntrypoints:
+      - apps/zcode-cli/packages/cli/src/sea-keyring/index.ts
+      - apps/zcode-cli/packages/cli/src/sea-keyring/contract.ts
+    layers:
+      adapters: .
     owner: cli
 
 global:

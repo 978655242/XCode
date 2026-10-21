@@ -26,6 +26,7 @@ import { collectSeaBundledSkillAssets } from "./sea-bundled-skill-assets.mjs";
 import { collectSeaRuntimeToolAssets } from "./sea-runtime-tool-assets.mjs";
 import { prepareSeaRuntimeToolAssets } from "./sea-runtime-tool-prepare.mjs";
 import { collectSeaPlaywrightAssets } from "./sea-playwright-assets.mjs";
+import { collectSeaKeyringAssets } from "./sea-keyring-assets.mjs";
 import { collectSeaProviderConfigAssets } from "./sea-provider-config-assets.mjs";
 
 export {
@@ -172,6 +173,12 @@ const prepareSeaBlob = async (target) => {
       target,
     });
   const providerConfigAssets = await collectSeaProviderConfigAssets({ root: repositoryRoot });
+  // XCODE: Zen 安全存储的原生钥匙串绑定随包分发。
+  const { assets: keyringAssets } = await collectSeaKeyringAssets({
+    root,
+    stagingDirectory: seaAssetStagingForTarget(`${target}-keyring`),
+    target,
+  });
 
   await writeFile(
     seaConfig,
@@ -184,6 +191,7 @@ const prepareSeaBlob = async (target) => {
           ...runtimeToolAssets,
           ...playwrightAssets,
           ...providerConfigAssets,
+          ...keyringAssets,
         },
         disableExperimentalSEAWarning: true,
         main: "dist/zcode.cjs",
