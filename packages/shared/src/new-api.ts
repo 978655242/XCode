@@ -5,6 +5,41 @@ export const NEW_API_PROVIDER_ID = "new-api";
 export const NEW_API_CALLBACK_URI = "zcode://oauth/callback";
 export const NEW_API_CLIENT_ID = "xcode-desktop";
 
+// XCODE: CLI 使用独立客户端及精确回环回调，不扩大桌面深链的接收范围。
+export const ZEN_CLI_CLIENT_ID = "xwork-cli";
+export function parseZenAuthorizationCallback(
+  raw: string,
+  redirectUri: string,
+  expectedState: string,
+): { state: string; code: string } | null {
+  if (!/^http:\/\/127\.0\.0\.1:([1-9]\d{0,4})\/oauth\/callback$/.test(redirectUri)) return null;
+  try {
+    const target = new URL(redirectUri);
+    if (Number(target.port || "80") > 65535 || !raw.startsWith(`${redirectUri}?`)) return null;
+    const url = new URL(raw);
+    const code = url.searchParams.get("code");
+    const state = url.searchParams.get("state");
+    if (
+      url.hash ||
+      raw.includes("#") ||
+      url.origin !== target.origin ||
+      url.pathname !== target.pathname ||
+      [...url.searchParams].length !== 3 ||
+      ["provider", "code", "state"].some((key) => url.searchParams.getAll(key).length !== 1) ||
+      url.searchParams.get("provider") !== NEW_API_PROVIDER_ID ||
+      state !== expectedState ||
+      !state ||
+      !/^[A-Za-z0-9._~-]{22,256}$/.test(state) ||
+      !code ||
+      !/^[A-Za-z0-9_-]{43}$/.test(code)
+    )
+      return null;
+    return { state, code };
+  } catch {
+    return null;
+  }
+}
+
 // XCODE: Main路由与Host兑换复用精确语法，不能分别放宽回调别名或重复query。
 export function parseNewApiAuthorizationCallback(
   raw: string,

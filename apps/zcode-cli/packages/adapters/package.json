@@ -105,6 +105,7 @@
     "@ai-sdk/openai": "^3.0.58",
     "@ai-sdk/openai-compatible": "^2.0.58",
     "@modelcontextprotocol/client": "2.0.0",
+    "@napi-rs/keyring": "2.1.2",
     "@zcode/contracts": "workspace:*",
     "@zcode/dynamic-workflow": "workspace:*",
     "@zcode/model-option-map": "workspace:*",

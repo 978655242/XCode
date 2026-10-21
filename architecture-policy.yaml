@@ -732,6 +732,30 @@ modules:
     layers:
       ui: .
     owner: conversation
+  # cli-zen-auth：由 architecture:adopt 登记
+  - id: cli-zen-auth
+    roots:
+      - apps/zcode-cli/packages/adapters/src/auth/zen
+    managed: true
+    requires: [shared, zcode-cli]
+    publicEntrypoints:
+      - apps/zcode-cli/packages/adapters/src/auth/zen/index.ts
+      - apps/zcode-cli/packages/adapters/src/auth/zen/contract.ts
+    layers:
+      adapters: .
+    owner: cli
+  # cli-zen-account：由 architecture:adopt 登记
+  - id: cli-zen-account
+    roots:
+      - apps/zcode-cli/packages/bootstrap/src/zen
+    managed: true
+    requires: [shared, cli-zen-auth, provider, zcode-cli]
+    publicEntrypoints:
+      - apps/zcode-cli/packages/bootstrap/src/zen/index.ts
+      - apps/zcode-cli/packages/bootstrap/src/zen/contract.ts
+    layers:
+      app: .
+    owner: cli
 
 global:
   # 临时时间戳（2026-09-10）：unmanaged-new-file 只约束此日期之后首次入库的文件。
