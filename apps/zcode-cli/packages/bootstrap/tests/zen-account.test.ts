@@ -254,6 +254,65 @@ describe("Zen standalone account", () => {
     expect(await account.logout()).toEqual({ localCleared: true, serverRevoked: false });
     expect(account.getOwner()).toBeNull();
   });
+  it("treats an already revoked server session as revoked during logout", async () => {
+    const f = fixture();
+    const account = new ZenAccountRuntime(f.dependencies as never);
+    await account.login();
+    f.client.logout = async () => {
+      throw Object.assign(new Error("gone"), { code: "XCODE_SESSION_INVALID" });
+    };
+    expect(await account.logout()).toEqual({ localCleared: true, serverRevoked: true });
+    f.client.logout = async () => {
+      throw Object.assign(new Error("bad"), { code: "XCODE_PROTOCOL_INVALID" });
+    };
+    await account.login();
+    expect(await account.logout()).toEqual({ localCleared: true, serverRevoked: false });
+  });
+  it("revokes a rotated successor when the account changes while refresh is in flight", async () => {
+    const f = fixture();
+    const next = { ...f.bundle, access_token: "next", refresh_token: "refresh-next" };
+    const revokedRefresh: string[] = [];
+    const started = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const account = new ZenAccountRuntime({
+      ...f.dependencies,
+      client: {
+        ...f.client,
+        refresh: async () => {
+          started.resolve();
+          await release.promise;
+          return next;
+        },
+        logout: async (_sid: string, refresh: string) => {
+          revokedRefresh.push(refresh);
+        },
+      },
+    } as never);
+    await account.login();
+    f.bundle.access_expires_at = 1;
+    const inFlight = account.withControlSession(async () => "never");
+    await started.promise;
+    const logout = account.logout();
+    release.resolve();
+    await expect(inFlight).rejects.toThrow();
+    await logout;
+    expect(revokedRefresh).toContain("refresh-next");
+  });
+  it("revokes the replaced SID after switching accounts", async () => {
+    const f = fixture();
+    const revokedSids: string[] = [];
+    f.client.logout = async (sid: string) => {
+      revokedSids.push(sid);
+    };
+    const account = new ZenAccountRuntime(f.dependencies as never);
+    await account.login();
+    const switched = { ...f.bundle, session_id: "sid-b" };
+    f.client.exchange = async () => switched;
+    f.client.me = async () => ({ user: f.bundle.user, session_id: "sid-b" });
+    await account.login();
+    expect(account.getOwner()?.sid).toBe("sid-b");
+    expect(revokedSids).toEqual(["sid-a"]);
+  });
   it("does not let a late failure clear a newer account owner", async () => {
     const f = fixture();
     const account = new ZenAccountRuntime(f.dependencies as never);

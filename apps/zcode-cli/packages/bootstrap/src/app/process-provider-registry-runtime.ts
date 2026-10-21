@@ -2,10 +2,10 @@
 import {
   AccountProviderService,
   MutableAccountProviderConfigSource,
-  ProviderConfigMap,
   parseAccountProviderConfigMap,
   type AccountProviderConfigSnapshot,
   type AccountProviderStates,
+  type AccountProviderResolver,
 } from "@zcode/provider";
 import {
   isBuiltinModelProviderId,
@@ -14,9 +14,6 @@ import {
   zcodeProviderUpdateAccountConfigParamsSchema,
 } from "@zcode/shared";
 import { dirname, join } from "node:path";
-import { createHash } from "node:crypto";
-// XCODE: 独立 CLI 的 Zen 身份由本进程拥有，仍复用唯一 AccountProviderService。
-import { createZenAccount, resolveZenAccountProviders } from "../zen/index.js";
 import {
   NodeModelSelectionConfigRepository,
   NodeProviderRegistryRuntime,
@@ -36,14 +33,19 @@ import {
   readStandaloneAccountProviderConfigSnapshot,
 } from "./standalone-account-provider-runtime.js";
 
+/** XCODE: 账号解析结果；下游来源在同一轮次内合并，保持 AccountProviderService 为唯一发布者。 */
+export type ProcessAccountResolution = Awaited<ReturnType<AccountProviderResolver>>;
 export interface ProcessProviderRegistryRuntimeOptions {
   /** Standalone Prompt CLI / TUI 自己拥有账号凭据与旧配置的一次性导入。 */
   readonly standalone?: {
-    /** XCODE: 嵌入式 CLI 可提供同一账号 owner，测试使用隔离端口。 */
-    readonly zenAccount?: import("../zen/index.js").ZenAccountRuntime;
     readonly credentialStore?: SharedZCodeCredentialStore;
     readonly legacyCliUserConfigFilePath?: string;
     readonly onAccountInitializationError?: (error: unknown) => void;
+    /** XCODE: 下游扩展点；未注入时行为与上游一致。 */
+    readonly extendAccountResolution?: (
+      resolved: ProcessAccountResolution,
+      configRevision: string,
+    ) => Promise<ProcessAccountResolution>;
     readonly request?: typeof fetch;
     readonly onBuiltinRefreshError?: (error: unknown) => void;
     readonly onBuiltinRefreshResult?: (event: ZCodeBuiltinRefreshEvent) => void;
@@ -60,16 +62,6 @@ export async function startProcessProviderRegistryRuntime(
   }
 
   const accountSource = new MutableAccountProviderConfigSource();
-  const zenAccount =
-    options.standalone?.zenAccount ??
-    (options.standalone && env.NEW_API_BASE_URL?.trim() ? await createZenAccount(env) : undefined);
-  if (zenAccount) {
-    try {
-      await zenAccount.restore();
-    } catch (error) {
-      options.standalone?.onAccountInitializationError?.(error);
-    }
-  }
   const credentialStore = options.standalone
     ? (options.standalone.credentialStore ?? createSharedZCodeCredentialStore({ env: { ...env } }))
     : undefined;
@@ -119,46 +111,13 @@ export async function startProcessProviderRegistryRuntime(
                     providers: configuredProviders,
                   },
                 );
-                const zen = zenAccount
-                  ? await zenAccount
-                      .withControlSession(async (token, owner) => {
-                        const { ZenClient } = await import("@zcode/adapters/auth");
-                        const client = new ZenClient(owner.origin);
-                        const [entitlements, catalog] = await Promise.all([
-                          client.entitlements(token),
-                          client.catalog(token),
-                        ]);
-                        return resolveZenAccountProviders({
-                          owner,
-                          entitlements,
-                          catalog,
-                          configRevision,
-                        });
-                      })
-                      .catch((error) => {
-                        if (zenAccount.getOwner()) throw error;
-                        return resolveZenAccountProviders({ owner: null });
-                      })
-                  : undefined;
-                const combined = {
-                  ...(zen ?? {}),
-                  providers: zen
-                    ? new ProviderConfigMap([
-                        ...snapshot.providers.entries(),
-                        ...zen.providers.entries(),
-                      ])
-                    : snapshot.providers,
-                  states: { ...snapshot.states, ...zen?.states },
+                const resolved = {
+                  providers: snapshot.providers,
+                  states: snapshot.states ?? {},
                 };
-                // XCODE: 官方连接也是同一 Account 快照的一部分，不能只按 Zen revision 去重。
-                return zen
-                  ? {
-                      ...combined,
-                      revision: `account:sha256:${createHash("sha256")
-                        .update(JSON.stringify([configRevision, combined]))
-                        .digest("hex")}`,
-                    }
-                  : combined;
+                // XCODE: 下游扩展点，未注入时行为与上游一致。
+                const extend = options.standalone?.extendAccountResolution;
+                return extend ? extend(resolved, configRevision) : resolved;
               },
             });
             standaloneAccount.onDidRefreshError(({ error }) => {
@@ -202,12 +161,6 @@ export async function startProcessProviderRegistryRuntime(
     await standaloneAccount!.refresh("standalone-credentials-changed");
     await runtime.registryService.refresh("standalone-credentials-barrier");
   });
-  const disposeZenSubscription = zenAccount?.onDidChange(() => {
-    if (standaloneAccount) {
-      standaloneAccount.invalidateNative(false); // XCODE: 独立官方账号不随 Zen owner 变化撤销。
-      // XCODE: owner 事件仅同步撤销投影；登录命令和请求准入负责刷新，避免读取中撤销再排队读取成环。
-    }
-  });
   try {
     await runtime.start();
     const snapshot = runtime.registryService.getSnapshot()!;
@@ -242,8 +195,6 @@ export async function startProcessProviderRegistryRuntime(
           };
         },
         dispose() {
-          disposeZenSubscription?.();
-          zenAccount?.dispose();
           disposeCredentialSubscription?.();
           standaloneHeaders?.clearProjectTokens();
           disposeRecovery?.();
@@ -253,83 +204,20 @@ export async function startProcessProviderRegistryRuntime(
         },
         ...(credentialStore
           ? {
-              providerRuntimeHeadersPort: zenAccount
-                ? {
-                    ...standaloneHeaders!,
-                    async refreshBeforeModelRequest(
-                      input: Parameters<
-                        import("@zcode/core").ProviderRuntimeHeadersPort["refreshBeforeModelRequest"]
-                      >[0],
-                    ) {
-                      if (input.accountAccess?.type !== "new-api-account")
-                        return standaloneHeaders!.refreshBeforeModelRequest(input);
-                      // XCODE: 请求准入刷新权威目录，撤销套餐或模型不能沿用上次列表的执行资格。
-                      await standaloneAccount!.refresh("zen-model-request");
-                      const access = input.accountAccess;
-                      const owner = zenAccount.getOwner();
-                      const snapshot = await standaloneAccount!.read();
-                      const provider = snapshot.providers.get(input.providerId);
-                      if (
-                        !owner ||
-                        !access.owner ||
-                        !zenAccount.isCurrent(access.owner) ||
-                        snapshot.authorizationRevision !== access.authorizationRevision ||
-                        !provider?.builtinModelIds?.includes(input.modelId) ||
-                        provider.access?.type !== "new-api-account" ||
-                        provider.access.entitled !== true
-                      )
-                        throw new Error("XCODE_STALE_OWNER");
-                      const credential = await zenAccount.getRelayCredential(owner);
-                      input.abortSignal?.throwIfAborted();
-                      const current = await standaloneAccount!.read();
-                      if (!zenAccount.isCurrent(owner) || current.revision !== snapshot.revision)
-                        throw new Error("XCODE_STALE_OWNER");
-                      return { headersApplied: true, requestAuth: { apiKey: credential.token } };
-                    },
-                  }
-                : standaloneHeaders!,
+              providerRuntimeHeadersPort: standaloneHeaders!,
             }
           : {}),
         runtime,
         snapshot,
         modelSelectionConfigRepository,
         configuredDefaultModelSelection,
-        // XCODE: TUI 使用同一账号 owner，避免另起 runtime 后留下过期 Registry。
-        zenAccount,
-        async refreshStandaloneAccount(reason: string) {
-          if (zenAccount && !zenAccount.getOwner()) await zenAccount.restore();
-          await standaloneAccount?.refresh(reason);
-          await runtime.registryService.refresh(reason);
-        },
-        async readZenModelStatus() {
-          const account = await standaloneAccount?.read();
-          const available =
-            account?.providers
-              .entries()
-              .some(
-                ([, config]) =>
-                  config.access?.type === "new-api-account" &&
-                  config.access.entitled &&
-                  (config.builtinModelIds?.length ?? 0) > 0,
-              ) ?? false;
-          return {
-            available,
-            reason: available
-              ? null
-              : "No usable Zen Plan model is available. Check the assigned plan and model access.",
-          };
-        },
       });
     } catch (error) {
-      disposeZenSubscription?.();
-      zenAccount?.dispose();
       disposeCredentialSubscription?.();
       modelSelectionConfigRepository.dispose();
       throw error;
     }
   } catch (error) {
-    disposeZenSubscription?.();
-    zenAccount?.dispose();
     disposeCredentialSubscription?.();
     disposeRecovery?.();
     standaloneAccount?.dispose();

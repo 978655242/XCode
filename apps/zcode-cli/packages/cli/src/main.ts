@@ -75,7 +75,8 @@ async function main(): Promise<void> {
       );
     }
     lifecycle?.signal.throwIfAborted();
-    const { run } = await import("./run.js");
+    // XCODE: XWork 组合层处理 Zen 命令与帮助追加，其余原样委托上游 run。
+    const { runXwork: run } = await import("./run-xwork.js");
     lifecycle?.signal.throwIfAborted();
     const exitCode = await run(context, {
       protocolLifecycle: lifecycle,

@@ -84,28 +84,6 @@ export function createCommandCenter(deps: CommandCenterDeps): TuiSubmitPrompt {
       }
 
       if (command.name === "login") {
-        // XCODE: Zen 登录只调用当前 CLI 的账号 owner，取消与进度沿原交互协议。
-        if (command.args === "zen") {
-          if (!deps.loginZen)
-            return {
-              response: "XWork Zen Plan is unavailable. Configure NEW_API_BASE_URL.",
-              mode: deps.getMode?.(),
-            };
-          const result = await deps.loginZen({
-            signal: options.abortSignal,
-            onAuthorizeUrl: async (url) =>
-              emitLoginAuthorizeMessage(options, url, "XWork Zen Plan", await deps.getApp()),
-          });
-          const chinese = deps.getLocale?.() === "zh-CN";
-          const accountName = result.user.display_name || result.user.username;
-          return {
-            loginRequired: false,
-            mode: deps.getMode?.(),
-            response: chinese
-              ? `已登录 XWork Zen Plan：${accountName}。${result.modelStatus.available ? "使用 /model 选择 Zen 模型。" : "当前没有可用的 Zen 套餐模型，请检查指定套餐和模型权限。"}`
-              : `Signed in to XWork Zen Plan as ${accountName}. ${result.modelStatus.available ? "Select a Zen model with /model." : result.modelStatus.reason}`,
-          };
-        }
         if (command.args.length === 0) {
           return {
             loginRequired: await isLoginRequired(deps),
@@ -197,22 +175,11 @@ export function createCommandCenter(deps: CommandCenterDeps): TuiSubmitPrompt {
         return {
           mode: deps.getMode?.(),
           response:
-            "Usage: /login [zen|zai-coding-plan|bigmodel-coding-plan|zai-coding-plan-api-key <api-key>|bigmodel-coding-plan-api-key <api-key>]",
+            "Usage: /login [zai-coding-plan|bigmodel-coding-plan|zai-coding-plan-api-key <api-key>|bigmodel-coding-plan-api-key <api-key>]",
         };
       }
 
       if (command.name === "logout") {
-        if (command.args === "zen") {
-          if (!deps.logoutZen)
-            return { response: "XWork Zen Plan is unavailable.", mode: deps.getMode?.() };
-          const result = await deps.logoutZen();
-          return {
-            response: result.serverRevoked
-              ? "Signed out of XWork Zen Plan."
-              : "Local Zen credentials cleared; server revocation could not be confirmed.",
-            mode: deps.getMode?.(),
-          };
-        }
         if (command.args.length > 0) {
           return {
             mode: deps.getMode?.(),

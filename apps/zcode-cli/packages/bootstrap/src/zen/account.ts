@@ -149,6 +149,12 @@ export class ZenAccountRuntime implements ZenAccountContract {
         throw new Error("XCODE_STALE_OWNER");
       const result = this.activate(stored, generation);
       accepted = true;
+      // 修复原因：换号只覆盖本地密文会让被替换 SID 的 refresh 与 relay 凭据在服务端存活到过期，且本机再也无法撤销；
+      // 与 Desktop newApiAccountService 一致，提交成功后尽力撤销旧 SID，失败不影响新登录。
+      if (previous && previous.value.session_id !== issued.session_id)
+        await this.deps.client
+          .logout(previous.value.session_id, previous.value.refresh_token)
+          .catch(() => {});
       return result;
     } finally {
       if (this.pendingLogin === pending) this.pendingLogin = null;
@@ -193,9 +199,11 @@ export class ZenAccountRuntime implements ZenAccountContract {
       )
         throw new Error("XCODE_SESSION_INVALID");
       // XCODE: refresh 已在服务器轮换；先安全提交后继，Me 短暂不可用不能遗失新 refresh。
-      NewApiSessionBundleSchema.parse(next);
-      this.current(generation);
       try {
+        NewApiSessionBundleSchema.parse(next);
+        // 修复原因：代次在 refresh 期间变化（换号/退出）时旧实现直接抛错，轮换出的后继既不保存也不撤销，
+        // 本机只剩已失效的旧 refresh，服务端 SID 与 relay 凭据无法再撤销；因此代次检查也必须走撤销补偿。
+        this.current(generation);
         if (!(await this.deps.store.compareAndSwap(this.deps.client.origin, stored.revision, next)))
           throw new Error("XCODE_STALE_OWNER");
       } catch (error) {
@@ -284,9 +292,9 @@ export class ZenAccountRuntime implements ZenAccountContract {
       await this.deps.client.logout(stored.value.session_id, stored.value.refresh_token);
       return { localCleared, serverRevoked: true };
     } catch (error) {
-      if ((error as { code?: string }).code === "XCODE_BACKEND_UNAVAILABLE")
-        return { localCleared, serverRevoked: false };
-      throw error;
+      // 修复原因：本地已清空后再抛错会让 CLI 报"退出失败"且 --json 拿不到 localCleared；
+      // 服务端回已失效/越权即视为已撤销，其余错误如实报告未撤销。
+      return { localCleared, serverRevoked: revokedCodes.has((error as { code?: string }).code ?? "") };
     }
   }
 }

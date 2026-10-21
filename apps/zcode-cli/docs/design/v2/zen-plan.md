@@ -115,4 +115,6 @@ sequenceDiagram
 
 实现取舍：当前 CLI 自有纯目录投影通过相同 canonical schema 和 Provider 类型运行，不导入 Services 的桌面实现。后续可将纯投影收敛到独立共享模块；当前两端分别回归，不能据此认为没有维护分叉成本。CLI 默认 Node bundle 保留外置 `@napi-rs/keyring` 原生依赖；本次未验证 SEA 分发的钥匙串资源。
 
+扩展结构（按 `docs/xcode/UPSTREAM-EXTENSION.md` 重构）：Zen 逻辑不进入上游函数。上游仅保留接线：`startProcessProviderRegistryRuntime` 的通用 `standalone.extendAccountResolution` 钩子；bootstrap 公开入口改为导出 `zen/process-provider-registry-runtime.ts` 的同名组合层（合并目录、请求准入、owner 订阅、Zen 专属返回字段）；`main.ts` 改用 `run-xwork.ts`（`login zen`/`logout zen` 与帮助追加，其余委托 `run`）；`tui-prompt-handler.ts` 改用 `command-center/create-xwork.ts`（`/login`、`/login zen`、`/logout zen`、`/model` 前刷新，其余委托 `createCommandCenter`）。上游命令、picker 原四项与顺序、locale 文案和上游测试保持不变。重构同时修复：refresh 轮换期间代次变化时撤销后继、换号后撤销被替换 SID、退出时服务端已失效视为已撤销而非报错。
+
 实现前更新 canonical spec、受影响模块 contract 与上下文；代码从 release 派生分支完成，上游文件保持最小改动并加 XCODE 原因。交互覆盖 CLI/TUI E2E，协议和存储覆盖失败路径。执行根 typecheck/lint/架构检查及受影响 CLI 包 typecheck/lint/测试，完成后重建本机 zcode 并检查新入口。不得以菜单出现代替完整登录和模型链路验收。

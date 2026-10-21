@@ -308,15 +308,6 @@ export type CommandCenterDeps = {
   listCustomCommands?: () => Promise<CommandCenterCustomCommandListOutcome>;
   listSkills?: () => Promise<CommandCenterSkillListOutcome>;
   login?: (options?: CommandCenterLoginOptions) => Promise<CommandCenterLoginResult>;
-  loginZen?: (options: {
-    signal?: AbortSignal;
-    onAuthorizeUrl?: (url: string) => Promise<void>;
-  }) => Promise<{
-    user: { display_name: string; username: string };
-    modelStatus: { available: boolean; reason: string | null };
-  }>;
-  logoutZen?: () => Promise<{ localCleared: boolean; serverRevoked: boolean }>;
-  refreshAccountModels?: () => Promise<void>;
   loginBigmodel?: (
     options?: CommandCenterBigmodelLoginOptions,
   ) => Promise<CommandCenterBigmodelLoginResult>;

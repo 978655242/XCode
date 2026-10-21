@@ -6,7 +6,10 @@ import { DEFAULT_LOCALE, type SupportedLocale } from "@zcode/i18n";
 import type { TuiRequestPermission } from "@zcode/tui";
 import type { GlobalOptions } from "@zcode/shared-types";
 import type { DynamicWorkflowMode } from "@zcode/shared";
-import { createCommandCenter, parseSlashCommand } from "./command-center.js";
+import { parseSlashCommand } from "./command-center.js";
+// XCODE: XWork Zen Plan 命令经组合层接入，上游命令中心原样委托。
+import { createXworkCommandCenter } from "./command-center/create-xwork.js";
+import { createTuiZenCommandDeps } from "./tui-zen-xwork.js";
 import type { CommandCenterApp } from "./command-center.js";
 import { resolveDisplayLocale } from "./locale.js";
 import { createCliHeadlessBrowserRuntime } from "./headless-browser.js";
@@ -246,7 +249,7 @@ export function createTuiSubmitPrompt(
     return modeState.current;
   };
 
-  const commandCenter = createCommandCenter({
+  const commandCenter = createXworkCommandCenter({
     forkApp: async (targetCheckpointId) => {
       const activeApp = await getApp();
       const result = await activeApp.forkFromCheckpoint?.({ targetCheckpointId });
@@ -277,27 +280,6 @@ export function createTuiSubmitPrompt(
     listSkills: () => listSkillsForTui(deps),
     configureApiKey: (options) => configureApiKeyForTui(deps, options),
     login: (options) => loginForTui(deps, options),
-    refreshAccountModels: async () => {
-      const runtime = await processRuntime.providerRegistryRuntimePromise;
-      if (runtime?.zenAccount) await runtime.refreshStandaloneAccount("model-list");
-    },
-    // XCODE: TUI 与模型 Registry 共享同一 Zen runtime。
-    loginZen: async (options) => {
-      const runtime = await processRuntime.providerRegistryRuntimePromise;
-      if (!runtime?.zenAccount)
-        throw new Error("Configure NEW_API_BASE_URL to use XWork Zen Plan.");
-      const result = await runtime.zenAccount.login(options);
-      await runtime.refreshStandaloneAccount("zen-login");
-      return { ...result, modelStatus: await runtime.readZenModelStatus() };
-    },
-    logoutZen: async () => {
-      const runtime = await processRuntime.providerRegistryRuntimePromise;
-      if (!runtime?.zenAccount)
-        throw new Error("Configure NEW_API_BASE_URL to use XWork Zen Plan.");
-      const result = await runtime.zenAccount.logout();
-      await runtime.refreshStandaloneAccount("zen-logout");
-      return result;
-    },
     loginBigmodel: (options) => loginBigmodelForTui(deps, options),
     loadCustomCommand: (name) => loadCustomCommandForTui(deps, name),
     newApp,
@@ -332,7 +314,7 @@ export function createTuiSubmitPrompt(
     },
     setMode: setCliMode,
     workflowMode,
-  });
+  }, createTuiZenCommandDeps(processRuntime)); // XCODE: Zen 依赖。
 
   const submitPrompt: TuiPromptHandler = async (input, options) => {
     const previousRequestPermission = activeRequestPermission;

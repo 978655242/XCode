@@ -5,7 +5,7 @@ import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ZenAccountRuntime } from "../src/zen/index.js";
-import { startProcessProviderRegistryRuntime } from "../src/app/process-provider-registry-runtime.js";
+import { startProcessProviderRegistryRuntime } from "../src/zen/index.js";
 import {
   NewApiCatalogSchema,
   NewApiEntitlementsSchema,

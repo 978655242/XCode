@@ -3,10 +3,6 @@ import type { GlobalOptions, RunContext } from "@zcode/shared-types";
 import { loadBootstrapModule } from "./bootstrap-loader.js";
 import { loadCliDotenv } from "./env.js";
 import type { RunDependencies } from "./cli-types.js";
-import { registerCliShutdownHandlers } from "./shutdown.js";
-
-// 撤销请求本身有 15 秒 HTTP 期限；给补偿留出完成时间，超时仍退出不挂起终端。
-const ZEN_LOGIN_SHUTDOWN_TIMEOUT_MS = 16_000;
 
 export async function runLoginCommand(
   ctx: RunContext,
@@ -17,8 +13,8 @@ export async function runLoginCommand(
 ): Promise<number> {
   try {
     const providerId = args[0] ?? "zai";
-    if (args.length > 1 || !["zai", "bigmodel", "zen"].includes(providerId)) {
-      throw new Error("Usage: zcode login [zen|zai|bigmodel] [--no-browser]");
+    if (args.length > 1 || (providerId !== "zai" && providerId !== "bigmodel")) {
+      throw new Error("Usage: zcode login [zai|bigmodel] [--no-browser]");
     }
     const env = deps.env ?? process.env;
     const workingDirectory = (deps.cwd ?? process.cwd)();
@@ -33,60 +29,13 @@ export async function runLoginCommand(
       });
     }
 
-    // XCODE: Zen 授权拥有独立回环与 SID，结果不输出凭据路径或 token。
-    if (providerId === "zen") {
-      const login = deps.loginZenCli ?? (await loadBootstrapModule()).loginZenCli;
-      // 修复：顶层 login 原先不处理 SIGINT，服务端已签发 SID 后 Ctrl+C 会直接终止进程，
-      // bootstrap finally 中的精确撤销没有机会执行。这里把信号转成 abort，并等待补偿完成再退出。
-      const interrupt = new AbortController();
-      let loginSettled: Promise<void> = Promise.resolve();
-      const unregisterShutdown = registerCliShutdownHandlers({
-        abort: () => interrupt.abort(new Error("ZEN_AUTH_CANCELED")),
-        cleanup: () => loginSettled,
-        cleanupTimeoutMs: deps.shutdownCleanupTimeoutMs ?? ZEN_LOGIN_SHUTDOWN_TIMEOUT_MS,
-        ...(deps.exitProcess ? { exitProcess: deps.exitProcess } : {}),
-        ...(deps.shutdownProcess ? { process: deps.shutdownProcess } : {}),
-      });
-      const loginPromise = login({
-        env,
-        noBrowser,
-        signal: interrupt.signal,
-        onAuthorizeUrl: (url) => {
-          if (options.json)
-            ctx.stderr.write(`${JSON.stringify({ event: "authorize", provider: "zen", url })}\n`);
-          else ctx.stdout.write(`Open on this computer to sign in to XWork Zen Plan:\n${url}\n`);
-        },
-      });
-      loginSettled = loginPromise.then(
-        () => undefined,
-        () => undefined,
-      );
-      let result: Awaited<typeof loginPromise>;
-      try {
-        result = await loginPromise;
-      } finally {
-        if (!interrupt.signal.aborted) unregisterShutdown();
-      }
-      ctx.stdout.write(
-        options.json
-          ? formatJson({ status: "ready", provider: "zen", user: result.user })
-          : `Signed in to XWork Zen Plan as ${result.user.display_name || result.user.username}.\nSelect a Zen model with /model.\n`,
-      );
-      return 0;
-    }
     const login = deps.loginZCodeCli ?? (await loadBootstrapModule()).loginZCodeCli;
     const result = await login({
       env,
       noBrowser,
-      providerId: providerId as "zai" | "bigmodel",
+      providerId,
       onAuthorizeUrl: (data) => {
-        writeAuthorizeUrl(
-          ctx,
-          options,
-          data.authorize_url,
-          noBrowser,
-          providerId as "zai" | "bigmodel",
-        );
+        writeAuthorizeUrl(ctx, options, data.authorize_url, noBrowser, providerId);
       },
       onBrowserOpen: (browser) => {
         if (!options.json && !browser.opened) {
@@ -138,7 +87,6 @@ export async function runLogoutCommand(
   ctx: RunContext,
   options: GlobalOptions,
   deps: RunDependencies,
-  args: readonly string[] = [],
 ): Promise<number> {
   try {
     const env = deps.env ?? process.env;
@@ -154,20 +102,6 @@ export async function runLogoutCommand(
       });
     }
 
-    if (args.length > 1 || (args.length === 1 && args[0] !== "zen"))
-      throw new Error("Usage: zcode logout [zen]");
-    if (args[0] === "zen") {
-      const logout = deps.logoutZenCli ?? (await loadBootstrapModule()).logoutZenCli;
-      const result = await logout({ env });
-      ctx.stdout.write(
-        options.json
-          ? formatJson({ provider: "zen", ...result })
-          : result.serverRevoked
-            ? "Signed out of XWork Zen Plan.\n"
-            : "Local Zen credentials cleared; server revocation could not be confirmed.\n",
-      );
-      return 0;
-    }
     const logout = deps.logoutZCodeCli ?? (await loadBootstrapModule()).logoutZCodeCli;
     const result = await logout({ env });
 

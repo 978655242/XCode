@@ -1,0 +1,108 @@
+// XCODE: XWork Zen Plan 的 slash 命令组合层；上游 createCommandCenter 保持原样，其余输入原样委托。
+import type { TuiSelection, TuiSelectionItem, TuiSubmitPrompt } from "@zcode/tui";
+import { getZCodeCopy } from "@zcode/i18n";
+import { normalizeTuiPromptInput } from "./metadata.js";
+import { createCommandCenter } from "./create.js";
+import { recordSlashCommandInHistory } from "./history.js";
+import { emitLoginAuthorizeMessage } from "./login-flow.js";
+import { parseSlashCommand } from "./slash-commands.js";
+import type { CommandCenterDeps } from "./types.js";
+
+export interface XworkZenCommandDeps {
+  loginZen(options: {
+    signal?: AbortSignal;
+    onAuthorizeUrl?: (url: string) => Promise<void>;
+  }): Promise<{
+    user: { display_name: string; username: string };
+    modelStatus: { available: boolean; reason: string | null };
+  }>;
+  logoutZen(): Promise<{ localCleared: boolean; serverRevoked: boolean }>;
+  /** 打开 /model 前恢复短暂断网的 Zen 身份；不在目录 resolver 内递归恢复。 */
+  refreshAccountModels(): Promise<void>;
+}
+
+export function buildZenLoginItem(locale?: string): TuiSelectionItem {
+  const copy = getZCodeCopy(locale).tui.loginSetup;
+  const zh = locale === "zh-CN";
+  return {
+    command: "/login zen",
+    id: "zen",
+    keywords: ["zen", "xwork", "plan"],
+    // 带 pending 才会进入可 Esc 取消的等待态，并把 abortSignal 传给 Zen 登录。
+    pending: {
+      cancelStatus: copy.pending.cancelStatus,
+      help: copy.pending.help,
+      primary: zh ? "等待 XWork Zen Plan 授权" : "Waiting for XWork Zen Plan authorization",
+      secondary: zh
+        ? "请在本机浏览器完成登录和授权，完成后会自动刷新模型。"
+        : "Finish sign-in and authorization in a browser on this computer; models refresh automatically.",
+      status: copy.pending.status,
+    },
+    primary: "XWork Zen Plan",
+    secondary: zh ? "在本机浏览器登录套餐账号" : "Sign in through a browser on this computer",
+  };
+}
+
+/** zen 未配置（未设 NEW_API_BASE_URL）时传 undefined，行为与上游完全一致。 */
+export function createXworkCommandCenter(
+  deps: CommandCenterDeps,
+  zen: XworkZenCommandDeps | undefined,
+): TuiSubmitPrompt {
+  const upstream = createCommandCenter(deps);
+  if (!zen) return upstream;
+  return async (input, options) => {
+    const promptInput = normalizeTuiPromptInput(input);
+    const command = parseSlashCommand(promptInput.text);
+    const hasAttachments = (promptInput.attachments?.length ?? 0) > 0;
+    if (command?.type !== "known" || hasAttachments) return upstream(input, options);
+    const mode = deps.getMode?.();
+    const zh = deps.getLocale?.() === "zh-CN";
+    if (command.name === "model") {
+      await zen.refreshAccountModels();
+      return upstream(input, options);
+    }
+    if (command.name === "help" && command.args.length === 0) {
+      // 只在上游帮助后追加，不改写上游文案。
+      const result = await upstream(input, options);
+      return {
+        ...result,
+        response: `${result.response}\n\n${zh ? "XWork Zen Plan：/login zen 登录，/logout zen 退出。" : "XWork Zen Plan: /login zen to sign in, /logout zen to sign out."}`,
+      };
+    }
+    if (command.name === "login" && command.args.length === 0) {
+      const result = await upstream(input, options);
+      const selection: TuiSelection | undefined = result.selection && {
+        ...result.selection,
+        items: [buildZenLoginItem(deps.getLocale?.()), ...result.selection.items],
+      };
+      return { ...result, selection };
+    }
+    if (command.name === "login" && command.args === "zen") {
+      const result = await zen.loginZen({
+        signal: options.abortSignal,
+        onAuthorizeUrl: async (url) =>
+          emitLoginAuthorizeMessage(options, url, "XWork Zen Plan", await deps.getApp()),
+      });
+      const accountName = result.user.display_name || result.user.username;
+      await recordSlashCommandInHistory(deps, promptInput.text, command);
+      return {
+        loginRequired: false,
+        mode,
+        response: zh
+          ? `已登录 XWork Zen Plan：${accountName}。${result.modelStatus.available ? "使用 /model 选择 Zen 模型。" : "当前没有可用的 Zen 套餐模型，请检查指定套餐和模型权限。"}`
+          : `Signed in to XWork Zen Plan as ${accountName}. ${result.modelStatus.available ? "Select a Zen model with /model." : result.modelStatus.reason}`,
+      };
+    }
+    if (command.name === "logout" && command.args === "zen") {
+      const result = await zen.logoutZen();
+      await recordSlashCommandInHistory(deps, promptInput.text, command);
+      return {
+        mode,
+        response: result.serverRevoked
+          ? "Signed out of XWork Zen Plan."
+          : "Local Zen credentials cleared; server revocation could not be confirmed.",
+      };
+    }
+    return upstream(input, options);
+  };
+}

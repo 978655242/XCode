@@ -10,31 +10,6 @@ export function buildLoginSelection(locale?: string): TuiSelection {
     filterable: false,
     help: copy.help,
     items: [
-      // XCODE: Zen 为独立账号入口，保留现有官方连接选项。
-      {
-        command: "/login zen",
-        id: "zen",
-        keywords: ["zen", "xwork", "plan"],
-        // 带 pending 才会进入可 Esc 取消的等待态，并把 abortSignal 传给 Zen 登录。
-        pending: {
-          cancelStatus: copy.pending.cancelStatus,
-          help: copy.pending.help,
-          primary:
-            locale === "zh-CN"
-              ? "等待 XWork Zen Plan 授权"
-              : "Waiting for XWork Zen Plan authorization",
-          secondary:
-            locale === "zh-CN"
-              ? "请在本机浏览器完成登录和授权，完成后会自动刷新模型。"
-              : "Finish sign-in and authorization in a browser on this computer; models refresh automatically.",
-          status: copy.pending.status,
-        },
-        primary: "XWork Zen Plan",
-        secondary:
-          locale === "zh-CN"
-            ? "在本机浏览器登录套餐账号"
-            : "Sign in through a browser on this computer",
-      },
       {
         command: "/login zai-coding-plan",
         id: "zai-coding-plan",

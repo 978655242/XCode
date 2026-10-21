@@ -49,9 +49,6 @@ import type { resolveWorkspaceGitBranch } from "./tui-workspace-git.js";
 export type BootstrapModule = typeof import("@zcode/bootstrap");
 
 export interface RunDependencies extends PluginsCommandOverrides {
-  // XCODE: 独立 Zen 登录不复用官方 Credential Store。
-  loginZenCli?: BootstrapModule["loginZenCli"];
-  logoutZenCli?: BootstrapModule["logoutZenCli"];
   migrateStorage?: () => Promise<import("@zcode/shared/sqlite-migrations").MigrationResult>;
   protocolLifecycle?: RunZCodeProtocolAgentOptions["lifecycle"];
   protocolInput?: NodeJS.ReadableStream;
