@@ -50,11 +50,16 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm architecture:check
-      # 上游存量文件未全部格式化，只检查本 PR 改动；同步 PR 的改动来自上游，跳过。
+      # 只检查本 PR 改动；同步 PR 的改动来自上游，跳过。基线就未格式化的上游存量文件也跳过，
+      # 避免为追加几行而整份重排上游文件（违反最小改动并制造同步冲突）。
+      - name: Test format check
+        if: ${{ !startsWith(github.event.pull_request.head.ref, 'sync/') }}
+        env:
+          OXFMT_BIN: ${{ github.workspace }}/node_modules/.bin/oxfmt
+        run: node --test scripts/xcode/format-changed.test.mjs
       - name: Format check (changed files)
         if: ${{ !startsWith(github.event.pull_request.head.ref, 'sync/') }}
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
-        run: |
-          git diff --name-only -z --diff-filter=ACMR "origin/${BASE_REF}...HEAD" \
-            | xargs -0 -r pnpm exec oxfmt --check --no-error-on-unmatched-pattern
+          OXFMT_BIN: ${{ github.workspace }}/node_modules/.bin/oxfmt
+        run: node scripts/xcode/format-changed.mjs "origin/${BASE_REF}"
