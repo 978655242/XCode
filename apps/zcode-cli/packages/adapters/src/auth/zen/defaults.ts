@@ -16,9 +16,10 @@ export async function createZenDefaultDependencies(
     ? resolve(env.ZCODE_DATA_BASE_DIR.trim())
     : homedir();
   const client = new ZenClient(origin);
+  const directory = join(root, ".zcode", "cli", "zen");
   const store = createZenCredentialStore<NewApiSessionBundle>({
-    directory: join(root, ".zcode", "cli", "zen"),
-    keyStore: await createZenSystemKeyStore(),
+    directory,
+    keyStore: await createZenSystemKeyStore(directory),
   });
   return {
     client,

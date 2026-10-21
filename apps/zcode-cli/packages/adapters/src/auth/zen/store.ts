@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
 import { mkdir, readFile, unlink } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { atomicWritePrivateTextFile, withFileLock } from "@zcode/shared/node";
 import { normalizeNewApiOrigin } from "@zcode/shared";
 import type { ZenCredentialStore, ZenSecureKeyStore } from "./contract.js";
@@ -10,9 +10,15 @@ const ivBytes = 12;
 const cipherAlgorithm = "aes-256-gcm";
 
 // XCODE: 系统安全库错误不降级成不存在；CLI 的随机 key 与桌面密钥完全独立。
-export async function createZenSystemKeyStore(): Promise<ZenSecureKeyStore> {
+// 条目按凭据目录区分：不同数据根（隔离环境或多个 CLI 安装）不得共享或互相覆盖加密 key。
+export function zenKeychainAccount(directory: string): string {
+  const scope = createHash("sha256").update(resolve(directory)).digest("hex").slice(0, 32);
+  return `credential-encryption-key:${scope}`;
+}
+
+export async function createZenSystemKeyStore(directory: string): Promise<ZenSecureKeyStore> {
   const { AsyncEntry } = await import("@napi-rs/keyring");
-  const entry = new AsyncEntry("XWork CLI Zen", "credential-encryption-key", {
+  const entry = new AsyncEntry("XWork CLI Zen", zenKeychainAccount(directory), {
     linux: { store: "secret-service" },
   });
   return { read: () => entry.getPassword(), write: (secret) => entry.setPassword(secret) };

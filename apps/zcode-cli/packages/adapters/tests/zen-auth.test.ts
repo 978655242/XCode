@@ -4,6 +4,7 @@ import {
   createZenCredentialStore,
   ZenClient,
   createZenAuthorization,
+  zenKeychainAccount,
 } from "../src/auth/zen/index.js";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -120,6 +121,14 @@ describe("Zen encrypted credential store", () => {
 });
 
 describe("Zen HTTP boundary", () => {
+  // 回归：钥匙串条目曾为固定账户名，不同数据根共享同一 key，删除或换 key 会互相破坏。
+  it("scopes the OS keychain entry to the credential directory", () => {
+    const first = zenKeychainAccount(join(tmpdir(), "zen-a", ".zcode", "cli", "zen"));
+    const second = zenKeychainAccount(join(tmpdir(), "zen-b", ".zcode", "cli", "zen"));
+    expect(first).toMatch(/^credential-encryption-key:[a-f0-9]{32}$/);
+    expect(first).not.toBe(second);
+    expect(zenKeychainAccount(join(tmpdir(), "zen-a", ".zcode", "cli", "zen"))).toBe(first);
+  });
   it("uses the CLI client and exact redirect, rejects redirected or invalid responses", async () => {
     let sent: RequestInit | undefined;
     const client = new ZenClient("https://zen.example.com", async (_url, init) => {
