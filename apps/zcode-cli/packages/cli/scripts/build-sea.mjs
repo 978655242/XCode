@@ -174,7 +174,7 @@ const prepareSeaBlob = async (target) => {
     });
   const providerConfigAssets = await collectSeaProviderConfigAssets({ root: repositoryRoot });
   // XCODE: Zen 安全存储的原生钥匙串绑定随包分发。
-  const { assets: keyringAssets, manifest: keyringManifest } = await collectSeaKeyringAssets({
+  const { assets: keyringAssets } = await collectSeaKeyringAssets({
     root,
     stagingDirectory: seaAssetStagingForTarget(`${target}-keyring`),
     target,
@@ -205,7 +205,7 @@ const prepareSeaBlob = async (target) => {
   );
 
   console.log(
-    `[sea] generating SEA blob for ${target} with ${tuiManifest.files.length} TUI assets, ${pluginManifest.plugins.length} official plugins, ${bundledSkillManifest.files.length} bundled skill files, ${runtimeToolManifest.tools.length} runtime tools, and ${playwrightManifest.files.length} Playwright assets, ${keyringManifest.files.length} keychain assets`,
+    `[sea] generating SEA blob for ${target} with ${tuiManifest.files.length} TUI assets, ${pluginManifest.plugins.length} official plugins, ${bundledSkillManifest.files.length} bundled skill files, ${runtimeToolManifest.tools.length} runtime tools, and ${playwrightManifest.files.length} Playwright assets`,
   );
   run(process.execPath, ["--experimental-sea-config", seaConfig]);
   return seaBlob;
