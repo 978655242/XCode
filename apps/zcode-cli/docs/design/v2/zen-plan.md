@@ -48,7 +48,7 @@
 | 套餐模型与授权 | 现有 AccountProviderService/Registry | 同一次快照携带 owner、catalog 和 authorization revision |
 | TUI 菜单、提示、浏览器状态 | CLI/TUI 呈现层 | 只调用 bootstrap 契约，不持有 token 与业务 owner |
 
-平台存储使用 macOS Keychain、Windows Credential Manager 和 Linux Secret Service，按规范化 origin 与 CLI client_id 隔离命名。实现阶段选用有三平台支持的凭据 adapter，核对打包与原生依赖；不得降级到明文文件或旧机器 key。无法访问安全存储时在授权前报明确错误。单测可注入内存端口，测试 cipher 不能作为真实平台验证证据。
+平台存储使用 macOS Keychain、Windows Credential Manager 和 Linux Secret Service，按规范化 origin 与 CLI client_id 隔离命名。系统安全库条目为服务 `XWork CLI Zen`、账户 `credential-encryption-key:<凭据目录 sha256 前 32 位>`：不同数据根（多个安装、隔离环境）各自持有加密 key，不能相互覆盖或删除。实现阶段选用有三平台支持的凭据 adapter，核对打包与原生依赖；不得降级到明文文件或旧机器 key。无法访问安全存储时在授权前报明确错误。单测可注入内存端口，测试 cipher 不能作为真实平台验证证据。
 
 跨包公共功能放在适当共享 contract/adapter 公开入口；不得让 CLI bootstrap 依赖 Services 的实现文件。复用纯协议和模型解析能力时，先提取稳定契约，再让桌面与 CLI 调用。桌面安全存储和现有客户端默认值不因提取而变化。
 
@@ -101,6 +101,17 @@ sequenceDiagram
 - 实际构建的 `--prompt --json` 从该账号恢复，读取真实套餐目录，经 Go relay 调用不计费的本机合成上游，退出码 0 且返回 `ZEN_ACCEPTANCE_OK`。首轮模型声明不支持工具被正确拒绝，修正 fixture 后通过。未验证实际工具执行/取消、PTY 全交互、2FA/Passkey 或跨平台真机。
 - 实际构建的 `logout zen --json` 确认服务端撤销；只读数据库验证精确 CLI SID 已撤销，再次冷恢复为空。本机 `~/.local/bin/zcode` 已指向本功能 worktree 的验证产物，version/doctor 通过；移除 worktree 前必须重新安装。
 - CLI 包 518 项测试、Zen 命令 3 项、bootstrap 定向 41 项、adapter 6 项与共享回调 1 项通过。根 typecheck/lint、CLI 根 typecheck/lint、架构检查通过；lint 保留 317 项警告。CLI 根 typecheck 首次因 PATH 缺少 turbo 失败，加入仓库现有 node_modules/.bin 后通过。
+
+### 完整 E2E 套件（2026-10-21，`apps/zcode-cli/e2e/zen-plan`）
+
+可重复执行的 17 个用例，覆盖矩阵见该目录 README。真实 Go New API（隔离）+ Chrome 原生页面 + CLI 构建产物 + node-pty/xterm 仿真 TUI + 合成上游。最终连续 3 次完整运行均 17/17 通过，无残留进程、隔离目录或仓库文件改动。完整测试新发现并修复：
+
+- TUI 首项 Zen 缺少 pending 定义，浏览器授权期间无法 Esc 取消；补 pending 文案与等待态（CLI 单测 RED→GREEN）。
+- 顶层 `login zen` 不处理 SIGINT；服务端已签发 SID 后 Ctrl+C 直接终止进程，补偿撤销不执行。现将信号转为 abort 并等待补偿后以 130 退出（CLI 单测 RED→GREEN）。
+- 取消信号会中断进行中的 code 兑换，服务端已签发但客户端拿不到 bundle，无法精确撤销。兑换只受自身 HTTP 期限约束，结果返回后由 finally 撤销（bootstrap 单测 RED→GREEN；E2E `headless-login-interrupted-after-exchange` 在真实后端验证 SID 被撤销）。
+- 钥匙串条目原为固定账户名，多个数据根共享同一加密 key，任何一个删除或重建都会使其他安装的凭据不可解密。改为按凭据目录派生账户名（adapter 单测）。已有安装的旧条目不会自动迁移：升级后首次运行需重新 `login zen`。
+- 授权页对 CLI 显示“连接桌面应用”，中文“独立桌面设备会话”同样误导；按 client_id 区分说明并修正 zh/zh-TW 文案（Web 单测 RED→GREEN，后端提交 `e09cab064`）。
+- 非自用模式下网关要求模型已定价，fixture 在隔离库补设倍率；这是部署前置条件，不是 CLI 缺陷。
 
 实现取舍：当前 CLI 自有纯目录投影通过相同 canonical schema 和 Provider 类型运行，不导入 Services 的桌面实现。后续可将纯投影收敛到独立共享模块；当前两端分别回归，不能据此认为没有维护分叉成本。CLI 默认 Node bundle 保留外置 `@napi-rs/keyring` 原生依赖；本次未验证 SEA 分发的钥匙串资源。
 
