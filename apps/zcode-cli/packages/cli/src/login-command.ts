@@ -3,6 +3,10 @@ import type { GlobalOptions, RunContext } from "@zcode/shared-types";
 import { loadBootstrapModule } from "./bootstrap-loader.js";
 import { loadCliDotenv } from "./env.js";
 import type { RunDependencies } from "./cli-types.js";
+import { registerCliShutdownHandlers } from "./shutdown.js";
+
+// 撤销请求本身有 15 秒 HTTP 期限；给补偿留出完成时间，超时仍退出不挂起终端。
+const ZEN_LOGIN_SHUTDOWN_TIMEOUT_MS = 16_000;
 
 export async function runLoginCommand(
   ctx: RunContext,
@@ -32,15 +36,37 @@ export async function runLoginCommand(
     // XCODE: Zen 授权拥有独立回环与 SID，结果不输出凭据路径或 token。
     if (providerId === "zen") {
       const login = deps.loginZenCli ?? (await loadBootstrapModule()).loginZenCli;
-      const result = await login({
+      // 修复：顶层 login 原先不处理 SIGINT，服务端已签发 SID 后 Ctrl+C 会直接终止进程，
+      // bootstrap finally 中的精确撤销没有机会执行。这里把信号转成 abort，并等待补偿完成再退出。
+      const interrupt = new AbortController();
+      let loginSettled: Promise<void> = Promise.resolve();
+      const unregisterShutdown = registerCliShutdownHandlers({
+        abort: () => interrupt.abort(new Error("ZEN_AUTH_CANCELED")),
+        cleanup: () => loginSettled,
+        cleanupTimeoutMs: deps.shutdownCleanupTimeoutMs ?? ZEN_LOGIN_SHUTDOWN_TIMEOUT_MS,
+        ...(deps.exitProcess ? { exitProcess: deps.exitProcess } : {}),
+        ...(deps.shutdownProcess ? { process: deps.shutdownProcess } : {}),
+      });
+      const loginPromise = login({
         env,
         noBrowser,
+        signal: interrupt.signal,
         onAuthorizeUrl: (url) => {
           if (options.json)
             ctx.stderr.write(`${JSON.stringify({ event: "authorize", provider: "zen", url })}\n`);
           else ctx.stdout.write(`Open on this computer to sign in to XWork Zen Plan:\n${url}\n`);
         },
       });
+      loginSettled = loginPromise.then(
+        () => undefined,
+        () => undefined,
+      );
+      let result: Awaited<typeof loginPromise>;
+      try {
+        result = await loginPromise;
+      } finally {
+        if (!interrupt.signal.aborted) unregisterShutdown();
+      }
       ctx.stdout.write(
         options.json
           ? formatJson({ status: "ready", provider: "zen", user: result.user })

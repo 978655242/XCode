@@ -307,6 +307,43 @@ describe("Zen standalone account", () => {
     await expect(account.login()).rejects.toThrow();
     expect(f.revoked()).toBe(1);
   });
+  // 回归：取消曾中断进行中的 code 兑换，服务端已签发的 SID 因拿不到 bundle 而无法撤销。
+  it("revokes the issued SID when canceled while the code exchange is in flight", async () => {
+    const f = fixture();
+    const controller = new AbortController();
+    let exchangeStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      exchangeStarted = resolve;
+    });
+    f.client.exchange = (async (
+      _code: string,
+      _verifier: string,
+      _redirect: string,
+      signal?: AbortSignal,
+    ) => {
+      exchangeStarted();
+      // 与 fetch 一致：收到 abort 时请求被中断，即使服务端已经完成签发。
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(resolve, 30);
+        signal?.addEventListener(
+          "abort",
+          () => {
+            clearTimeout(timer);
+            reject(signal.reason);
+          },
+          { once: true },
+        );
+      });
+      return f.bundle;
+    }) as never;
+    const account = new ZenAccountRuntime(f.dependencies as never);
+    const pending = account.login({ signal: controller.signal });
+    await started;
+    controller.abort(new Error("canceled"));
+    await expect(pending).rejects.toThrow();
+    expect(f.revoked()).toBe(1);
+    expect(account.getOwner()).toBeNull();
+  });
   it("aborts an outstanding callback when the account is disposed", async () => {
     const f = fixture();
     let listening!: () => void;

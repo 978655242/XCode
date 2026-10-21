@@ -124,11 +124,12 @@ export class ZenAccountRuntime implements ZenAccountContract {
       if (!options.noBrowser) await this.deps.openBrowser(authorization.authorizeUrl);
       const callback = await authorization.listener.wait(signal);
       this.current(generation);
+      // 修复：code 兑换一旦发出，服务端可能已签发 SID；若用 abort 打断请求，客户端拿不到 bundle，
+      // 就无法精确撤销而留下孤儿会话。兑换只受自身 HTTP 期限约束，取消在拿到结果后由 finally 补偿。
       issued = await this.deps.client.exchange(
         callback.code,
         authorization.verifier,
         authorization.listener.redirectUri,
-        signal,
       );
       await this.verify(issued, signal);
       signal.throwIfAborted();
