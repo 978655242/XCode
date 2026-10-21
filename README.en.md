@@ -17,6 +17,7 @@ XWork is an AI coding workspace based on upstream ZCode, with desktop, browser, 
 
 ## Updates
 
+- **2026-10-21**: Synced upstream ZCode v3.16.2 (upstream update: 2026-10-19).
 - **2026-10-19**: Synced upstream ZCode v3.16.1 (upstream update: 2026-10-16).
 - 2026-10-18: Synced upstream ZCode v3.15.1 (upstream update: 2026-10-10).
 - 2026-9-23: Synced upstream ZCode v3.14.3.

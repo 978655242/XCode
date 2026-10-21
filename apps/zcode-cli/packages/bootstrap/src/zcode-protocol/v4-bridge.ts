@@ -1,4 +1,5 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
+import { isReadonlyAgentSessionKind } from "@zcode/shared";
 import { readBackgroundBashOutputFromOwner } from "./background-work-owner.js";
 // v4 网关 binder。
 // 定位：ConversationV4Gateway 是域无关的通道运行时，本文件把它绑到协议服务器上下文：
@@ -1810,7 +1811,7 @@ export function createConversationV4Gateway(
         const taskType =
           context.sessions.get(envelope.sessionId)?.taskType ??
           (await context.deps.sessionStore?.getSession(envelope.sessionId as SessionId))?.taskType;
-        if (taskType === "subagent_child") {
+        if (isReadonlyAgentSessionKind(taskType)) {
           throw Object.assign(new Error("Subagent sessions are read-only"), {
             reasonCode: "guard.subagentReadOnly",
           });
