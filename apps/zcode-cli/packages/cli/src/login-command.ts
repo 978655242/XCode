@@ -13,8 +13,8 @@ export async function runLoginCommand(
 ): Promise<number> {
   try {
     const providerId = args[0] ?? "zai";
-    if (args.length > 1 || (providerId !== "zai" && providerId !== "bigmodel")) {
-      throw new Error("Usage: zcode login [zai|bigmodel] [--no-browser]");
+    if (args.length > 1 || !["zai", "bigmodel", "zen"].includes(providerId)) {
+      throw new Error("Usage: zcode login [zen|zai|bigmodel] [--no-browser]");
     }
     const env = deps.env ?? process.env;
     const workingDirectory = (deps.cwd ?? process.cwd)();
@@ -29,13 +29,38 @@ export async function runLoginCommand(
       });
     }
 
+    // XCODE: Zen 授权拥有独立回环与 SID，结果不输出凭据路径或 token。
+    if (providerId === "zen") {
+      const login = deps.loginZenCli ?? (await loadBootstrapModule()).loginZenCli;
+      const result = await login({
+        env,
+        noBrowser,
+        onAuthorizeUrl: (url) => {
+          if (options.json)
+            ctx.stderr.write(`${JSON.stringify({ event: "authorize", provider: "zen", url })}\n`);
+          else ctx.stdout.write(`Open on this computer to sign in to XWork Zen Plan:\n${url}\n`);
+        },
+      });
+      ctx.stdout.write(
+        options.json
+          ? formatJson({ status: "ready", provider: "zen", user: result.user })
+          : `Signed in to XWork Zen Plan as ${result.user.display_name || result.user.username}.\nSelect a Zen model with /model.\n`,
+      );
+      return 0;
+    }
     const login = deps.loginZCodeCli ?? (await loadBootstrapModule()).loginZCodeCli;
     const result = await login({
       env,
       noBrowser,
-      providerId,
+      providerId: providerId as "zai" | "bigmodel",
       onAuthorizeUrl: (data) => {
-        writeAuthorizeUrl(ctx, options, data.authorize_url, noBrowser, providerId);
+        writeAuthorizeUrl(
+          ctx,
+          options,
+          data.authorize_url,
+          noBrowser,
+          providerId as "zai" | "bigmodel",
+        );
       },
       onBrowserOpen: (browser) => {
         if (!options.json && !browser.opened) {
@@ -87,6 +112,7 @@ export async function runLogoutCommand(
   ctx: RunContext,
   options: GlobalOptions,
   deps: RunDependencies,
+  args: readonly string[] = [],
 ): Promise<number> {
   try {
     const env = deps.env ?? process.env;
@@ -102,6 +128,20 @@ export async function runLogoutCommand(
       });
     }
 
+    if (args.length > 1 || (args.length === 1 && args[0] !== "zen"))
+      throw new Error("Usage: zcode logout [zen]");
+    if (args[0] === "zen") {
+      const logout = deps.logoutZenCli ?? (await loadBootstrapModule()).logoutZenCli;
+      const result = await logout({ env });
+      ctx.stdout.write(
+        options.json
+          ? formatJson({ provider: "zen", ...result })
+          : result.serverRevoked
+            ? "Signed out of XWork Zen Plan.\n"
+            : "Local Zen credentials cleared; server revocation could not be confirmed.\n",
+      );
+      return 0;
+    }
     const logout = deps.logoutZCodeCli ?? (await loadBootstrapModule()).logoutZCodeCli;
     const result = await logout({ env });
 

@@ -1,4 +1,6 @@
 // Bootstrap public API surface.
+// XCODE: 独立 Zen 账号入口，凭据由 CLI 专属 runtime 管理。
+export { loginZenCli, logoutZenCli, createZenAccount } from "./zen/index.js";
 
 export * from "./app/create-app.js";
 export type {

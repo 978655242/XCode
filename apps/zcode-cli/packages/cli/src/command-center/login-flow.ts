@@ -10,6 +10,17 @@ export function buildLoginSelection(locale?: string): TuiSelection {
     filterable: false,
     help: copy.help,
     items: [
+      // XCODE: Zen 为独立账号入口，保留现有官方连接选项。
+      {
+        command: "/login zen",
+        id: "zen",
+        keywords: ["zen", "xwork", "plan"],
+        primary: "XWork Zen Plan",
+        secondary:
+          locale === "zh-CN"
+            ? "在本机浏览器登录套餐账号"
+            : "Sign in through a browser on this computer",
+      },
       {
         command: "/login zai-coding-plan",
         id: "zai-coding-plan",

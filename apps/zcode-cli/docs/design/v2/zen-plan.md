@@ -1,6 +1,6 @@
 # CLI XWork Zen Plan
 
-状态：设计待评审（2026-10-21）。用户已确认功能设计；本文尚未实现。
+状态：2026-10-21 规格与计划已确认，实施中；后端客户端授权与浏览器页面、CLI 认证和目录链路已实现，完整端到端验收尚未完成。
 
 ## 目的与范围
 
@@ -90,5 +90,15 @@ sequenceDiagram
 10. macOS 真实 Keychain/浏览器/TUI 验收；Windows/Linux adapter 与协议自动化验证，未实跑的平台明确标记。真实模型调用和正式服务部署需单独明确执行范围。
 
 ## 交付检查
+
+### 当前验证记录（2026-10-21）
+
+- 后端提交 `9cffe3717`：严格 CLI 回调、会话 ClientID 与刷新/退出校验；`16024d865`：浏览器授权页 CLI 回环校验。未部署正式服务。
+- 已执行 SQLite、MySQL 8.0.46、PostgreSQL 16.14 的新库/旧库/重复迁移矩阵；认证 service/controller 定向测试通过。浏览器授权组件 65 项回归、Web 类型检查与目标 lint 通过。
+- 已执行 macOS Keychain 合成记录写读删；CLI adapter 回环/加密 CAS/HTTP 6 项回归通过。Windows/Linux 安全存储未真机验证。
+- 账号生命周期回归覆盖取消、迟到结果、换代、恢复竞态、刷新与持久化失败补偿；Registry 真实集成已覆盖 owner publication 和无套餐拒绝。命令/官方登录回归已执行，最终数量以交付记录为准。
+- 尚未完成真实浏览器→隔离 New API→独立 CLI→模型调用的整链验收；不将组件测试和受控端口测试等同整链通过。日常安装入口尚未更新。
+
+实现取舍：当前 CLI 自有纯目录投影通过相同 canonical schema 和 Provider 类型运行，不导入 Services 的桌面实现。后续可将纯投影收敛到独立共享模块；当前两端分别回归，不能据此认为没有维护分叉成本。CLI 默认 Node bundle 保留外置 `@napi-rs/keyring` 原生依赖；本次未验证 SEA 分发的钥匙串资源。
 
 实现前更新 canonical spec、受影响模块 contract 与上下文；代码从 release 派生分支完成，上游文件保持最小改动并加 XCODE 原因。交互覆盖 CLI/TUI E2E，协议和存储覆盖失败路径。执行根 typecheck/lint/架构检查及受影响 CLI 包 typecheck/lint/测试，完成后重建本机 zcode 并检查新入口。不得以菜单出现代替完整登录和模型链路验收。

@@ -277,6 +277,23 @@ export function createTuiSubmitPrompt(
     listSkills: () => listSkillsForTui(deps),
     configureApiKey: (options) => configureApiKeyForTui(deps, options),
     login: (options) => loginForTui(deps, options),
+    // XCODE: TUI 与模型 Registry 共享同一 Zen runtime。
+    loginZen: async (options) => {
+      const runtime = await processRuntime.providerRegistryRuntimePromise;
+      if (!runtime?.zenAccount)
+        throw new Error("Configure NEW_API_BASE_URL to use XWork Zen Plan.");
+      const result = await runtime.zenAccount.login(options);
+      await runtime.refreshStandaloneAccount("zen-login");
+      return { ...result, modelStatus: await runtime.readZenModelStatus() };
+    },
+    logoutZen: async () => {
+      const runtime = await processRuntime.providerRegistryRuntimePromise;
+      if (!runtime?.zenAccount)
+        throw new Error("Configure NEW_API_BASE_URL to use XWork Zen Plan.");
+      const result = await runtime.zenAccount.logout();
+      await runtime.refreshStandaloneAccount("zen-logout");
+      return result;
+    },
     loginBigmodel: (options) => loginBigmodelForTui(deps, options),
     loadCustomCommand: (name) => loadCustomCommandForTui(deps, name),
     newApp,
