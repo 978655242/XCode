@@ -58,8 +58,9 @@ XWork 独有的全新功能（上游完全没有对应能力）不受第 3 节"�
 所有涉及通用功能的 PR，合并前必须完成以下检查，并在 PR 描述中写明结果：
 
 ```bash
-# 1. 本 PR 修改（而非新增）了哪些上游文件
-git diff --name-only --diff-filter=MDR origin/release...HEAD \
+# 1. 本 PR 修改、删除或改名（而非新增）了哪些上游文件
+#    --no-renames 让改名拆成"删除旧路径 + 新增新路径"，用旧路径对照上游，避免改名的上游文件被漏掉
+git diff --no-renames --name-only --diff-filter=MD origin/release...HEAD \
   | while read -r f; do git cat-file -e "origin/main:$f" 2>/dev/null && echo "$f"; done
 
 # 2. 与最新上游预演合并，列出会冲突的文件（exit 0 表示无冲突）
