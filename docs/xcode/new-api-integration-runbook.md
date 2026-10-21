@@ -32,7 +32,16 @@ NEW_API_BASE_URL=http://127.0.0.1:3001 pnpm dev:desktop:test
 
 桌面运行时隔离变量：`ZCODE_DESKTOP_USER_DATA_DIR`、`ZCODE_DESKTOP_SESSION_DATA_DIR`；业务数据根通过已有 `ZCODE_DATA_BASE_DIR` 处理，必须核实启动链实际采用的值，不能只设置变量就假设隔离成功。不要连接真实用户目录做注册、撤销或额度耗尽场景。
 
-macOS 保持系统 `HOME` 不变，应用/Host/工作区使用上述隔离变量。改成合成 HOME 会让真实 OS keychain 查找失败，不能选择“还原为默认”来掩盖测试配置错误。无安全库时 fail-closed，不注入测试 AES key 就宣称真实恢复通过。
+完整隔离检查清单（2026-10-21 实测缺口后补充）：
+
+- 必须同时设置 `ZCODE_STORAGE_DIR=<私有根>/.zcode`、`ZCODE_SESSION_DB_PATH=<私有根>/.zcode/cli/db/db.sqlite`、`ZCODE_LOG_DIR=<私有根>/.zcode/cli/log`。三者各自独立解析，都不跟随 `ZCODE_DATA_BASE_DIR`：存储根见 `apps/zcode-cli/packages/adapters/src/config/env-config.adapter.ts`（默认 `~/.zcode`）；会话库默认 `~/.zcode/cli/db/db.sqlite`（`adapters/src/storage/session-store/paths.ts`），不随存储根移动；日志目录默认 `~/.zcode/cli/log`（`adapters/src/logging/index.ts`）。2026-10-21 两次实测：只设存储根时，会话、消息与日志仍写入真实 `~/.zcode/cli`。
+- 启动后核对私有根 `cli/log/*.jsonl` 中 `bootstrap.app.startup.storage.completed` 的 `cliStorageRoot` 与 `zcode_protocol.startup.sqlite_migration.completed` 的 `dbPath` 均在私有根，并确认真实 `~/.zcode/cli/log` 当天日志与真实会话库均不含私有工作区路径。
+- 使用 `--open-workspace <私有目录>` 显式指定工作区，绕过 `os.homedir()` 下 `setting.json` 的启动恢复（见下文启动恢复边界）。
+- CLI 用户配置 `~/.zcode/cli/config.json` 无环境变量可改：`getDefaultConfigPath()`（`adapters/src/config/file-config.adapter.ts`）固定解析 `homedir()/.zcode/cli/config.json`，Desktop Agent 启动链也不传 `userConfigPath`。因此隔离运行仍会加载真实用户插件、MCP 与 hooks；插件或语言等用户级操作会通过 `atomicWriteJson` 写回该文件。验收期间不执行用户级插件/MCP/hook/语言变更；启动前备份 `config.json` 及 `plugins/{installed_plugins,known_marketplaces}.json`，结束后逐字节比对，不一致时先用备份恢复再报告。需要完全隔离用户配置时须先给 Desktop Agent 增加显式配置路径，不能靠快照代替。
+- 未打包 Electron 启动时 `registerDeepLinkProtocol` 会无条件调用 `setAsDefaultProtocolClient("zcode")`，改写系统 `zcode://` 处理程序。启动前记录 `NSWorkspace.urlForApplication(toOpen: zcode://…)` 的 app 路径；结束后先 `lsregister -u` 注销本仓库 `node_modules/electron/dist/Electron.app`，再用 `NSWorkspace.setDefaultApplication(at:toOpenURLsWithScheme:)` 设回原 app 路径，并重新查询确认路径与启动前一致（同 bundle ID 的多份 Electron 不能只靠 bundle ID 区分）。
+- 结束时对比真实 `~/.zcode` 下数据库与设置文件的 mtime/size 快照；有变化必须先定位写入者，不能直接视为无关。
+
+macOS 保持系统 `HOME` 不变，应用/Host/工作区使用上述隔离变量。改成合成 HOME 会让真实 OS keychain 查找失败，不能选择“还原为默认”来掩盖测试配置错误。无安全库时 fail-closed，不注入测试 AES key 就宣称真实恢复通过。（`ZCODE_DESKTOP_HOME_DIR` 只影响 Electron `app.getPath("home")`，不改变进程 `HOME`。）
 
 ## 授权页生产专项：2026-10-18 当前状态
 
