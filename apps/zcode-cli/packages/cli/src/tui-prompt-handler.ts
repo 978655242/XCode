@@ -277,6 +277,10 @@ export function createTuiSubmitPrompt(
     listSkills: () => listSkillsForTui(deps),
     configureApiKey: (options) => configureApiKeyForTui(deps, options),
     login: (options) => loginForTui(deps, options),
+    refreshAccountModels: async () => {
+      const runtime = await processRuntime.providerRegistryRuntimePromise;
+      if (runtime?.zenAccount) await runtime.refreshStandaloneAccount("model-list");
+    },
     // XCODE: TUI 与模型 Registry 共享同一 Zen runtime。
     loginZen: async (options) => {
       const runtime = await processRuntime.providerRegistryRuntimePromise;

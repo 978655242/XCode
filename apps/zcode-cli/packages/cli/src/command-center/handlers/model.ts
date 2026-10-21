@@ -9,6 +9,8 @@ export async function handleModelCommand(
   deps: CommandCenterDeps,
   selectedRef?: ModelSelection,
 ): Promise<TuiSubmitPromptResult> {
+  // XCODE: 用户重新打开模型列表时允许恢复短暂断网的 Zen 身份，不在目录 resolver 内递归恢复。
+  await deps.refreshAccountModels?.();
   const app = await deps.getApp();
   const current = app.getModel?.();
   const options = app.listModels ? await app.listModels() : undefined;

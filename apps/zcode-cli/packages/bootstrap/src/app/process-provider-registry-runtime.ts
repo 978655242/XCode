@@ -14,6 +14,7 @@ import {
   zcodeProviderUpdateAccountConfigParamsSchema,
 } from "@zcode/shared";
 import { dirname, join } from "node:path";
+import { createHash } from "node:crypto";
 // XCODE: 独立 CLI 的 Zen 身份由本进程拥有，仍复用唯一 AccountProviderService。
 import { createZenAccount, resolveZenAccountProviders } from "../zen/index.js";
 import {
@@ -119,32 +120,27 @@ export async function startProcessProviderRegistryRuntime(
                   },
                 );
                 const zen = zenAccount
-                  ? await (async () => {
-                      if (!zenAccount.getOwner()) await zenAccount.restore();
-                      return zenAccount;
-                    })()
-                      .then((account) =>
-                        account.withControlSession(async (token, owner) => {
-                          const { ZenClient } = await import("@zcode/adapters/auth");
-                          const client = new ZenClient(owner.origin);
-                          const [entitlements, catalog] = await Promise.all([
-                            client.entitlements(token),
-                            client.catalog(token),
-                          ]);
-                          return resolveZenAccountProviders({
-                            owner,
-                            entitlements,
-                            catalog,
-                            configRevision,
-                          });
-                        }),
-                      )
+                  ? await zenAccount
+                      .withControlSession(async (token, owner) => {
+                        const { ZenClient } = await import("@zcode/adapters/auth");
+                        const client = new ZenClient(owner.origin);
+                        const [entitlements, catalog] = await Promise.all([
+                          client.entitlements(token),
+                          client.catalog(token),
+                        ]);
+                        return resolveZenAccountProviders({
+                          owner,
+                          entitlements,
+                          catalog,
+                          configRevision,
+                        });
+                      })
                       .catch((error) => {
                         if (zenAccount.getOwner()) throw error;
                         return resolveZenAccountProviders({ owner: null });
                       })
                   : undefined;
-                return {
+                const combined = {
                   ...(zen ?? {}),
                   providers: zen
                     ? new ProviderConfigMap([
@@ -154,6 +150,15 @@ export async function startProcessProviderRegistryRuntime(
                     : snapshot.providers,
                   states: { ...snapshot.states, ...zen?.states },
                 };
+                // XCODE: 官方连接也是同一 Account 快照的一部分，不能只按 Zen revision 去重。
+                return zen
+                  ? {
+                      ...combined,
+                      revision: `account:sha256:${createHash("sha256")
+                        .update(JSON.stringify([configRevision, combined]))
+                        .digest("hex")}`,
+                    }
+                  : combined;
               },
             });
             standaloneAccount.onDidRefreshError(({ error }) => {
@@ -200,9 +205,7 @@ export async function startProcessProviderRegistryRuntime(
   const disposeZenSubscription = zenAccount?.onDidChange(() => {
     if (standaloneAccount) {
       standaloneAccount.invalidateNative(false); // XCODE: 独立官方账号不随 Zen owner 变化撤销。
-      void standaloneAccount
-        .refresh("zen-owner-changed")
-        .catch((error) => options.standalone?.onAccountInitializationError?.(error));
+      // XCODE: owner 事件仅同步撤销投影；登录命令和请求准入负责刷新，避免读取中撤销再排队读取成环。
     }
   });
   try {
@@ -294,6 +297,7 @@ export async function startProcessProviderRegistryRuntime(
         // XCODE: TUI 使用同一账号 owner，避免另起 runtime 后留下过期 Registry。
         zenAccount,
         async refreshStandaloneAccount(reason: string) {
+          if (zenAccount && !zenAccount.getOwner()) await zenAccount.restore();
           await standaloneAccount?.refresh(reason);
           await runtime.registryService.refresh(reason);
         },

@@ -101,6 +101,96 @@ describe("Zen account model authorization", () => {
         /^account:sha256:[a-f0-9]{64}$/,
       );
       expect(await runtime.readZenModelStatus()).toMatchObject({ available: false });
+      const model = {
+        model_id: "zen-model",
+        display_name: "Zen Test",
+        api_type: "openai-chat-completions",
+        enabled: true,
+        disabled_reason: null,
+        model_config: {
+          enabled: true,
+          properties: {
+            contextWindow: 8192,
+            requiresMfjsToolSchema: false,
+            inputFormat: {
+              supportsText: true,
+              supportsImage: false,
+              supportsVideo: false,
+              supportsAudio: false,
+              supportsPdf: false,
+            },
+            outputFormat: { supportsText: true },
+            supportsToolCall: false,
+            supportsJsonSchemaOutput: false,
+            supportsNativeWebSearch: false,
+            supportsMidConversationSystem: true,
+          },
+          optionSpecs: {
+            reasoningLevel: { values: ["none"], map: "{}" },
+            maxOutputTokens: { max: 1024, map: '{"max_tokens": maxOutputTokens}' },
+          },
+        },
+      };
+      globalThis.fetch = async (url) =>
+        Response.json({
+          success: true,
+          data: String(url).endsWith("/models")
+            ? {
+                schema_version: 1,
+                server_time: now,
+                catalog_revision: "two",
+                authorization_revision: "2",
+                models: [model],
+              }
+            : {
+                schema_version: 1,
+                server_time: now,
+                status: "active",
+                authorization_revision: "2",
+                subscription: {
+                  id: "1",
+                  plan_id: "1",
+                  plan_title: "Test",
+                  source: "admin",
+                  usage_scope: "xcode",
+                  start_time: now,
+                  end_time: null,
+                },
+                quota: null,
+                funding_policy: {
+                  subscription_only: true,
+                  wallet_fallback: false,
+                  other_subscription_fallback: false,
+                },
+                self_service_reset: false,
+                purchase_mode: "manual_admin",
+              },
+        });
+      await runtime.refreshStandaloneAccount("plan-available");
+      expect(await runtime.readZenModelStatus()).toMatchObject({ available: true });
+      const requestInput = {
+        accountAccess: {
+          type: "new-api-account" as const,
+          accountType: "new-api" as const,
+          mode: "private-subscription" as const,
+          entitled: true,
+          owner: account.getOwner()!,
+          authorizationRevision: "2",
+        },
+        providerId: NEW_API_MODEL_PROVIDER_IDS["openai-chat-completions"],
+        modelId: "zen-model",
+        reason: "model-request" as const,
+        sessionId: "test" as never,
+        traceContext: { traceId: "test" } as never,
+      };
+      expect(
+        await runtime.providerRuntimeHeadersPort!.refreshBeforeModelRequest(requestInput),
+      ).toMatchObject({ requestAuth: { apiKey: "sk-test" } });
+      globalThis.fetch = async () =>
+        Response.json({ success: false, code: "XCODE_SESSION_INVALID" }, { status: 401 });
+      await expect(
+        runtime.providerRuntimeHeadersPort!.refreshBeforeModelRequest(requestInput),
+      ).rejects.toThrow();
       await expect(
         runtime.providerRuntimeHeadersPort!.refreshBeforeModelRequest({
           accountAccess: {

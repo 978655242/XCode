@@ -316,6 +316,7 @@ export type CommandCenterDeps = {
     modelStatus: { available: boolean; reason: string | null };
   }>;
   logoutZen?: () => Promise<{ localCleared: boolean; serverRevoked: boolean }>;
+  refreshAccountModels?: () => Promise<void>;
   loginBigmodel?: (
     options?: CommandCenterBigmodelLoginOptions,
   ) => Promise<CommandCenterBigmodelLoginResult>;
