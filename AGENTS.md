@@ -8,7 +8,7 @@
 
 - 本仓库是 ZCode 的下游产品 XWork。分支、PR、上游同步规则见 `docs/xcode/BRANCHING.md`，开工前必读。
 - 所有分支（含上游同步 `sync/upstream-*`）从 `release` 切出，PR 目标为 `release`；同步 PR 必须用 merge commit；`main` 仅镜像上游 ZCode，禁止提交 XWork 改动。
-- 不得不修改上游文件时，按 `docs/xcode/UPSTREAM-EXTENSION.md` 第 5 节保持最小改动，并加 `// XCODE: <原因>` 注释。
+- 不得不修改上游文件时，按 `docs/xcode/UPSTREAM-EXTENSION.md` 第 5 节保持最小改动，并加 `// XCODE: <原因>` 注释；严格 JSON、生成文件等不能写注释的格式，改在 PR 描述中逐条说明。
 
 ## 核心原则
 
