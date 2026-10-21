@@ -62,7 +62,14 @@ const cases = {
     const files = await readdir(device.credentialDirectory);
     for (const file of files.filter((name) => name.endsWith(".json"))) {
       const content = await readFile(join(device.credentialDirectory, file), "utf8");
-      check(!/sk-|eyJ|refresh/i.test(content), "credential file contains no plaintext secret");
+      // 修复：原先对整份文件做 /sk-|eyJ|refresh/ 匹配，base64url 密文随机命中率约 10%，导致偶发失败并连锁拖垮后续用例。
+      // 改为校验结构：只有加密信封字段，明文 JSON 字段名不得出现，data 是不可解析为 JSON 的密文。
+      const record = JSON.parse(content);
+      check(JSON.stringify(Object.keys(record).sort()) === JSON.stringify(["data", "iv", "revision", "tag", "version"]), "credential file holds only the encrypted envelope");
+      check(!/access_token|refresh_token|relay_credential|session_id/.test(content), "credential file contains no plaintext bundle fields");
+      let decodesAsJson = true;
+      try { JSON.parse(Buffer.from(record.data, "base64url").toString("utf8")); } catch { decodesAsJson = false; }
+      check(!decodesAsJson, "credential payload is ciphertext, not encoded JSON");
       const mode = (await import("node:fs")).statSync(join(device.credentialDirectory, file)).mode & 0o777;
       check(mode === 0o600, `credential file is 0600 (got ${mode.toString(8)})`);
     }
@@ -112,7 +119,9 @@ const cases = {
       await tui.waitFor("Waiting for XWork Zen Plan authorization");
       // 屏幕折行随端口/state 长度变化；以 TUI 交给平台浏览器命令的原始 URL 为准，并核对屏幕也展示了同一 URL。
       const url = await device.waitForOpenedUrl();
-      check((await tui.authorizeUrl()) === url, "TUI shows the same authorize URL it opened");
+      const shown = await tui.authorizeUrl();
+      const firstDiff = [...url].findIndex((char, index) => shown[index] !== char);
+      check(shown === url, `TUI shows the same authorize URL it opened (opened ${url.length} chars, shown ${shown.length}, first diff at ${firstDiff})`);
       const session = await newSession(context.browser);
       const authorization = await authorizeInBrowser(session, url, { account: context.accounts.bob });
       await session.close();
@@ -260,14 +269,18 @@ const cases = {
     check(activeSessions(context.backend, "alice", "xwork-cli").length === 1, "first device SID untouched");
     const still = await prompt(device, "Reply with the acceptance marker only.");
     check(still.code === 0 && still.stdout.includes(ACCEPTANCE_MARKER), "first device still works");
-    // 同一设备换号：旧 SID 撤销/不再使用，新账号生效
+    // 同一设备换号：被替换的 alice SID 在服务端撤销，新账号生效
     await jsonLogin(context, device, context.accounts.frank);
+    check(activeSessions(context.backend, "alice", "xwork-cli").length === 0, "account switch revoked the replaced alice SID");
     const status = await prompt(device, "Reply with the acceptance marker only.");
     check(status.code === 0, "new account usable after switch");
   },
 
   // 11. 桌面会话（xcode-desktop）与 CLI 共存，各自退出互不影响。
   async "desktop-cli-coexistence"(context) {
+    // 前序用例换号时会撤销被替换的 SID；本用例自建 alice 的 CLI 会话，不依赖用例顺序。
+    const cliDevice = await createDevice(context.root, "coexistence", context.backend.origin);
+    await jsonLogin(context, cliDevice, context.accounts.alice);
     const desktop = await context.desktopLogin(context.accounts.alice);
     const cliBefore = activeSessions(context.backend, "alice", "xwork-cli").length;
     check(cliBefore >= 1, "alice has a CLI session");

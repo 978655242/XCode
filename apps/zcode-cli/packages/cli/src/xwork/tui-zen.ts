@@ -1,6 +1,6 @@
 // XCODE: TUI 与模型 Registry 共享同一 Zen runtime；业务全部在此，上游 tui-prompt-handler 只做装配。
-import type { XworkZenCommandDeps } from "./command-center/create-xwork.js";
-import type { createTuiProcessRuntimeState } from "./tui-prompt-handler-runtime.js";
+import type { XworkZenCommandDeps } from "./contract.js";
+import type { createTuiProcessRuntimeState } from "../tui-prompt-handler-runtime.js";
 
 type TuiProcessRuntimeState = ReturnType<typeof createTuiProcessRuntimeState>;
 

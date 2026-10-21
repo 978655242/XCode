@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { runXwork } from "../src/run-xwork.js";
-import { createXworkCommandCenter } from "../src/command-center/create-xwork.js";
+import { createXworkCommandCenter, runXwork } from "../src/xwork/index.js";
 import { createCommandCenter } from "../src/command-center.js";
 import type { CommandCenterDeps } from "../src/command-center/types.js";
 

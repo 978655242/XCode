@@ -1,25 +1,14 @@
 // XCODE: XWork Zen Plan 的 slash 命令组合层；上游 createCommandCenter 保持原样，其余输入原样委托。
 import type { TuiSelection, TuiSelectionItem, TuiSubmitPrompt } from "@zcode/tui";
 import { getZCodeCopy } from "@zcode/i18n";
-import { normalizeTuiPromptInput } from "./metadata.js";
-import { createCommandCenter } from "./create.js";
-import { recordSlashCommandInHistory } from "./history.js";
-import { emitLoginAuthorizeMessage } from "./login-flow.js";
-import { parseSlashCommand } from "./slash-commands.js";
-import type { CommandCenterDeps } from "./types.js";
+import { normalizeTuiPromptInput } from "../command-center/metadata.js";
+import { createCommandCenter } from "../command-center/create.js";
+import { recordSlashCommandInHistory } from "../command-center/history.js";
+import { emitLoginAuthorizeMessage } from "../command-center/login-flow.js";
+import { parseSlashCommand } from "../command-center/slash-commands.js";
+import type { CommandCenterDeps } from "../command-center/types.js";
+import type { XworkZenCommandDeps } from "./contract.js";
 
-export interface XworkZenCommandDeps {
-  loginZen(options: {
-    signal?: AbortSignal;
-    onAuthorizeUrl?: (url: string) => Promise<void>;
-  }): Promise<{
-    user: { display_name: string; username: string };
-    modelStatus: { available: boolean; reason: string | null };
-  }>;
-  logoutZen(): Promise<{ localCleared: boolean; serverRevoked: boolean }>;
-  /** 打开 /model 前恢复短暂断网的 Zen 身份；不在目录 resolver 内递归恢复。 */
-  refreshAccountModels(): Promise<void>;
-}
 
 export function buildZenLoginItem(locale?: string): TuiSelectionItem {
   const copy = getZCodeCopy(locale).tui.loginSetup;

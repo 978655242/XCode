@@ -2,14 +2,14 @@
 import { formatJson } from "@zcode/core";
 import { resolveLocale } from "@zcode/i18n";
 import type { RunContext } from "@zcode/shared-types";
-import { parseGlobalArgs } from "./arguments.js";
-import { loadBootstrapModule } from "./bootstrap-loader.js";
-import type { BootstrapModule, RunDependencies } from "./cli-types.js";
-import { resolveCliCwd } from "./cwd.js";
-import { loadCliDotenv } from "./env.js";
-import { detectCliLocale } from "./locale.js";
-import { run } from "./run.js";
-import { registerCliShutdownHandlers } from "./shutdown.js";
+import { parseGlobalArgs } from "../arguments.js";
+import { loadBootstrapModule } from "../bootstrap-loader.js";
+import type { BootstrapModule, RunDependencies } from "../cli-types.js";
+import { resolveCliCwd } from "../cwd.js";
+import { loadCliDotenv } from "../env.js";
+import { detectCliLocale } from "../locale.js";
+import { run } from "../run.js";
+import { registerCliShutdownHandlers } from "../shutdown.js";
 
 // 撤销请求本身有 15 秒 HTTP 期限；给补偿留出完成时间，超时仍退出不挂起终端。
 const ZEN_LOGIN_SHUTDOWN_TIMEOUT_MS = 16_000;

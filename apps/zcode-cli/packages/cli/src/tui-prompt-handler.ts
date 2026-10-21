@@ -8,8 +8,7 @@ import type { GlobalOptions } from "@zcode/shared-types";
 import type { DynamicWorkflowMode } from "@zcode/shared";
 import { parseSlashCommand } from "./command-center.js";
 // XCODE: XWork Zen Plan 命令经组合层接入，上游命令中心原样委托。
-import { createXworkCommandCenter } from "./command-center/create-xwork.js";
-import { createTuiZenCommandDeps } from "./tui-zen-xwork.js";
+import { createTuiZenCommandDeps, createXworkCommandCenter } from "./xwork/index.js";
 import type { CommandCenterApp } from "./command-center.js";
 import { resolveDisplayLocale } from "./locale.js";
 import { createCliHeadlessBrowserRuntime } from "./headless-browser.js";
