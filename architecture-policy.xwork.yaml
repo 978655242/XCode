@@ -1,7 +1,7 @@
 # XWork 下游模块登记。scripts/architecture/policy.mjs 的 loadPolicy 把这里的 modules
 # 追加到 architecture-policy.yaml 之后再统一校验（重复 id、未知依赖照常报错）。
 # 上游 architecture-policy.yaml 保持与 ZCode 一致，XWork 模块只登记在本文件，避免同步冲突。
-# 使用 pnpm architecture:adopt 登记的 XWork 模块，需要手动从上游 YAML 移到这里。
+# pnpm architecture:adopt 对上游 YAML 中没有的模块会登记或更新到本文件。
 modules:
   - id: cli-zen-auth
     roots:
