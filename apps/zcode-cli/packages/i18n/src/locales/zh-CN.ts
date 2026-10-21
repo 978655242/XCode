@@ -56,8 +56,8 @@ export const zhCN: ZCodeCopy = {
 
 Slash Commands:
   /help [command]       显示 slash command 帮助
-  /login                使用 Z.AI OAuth 登录
-  /logout               删除共享的 Z.AI 登录凭据
+  /login [zen]          选择登录方式；zen 登录 XWork Zen Plan
+  /logout [zen]         退出 Zen；不带 zen 时删除官方登录凭据
   /compact [instructions]  压缩当前对话
   /expert [status|resume|stop|<task>]  运行或管理 expert workflow
   /dwf [list|cancel|resume]  列出、取消或恢复 dynamic workflow run

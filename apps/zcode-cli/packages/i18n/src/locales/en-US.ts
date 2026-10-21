@@ -56,8 +56,8 @@ Options:
 
 Slash Commands:
   /help [command]       Show slash command help
-  /login                Choose Z.AI or BigModel browser login
-  /logout               Remove the shared Z.AI login credentials
+  /login [zen]          Choose a login; zen signs in to XWork Zen Plan
+  /logout [zen]         Sign out of Zen; without zen, remove official login credentials
   /compact [instructions]  Compact the current conversation
   /expert [status|resume|stop|<task>]  Run or manage the expert workflow
   /dwf [list|cancel|resume]  List, cancel, or resume dynamic workflow runs
