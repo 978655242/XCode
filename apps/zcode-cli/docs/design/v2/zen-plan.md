@@ -1,6 +1,6 @@
 # CLI XWork Zen Plan
 
-状态：2026-10-21 规格与计划已确认，实施中；后端客户端授权与浏览器页面、CLI 认证和目录链路已实现，完整端到端验收尚未完成。
+状态：2026-10-21 已实现并完成隔离浏览器授权与真实 CLI prompt 验收；本机 Node CLI 已更新，正式后端尚未部署 CLI 客户端支持。剩余平台与交互验证见下文。
 
 ## 目的与范围
 
@@ -8,7 +8,7 @@
 
 本轮仅覆盖 CLI 与浏览器运行在同一台机器的场景。桌面 Host 的 continuous、手机 replayable、远程 workspace 与桌面深链分发均不改变。`--no-browser` 打印授权 URL，仍需在同一台机器的浏览器完成授权；不能宣称支持 SSH 跨机登录。
 
-## 已确认源码事实
+## 实现前源码事实
 
 - CLI `login-command.ts` 仅接受 zai/bigmodel，TUI `command-center/login-flow.ts` 仅有官方 OAuth/API Key 选项。
 - `process-provider-registry-runtime.ts` 的 standalone account source 仍读取官方凭据；托管 Worker 已支持 New API Account overlay，不等于独立 CLI 已支持登录。
@@ -97,7 +97,10 @@ sequenceDiagram
 - 已执行 SQLite、MySQL 8.0.46、PostgreSQL 16.14 的新库/旧库/重复迁移矩阵；认证 service/controller 定向测试通过。浏览器授权组件 65 项回归、Web 类型检查与目标 lint 通过。
 - 已执行 macOS Keychain 合成记录写读删；CLI adapter 回环/加密 CAS/HTTP 6 项回归通过。Windows/Linux 安全存储未真机验证。
 - 账号生命周期回归覆盖取消、迟到结果、换代、恢复竞态、刷新与持久化失败补偿；Registry 真实集成已覆盖 owner publication 和无套餐拒绝。命令/官方登录回归已执行，最终数量以交付记录为准。
-- 尚未完成真实浏览器→隔离 New API→独立 CLI→模型调用的整链验收；不将组件测试和受控端口测试等同整链通过。日常安装入口尚未更新。
+- 隔离 Go embed 服务使用独立 SQLite、随机服务密钥与合成账号。真实 Chrome 原生密码登录、主动授权、CLI loopback、OS 保护持久化、另一进程冷恢复与真实 Me 均通过。测试 fixture 直接在私有数据库准备套餐、模型和本机上游；这不验证管理员配置 UI。
+- 实际构建的 `--prompt --json` 从该账号恢复，读取真实套餐目录，经 Go relay 调用不计费的本机合成上游，退出码 0 且返回 `ZEN_ACCEPTANCE_OK`。首轮模型声明不支持工具被正确拒绝，修正 fixture 后通过。未验证实际工具执行/取消、PTY 全交互、2FA/Passkey 或跨平台真机。
+- 实际构建的 `logout zen --json` 确认服务端撤销；只读数据库验证精确 CLI SID 已撤销，再次冷恢复为空。本机 `~/.local/bin/zcode` 已指向本功能 worktree 的验证产物，version/doctor 通过；移除 worktree 前必须重新安装。
+- CLI 包 518 项测试、Zen 命令 3 项、bootstrap 定向 41 项、adapter 6 项与共享回调 1 项通过。根 typecheck/lint、CLI 根 typecheck/lint、架构检查通过；lint 保留 317 项警告。CLI 根 typecheck 首次因 PATH 缺少 turbo 失败，加入仓库现有 node_modules/.bin 后通过。
 
 实现取舍：当前 CLI 自有纯目录投影通过相同 canonical schema 和 Provider 类型运行，不导入 Services 的桌面实现。后续可将纯投影收敛到独立共享模块；当前两端分别回归，不能据此认为没有维护分叉成本。CLI 默认 Node bundle 保留外置 `@napi-rs/keyring` 原生依赖；本次未验证 SEA 分发的钥匙串资源。
 
