@@ -19,7 +19,8 @@ async function withPolicy(extension, fn) {
   const cwd = await mkdtemp(join(tmpdir(), "xwork-policy-"));
   try {
     await writeFile(join(cwd, "architecture-policy.yaml"), UPSTREAM);
-    if (extension !== undefined) await writeFile(join(cwd, "architecture-policy.xwork.yaml"), extension);
+    if (extension !== undefined)
+      await writeFile(join(cwd, "architecture-policy.xwork.yaml"), extension);
     return await fn(cwd);
   } finally {
     await rm(cwd, { recursive: true, force: true });
@@ -59,8 +60,11 @@ test("extension modules go through the same validation as upstream modules", asy
   await withPolicy("modules:\n  - id: upstream\n    roots: [src/other]\n", (cwd) =>
     assert.rejects(loadPolicy(cwd), /模块 id 重复/),
   );
-  await withPolicy("modules:\n  - id: downstream\n    roots: [src/d]\n    requires: [missing]\n", (cwd) =>
-    assert.rejects(loadPolicy(cwd), /依赖未知模块 missing/),
+  await withPolicy(
+    "modules:\n  - id: downstream\n    roots: [src/d]\n    requires: [missing]\n",
+    (cwd) => assert.rejects(loadPolicy(cwd), /依赖未知模块 missing/),
   );
-  await withPolicy("version: 1\n", (cwd) => assert.rejects(loadPolicy(cwd), /必须包含 modules 数组/));
+  await withPolicy("version: 1\n", (cwd) =>
+    assert.rejects(loadPolicy(cwd), /必须包含 modules 数组/),
+  );
 });

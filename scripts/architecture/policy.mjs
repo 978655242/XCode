@@ -168,7 +168,8 @@ export async function loadPolicy(cwd = process.cwd()) {
     .catch((error) => (error.code === "ENOENT" ? null : Promise.reject(error)));
   if (extension !== null && Array.isArray(raw?.modules)) {
     const extra = parseYaml(extension)?.modules;
-    if (!Array.isArray(extra)) throw new Error("architecture-policy.xwork.yaml 必须包含 modules 数组");
+    if (!Array.isArray(extra))
+      throw new Error("architecture-policy.xwork.yaml 必须包含 modules 数组");
     raw.modules.push(...extra);
   }
   return validatePolicy(raw, cwd);
