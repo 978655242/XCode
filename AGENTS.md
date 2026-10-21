@@ -1,8 +1,14 @@
+## XWork 通用功能：扩展优先、不改上游（最高原则）
+
+- 迭代通用功能（上游 ZCode 已具备、XWork 也在使用的基础能力，如登录认证、Provider/模型、会话存储、CLI/TUI、配置、插件/MCP/hooks、i18n、桌面/Host、远程链路）时，必须先读 `docs/xcode/UPSTREAM-EXTENSION.md`。该文件优先级高于其他实现文档。
+- 顺序：先复用上游已有能力，再通过扩展点（新文件/模块、注册表、依赖注入、配置、插件、包装）叠加，最后才允许最小化修改上游文件。不改写上游函数实现，不改上游默认行为，共享清单只追加。
+- 涉及通用功能的 PR 必须列出被修改的上游文件并说明理由，用 `git merge-tree` 和 `upstream/main` 预演合并，结果写进 PR 描述。
+
 ## XWork 分支与上游同步（必须遵守）
 
 - 本仓库是 ZCode 的下游产品 XWork。分支、PR、上游同步规则见 `docs/xcode/BRANCHING.md`，开工前必读。
 - 所有分支（含上游同步 `sync/upstream-*`）从 `release` 切出，PR 目标为 `release`；同步 PR 必须用 merge commit；`main` 仅镜像上游 ZCode，禁止提交 XWork 改动。
-- 必须修改上游文件时保持最小改动，并加 `// XCODE: <原因>` 注释。
+- 不得不修改上游文件时，按 `docs/xcode/UPSTREAM-EXTENSION.md` 第 5 节保持最小改动，并加 `// XCODE: <原因>` 注释。
 
 ## 核心原则
 
