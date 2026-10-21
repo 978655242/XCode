@@ -13,7 +13,7 @@ fi
 # 不清理会让单测里的临时仓库 Git 命令误命中当前仓库（例如把功能分支改名为 main）。
 # shellcheck disable=SC2046
 unset $(git rev-parse --local-env-vars)
-# XCODE: 先执行分支策略检查，阻止直接推送 XCode-main / 已存在的 release 及不合规分支名。
+# XCODE: 先执行分支策略检查，阻止直接推送已存在的 release、非上游 main 及不合规分支名。
 printf '%s\n' "$pre_push_stdin" | node scripts/xcode/branch-policy.mjs push
 # 修复原因：强制 mise 会阻止已用其他方式准备好 Node/pnpm 的开发者推送；沿用当前环境。
 ZCODE_PRE_PUSH_STDIN="$pre_push_stdin" pnpm run verify:pre-push

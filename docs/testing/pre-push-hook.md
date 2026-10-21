@@ -63,7 +63,7 @@ flowchart LR
 
 任务开始记录一次 HEAD SHA；任务结束使用该起点。开始前已有未提交改动全部纳入；不保存或扣除初始 patch。官方 changed 使用 Git 的三点比较和当前未提交文件，合并带入的改动正常参与选择，不做来源过滤或额外净差异运算。
 
-Push 要求已暂存、未暂存、未跟踪改动均为空（忽略 Git 已忽略的文件）。不干净时非零退出，不自动 stash 或创建 checkout，保证执行内容就是推送版本。hook 非删除 ref 必须指向当前 HEAD；多个 ref 通过各自基线调用官方选择，再合并精确测试规格。删除 ref 无需测试。手动 push 模式没有 hook 输入时使用 upstream；没有有效 upstream 时按当前分支角色选择：`sync/upstream-*` 使用 `origin/XCode-main`，产品开发与 `sync/promote-*` 使用 `origin/release`。集成分支缺失、remote SHA 无效、目标不是 HEAD 均非零退出；不创建 `staging` 别名，也不把镜像 `main` 当产品基线。详见 [XWork 基线契约](../ci/affected-unit-test-baseline.md)。
+Push 要求已暂存、未暂存、未跟踪改动均为空（忽略 Git 已忽略的文件）。不干净时非零退出，不自动 stash 或创建 checkout，保证执行内容就是推送版本。hook 非删除 ref 必须指向当前 HEAD；多个 ref 通过各自基线调用官方选择，再合并精确测试规格。删除 ref 无需测试。手动 push 模式没有 hook 输入时使用 upstream；没有有效 upstream 时使用 `origin/release`。集成分支缺失、remote SHA 无效、目标不是 HEAD 均非零退出；不创建 `staging` 别名，也不把镜像 `main` 当产品基线。详见 [XWork 基线契约](../ci/affected-unit-test-baseline.md)。
 
 所有模式的基线优先级均为 `--base` → `ZCODE_AFFECTED_TEST_BASE` → `ZCODE_PRE_PUSH_BASE` → 场景默认基线。`ZCODE_AFFECTED_TEST_BASE=<ref> git push` 使用指定分支、tag 或 commit 的已解析 SHA 交给 Vitest changed；不把 staging 等分支名写死。即使指定基线，Push 仍须工作区干净且非删除目标是 HEAD。显式基线无效时报错，不回退到 remote SHA。
 

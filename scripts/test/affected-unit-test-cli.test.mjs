@@ -214,30 +214,6 @@ test("产品首推只比较 release 分支起点，不重选 main 之后已审�
   assert.match(missing.stderr, /origin\/release/u);
 });
 
-test("上游同步首推使用已审核 XCode-main，不把 release 差异作为本次变更", async (t) => {
-  const { write, git, base, invoke } = await fixture(t);
-  await git("update-ref", "refs/remotes/origin/release", base);
-  await write("source.mjs", "export const value = 2;");
-  await git("add", ".");
-  await git("commit", "-m", "reviewed upstream integration");
-  await git("update-ref", "refs/remotes/origin/XCode-main", "HEAD");
-  await git("checkout", "-b", "sync/upstream-20261019");
-  await write("feature.txt", "sync record");
-  await git("add", ".");
-  await git("commit", "-m", "sync record");
-  const head = await git("rev-parse", "HEAD");
-  for (const input of [
-    {
-      ZCODE_PRE_PUSH_STDIN: `refs/heads/sync/upstream-20261019 ${head} refs/heads/sync/upstream-20261019 ${zero}`,
-    },
-    {},
-  ]) {
-    const result = await invoke(["--scope", "push", "--dry-run", "--json"], input);
-    assert.equal(result.code, 0, result.stderr);
-    assert.deepEqual(paths(result), []);
-  }
-});
-
 test("无基线、无效基线、非 HEAD 推送均报错；删除 ref 不测试", async (t) => {
   const { invoke, hook, base } = await fixture(t);
   for (const [args, env] of [

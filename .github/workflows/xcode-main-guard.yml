@@ -1,10 +1,10 @@
 # 合并后巡检：同步 PR 被 squash 合并、main 偏离上游镜像。GitHub 规则集无法事前拦截这两类问题。
-# XCode-main 接 sync/ PR，release 接 XCode-main 的同步 PR，两处都必须保留 merge commit。
+# release 接 sync/upstream-* PR，必须保留 merge commit。
 name: XWork main guard
 
 on:
   push:
-    branches: [XCode-main, release]
+    branches: [release]
   schedule:
     - cron: "17 1 * * *"
   workflow_dispatch:

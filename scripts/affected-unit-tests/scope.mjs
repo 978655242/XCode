@@ -28,12 +28,9 @@ async function resolvePushBase(root, head, remote) {
   return (await git(root, ["merge-base", remote, head])).toString().trim();
 }
 
-async function firstPushBase(root, head, targetRef) {
-  // XCODE: main 仅镜像上游；首推必须按分支角色使用已审核的集成基线，不能依赖不存在的 staging。
-  const integrationRef = targetRef.startsWith("refs/heads/sync/upstream-")
-    ? "origin/XCode-main"
-    : "origin/release";
-  const integration = await commit(root, integrationRef);
+async function firstPushBase(root, head) {
+  // XCODE: main 仅镜像上游；首推统一使用产品主干 release 的共同祖先，不能依赖不存在的 staging。
+  const integration = await commit(root, "origin/release");
   return (await git(root, ["merge-base", integration, head])).toString().trim();
 }
 
@@ -69,7 +66,7 @@ export async function resolveScope(root, options = {}, env = process.env) {
         explicit
           ? await commit(root, explicit)
           : /^0+$/u.test(entry[3])
-            ? await firstPushBase(root, head, entry[2])
+            ? await firstPushBase(root, head)
             : await resolvePushBase(root, head, await commit(root, entry[3])),
       );
     }
@@ -84,13 +81,7 @@ export async function resolveScope(root, options = {}, env = process.env) {
     bases: [
       upstream.code === 0
         ? await resolvePushBase(root, head, upstream.stdout.toString().trim())
-        : await firstPushBase(
-            root,
-            head,
-            (await git(root, ["symbolic-ref", "--quiet", "HEAD"], { allowFailure: true }))
-              .toString()
-              .trim(),
-          ),
+        : await firstPushBase(root, head),
     ],
   };
 }

@@ -3,7 +3,7 @@
 // 子命令：
 //   pr            CI 校验 PR（env: BASE_REF, HEAD_REF, HEAD_SHA）
 //   push          本地 pre-push hook，stdin 为 git 传入的 ref 列表
-//   guard-merge   XCode-main 合并后巡检（env: BEFORE, AFTER）
+//   guard-merge   release 合并后巡检（env: BEFORE, AFTER）
 //   guard-mirror  定时巡检 main 是否仍是上游镜像
 // 上游地址可用 env UPSTREAM_URL 覆盖（测试用）。
 import { execFile } from "node:child_process";
@@ -13,21 +13,17 @@ import { promisify } from "node:util";
 
 const run = promisify(execFile);
 
-// 分支角色：release 是产品主干（接功能 PR、直接晋升与受控 sync/promote-* PR）；
-// XCode-main 是上游同步分支（只接 sync/upstream-* PR）；main 是上游纯镜像。
+// 分支角色：release 是产品主干（接功能 PR 与 sync/upstream-* 同步 PR）；main 是上游纯镜像。
 const TRUNK_BRANCH = "release";
-const SYNC_TARGET_BRANCH = "XCode-main";
 const MIRROR_BRANCH = "main";
 const SYNC_LOG = "docs/xcode/upstream-sync-log.md";
 const DEFAULT_UPSTREAM_URL = "https://github.com/zai-org/ZCode.git";
 const UPSTREAM_REF = `refs/remotes/upstream/${MIRROR_BRANCH}`;
 const TRUNK_REF = `refs/remotes/origin/${TRUNK_BRANCH}`;
-const SYNC_TARGET_REF = `refs/remotes/origin/${SYNC_TARGET_BRANCH}`;
 const MIRROR_REF = `refs/remotes/origin/${MIRROR_BRANCH}`;
 const ZERO_SHA = /^0+$/;
 const WORK_BRANCH = /^(feature|fix|chore|hotfix)\/[a-z0-9][a-z0-9._-]*$/;
 const SYNC_BRANCH = /^sync\/upstream-\d{8}$/;
-const PROMOTION_BRANCH = /^sync\/promote-\d{8}$/;
 
 async function git(...args) {
   const { stdout } = await run("git", args, { maxBuffer: 64 * 1024 * 1024 });
@@ -56,68 +52,11 @@ async function fetchUpstream() {
 }
 
 function branchNameError(name) {
-  if (WORK_BRANCH.test(name) || SYNC_BRANCH.test(name) || PROMOTION_BRANCH.test(name)) return null;
+  if (WORK_BRANCH.test(name) || SYNC_BRANCH.test(name)) return null;
   return (
     `分支名 "${name}" 不符合规范。允许：feature/<kebab>、fix/<kebab>、chore/<kebab>、` +
-    `hotfix/<版本>-<kebab>、sync/upstream-YYYYMMDD、sync/promote-YYYYMMDD（小写）。`
+    `hotfix/<版本>-<kebab>、sync/upstream-YYYYMMDD（小写）。`
   );
-}
-
-async function checkPromotionBranch(headSha, forkPoint) {
-  const errors = [];
-  for (const ref of [TRUNK_REF, SYNC_TARGET_REF]) {
-    if (!(await isAncestor(ref, headSha))) {
-      errors.push(`受控晋升必须包含当前 ${ref.replace("refs/remotes/", "")} 的完整历史。`);
-    }
-  }
-  const unreviewedCount = Number(
-    await git("rev-list", "--count", forkPoint, `^${TRUNK_REF}`, `^${SYNC_TARGET_REF}`),
-  );
-  if (unreviewedCount > 0) {
-    errors.push(
-      `受控晋升包含 ${unreviewedCount} 个未审核的新上游提交，必须先合入 origin/XCode-main。`,
-    );
-  }
-  if (errors.length > 0) return errors;
-
-  // 仅检查分支自己的提交；两条已审核基准中的历史不做追溯限制。
-  const commits = lines(
-    await git(
-      "log",
-      "--first-parent",
-      "--reverse",
-      "--format=%H %P",
-      headSha,
-      `^${TRUNK_REF}`,
-      `^${SYNC_TARGET_REF}`,
-    ),
-  );
-  const first = commits[0]?.split(" ") ?? [];
-  if (
-    first.length !== 3 ||
-    !(await isAncestor(first[1], TRUNK_REF)) ||
-    !(await isAncestor(first[2], SYNC_TARGET_REF)) ||
-    (await isAncestor(first[2], first[1]))
-  ) {
-    errors.push(
-      "受控晋升必须从 release ancestry 开始，以真实双亲 merge 合入已审核 XCode-main；之后才可追加线性冲突修复。",
-    );
-  }
-  for (const commit of commits) {
-    const [, ...parents] = commit.split(" ");
-    if (parents.length > 2) {
-      errors.push("受控晋升只允许双亲 merge，禁止 octopus merge。");
-    } else if (
-      parents.length === 2 &&
-      !(await isAncestor(parents[1], TRUNK_REF)) &&
-      !(await isAncestor(parents[1], SYNC_TARGET_REF))
-    ) {
-      errors.push(
-        "受控晋升禁止合入第三方分支历史；merge 侧父必须属于 origin/release 或已审核 origin/XCode-main ancestry。",
-      );
-    }
-  }
-  return errors;
 }
 
 async function checkPr() {
@@ -125,23 +64,16 @@ async function checkPr() {
   if (!base || !head || !headSha) throw new Error("缺少 BASE_REF / HEAD_REF / HEAD_SHA");
   const errors = [];
   const isSync = SYNC_BRANCH.test(head);
-  const isPromotion = head === SYNC_TARGET_BRANCH;
-  const isPromotionBranch = PROMOTION_BRANCH.test(head);
 
-  // 目标分支：sync/upstream-* → XCode-main；直接/受控晋升与工作分支 → release。
-  const expectedBase = isSync ? SYNC_TARGET_BRANCH : TRUNK_BRANCH;
-  if (base !== expectedBase) {
+  // 所有 PR（含 sync/upstream-*）都只能合入 release。
+  if (base !== TRUNK_BRANCH) {
     errors.push(
-      isSync
-        ? `同步分支只能合入 ${SYNC_TARGET_BRANCH}，当前目标是 ${base}。`
-        : `PR 目标分支必须是 ${TRUNK_BRANCH}，当前是 ${base}。${SYNC_TARGET_BRANCH} 只接 sync/upstream-* PR，${MIRROR_BRANCH} 只镜像上游 ZCode。`,
+      `PR 目标分支必须是 ${TRUNK_BRANCH}，当前是 ${base}。${MIRROR_BRANCH} 只镜像上游 ZCode。`,
     );
     return errors;
   }
-  if (!isPromotion) {
-    const nameError = branchNameError(head);
-    if (nameError) errors.push(nameError);
-  }
+  const nameError = branchNameError(head);
+  if (nameError) errors.push(nameError);
 
   const baseRef = `refs/remotes/origin/${base}`;
   const upstreamRef = await fetchUpstream();
@@ -152,6 +84,12 @@ async function checkPr() {
   const touchesSyncLog = changedFiles.includes(SYNC_LOG);
 
   if (isSync) {
+    // 同步 PR 直接进入产品主干：必须从当前 release 切出，防止误从 main 切出后覆盖 XWork 改动。
+    if (!(await isAncestor(TRUNK_REF, headSha))) {
+      errors.push(
+        `同步分支必须包含当前 origin/${TRUNK_BRANCH}：从 ${TRUNK_BRANCH} 切出并合入最新 ${TRUNK_BRANCH} 后再合并 ${MIRROR_BRANCH}。`,
+      );
+    }
     if (upstreamCount === 0) {
       errors.push(
         "同步分支没有引入新的上游提交。先把 main 快进到 upstream/main，再 `git merge --no-ff main`。",
@@ -162,19 +100,10 @@ async function checkPr() {
       );
     }
     if (!touchesSyncLog) errors.push(`同步 PR 必须更新 ${SYNC_LOG}（分类、冲突取舍、拒绝原因）。`);
-  } else if (isPromotion) {
-    // 上游改动经 XCode-main 评审后才进入 release；这里只防止 head 不是已推送的 XCode-main。
-    if (!(await isAncestor(headSha, SYNC_TARGET_REF))) {
-      errors.push(
-        `${SYNC_TARGET_BRANCH} → ${TRUNK_BRANCH} 的 PR 只能包含已合入 origin/${SYNC_TARGET_BRANCH} 的提交。`,
-      );
-    }
-  } else if (isPromotionBranch) {
-    errors.push(...(await checkPromotionBranch(headSha, forkPoint)));
   } else {
     if (upstreamCount > 0) {
       errors.push(
-        `分支包含 ${upstreamCount} 个尚未进入 ${TRUNK_BRANCH} 的上游提交。上游改动只能经 sync/upstream-YYYYMMDD → ${SYNC_TARGET_BRANCH} → ${TRUNK_BRANCH} 合入。`,
+        `分支包含 ${upstreamCount} 个尚未进入 ${TRUNK_BRANCH} 的上游提交。上游改动只能经 sync/upstream-YYYYMMDD → ${TRUNK_BRANCH} 合入。`,
       );
     }
     if (touchesSyncLog) errors.push(`${SYNC_LOG} 只能在上游同步 PR 中修改。`);
@@ -197,12 +126,12 @@ async function checkPush() {
     const branch = remoteRef.slice("refs/heads/".length);
     const isDelete = ZERO_SHA.test(localSha);
 
-    if (branch === SYNC_TARGET_BRANCH) {
-      errors.push(`禁止直接推送 ${SYNC_TARGET_BRANCH}，请从 sync/upstream-* 分支提 PR。`);
-    } else if (branch === TRUNK_BRANCH) {
+    if (branch === TRUNK_BRANCH) {
       // 只放行远端尚不存在时的首次创建；之后一律走 PR。
       if (isDelete || !ZERO_SHA.test(remoteSha ?? "")) {
-        errors.push(`禁止直接推送或删除 ${TRUNK_BRANCH}，请从 feature/fix 分支提 PR。`);
+        errors.push(
+          `禁止直接推送或删除 ${TRUNK_BRANCH}，请从工作分支或 sync/upstream-* 分支提 PR。`,
+        );
       }
     } else if (branch === MIRROR_BRANCH) {
       if (isDelete) {
@@ -256,16 +185,14 @@ async function guardMirror() {
   }
   const mirrorLag = Number(await git("rev-list", "--count", `${MIRROR_REF}..${upstreamRef}`));
   const pending = lines(
-    await git("log", "--oneline", "--no-merges", `${SYNC_TARGET_REF}..${upstreamRef}`),
+    await git("log", "--oneline", "--no-merges", `${TRUNK_REF}..${upstreamRef}`),
   );
-  const promotionLag = Number(await git("rev-list", "--count", `${TRUNK_REF}..${SYNC_TARGET_REF}`));
   await writeSummary(
     [
       "## 上游同步状态",
       `- ${MIRROR_BRANCH} 落后 upstream/main：${mirrorLag} 个提交`,
-      `- 尚未进入 ${SYNC_TARGET_BRANCH} 的上游提交：${pending.length} 个`,
+      `- 尚未进入 ${TRUNK_BRANCH} 的上游提交：${pending.length} 个`,
       ...pending.map((item) => `  - ${item}`),
-      `- ${SYNC_TARGET_BRANCH} 尚未合入 ${TRUNK_BRANCH} 的提交：${promotionLag} 个`,
     ].join("\n"),
   );
   return errors;

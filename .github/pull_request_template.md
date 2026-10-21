@@ -5,12 +5,11 @@
 ## PR 类型
 
 - [ ] 功能 / 修复（`feature/`、`fix/`、`hotfix/` → `release`，Squash merge）
-- [ ] 上游同步（`sync/upstream-*` → `XCode-main`，必须 Create a merge commit，不得夹带功能）
-- [ ] 同步晋升（`XCode-main` 或受控 `sync/promote-*` → `release`，必须 Create a merge commit）
+- [ ] 上游同步（`sync/upstream-*` → `release`，必须 Create a merge commit，不得夹带功能）
 
 ## 检查项
 
-- [ ] 目标分支正确：功能/修复 → `release`；`sync/upstream-*` → `XCode-main`；`XCode-main` / `sync/promote-*` → `release`；从不指向 `main`
+- [ ] 目标分支正确：所有 PR → `release`；从不指向 `main`
 - [ ] `pnpm typecheck` 通过
 - [ ] `pnpm lint` 通过
 - [ ] `pnpm verify:pre-push` 通过
