@@ -105,8 +105,14 @@ export async function adoptModule({
     if (!stat?.isDirectory()) throw new Error(`root 不是目录: ${root}`);
   }
 
-  const policyPath = path.join(cwd, "architecture-policy.yaml");
-  const doc = parseDocument(await fs.readFile(policyPath, "utf8"));
+  // XCODE: 存在 architecture-policy.xwork.yaml 时，上游 YAML 没有的模块登记到扩展文件，避免重复登记并保持上游 YAML 原样。
+  const upstreamPath = path.join(cwd, "architecture-policy.yaml");
+  const extensionPath = path.join(cwd, "architecture-policy.xwork.yaml");
+  const upstreamDoc = parseDocument(await fs.readFile(upstreamPath, "utf8"));
+  const inUpstream = upstreamDoc.get("modules")?.items?.some((item) => item.get?.("id") === id);
+  const useExtension = !inUpstream && (await fs.stat(extensionPath).catch(() => null)) !== null;
+  const policyPath = useExtension ? extensionPath : upstreamPath;
+  const doc = useExtension ? parseDocument(await fs.readFile(extensionPath, "utf8")) : upstreamDoc;
   const modules = doc.get("modules");
   if (!modules || typeof modules.items === "undefined")
     throw new Error("architecture-policy.yaml 缺少 modules 序列");

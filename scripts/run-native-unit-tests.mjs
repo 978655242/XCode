@@ -31,6 +31,7 @@ try {
       "packages/desktop/test/newApiOAuthRoutes.test.ts",
       "packages/desktop/test/desktopLocalDevelopmentBundle.test.ts",
       "scripts/test/unit-test-isolation.test.mjs",
+      "scripts/test/architecture-policy-xwork.test.mjs",
     ],
     {
       cwd,

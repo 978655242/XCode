@@ -1,3 +1,5 @@
+// XCODE: XWork 资源收集器放在文件首行，避开上游在 import 列表中部追加。
+import { collectSeaKeyringAssets } from "./sea-keyring-assets.mjs";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { chmod, copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -26,7 +28,6 @@ import { collectSeaBundledSkillAssets } from "./sea-bundled-skill-assets.mjs";
 import { collectSeaRuntimeToolAssets } from "./sea-runtime-tool-assets.mjs";
 import { prepareSeaRuntimeToolAssets } from "./sea-runtime-tool-prepare.mjs";
 import { collectSeaPlaywrightAssets } from "./sea-playwright-assets.mjs";
-import { collectSeaKeyringAssets } from "./sea-keyring-assets.mjs";
 import { collectSeaProviderConfigAssets } from "./sea-provider-config-assets.mjs";
 
 export {
@@ -173,25 +174,26 @@ const prepareSeaBlob = async (target) => {
       target,
     });
   const providerConfigAssets = await collectSeaProviderConfigAssets({ root: repositoryRoot });
-  // XCODE: Zen 安全存储的原生钥匙串绑定随包分发。
-  const { assets: keyringAssets } = await collectSeaKeyringAssets({
-    root,
-    stagingDirectory: seaAssetStagingForTarget(`${target}-keyring`),
-    target,
-  });
 
   await writeFile(
     seaConfig,
     JSON.stringify(
       {
         assets: {
+          // XCODE: Zen 原生钥匙串绑定随包分发；放首项，避开上游在末尾追加资源。
+          ...(
+            await collectSeaKeyringAssets({
+              root,
+              stagingDirectory: seaAssetStagingForTarget(`${target}-keyring`),
+              target,
+            })
+          ).assets,
           ...tuiAssets,
           ...pluginAssets,
           ...bundledSkillAssets,
           ...runtimeToolAssets,
           ...playwrightAssets,
           ...providerConfigAssets,
-          ...keyringAssets,
         },
         disableExperimentalSEAWarning: true,
         main: "dist/zcode.cjs",
