@@ -30,6 +30,7 @@ try {
       "packages/services/test/officialInvocationDispatch.test.ts",
       "packages/desktop/test/newApiOAuthRoutes.test.ts",
       "packages/desktop/test/desktopLocalDevelopmentBundle.test.ts",
+      "packages/desktop/scripts/devElectronAppArgs.test.mjs",
       "scripts/test/unit-test-isolation.test.mjs",
       "scripts/test/architecture-policy-xwork.test.mjs",
     ],

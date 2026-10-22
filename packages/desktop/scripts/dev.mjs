@@ -6,6 +6,8 @@ import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { prepareDevElectronAppBundle } from "./devElectronAppBundle.mjs";
+// XCODE: 隔离验收需要向开发版 Electron 转发 --open-workspace。
+import { resolveDevElectronAppArgs } from "./devElectronAppArgs.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const mainBundle = resolve(root, "out/main/index.js");
@@ -132,7 +134,8 @@ if (process.platform === "darwin" && existsSync(electronBinary)) {
   console.log(`[dev] Prepared macOS XWork Dev bundle: ${devBundle.appPath}`);
 }
 
-const electron = spawn(electronCommand, ["."], {
+// XCODE: 追加经白名单校验的 ZCODE_DESKTOP_DEV_APP_ARGS（如 --open-workspace）。
+const electron = spawn(electronCommand, [".", ...resolveDevElectronAppArgs(process.env)], {
   cwd: root,
   stdio: "inherit",
   env: { ...process.env, ELECTRON_RENDERER_URL: rendererUrl },
