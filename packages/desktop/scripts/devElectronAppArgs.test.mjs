@@ -21,6 +21,16 @@ test("rejects malformed values and arbitrary Chromium or Node switches", () => {
     "[1]",
     '["--inspect"]',
     '["--remote-debugging-port=1"]',
+    // 未配对的值会被 Main 当作深链或其他 argv 处理，必须整体拒绝。
+    '["zcode://workspace/open?path=/real"]',
+    '["/tmp/stray"]',
+    '["--open-workspace"]',
+    '["--open-workspace="]',
+    '["--open-workspace","--inspect"]',
+    '["--open-workspace=/tmp/w","extra"]',
+    // 路径值本身含深链（含编码形式）同样会被 Main 的深链提取命中。
+    '["--open-workspace=zcode://workspace/open?path=/real"]',
+    '["--open-workspace","%7Acode%3A//workspace/open"]',
   ]) {
     assert.throws(() => resolveDevElectronAppArgs({ [DEV_ELECTRON_APP_ARGS_ENV]: raw }), raw);
   }
