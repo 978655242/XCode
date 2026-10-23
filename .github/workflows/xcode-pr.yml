@@ -51,7 +51,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm architecture:check
       # XWork 原生单测（node --test）；部分用例导入 zcode-cli 工作区包的 dist，需先构建。
-      - run: pnpm --dir apps/zcode-cli build
+      # zcode-cli 自己不装 turbo；与 build:sea 相同，用根依赖的 turbo 在其目录下构建。
+      - run: pnpm exec turbo --skip-infer --cwd apps/zcode-cli run build
       - run: pnpm test:unit:node
       # 只检查本 PR 改动；同步 PR 的改动来自上游，跳过。基线就未格式化的上游存量文件也跳过，
       # 避免为追加几行而整份重排上游文件（违反最小改动并制造同步冲突）。
