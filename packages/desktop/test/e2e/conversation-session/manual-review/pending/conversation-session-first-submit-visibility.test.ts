@@ -47,6 +47,7 @@ describe("草稿首发列表与详情同步", () => {
             row: boolean;
             selected: boolean;
             newRows: number;
+            rowIds: string[];
           }>,
         };
         (window as typeof window & { __firstSubmitEvidence?: typeof state }).__firstSubmitEvidence =
@@ -59,6 +60,9 @@ describe("草稿首发列表与详情同步", () => {
           state.frames.push({
             sessionId,
             row: Boolean(row && row.getBoundingClientRect().height > 0),
+            rowIds: [...document.querySelectorAll('[data-testid^="task-item-"]')].map((item) =>
+              item.getAttribute("data-testid")!.slice("task-item-".length),
+            ),
             newRows: [...document.querySelectorAll('[data-testid^="task-item-"]')].filter(
               (item) => !before.has(item.getAttribute("data-testid")),
             ).length,
@@ -91,6 +95,7 @@ describe("草稿首发列表与详情同步", () => {
                   row: boolean;
                   selected: boolean;
                   newRows: number;
+                  rowIds: string[];
                 }>;
               };
             }
@@ -104,10 +109,11 @@ describe("草稿首发列表与详情同步", () => {
         (frame) => frame.sessionId !== "draft" && frame.sessionId,
       );
       expect(firstDetail).toMatchObject({ row: true, selected: true });
+      expect(firstDetail!.rowIds).toContain(firstDetail!.sessionId);
       expect(
         evidence.frames
           .filter((frame) => frame.sessionId === "draft")
-          .every((frame) => frame.newRows === 0),
+          .every((frame) => !frame.rowIds.includes(firstDetail!.sessionId)),
       ).toBe(true);
       const db = new DatabaseSync(
         join(process.env.ZCODE_E2E_HOME_DIR!, ".zcode/v2/tasks-index.sqlite"),

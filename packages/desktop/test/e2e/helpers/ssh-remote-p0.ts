@@ -448,7 +448,10 @@ export async function waitForSSHError(
     async () => {
       errorText = await browser.execute((errorTestId) => {
         const error = document.querySelector<HTMLElement>(`[data-testid="${errorTestId}"]`);
-        return error?.getClientRects().length ? error.innerText.trim() : "";
+        // XCODE: 更新中复用 ssh-error 容器；旋转图标来自真实 upgradeLoading，不能提前报错。
+        return error?.getClientRects().length && !error.querySelector("svg.animate-spin")
+          ? error.innerText.trim()
+          : "";
       }, TID_SSH_ERROR);
       return Boolean(errorText);
     },
@@ -532,6 +535,14 @@ export async function waitForSSHDirectoryStep(
           }
           const error = document.querySelector<HTMLElement>(`[data-testid="${errorTestId}"]`);
           if (error?.getClientRects().length) {
+            // XCODE: 中性更新面板仍在连接状态，不能穿过它把后方项目表单误判为已就绪。
+            if (error.querySelector("svg.animate-spin")) {
+              return {
+                errorText: error.innerText.trim(),
+                status: "connecting" as const,
+                buttonsSummary: summarizeButtons(),
+              };
+            }
             return {
               errorText: error.innerText.trim(),
               status: "error" as const,
@@ -645,7 +656,7 @@ export async function selectSSHRemoteDirectory(
   workspacePath: string,
   caseMarker: string,
   options: { waitForDialogClose?: boolean } = {},
-): Promise<void> {
+): Promise<{ projectId: string; workspaceIdentity: string }> {
   const before = new Set(
     await browser.execute(() =>
       [...document.querySelectorAll("[data-project-id]")].map((row) =>
@@ -719,16 +730,22 @@ export async function selectSSHRemoteDirectory(
     },
     { timeout: 30_000, timeoutMsg: `${caseMarker}: 保存远程项目后没有登记入口` },
   );
+  // XCODE: 调用方按新项目身份检查归属，不能把空 ID 当作有效项目入口。
+  if (!projectId) throw new Error(`${caseMarker}: 新远程项目缺少 projectId`);
   if (await $(`[data-testid="${TID_SETTINGS_BACK_BUTTON}"]`).isDisplayed()) {
     await clickTestIdByDom(TID_SETTINGS_BACK_BUTTON);
   }
   const project = $(`[data-project-id=${JSON.stringify(projectId)}]`);
   const projectIdentity = await project.getAttribute("data-project-workspace-identity");
-  if (!projectIdentity) throw new Error(`${caseMarker}: 新远程项目缺少 workspace identity`);
+  if (!projectIdentity?.trim()) {
+    throw new Error(`${caseMarker}: 新远程项目缺少 workspace identity`);
+  }
   await project.moveTo();
   await project.$('[data-testid="virtual-project-create-task"]').click();
   // 目录存在但历史冲突的负例需要直接观察失败页，不能先等待一个按合同不会发生的工作区就绪。
-  if (options.waitForDialogClose === false) return;
+  if (options.waitForDialogClose === false) {
+    return { projectId, workspaceIdentity: projectIdentity };
+  }
   // 同路径的旧 Source 已 active 时，仅等 path 会提前返回旧 tab；新项目的 identity 才能区分目标。
   await waitForRemoteTab({
     caseMarker,
@@ -736,6 +753,7 @@ export async function selectSSHRemoteDirectory(
     expectedPath: workspacePath,
   });
   await waitForWorkspaceApp(workspacePath, SSH_WORKSPACE_READY_TIMEOUT_MS);
+  return { projectId, workspaceIdentity: projectIdentity };
 }
 
 export async function waitForRemoteTab(options: {

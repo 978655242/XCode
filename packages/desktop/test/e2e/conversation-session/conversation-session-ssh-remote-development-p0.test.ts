@@ -208,8 +208,9 @@ async function assertRemoteGitStatus(): Promise<void> {
   let reviewItemClicked = false;
   await browser.waitUntil(
     async () => {
-      for (const item of await $$('[role="menuitem"]')) {
-        if ((await item.isDisplayed()) && /审查|Review/i.test(await item.getText())) {
+      // XCODE: Git Review 入口已改为侧栏启动器按钮，继续只点击可见的真实入口。
+      for (const item of await $$('button[data-side-pane-open-tab-item="review"]')) {
+        if (await item.isDisplayed()) {
           await item.click();
           reviewItemClicked = true;
           return true;

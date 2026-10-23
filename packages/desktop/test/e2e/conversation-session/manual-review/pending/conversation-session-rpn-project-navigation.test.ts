@@ -37,6 +37,9 @@ async function dialogButton(
   partial = false,
 ): Promise<WebdriverIO.Element> {
   const dialog = $(`[data-testid="${TID_SSH_DIALOG}"]`);
+  // XCODE: 原始录像显示设备详情盖住 SSH 返回按钮；移出项目悬停区域，等真实浮层关闭后再点。
+  await dialog.$('[data-slot="dialog-header"]').moveTo();
+  await $('[data-testid="remote-identity-details"]').waitForDisplayed({ reverse: true });
   let matched: WebdriverIO.Element | undefined;
   // 高级区展开时按钮先挂载、文字仍被动画裁切；等待实际可见文案，不能把这一帧当成缺少选项。
   await browser.waitUntil(

@@ -1,6 +1,7 @@
 import { readFile, rm } from "node:fs/promises";
-import { clearAppData, seedSettings } from "../../../helpers/desktop-app.js";
+import { clearAppData } from "../../../helpers/desktop-app.js";
 import {
+  enableChangesGrouping,
   toggleLatestConversationToolGroup,
   waitForConversationToolGroup,
 } from "../../../helpers/conversation-session-tool-groups.js";
@@ -26,8 +27,8 @@ const WRITE_PATH = resolveE2EToolPath(CASE_NAME, "App.tsx");
 describe("TGE07 Changes unresolved path and single-file summary", () => {
   before(async function () {
     this.timeout(150000);
-    await seedSettings({ toolGroupingChangesEnabled: true });
     await prepareV4ConversationE2E();
+    await enableChangesGrouping();
     await switchV4Mode("yolo");
   });
 

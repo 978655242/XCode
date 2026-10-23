@@ -113,18 +113,26 @@ describe("Todo99 Worker 有效选择真实执行", () => {
       };
       const created = await host.task.createTask({
         workspacePath: host.workspacePath,
+        projectId: host.projectId,
+        additionalDirectories: host.additionalDirectories,
         modelSelection: original,
         deferPersistenceUntilFirstPrompt: true,
       });
-      const target = { workspacePath: host.workspacePath, sessionId: created.taskId };
+      const target = {
+        workspacePath: created.workspacePath,
+        workspaceIdentity: created.workspaceIdentity,
+        sessionId: created.taskId,
+      };
       const harness = createBotsServiceHarness({
         config: createFeishuConfig(),
+        projectService: host.projectService,
         state: {
           version: 3,
           bots: {
             "feishu-e2e": {
               botId: "feishu-e2e",
-              workspacePath: host.workspacePath,
+              workspacePath: created.workspacePath,
+              workspaceIdentity: created.workspaceIdentity,
               mode: "task",
               activeTaskId: created.taskId,
               updatedAt: 1,
@@ -196,8 +204,15 @@ describe("Todo99 Worker 有效选择真实执行", () => {
           options: { reasoningLevel: "low" },
         });
         // 真正退出 Worker 再恢复，不能只靠同进程内存读证明立即持久化。
-        await host.agent.disposeWorkspace({ workspacePath: host.workspacePath });
-        await host.task.resumeTask({ taskId: created.taskId, workspacePath: host.workspacePath });
+        await host.agent.disposeWorkspace({
+          workspacePath: created.workspacePath,
+          workspaceIdentity: created.workspaceIdentity,
+        });
+        await host.task.resumeTask({
+          taskId: created.taskId,
+          workspacePath: created.workspacePath,
+          workspaceIdentity: created.workspaceIdentity,
+        });
         expect(await host.task.getTaskModelSelection({ taskId: created.taskId })).toEqual({
           ...effective,
           options: { reasoningLevel: "low" },
@@ -250,7 +265,7 @@ describe("Todo99 Worker 有效选择真实执行", () => {
             ?.reasoningLevel,
         ).toBe("low");
       } finally {
-        harness.service.disposeAll();
+        await harness.service.disposeAllAndWait();
       }
     } finally {
       await host.dispose();
@@ -273,10 +288,16 @@ describe("Todo99 Worker 有效选择真实执行", () => {
       };
       const created = await host.task.createTask({
         workspacePath: host.workspacePath,
+        projectId: host.projectId,
+        additionalDirectories: host.additionalDirectories,
         modelSelection: original,
         deferPersistenceUntilFirstPrompt: true,
       });
-      const target = { workspacePath: host.workspacePath, sessionId: created.taskId };
+      const target = {
+        workspacePath: created.workspacePath,
+        workspaceIdentity: created.workspaceIdentity,
+        sessionId: created.taskId,
+      };
       await host.task.sendPrompt({
         taskId: created.taskId,
         content: "E2E_W99_LAG_INITIAL",

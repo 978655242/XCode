@@ -60,7 +60,8 @@ describe("模型可用性 Agent fallback E2E", () => {
     await seedPersistedModelSelection({
       modelId: UPSTREAM_MODEL,
       providerId: UPSTREAM_PROVIDER_ID,
-      reasoningLevel: "max",
+      // XCODE: 字符串模型种子只声明 disabled，保存同档位才能先进入真实 fallback 场景。
+      reasoningLevel: "disabled",
     });
     await restartIntoWorkspace();
     await waitForSelectedModel(UPSTREAM_PROVIDER_ID, UPSTREAM_MODEL);
@@ -103,7 +104,8 @@ describe("模型可用性 Agent fallback E2E", () => {
     await seedPersistedModelSelection({
       modelId: UPSTREAM_MODEL,
       providerId: UPSTREAM_PROVIDER_ID,
-      reasoningLevel: "max",
+      // XCODE: 预热源模型沿用种子已有的 disabled 能力，不引入额外模型档位。
+      reasoningLevel: "disabled",
     });
     await restartIntoWorkspace();
     await waitForSelectedModel(UPSTREAM_PROVIDER_ID, UPSTREAM_MODEL);
@@ -141,17 +143,19 @@ async function disableProvider(providerId: string) {
     timeout: 30000,
     timeoutMsg: `模型供应商导航没有出现 ${providerId}`,
   });
+  // XCODE: 当前设置页用受控 Switch 保存启停，文字按钮已不存在。
+  const enabledSwitch = $(sel("model-provider-enabled-switch"));
+  await enabledSwitch.waitForClickable({
+    timeout: 15000,
+    timeoutMsg: `模型供应商没有可点击的启停开关 ${providerId}`,
+  });
+  expect(await enabledSwitch.getAttribute("aria-checked")).toBe("true");
+  await enabledSwitch.click();
   await browser.waitUntil(
     async () =>
-      browser.execute(() => {
-        const button = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
-          (candidate) => ["Disable", "停用"].includes(candidate.innerText.trim()),
-        );
-        if (!button || button.disabled) return false;
-        button.click();
-        return true;
-      }),
-    { timeout: 15000, timeoutMsg: `模型供应商没有可点击的停用按钮 ${providerId}` },
+      (await enabledSwitch.getAttribute("aria-checked")) === "false" &&
+      (await enabledSwitch.isEnabled()),
+    { timeout: 15000, timeoutMsg: `模型供应商没有保存停用状态 ${providerId}` },
   );
   await clickTestIdByDom(TID_SETTINGS_BACK_BUTTON, { timeout: 15000 });
   await waitForWorkspaceApp(DEFAULT_WORKSPACE, 30000);

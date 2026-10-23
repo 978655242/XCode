@@ -59,7 +59,7 @@ describe("会话区 Stop 与 Held Queue E2E", () => {
     await waitForChatState(
       (snapshot) =>
         snapshot.state !== "streaming" &&
-        snapshot.runtimeStatus === "completed" &&
+        snapshot.sessionEnded === true &&
         snapshot.activeInputId === null &&
         snapshot.queueCount === 3,
       // 修复原因：stop ACK 早于 task terminal 投影时，后续队列断言会撞上

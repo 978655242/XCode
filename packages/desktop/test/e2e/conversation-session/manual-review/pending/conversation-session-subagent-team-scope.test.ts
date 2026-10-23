@@ -1,4 +1,8 @@
-import { readFile } from "node:fs/promises";
+import {
+  getLatestUpstreamToolResultByToolCallId,
+  getUpstreamRequestEvidence,
+  getUpstreamRequestRecordCount,
+} from "../../../helpers/conversation-session-network.js";
 import { clearAppData } from "../../../helpers/desktop-app.js";
 import {
   getV4PaneSnapshot,
@@ -39,6 +43,7 @@ describe("Subagent Team scope 缺失 E2E", () => {
     await restartIntoWorkspace();
     await prepareV4ConversationE2E({ skipProvider: true });
 
+    const captureWindow = { afterIndex: (await getUpstreamRequestRecordCount()) - 1 };
     const marker = `${PARENT_MARKER}_${Date.now()}`;
     await sendV4PromptAndWaitAccepted(
       `${marker}: invoke the Agent tool with subagent_type "${AGENT_TYPE}" for ${CHILD_MARKER}, then reply exactly ${PARENT_DONE}.`,
@@ -53,14 +58,28 @@ describe("Subagent Team scope 缺失 E2E", () => {
       90000,
     );
 
-    const capturePath = process.env.E2E_PROVIDER_CAPTURE_PATH?.trim();
-    const artifact = capturePath
-      ? (JSON.parse(await readFile(capturePath, "utf8")) as {
-          records?: Array<{ requestJson?: unknown }>;
-        })
-      : { records: [] };
-    const captureText = JSON.stringify(artifact.records ?? []);
-    expect(captureText).not.toContain(CHILD_MARKER);
+    // XCODE: 父 prompt 本身要求 CHILD 标记；整份 capture 搜串会把父请求误判为降级。
+    // 先证明真实父 Agent 与 continuation，再单独检查 child 初始请求。
+    const parentRequests = await getUpstreamRequestEvidence({ includes: [marker] }, captureWindow);
+    expect(parentRequests.map((request) => request.fixtureId)).toEqual([
+      "subagent-team-scope-parent-agent",
+      "subagent-team-scope-parent-final",
+    ]);
+    const childRequests = await getUpstreamRequestEvidence(
+      {
+        lastUserMessageIncludes: [CHILD_MARKER],
+        lastUserMessageExcludes: [PARENT_MARKER],
+        excludes: ["toolu_e2e_subagent_team_scope", "CRITICAL: Respond with TEXT ONLY"],
+      },
+      captureWindow,
+    );
+    expect(childRequests).toHaveLength(0);
+    const result = await getLatestUpstreamToolResultByToolCallId("toolu_e2e_subagent_team_scope");
+    expect(result?.isError).toBe(true);
+    // 权限证据必须来自实际失败结果，不能由 user prompt 或 fixture 的 scope 命名自证。
+    expect(result?.content.replaceAll(TEAM_PROVIDER_ID, "").replaceAll(TEAM_MODEL_ID, "")).toMatch(
+      /Team|组织|项目|scope|permission|权限/u,
+    );
     expect((await getV4PaneSnapshot()).timelineText).toMatch(
       /Team|组织|项目|scope|permission|权限/u,
     );

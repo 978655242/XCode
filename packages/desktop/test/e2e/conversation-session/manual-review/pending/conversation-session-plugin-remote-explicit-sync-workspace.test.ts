@@ -73,12 +73,20 @@ describe("WPL-011 remote Workspace Plugin explicit sync E2E", () => {
   let workspacePath = "";
 
   after(async () => {
-    await provider?.tunnel.close().catch(() => undefined);
-    if (target && workspacePath) {
-      await cleanupRemoteWorkspace(target, workspacePath).catch(() => undefined);
-    }
+    // XCODE: 清理异常必须保留为 hook 失败，不能把路径保护拒绝或远端失败静默吞掉。
+    const cleanupResults = await Promise.allSettled([
+      provider?.tunnel.close(),
+      target && workspacePath ? cleanupRemoteWorkspace(target, workspacePath) : undefined,
+    ]);
     await browser.electron.restoreAllMocks();
     await clearAppData();
+    const failures = cleanupResults.filter((result) => result.status === "rejected");
+    if (failures.length > 0) {
+      throw new AggregateError(
+        failures.map((result) => result.reason),
+        `${CASE_MARKER}: cleanup failed`,
+      );
+    }
   });
 
   it("does not copy a local package on connect, then materializes it only through Sync Plugin", async function () {
@@ -246,6 +254,7 @@ describe("WPL-011 remote Workspace Plugin explicit sync E2E", () => {
 // 本 case 会 rm -rf 远端 workspace，所以只允许重置一个约定路径，不接受任意路径。默认值
 // /root/workspace 是历史上唯一跑过的 root 目标；Linux e2e 服务器用 dev 用户，通过
 // ZCODE_E2E_WPL011_WORKSPACE 指定该机的专用目录（不能指向共享 workspace 根）。
+// XCODE: seed 同时重置 $HOME/.zcode，专属目录之外还必须由 launcher 提供独占可丢弃 HOME。
 const ALLOWED_REMOTE_WORKSPACE =
   process.env.ZCODE_E2E_WPL011_WORKSPACE?.trim() || "/root/workspace";
 
@@ -285,7 +294,9 @@ async function cleanupRemoteWorkspace(
   if (workspacePath !== ALLOWED_REMOTE_WORKSPACE) {
     throw new Error(`${CASE_MARKER}: refusing to clean unexpected remote path ${workspacePath}`);
   }
-  await runSSHCommand(target, `rm -rf -- ${quoteShell(workspacePath)}`);
+  const result = await runSSHCommand(target, `rm -rf -- ${quoteShell(workspacePath)}`);
+  expect(result.code).toBe(0);
+  expect(result.stderr).toBe("");
 }
 
 async function readRemotePluginStorageState(target: SSHConnectionConfig): Promise<{

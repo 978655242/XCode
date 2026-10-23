@@ -1,4 +1,5 @@
 import { clearAppData } from "../../../helpers/desktop-app.js";
+import { waitForV4PlanModeEnabled } from "../../../helpers/v4-conversation.js";
 import {
   getChatRootSnapshot,
   prepareConversationE2E,
@@ -8,7 +9,6 @@ import {
   waitForChatState,
   waitForUpstreamRequest,
   waitForToolCallBlockByToolCallId,
-  waitForToolCallBlockByToolName,
   waitForToolCallBlockContaining,
   waitForUserMessageContaining,
 } from "../../../helpers/conversation-session.js";
@@ -45,7 +45,7 @@ describe("conversation session ExitPlanMode session switch restore", () => {
       "plan session switch initial request",
       60_000,
     );
-    await waitForToolCallBlockByToolName("EnterPlanMode", 60_000);
+    await waitForV4PlanModeEnabled(60_000);
     await waitForUpstreamRequest(
       {
         includes: [EXIT_MARKER, "toolu_e2e_plan_session_switch_enter"],

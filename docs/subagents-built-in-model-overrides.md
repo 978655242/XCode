@@ -242,7 +242,7 @@ Settings 保存与清空覆盖由 UI/service 单测覆盖。SHR01-SHR03 的真�
 
 - Settings 中内置 agent 有模型控件。
 - Settings 中内置 agent 仍无编辑、删除、禁用入口。
-- Settings 中内置官方插件（如 `document-skills:judge`）与 marketplace 插件的 subagent 都可见，并有模型控件；插件 agent 仍无编辑、删除、禁用入口。
+- Settings 中内置官方插件（如 `documents:visual-judge`）与 marketplace 插件的 subagent 都可见，并有模型控件；插件 agent 仍无编辑、删除、禁用入口。
 - 保存插件 agent 覆盖后，list/state 按 agent id 回显覆盖模型；冷启动后 child request 使用覆盖模型。
 - 保存 `general-purpose` 覆盖后，list/state 回显覆盖模型。
 - 保存 `Explore` 覆盖后，list/state 回显覆盖模型。

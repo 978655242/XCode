@@ -8,10 +8,12 @@ import {
 } from "../../../helpers/desktop-app.js";
 import {
   restartIntoWorkspacePreservingProfile,
+  seedPersistedModelSelection,
   seedTurboAgentStartupModel,
 } from "../../../helpers/model-provider-restart.js";
 import {
   ensureUpstreamProviderForE2E,
+  selectUpstreamProviderModelById,
   UPSTREAM_MODEL,
   UPSTREAM_PROVIDER_ID,
 } from "../../../helpers/upstream-provider.js";
@@ -57,7 +59,7 @@ describe("AR01 attachment cold resume", () => {
   it("重启后保留首轮正文顺序与三行路径说明", async function () {
     this.timeout(240_000);
     await waitForDefaultWorkspaceReady();
-    // 此用例不测模型选择；通过现有 fixture 设置启动模型，避免依赖已移除的旧 toolbar。
+    // XCODE: 启动默认不等于草稿已选模型，重启后仍须通过 Composer 完成选择。
     await ensureUpstreamProviderForE2E({ skipToolbarSelection: true });
     // 通用 fixture 的 240 token 窗口用于 compact 场景；本用例需要保留未经压缩的原始消息。
     await seedCustomAnthropicMessagesProvider({
@@ -67,8 +69,20 @@ describe("AR01 attachment cold resume", () => {
       providerName: "Attachment Resume Fixture",
     });
     await seedTurboAgentStartupModel(UPSTREAM_PROVIDER_ID, UPSTREAM_MODEL);
+    // XCODE: 启动种子只写模型 ID；disabled-only 夹具还须提供合法 Recent 档位才能提交。
+    await seedPersistedModelSelection({
+      providerId: UPSTREAM_PROVIDER_ID,
+      modelId: UPSTREAM_MODEL,
+      reasoningLevel: "disabled",
+    });
     await restartIntoWorkspacePreservingProfile();
     await prepareV4ConversationE2E({ skipProvider: true });
+    // XCODE: 保留专项夹具的大窗口；disabled-only 能力没有额外可调档位。
+    await selectUpstreamProviderModelById(UPSTREAM_MODEL, {
+      includePlainModelFallback: false,
+      providerId: UPSTREAM_PROVIDER_ID,
+      providerName: "Attachment Resume Fixture",
+    });
     await mkdir(ROOT, { recursive: true });
     const path = join(ROOT, "resume-bundle.zip");
     await writeFile(path, "binary fixture");

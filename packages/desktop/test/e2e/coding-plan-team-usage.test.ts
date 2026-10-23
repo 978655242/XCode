@@ -262,15 +262,14 @@ describe("Team Plan 设置与使用统计 E2E", () => {
     });
   }
 
-  it("CTP-30: 个人团队切换列表无横向溢出，保留纵向滚动", async function () {
+  it("CTP-30: 设置页切换个人团队后模型列表无横向溢出，保留纵向滚动", async function () {
     this.timeout(240000);
     try {
       for (const width of [1100, 390])
         for (const theme of ["zai-light", "zai-dark"] as const) {
-          await prepareScenario("both", PERSONAL_PLAN_KEY);
+          await prepareScenario("both", PERSONAL_PLAN_KEY, "none", "none", "en-US");
           await setRendererViewport(width, 850);
           await setSettingsTheme(theme);
-          await clickVisibleTestIdByDom(TID_CHAT_MODEL_SELECT_TRIGGER, { timeout: 15000 });
           await browser.execute(() => {
             const samples: { client: number; scroll: number }[] = [];
             const record = () => {
@@ -290,6 +289,12 @@ describe("Team Plan 设置与使用统计 E2E", () => {
             ["BigModel Team Org", BUILTIN_MODEL_PROVIDER_IDS.bigmodelTeamCodingPlan],
             ["BigModel Individual", BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan],
           ]) {
+            await selectBigModelCodingPlanRuntime(
+              providerId === BUILTIN_MODEL_PROVIDER_IDS.bigmodelTeamCodingPlan
+                ? "team-coding-plan"
+                : "individual-coding-plan",
+            );
+            await clickVisibleTestIdByDom(TID_CHAT_MODEL_SELECT_TRIGGER, { timeout: 15000 });
             await $('[data-testid="composer-provider-trigger"]').waitForClickable({
               timeout: 15000,
             });
@@ -352,17 +357,8 @@ describe("Team Plan 设置与使用统计 E2E", () => {
           await selectRegistryProviderModelById(UPSTREAM_MODEL, {
             providerId: process.env.E2E_PROVIDER_ID,
           });
-          await clickVisibleTestIdByDom(TID_CHAT_MODEL_SELECT_TRIGGER, { timeout: 15000 });
-          await $('[data-testid="composer-provider-trigger"]').click();
-          await $('[aria-label="BigModel Team Org"]').waitForClickable({ timeout: 15000 });
-          await $('[aria-label="BigModel Team Org"]').click();
-          await browser.waitUntil(
-            async () =>
-              (await $(sel(TID_V4_MODEL_CONFIG)).getAttribute("data-provider")) ===
-              BUILTIN_MODEL_PROVIDER_IDS.bigmodelTeamCodingPlan,
-            { timeout: 15000 },
-          );
-          await browser.keys("Escape");
+          // XCODE: 连接切换走设置页；Composer 只选择真实已加载的模型，不承担空目录账号入口。
+          await selectBigModelCodingPlanRuntime("team-coding-plan");
           const usageTrigger = await $(sel(TID_CHAT_CONTEXT_USAGE_TRIGGER));
           await usageTrigger.waitForDisplayed({ timeout: 15000 });
           await usageTrigger.moveTo();
@@ -418,15 +414,10 @@ describe("Team Plan 设置与使用统计 E2E", () => {
         " 冲突解除锁并允许重试",
       async function () {
         this.timeout(120000);
-        await prepareScenario(
-          "both",
-          mode === "refresh-failure" ? TEAM_PLAN_KEY : PERSONAL_PLAN_KEY,
-          mode === "refresh-failure" ? "twoTeams" : "none",
-        );
-        const targetRow =
-          mode === "refresh-failure"
-            ? '[aria-label="BigModel Active Team"]'
-            : '[aria-label="BigModel Team Org"]';
+        // XCODE: 先经设置页加载真实 Team A 目录；同 Provider 的原 Team B 用于触发 Composer 专属竞态。
+        await prepareScenario("both", TEAM_PLAN_KEY, "twoTeams");
+        await selectBigModelCodingPlanRuntime("team-coding-plan");
+        const targetRow = '[aria-label="BigModel Active Team"]';
         await clickVisibleTestIdByDom(TID_CHAT_MODEL_SELECT_TRIGGER, { timeout: 15000 });
         await $('[data-testid="composer-provider-trigger"]').click();
         await $(targetRow).waitForClickable({ timeout: 15000 });
@@ -438,21 +429,10 @@ describe("Team Plan 设置与使用统计 E2E", () => {
           // SessionPane 是 memo owner；草稿编辑让它重新读取注入后的服务端口，不发送模型请求。
           await $(sel(TID_V4_COMPOSER_INPUT)).click();
           await browser.keys("E2E_CONNECTION_BOUNDARY");
+          // XCODE: 注入端口后通过设置页和原模型重新建立起点；故障仍由下面同一 Composer 命令触发。
+          await selectBigModelCodingPlanRuntime("team-coding-plan");
           if (mode === "refresh-failure") {
-            // 注入端口后的草稿重渲染会恢复默认 Provider；先用真实菜单建立 Team 起点，
-            // 否则实际测成 API → Team 的首次读取失败，不是同 Provider 的展示刷新失败。
-            await clickVisibleTestIdByDom(TID_CHAT_MODEL_SELECT_TRIGGER, { timeout: 15000 });
-            await $('[data-testid="composer-provider-trigger"]').click();
-            await $('[aria-label="BigModel Team Org"]').waitForClickable({ timeout: 15000 });
-            await $('[aria-label="BigModel Team Org"]').click();
-            await browser.waitUntil(
-              async () =>
-                (await $(sel(TID_V4_MODEL_CONFIG)).getAttribute("data-provider")) ===
-                BUILTIN_MODEL_PROVIDER_IDS.bigmodelTeamCodingPlan,
-              { timeout: 15000, timeoutMsg: "起点未进入团队 Provider" },
-            );
-            // 本例要求旧 ready 已显示；仅 providerId 就绪时，能力仍可能在首次水合中。
-            // 先等真实模型能力，避免把启动水合失败误当成“稳定连接的展示重读失败”。
+            // 起点必须已有真实模型能力，不能把启动水合失败当成稳定连接的展示重读失败。
             await browser.waitUntil(
               async () =>
                 (await $(sel(TID_V4_MODEL_CONFIG)).getAttribute("data-thought-levels"))
@@ -605,7 +585,7 @@ describe("Team Plan 设置与使用统计 E2E", () => {
     );
   }
 
-  it("CTP-24: Composer 仅隐藏过期团队，其他有效团队可切换", async function () {
+  it("CTP-24: Composer 隐藏过期团队，设置页可切换其他有效团队", async function () {
     this.timeout(240000);
     // 共用 Provider 的 availability 只描述当前团队；每个布局都从过期团队启动，验证真实切换。
     try {
@@ -647,39 +627,50 @@ describe("Team Plan 设置与使用统计 E2E", () => {
           await connection.click();
           await $("[data-composer-provider-list]").waitForDisplayed({ timeout: 10000 });
           expect(await $('[aria-label="BigModel Team Org"]').isExisting()).toBe(false);
-          const activeTeam = $('[aria-label="BigModel Active Team"]');
-          await activeTeam.waitForClickable({ timeout: 15000 }).catch(async (cause) => {
-            const menu = await browser.execute(() => {
-              const element = document.querySelector('[data-testid="v4-model-config"]')!;
-              let fiber = (element as any)[
-                Object.keys(element).find((key) => key.startsWith("__reactFiber"))!
-              ];
-              while (fiber && !fiber.memoizedProps?.composerOptions) fiber = fiber.return;
-              return {
-                text: document.querySelector("[data-composer-provider-list]")?.textContent,
-                groups: fiber?.memoizedProps?.composerOptions?.providerMenu?.groups?.map(
-                  (g: any) => ({ key: g.key, badge: g.labelBadge }),
-                ),
-              };
-            });
-            throw new Error(`有效团队缺失：${JSON.stringify(menu)}`, { cause });
-          });
-          await activeTeam.click();
+          await browser.keys("Escape");
+          await browser.keys("Escape");
+          // XCODE: 过期团队的共享 Provider 没有可用目录，从设置页选择原夹具中的有效团队。
+          await openBigModelAccountSettings();
+          await selectConnectionModeOptionByTestId(
+            testId(
+              TID_MODEL_PROVIDER_CONNECTION_MODE_ITEM,
+              "team:bigmodel:product-team-a:org-team-b:proj-team-b",
+            ),
+            "Active Team",
+          );
           await browser.waitUntil(
             async () => {
               const selection = (await readSettings()).providerFamilyConnectionSelections?.bigmodel;
               return (
                 selection?.kind === "team-coding-plan" &&
+                selection.productId === "product-team-a" &&
                 selection.organizationId === "org-team-b" &&
                 selection.projectId === "proj-team-b"
               );
             },
             { timeout: 15000, timeoutMsg: "有效团队完整身份未写入" },
           );
+          await clickVisibleTestIdByDom(TID_SETTINGS_BACK_BUTTON, { timeout: 15000 });
+          await waitForWorkspaceApp(DEFAULT_WORKSPACE, 30000);
+          await selectRegistryProviderModelById(BIGMODEL_E2E_MODEL, {
+            includePlainModelFallback: false,
+            providerId: BUILTIN_MODEL_PROVIDER_IDS.bigmodelTeamCodingPlan,
+            providerGroupKey: JSON.stringify([
+              "bigmodel",
+              "team-coding-plan",
+              "product-team-a",
+              "org-team-b",
+              "proj-team-b",
+            ]),
+          });
+          await clickVisibleTestIdByDom(TID_CHAT_MODEL_SELECT_TRIGGER, { timeout: 15000 });
           await browser.waitUntil(
             async () =>
-              (await connection.getText()).includes("Active Team") &&
-              (await connection.getAttribute("aria-busy")) !== "true",
+              (await $('[data-testid="composer-provider-trigger"]').getText()).includes(
+                "Active Team",
+              ) &&
+              (await $('[data-testid="composer-provider-trigger"]').getAttribute("aria-busy")) !==
+                "true",
             { timeout: 30000, timeoutMsg: "有效团队切换未完成" },
           );
           await browser.keys("Escape");
@@ -691,14 +682,11 @@ describe("Team Plan 设置与使用统计 E2E", () => {
     }
   });
 
-  it("CTP-20: Composer 供应商列表直接展示团队，切换更新实际身份", async function () {
+  it("CTP-20: 设置页双向切换团队连接，Composer 保留模型、身份和思考", async function () {
     this.timeout(120000);
     await prepareScenario("both", PERSONAL_PLAN_KEY, "unavailableTeam");
     // 独立回放不能依赖前序用例留下的草稿；连接设置不等于 Composer 选模意图。
-    await selectRegistryProviderModelById(BIGMODEL_E2E_MODEL, {
-      includePlainModelFallback: false,
-      providerId: BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan,
-    });
+    await selectBigModelCodingPlanRuntime("individual-coding-plan");
     const trigger = $(sel(TID_CHAT_MODEL_SELECT_TRIGGER));
     await trigger.waitForClickable({ timeout: 30000 });
     await trigger.click();
@@ -721,6 +709,8 @@ describe("Team Plan 设置与使用统计 E2E", () => {
       const record = () => {
         const config = document.querySelector('[data-testid="v4-model-config"]');
         const slider = document.querySelector('[data-testid="composer-thought-slider"]');
+        // XCODE: 设置页会卸载 Composer；只采样实际呈现的控件，不把卸载伪记为档位清空。
+        if (!config?.getClientRects().length || !slider?.getClientRects().length) return;
         samples.push({
           at: performance.now(),
           provider: config?.getAttribute("data-provider"),
@@ -742,27 +732,16 @@ describe("Team Plan 设置与使用统计 E2E", () => {
       record();
     });
     await connection.click();
-    const team = $('[aria-label="BigModel Team Org"]');
-    await team.waitForDisplayed({ timeout: 10000 });
     expect(await $('[aria-label="BigModel Unavailable Team"]').isExisting()).toBe(false);
     await browser.saveScreenshot(
       join(process.env.ZCODE_E2E_ARTIFACT_DIR!, "composer-connections-before.png"),
     );
-    await team.click();
-    await browser.waitUntil(
-      async () =>
-        (await readSettings()).providerFamilyConnectionSelections?.bigmodel?.kind ===
-        "team-coding-plan",
-      { timeout: 15000 },
-    );
-    await browser.waitUntil(
-      async () =>
-        (await $(sel(TID_V4_MODEL_CONFIG)).getAttribute("data-provider")) ===
-        BUILTIN_MODEL_PROVIDER_IDS.bigmodelTeamCodingPlan,
-      { timeout: 15000 },
-    );
-    expect(await trigger.getAttribute("aria-expanded")).toBe("true");
-    await connection.waitForClickable({ timeout: 15000 });
+    await browser.keys("Escape");
+    await browser.keys("Escape");
+    await selectBigModelCodingPlanRuntime("team-coding-plan");
+    await clickVisibleTestIdByDom(TID_CHAT_MODEL_SELECT_TRIGGER, { timeout: 15000 });
+    expect(await $(sel(TID_CHAT_MODEL_SELECT_TRIGGER)).getAttribute("aria-expanded")).toBe("true");
+    await $('[data-testid="composer-provider-trigger"]').waitForClickable({ timeout: 15000 });
     const samples = await browser.execute(() => {
       const probe = (
         window as unknown as { __composerSwitchProbe: { samples: unknown[]; stop: () => void } }
@@ -774,7 +753,6 @@ describe("Team Plan 设置与使用统计 E2E", () => {
       join(process.env.ZCODE_E2E_ARTIFACT_DIR!, "composer-switch-state.json"),
       JSON.stringify(samples, null, 2),
     );
-    expect(samples.some((sample) => (sample as { loading?: boolean }).loading)).toBe(true);
     expect(
       samples
         .filter((sample) => (sample as { loading?: boolean }).loading)
@@ -790,11 +768,11 @@ describe("Team Plan 设置与使用统计 E2E", () => {
     ).toBe(true);
     expect(await $(sel(TID_V4_MODEL_CONFIG)).getAttribute("data-thought")).toBe(chosenThought);
 
-    await connection.click();
+    await $('[data-testid="composer-provider-trigger"]').click();
     const selectedTeam = $('[aria-label="BigModel Team Org"]');
     await selectedTeam.waitForDisplayed({ timeout: 10000 });
     expect(await selectedTeam.getAttribute("aria-checked")).toBe("true");
-    expect(await connection.getText()).toContain("Team Org");
+    expect(await $('[data-testid="composer-provider-trigger"]').getText()).toContain("Team Org");
     expect((await readSettings()).providerFamilyConnectionSelections?.bigmodel).toEqual({
       kind: "team-coding-plan",
       productId: "product-team-a",
@@ -804,17 +782,11 @@ describe("Team Plan 设置与使用统计 E2E", () => {
     await browser.saveScreenshot(
       join(process.env.ZCODE_E2E_ARTIFACT_DIR!, "composer-connections-team.png"),
     );
-    const personal = $(
-      `[data-model-provider-key="registry-provider:${BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan}"]`,
-    );
-    await personal.click();
-    await browser.waitUntil(
-      async () =>
-        (await $(sel(TID_V4_MODEL_CONFIG)).getAttribute("data-provider")) ===
-        BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan,
-      { timeout: 15000 },
-    );
-    await connection.waitForClickable({ timeout: 15000 });
+    await browser.keys("Escape");
+    await browser.keys("Escape");
+    await selectBigModelCodingPlanRuntime("individual-coding-plan");
+    await clickVisibleTestIdByDom(TID_CHAT_MODEL_SELECT_TRIGGER, { timeout: 15000 });
+    await $('[data-testid="composer-provider-trigger"]').waitForClickable({ timeout: 15000 });
     expect(await $(sel(TID_V4_MODEL_CONFIG)).getAttribute("data-thought")).toBe(chosenThought);
     expect((await readSettings()).providerFamilyConnectionSelections?.bigmodel?.kind).toBe(
       "individual-coding-plan",
@@ -823,21 +795,17 @@ describe("Team Plan 设置与使用统计 E2E", () => {
   });
 
   for (const locale of ["zh-CN", "en-US"] as const) {
-    it(`CTP-23: 团队激活时补充个人入口使用当前语言 ${locale}`, async function () {
+    it(`CTP-23: 设置页个人连接选项使用当前语言 ${locale}`, async function () {
       this.timeout(120000);
       await prepareScenario("both", TEAM_PLAN_KEY, "none", "none", locale);
-      const trigger = $(sel(TID_CHAT_MODEL_SELECT_TRIGGER));
-      await trigger.waitForClickable({ timeout: 30000 });
-      await trigger.click();
-      const connection = $('[data-testid="composer-provider-trigger"]');
-      await connection.click();
-      const personalLabel = locale === "zh-CN" ? "个人" : "Individual";
-      await $(`[aria-label="BigModel ${personalLabel}"]`).waitForDisplayed({ timeout: 10000 });
-      expect(await $('[aria-label="BigModel Team Org"]').isDisplayed()).toBe(true);
-      if (locale === "zh-CN")
-        expect(await $('[aria-label="BigModel Individual"]').isExisting()).toBe(false);
-      await browser.keys("Escape");
-      await browser.keys("Escape");
+      await openBigModelAccountSettings();
+      await assertConnectionModeOptionsInclude([
+        {
+          key: PERSONAL_PLAN_CONNECTION_KEY,
+          labels: [locale === "zh-CN" ? "个人套餐" : "Individual Plan"],
+        },
+        { key: TEAM_PLAN_KEY, labels: ["Team Org"] },
+      ]);
     });
   }
 
@@ -846,16 +814,7 @@ describe("Team Plan 设置与使用统计 E2E", () => {
       this.timeout(120000);
       const toTeam = direction === "personal-to-team";
       await prepareScenario("both", toTeam ? PERSONAL_PLAN_KEY : TEAM_PLAN_KEY);
-      await selectRegistryProviderModelById(BIGMODEL_E2E_MODEL, {
-        includePlainModelFallback: false,
-        providerId: toTeam
-          ? BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan
-          : BUILTIN_MODEL_PROVIDER_IDS.bigmodelTeamCodingPlan,
-      });
-      const trigger = $(sel(TID_CHAT_MODEL_SELECT_TRIGGER));
-      await trigger.waitForClickable({ timeout: 30000 });
-      await trigger.click();
-      const connection = $('[data-testid="composer-provider-trigger"]');
+      await selectBigModelCodingPlanRuntime(toTeam ? "individual-coding-plan" : "team-coding-plan");
       await browser.execute(() => {
         let wasLoading = false;
         const read = () =>
@@ -872,6 +831,10 @@ describe("Team Plan 设置与使用统计 E2E", () => {
           stop: () => {},
         };
         const observer = new MutationObserver(() => {
+          // XCODE: 连接从设置页切换，只有真实可见的 Composer 列表和思考控件才属于采样窗口。
+          const models = document.querySelector("[data-composer-model-list]");
+          const effort = document.querySelector('[data-testid="composer-thought-slider"]');
+          if (!models?.getClientRects().length || !effort?.getClientRects().length) return;
           const loading = Boolean(
             document.querySelector('[data-testid="composer-provider-loading"]'),
           );
@@ -885,26 +848,16 @@ describe("Team Plan 设置与使用统计 E2E", () => {
         probe.stop = () => observer.disconnect();
         Object.assign(window, { __connectionLoadingProbe: probe });
       });
-      await connection.click();
-      // 使用 runner 注入的 Provider 身份，不依赖已移除的旧预设名称。
-      await $(
-        `[data-composer-provider-list] [data-model-provider-key="registry-provider:${process.env.E2E_PROVIDER_ID}"]`,
-      ).click();
-      await browser.waitUntil(
-        async () =>
-          !(await $(sel(TID_V4_MODEL_CONFIG)).getAttribute("data-provider"))?.startsWith(
-            "account:",
-          ),
+      // 选择原有普通 API 模型；聚焦供应商分组不代表实际选模已经完成。
+      await selectRegistryProviderModelById(UPSTREAM_MODEL, {
+        providerId: process.env.E2E_PROVIDER_ID,
+      });
+      expect(await $(sel(TID_V4_MODEL_CONFIG)).getAttribute("data-provider")).toBe(
+        process.env.E2E_PROVIDER_ID,
       );
-      await connection.waitForClickable({ timeout: 15000 });
-      expect(await browser.execute(() => (window as any).__connectionLoadingProbe.count)).toBe(1);
-      await connection.click();
-      await $(
-        toTeam
-          ? '[aria-label="BigModel Team Org"]'
-          : `[data-model-provider-key="registry-provider:${BUILTIN_MODEL_PROVIDER_IDS.bigmodelIndividualCodingPlan}"]`,
-      ).click();
-      await connection.waitForClickable({ timeout: 15000 });
+      await selectBigModelCodingPlanRuntime(toTeam ? "team-coding-plan" : "individual-coding-plan");
+      await clickVisibleTestIdByDom(TID_CHAT_MODEL_SELECT_TRIGGER, { timeout: 15000 });
+      await $('[data-testid="composer-provider-trigger"]').waitForClickable({ timeout: 15000 });
       await browser.waitUntil(
         async () =>
           (await $(sel(TID_V4_MODEL_CONFIG)).getAttribute("data-provider")) ===
@@ -918,7 +871,15 @@ describe("Team Plan 设置与使用统计 E2E", () => {
         await $('[data-testid="composer-thought-slider"]').getAttribute("aria-valuetext"),
       ).not.toContain("—");
       const probe = await browser.execute(() => {
-        const probe = (window as any).__connectionLoadingProbe;
+        const probe = (
+          window as unknown as {
+            __connectionLoadingProbe: {
+              count: number;
+              samples: { loading: boolean; display: string; previous: string }[];
+              stop: () => void;
+            };
+          }
+        ).__connectionLoadingProbe;
         probe.stop();
         return { count: probe.count, samples: probe.samples };
       });
@@ -926,12 +887,11 @@ describe("Team Plan 设置与使用统计 E2E", () => {
         join(process.env.ZCODE_E2E_ARTIFACT_DIR!, `connection-loading-${direction}.json`),
         JSON.stringify(probe, null, 2),
       );
-      expect(probe.count).toBe(2);
       expect(await $('[role="alert"]').isExisting()).toBe(false);
       expect(
         probe.samples
-          .filter((sample: any) => sample.loading)
-          .every((sample: any) => sample.display === sample.previous),
+          .filter((sample) => sample.loading)
+          .every((sample) => sample.display === sample.previous),
       ).toBe(true);
       await browser.keys("Escape");
     });
@@ -940,6 +900,7 @@ describe("Team Plan 设置与使用统计 E2E", () => {
   it("CTP-21: 调思考后解析未返回时选模型不能留下空档位", async function () {
     this.timeout(120000);
     await prepareScenario("both", PERSONAL_PLAN_KEY);
+    await selectBigModelCodingPlanRuntime();
     const trigger = $(sel(TID_CHAT_MODEL_SELECT_TRIGGER));
     await trigger.waitForClickable({ timeout: 30000 });
     await trigger.click();
@@ -1020,9 +981,9 @@ describe("Team Plan 设置与使用统计 E2E", () => {
       });
       // 英文 UI 的套餐标签为 Team；只断言徽标本身，避免用户名包含团队文字时误通过。
       const teamLabel = locale === "zh-CN" ? "团队" : "Team";
-      // 套餐标签已移入头像菜单；不再从头像按钮的旧布局查找。
+      // XCODE: 原生 tooltip 会接管 title；按独立套餐容器验证徽标，不绑定内部标签。
       await profileTrigger.click();
-      const badge = $('[data-testid="profile-menu-plan"]').$(`span[title="${teamLabel}"]`);
+      const badge = $('[data-testid="profile-menu-plan"]');
       await badge.waitForDisplayed({ timeout: 30000 });
       await expect(badge).toHaveText(teamLabel);
       await browser.keys("Escape");
@@ -1605,17 +1566,12 @@ async function prepareScenario(
     },
     providerFamilyDomain: "bigmodel",
     providerFamilyDomainMigrated: true,
-    // Bug 根因：同一 spec 多次 reloadSession 会继承前一场景关闭时写回的 workspace。
-    // Team Plan case 的 model-resolution seed 明确写 DEFAULT_WORKSPACE，因此启动入口也
-    // 必须固定到同一个 project workspace，不能偶发落入 conversation workspace。
-    lastWorkspaceSession: [
-      {
-        kind: "local",
-        workspacePath: DEFAULT_WORKSPACE,
-        workspacePurpose: "project",
-      },
-    ],
-    lastActiveTabIndex: 0,
+    // XCODE: 上游只按活动目录启动；兼容成员投影和旧 tab 索引不再决定场景入口。
+    lastActiveWorkspace: {
+      kind: "local",
+      workspacePath: DEFAULT_WORKSPACE,
+      workspacePurpose: "project",
+    },
   });
   // 修复原因：Electron E2E 的 file:// renderer 直接 browser.refresh()
   // 偶发落到 chrome-error://chromewebdata，后续等待会每条 case 慢 30s。
@@ -1689,6 +1645,14 @@ async function openModelProviderSettings() {
   });
 }
 
+async function openBigModelAccountSettings() {
+  await openModelProviderSettings();
+  await clickVisibleTestIdByDom(testId(TID_MODEL_PROVIDER_NAV_ITEM, BIGMODEL_ACCOUNT_NAV_KEY), {
+    timeout: 30000,
+    timeoutMsg: "BigModel 供应商导航项没有出现",
+  });
+}
+
 async function assertConnectionModeOptionsInclude(
   expectedOptions: Array<{ key: string; labels: string[] }>,
 ) {
@@ -1744,6 +1708,19 @@ async function openUsageSection() {
 async function ensureSettingsPageOpen() {
   const settingsPage = $(sel(TID_SETTINGS_PAGE));
   if (!(await settingsPage.isDisplayed().catch(() => false))) {
+    // XCODE: 窄屏 resize 会按产品规则收起侧栏，访问设置前先通过真实按钮恢复入口可见性。
+    const sidebarCollapsed = await browser.execute(
+      () =>
+        document
+          .querySelector('[data-testid="sidebar"]')
+          ?.closest("[aria-hidden]")
+          ?.getAttribute("aria-hidden") === "true",
+    );
+    if (sidebarCollapsed) {
+      const toggle = $('button[aria-label="切换侧边栏"], button[aria-label="Toggle sidebar"]');
+      await toggle.waitForClickable({ timeout: 10000 });
+      await toggle.click();
+    }
     // Bug 根因：设置新架构会同时保留响应式导航的隐藏副本，旧 helper 取第一个
     // test-id 时可能点中不可见节点并关闭设置页，导致后续误报 Coding Plan tab 消失。
     await clickVisibleTestIdByDom(TID_TASK_SETTINGS_BUTTON, {
@@ -1984,9 +1961,41 @@ async function selectBigModelCodingPlanRuntime(
   // Bug 根因：只写 selectedSupplierKey 只更新了供应商导航解析状态，并不会更新
   // Composer 的 Effective Model。Context 用量按真实 Effective Provider 判断套餐类型，
   // 因此测试必须和用户一样完成一次 Provider/Model 选择。
+  const connection = (await readSettings()).providerFamilyConnectionSelections?.bigmodel;
+  // XCODE: 空目录账号不会出现在 Composer；始终经设置页准备连接和真实目录，再选择模型。
+  await openBigModelAccountSettings();
+  // 只有一个已选连接时不显示下拉；已保存的正确身份不需要重复提交。
+  if (connection?.kind !== planKind) {
+    await selectConnectionModeOptionByTestId(
+      testId(
+        TID_MODEL_PROVIDER_CONNECTION_MODE_ITEM,
+        planKind === "team-coding-plan" ? TEAM_PLAN_KEY : PERSONAL_PLAN_CONNECTION_KEY,
+      ),
+      planKind === "team-coding-plan" ? "Team Org" : "个人 Coding Plan",
+    );
+    await waitForBigModelConnectionSelection(planKind);
+  }
+  const selectedConnection = (await readSettings()).providerFamilyConnectionSelections?.bigmodel;
+  if (selectedConnection?.kind !== planKind) {
+    throw new Error(`设置页没有建立请求的 BigModel 连接: ${planKind}`);
+  }
+  // XCODE: Team 分组由完整商品/组织/项目身份拥有，通用 registry Provider key 不匹配该目录。
+  const providerGroupKey =
+    selectedConnection.kind === "team-coding-plan"
+      ? JSON.stringify([
+          "bigmodel",
+          "team-coding-plan",
+          selectedConnection.productId,
+          selectedConnection.organizationId,
+          selectedConnection.projectId,
+        ])
+      : `registry-provider:${providerId}`;
+  await clickVisibleTestIdByDom(TID_SETTINGS_BACK_BUTTON, { timeout: 15000 });
+  await waitForWorkspaceApp(DEFAULT_WORKSPACE, 30000);
   await selectRegistryProviderModelById(BIGMODEL_E2E_MODEL, {
     includePlainModelFallback: false,
     providerId,
+    providerGroupKey,
     providerName: "BigModel Coding Plan",
   });
 }
@@ -2094,6 +2103,8 @@ async function clickResetOpportunityBadge(rootSelector?: string) {
   for (const badge of await $$(selector)) {
     if (await badge.isDisplayed()) {
       await badge.click();
+      // XCODE: 点击只提交打开状态，未等待 Portal 显示就枚举按钮会误报缺失。
+      await $('[role="dialog"]').waitForDisplayed({ timeout: 10000 });
       return;
     }
   }

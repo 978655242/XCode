@@ -52,6 +52,7 @@ const SEND_DETAIL_KEYS = [
   "input_first_char_time",
   "input_send_time",
   "input_start_time",
+  "memory_enabled",
   "message_source",
   "model_name",
   "model_provider",
@@ -70,6 +71,7 @@ const STEP_DETAIL_KEYS = [
   "is_tftt_cached",
   "is_tool_call",
   "loop_index",
+  "memory_enabled",
   "message_source",
   "model_name",
   "model_provider",
@@ -92,6 +94,7 @@ const STEP_DETAIL_KEYS = [
 ] as const;
 const COMPLETION_DETAIL_KEYS = [
   "agent",
+  "agent_composition",
   "agent_step_cnt",
   "ask_mode",
   "cache_write_input_tokens",
@@ -102,6 +105,7 @@ const COMPLETION_DETAIL_KEYS = [
   "file_change_cnt",
   "generated_code_lines",
   "input_tokens",
+  "memory_enabled",
   "message_source",
   "model_name",
   "model_provider",
@@ -423,6 +427,8 @@ function assertCompleteReportInventory(eventReport: JsonRecord[]): void {
     expect(isRecord(request.event_extra_detail)).toBe(true);
     const detail = request.event_extra_detail as JsonRecord;
     expect(Object.values(detail).every((value) => typeof value === "string")).toBe(true);
+    // XCODE: Memory 状态沿用遥测字符串契约，仍严格限制字段和值域。
+    expect(["1", "0", ""]).toContain(detail.memory_enabled);
 
     if (request.element_name === "send_btn") {
       expectRequiredKeys(detail, SEND_DETAIL_KEYS, ["provider_name"]);
@@ -462,6 +468,7 @@ function assertReportMessageRelations(eventReport: JsonRecord[]): void {
     });
     expect(completion.event_extra_detail as JsonRecord).toMatchObject({
       agent_step_cnt: String(messageSteps.length),
+      agent_composition: "main_only",
       workspace_kind: "local",
       remote_kind: "",
     });

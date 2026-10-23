@@ -360,7 +360,7 @@ export interface ProjectTaskRowState {
 /** 读取任务行是否存在于目标项目 section 内及其展示状态。 */
 export async function readProjectTaskRowState(
   taskId: string,
-  workspacePath: string,
+  project: string | { projectId: string; workspaceIdentity: string },
 ): Promise<ProjectTaskRowState> {
   return browser.execute(
     (taskTestId, sectionSelector) => {
@@ -377,7 +377,10 @@ export async function readProjectTaskRowState(
       };
     },
     testId(TID_TASK_ITEM, taskId),
-    projectSectionSelector(workspacePath),
+    // XCODE: 同名或同路径的远程项目按 ID 和 identity 同时归属，本地保留目录定位。
+    typeof project === "string"
+      ? projectSectionSelector(project)
+      : `section[data-project-id=${JSON.stringify(project.projectId)}][data-project-workspace-identity=${JSON.stringify(project.workspaceIdentity)}]`,
   );
 }
 

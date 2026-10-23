@@ -97,7 +97,7 @@ async function waitForStableCompleted(timeoutMsg: string) {
       latest = JSON.stringify(snapshot);
       return (
         snapshot.state === "idle" &&
-        snapshot.runtimeStatus === "completed" &&
+        snapshot.sessionEnded === true &&
         snapshot.activeInputId === null &&
         snapshot.queueCount === 0
       );

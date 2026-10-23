@@ -73,7 +73,7 @@ describe("会话区 Goal E2E", () => {
       (snapshot) =>
         snapshot.activeInputId === null &&
         snapshot.queueCount === 0 &&
-        snapshot.runtimeStatus === "completed" &&
+        snapshot.sessionEnded === true &&
         snapshot.taskMeta?.targetObjective?.includes(`E2E_GOAL_SET_${runId}`) === true &&
         isCompletedTargetStatus(snapshot.taskMeta?.targetStatus ?? null),
       // 修复原因：CI 机器上 goal verifier 的 DOM 状态和 Zustand task meta

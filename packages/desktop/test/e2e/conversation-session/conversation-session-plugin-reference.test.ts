@@ -143,6 +143,11 @@ describe("PLG plugin 引用：@ 面板 plugins 分组与 plugin_reference remind
   it("Plugin 商店顶部 Try now 只预填 canonical 引用且不自动发送", async () => {
     await openPluginSettings();
     await openPluginCard(STORE_TRY_PLUGIN_STABLE_ID);
+    // XCODE: 用 canonical 插件详情的真实展示名核对 mention，避免绑定品牌文案。
+    const detail = await $(
+      `[data-testid="plugin-store-detail"][data-plugin-id="${STORE_TRY_PLUGIN_STABLE_ID}"]`,
+    );
+    const pluginLabel = await detail.$("h1").getText();
     await captureEvidence("03-plugin-store-try-now-detail");
     await clickPluginControl("plugin-store-try-now", {
       pluginId: STORE_TRY_PLUGIN_STABLE_ID,
@@ -162,18 +167,11 @@ describe("PLG plugin 引用：@ 面板 plugins 分组与 plugin_reference remind
       },
     );
     const tryNowText = (await getV4ComposerText()) ?? "";
-    for (const prompt of [
-      "How do I configure MCP servers in ZCode?",
-      "Diagnose my current ZCode setup",
-      "ZCode 里怎么配置 MCP 服务器？",
-      "帮我诊断当前的 ZCode 配置",
-    ]) {
-      expect(tryNowText).not.toContain(prompt);
-    }
+    expect(tryNowText.trim()).toBe(`[@${pluginLabel}](plugin://${STORE_TRY_PLUGIN_STABLE_ID})`);
     const tryNowMention = await readPluginMentionPresentation(STORE_TRY_PLUGIN_STABLE_ID);
     expect(tryNowMention.found).toBe(true);
     expect(tryNowMention.iconSrc).toBe(STORE_TRY_PLUGIN_ICON);
-    expect(["ZCode Guide", "ZCode 使用指南"]).toContain(tryNowMention.label);
+    expect(tryNowMention.label).toBe(pluginLabel);
     await captureEvidence("04-plugin-store-try-now-draft");
 
     // 回归守卫：Try now 只预填引用、没有尾随文本时，光标会落在 mention token 内部，
@@ -195,9 +193,15 @@ describe("PLG plugin 引用：@ 面板 plugins 分组与 plugin_reference remind
   it("Plugin 商店示例提示词预填 canonical 引用与提示词但不自动发送", async () => {
     await openPluginSettings();
     await openPluginCard(STORE_TRY_PLUGIN_STABLE_ID);
-    await clickPluginControl("plugin-store-example-prompt", {
-      pluginId: STORE_TRY_PLUGIN_STABLE_ID,
-    });
+    const detail = await $(
+      `[data-testid="plugin-store-detail"][data-plugin-id="${STORE_TRY_PLUGIN_STABLE_ID}"]`,
+    );
+    const pluginLabel = await detail.$("h1").getText();
+    // XCODE: 读取并点击同一个示例，精确验证用户所选内容，不绑定品牌或任意非空文本。
+    const example = await detail.$('[data-testid="plugin-store-example-prompt"]');
+    const examplePrompt = await example.$("span:nth-of-type(2)").getText();
+    expect(examplePrompt.trim().length).toBeGreaterThan(0);
+    await example.click();
 
     await waitForV4Pane(
       (state) => state.sessionId === "draft" && !state.canStop,
@@ -208,13 +212,8 @@ describe("PLG plugin 引用：@ 面板 plugins 分组与 plugin_reference remind
       async () => {
         const text = (await getV4ComposerText()) ?? "";
         return (
-          text.includes(`plugin://${STORE_TRY_PLUGIN_STABLE_ID}`) &&
-          [
-            "How do I configure MCP servers in ZCode?",
-            "Diagnose my current ZCode setup",
-            "ZCode 里怎么配置 MCP 服务器？",
-            "帮我诊断当前的 ZCode 配置",
-          ].some((prompt) => text.includes(prompt))
+          text.trim() ===
+          `[@${pluginLabel}](plugin://${STORE_TRY_PLUGIN_STABLE_ID}) ${examplePrompt}`
         );
       },
       {
@@ -225,7 +224,7 @@ describe("PLG plugin 引用：@ 面板 plugins 分组与 plugin_reference remind
     const storeMention = await readPluginMentionPresentation(STORE_TRY_PLUGIN_STABLE_ID);
     expect(storeMention.found).toBe(true);
     expect(storeMention.iconSrc).toBe(STORE_TRY_PLUGIN_ICON);
-    expect(["ZCode Guide", "ZCode 使用指南"]).toContain(storeMention.label);
+    expect(storeMention.label).toBe(pluginLabel);
     await captureEvidence("03-plugin-store-try-draft");
 
     // 试用只预填，不自动发送；保持 draft 且手动清空，避免影响 wire 用例。

@@ -73,7 +73,7 @@ describe("会话区 Goal 恢复 stale target 复现", () => {
     const completedSnapshot = await waitForChatState(
       (snapshot) =>
         Boolean(snapshot.taskId) &&
-        snapshot.runtimeStatus === "completed" &&
+        snapshot.sessionEnded === true &&
         snapshot.activeInputId === null,
       "seed task 没有回到 completed idle 状态",
       90000,
@@ -96,7 +96,7 @@ describe("会话区 Goal 恢复 stale target 复现", () => {
     await waitForChatState(
       (snapshot) =>
         snapshot.taskId === taskId &&
-        snapshot.runtimeStatus === "completed" &&
+        snapshot.sessionEnded === true &&
         snapshot.activeInputId === null,
       "stale target task 恢复后没有停在 completed idle 状态",
       60000,

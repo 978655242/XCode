@@ -1,3 +1,4 @@
+import type { OAuthCallbackEvent } from "@zcode/shared";
 import {
   TID_LOGIN_MENU_ITEM,
   TID_LOGIN_TRIGGER,
@@ -15,8 +16,8 @@ const CASE_TIMEOUT_MS = 240_000;
 // PlatformChannels.OAuthCallback 的 channel 值(main 进程 execute 里无法 import @zcode/shared,
 // 与 packages/shared/src/channels.ts 保持一致)
 const OAUTH_CALLBACK_CHANNEL = "zcode:oauth-callback";
-// state 不匹配的回调:oauthService.handleCallback 在无 pending flow 时会抛
-// "OAuth state 不匹配或已过期",复现 OAuth deep link 失败的真实链路。
+// 保留故意无效的 state/code；Native 回调解析器会真实拒绝参数，
+// 不依赖旧 BigModel 在无 pending flow 时抛 state 不匹配异常的行为。
 const TAMPERED_OAUTH_CALLBACK_URL = "zcode://oauth/callback?state=e2e-tampered-state&code=e2e-code";
 
 describe("OAuth 登录失败态的取消交互", () => {
@@ -317,17 +318,23 @@ async function deliverTamperedOAuthCallback(): Promise<void> {
   // 坏 state 不在 main 的 oauthStateToWindow 路由表里,走 app.emit("open-url") 会被
   // 当作"未命中窗口"缓存而无法送达 renderer;这里直接向主窗口投递 OAuthCallback IPC,
   // 覆盖 preload → platform.onOAuthCallback → handleCallback 失败 → oauthError 的真实链路。
+  // preload 只接收绑定提供方和用途的信封，坏 state 仍交给真实 OAuth 服务拒绝。
+  const callback: OAuthCallbackEvent = {
+    url: TAMPERED_OAUTH_CALLBACK_URL,
+    provider: "new-api",
+    purpose: "primary-account",
+  };
   const delivered = await browser.electron.execute(
-    (electron, channel, url) => {
+    (electron, channel, event) => {
       const target = electron.BrowserWindow.getAllWindows().find((window) => !window.isDestroyed());
       if (!target) {
         return false;
       }
-      target.webContents.send(channel, url);
+      target.webContents.send(channel, event);
       return true;
     },
     OAUTH_CALLBACK_CHANNEL,
-    TAMPERED_OAUTH_CALLBACK_URL,
+    callback,
   );
   expect(delivered).toBe(true);
 }

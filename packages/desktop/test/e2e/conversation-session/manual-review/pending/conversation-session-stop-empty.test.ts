@@ -41,7 +41,7 @@ describe("会话区 Stop Empty Queue E2E", () => {
       (snapshot) =>
         snapshot.state !== "streaming" &&
         snapshot.queueCount === 0 &&
-        snapshot.runtimeStatus === "completed" &&
+        snapshot.sessionEnded === true &&
         !snapshot.stopRequested,
       "空队列 stop 后没有退出 running completed 态",
       30000,
@@ -81,7 +81,7 @@ describe("会话区 Stop Empty Queue E2E", () => {
       (snapshot) =>
         snapshot.state !== "streaming" &&
         snapshot.queueCount === 0 &&
-        snapshot.runtimeStatus === "completed" &&
+        snapshot.sessionEnded === true &&
         !snapshot.stopRequested,
       "toolcall stop 后没有退出 running completed 态",
       30000,

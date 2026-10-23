@@ -30,6 +30,11 @@ Persisted Model Selection         |
 - Provider 与模型是否仍可用由正式 Resolver/Registry/Selection View 判断；
 - Toolbar 只提供 UI 证据，实际首发请求仍负责证明执行身份。
 
+测试种子写入上游当前的项目作用域 Recent v2：先读取
+`zcode-composer-workspace-scope:v1:` 的导航归属，再生成 `zcode-composer-recent:v2:` 键。
+初始窗口尚无导航记录时使用本机任务作用域 `["desktop","local",null]`；不从目录猜测项目，
+也不复制旧 workspace v1 选择。真实重启同时保留导航归属和 Recent v2，以验证同一作用域的恢复。
+
 ## Accepted cases
 
 2026-09-07 Todo88 R05 补充：I26 在完整旧 Team 键之外，再从仅含产品/项目的旧键重启。使用隔离 OAuth mock 的真实 `getCustomerInfo` 响应补组织；断言完整新版连接持久化、旧字段保留、原非首个模型不变并实际发送。查询失败/歧义、不创建 API Key、普通设置不等网络和并发保存由服务测试覆盖。
@@ -38,8 +43,8 @@ Persisted Model Selection         |
 | ------------ | ------------------------------------------- | ------------------------------------------------------------------------ | --------------------------------- | -------------------------------------------------- | -------- |
 | I25 / MP-R01 | 重启保留可用 DeepSeek                       | 完整 persisted selection 指向可用 DeepSeek                               | 重启 App                          | toolbar、deferred draft、首发请求均为 DeepSeek     | covered  |
 | I26 / MP-R02 | 重启保留 Account Provider 内非首个模型      | Account Provider 暴露多个模型，完整 persisted selection 指向 Highspeed   | 重启 App                          | 不回退 `models[0]`；toolbar/request 均为 Highspeed | covered  |
-| I27 / MP-R03 | 旧 Start Plan 模型回退当前 Coding Plan      | Family 当前连接为 Team Plan，persisted selection 指向已不可用 Start Plan | 重启 App                          | toolbar/request 回退当前 Team Plan 默认模型        | covered  |
-| I28 / MP-R04 | 不可用 last-selected 回退当前连接           | Family 当前连接为 Team Plan，persisted selection 指向已删除模型          | 重启 App                          | toolbar/request 回退当前 Team Plan 默认模型        | covered  |
+| I27 / MP-R03 | 失效旧 Start Plan 选择留空并手动修复        | Family 当前连接为 Team Plan，persisted selection 指向已不可用 Start Plan | 重启 App，再手动选择可用模型       | toolbar 不擅自回退；修复后首发请求使用所选模型       | covered  |
+| I28 / MP-R04 | 不可用 last-selected 留空并手动修复         | Family 当前连接为 Team Plan，persisted selection 指向已删除模型          | 重启 App，再手动选择可用模型       | toolbar 不擅自回退；修复后首发请求使用所选模型       | covered  |
 | I29 / MP-S01 | 切换 Family 连接方式保留其它 Provider 草稿  | DeepSeek 草稿与 BigModel 按量 API 当前连接                               | 在设置页切换到 Team Plan          | DeepSeek 草稿与首发请求不变                        | covered  |
 | I30 / MP-S02 | 重选当前 Coding Plan 保留其它 Provider 草稿 | DeepSeek 草稿与 Team Plan 当前连接                                       | 再次选择同一 Team Plan            | DeepSeek 草稿与首发请求不变                        | covered  |
 | I31 / MP-S03 | Plan reconciliation 保留非首个模型          | 当前 Team Plan 选择与 Highspeed persisted selection                      | 主动重选当前 Team Plan            | toolbar/request 继续使用 Highspeed                 | covered  |

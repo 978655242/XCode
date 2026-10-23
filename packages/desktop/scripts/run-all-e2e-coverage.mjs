@@ -53,7 +53,8 @@ export function createAllE2ECoverageRunPlan({
       ...ALL_E2E_SPECS.flatMap((spec) => ["--spec", spec]),
       ...(sshReady ? [] : SSH_E2E_EXCLUDES.flatMap((spec) => ["--exclude", spec])),
       ...(upstreamReady ? [] : ["--exclude", UPSTREAM_PROVIDER_SPEC]),
-      ...args,
+      // XCODE: pnpm 只在首位透传脚本分隔符，后续独立 -- 仍可能是实际参数。
+      ...(args[0] === "--" ? args.slice(1) : args),
     ],
     env: {
       ...env,

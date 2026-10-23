@@ -35,7 +35,10 @@ function splitRunnerArgs(args) {
     : undefined;
   return {
     explicitShardTotal,
-    wdioArgs: args.filter((arg) => !arg.startsWith(RUNNER_SHARD_ARG_PREFIX)),
+    // XCODE: pnpm 保留脚本前的 --；继续转发会让 WDIO 忽略 timeout/logLevel 等选项。
+    wdioArgs: args.filter(
+      (arg, index) => !arg.startsWith(RUNNER_SHARD_ARG_PREFIX) && (index !== 0 || arg !== "--"),
+    ),
   };
 }
 

@@ -174,6 +174,7 @@ describe(`${MARKER}: 远端分享账号权威与未登录拒绝`, () => {
       expectedPath: task.workspacePath,
       timeoutMs: 180_000,
     });
+    // XCODE: 分享请求逐次读取远端凭据；热写 token 不代表远端 OAuth 展示态已恢复。
     const setRemote = `const fs=await import('node:fs/promises');const p=process.env.HOME+'/.zcode/v2/credentials.json';const d=JSON.parse(await fs.readFile(p,'utf8'));Object.assign(d,{'oauth:active_provider':'zai','oauth:zai:access_token':${JSON.stringify(REMOTE_TOKEN)},zcodejwttoken:${JSON.stringify(REMOTE_TOKEN)}});await fs.writeFile(p,JSON.stringify(d),{mode:384});`;
     const runtime = JSON.parse(
       (await runSSHCommand(prepared.config, 'cat "$HOME/.zcode/server/current.json"')).stdout,
@@ -187,7 +188,16 @@ describe(`${MARKER}: 远端分享账号权威与未登录拒绝`, () => {
     await selectV4TaskById(task.taskId);
     await waitForV4TimelineContaining(task.firstReply, 60_000);
     await clickTestIdByDom("conversation-share-trigger");
-    await clickTestIdByDom("conversation-share-next", { timeout: 30_000 });
+    // XCODE: 当前分享浮窗直接预检与确认，已移除旧 next 阶段；保留真实权限和披露交互。
+    await $('[data-testid="conversation-share-popover"]').waitForDisplayed();
+    await browser.waitUntil(
+      async () =>
+        (await $('[data-testid="conversation-share-adjust"]').getAttribute("aria-busy")) ===
+        "false",
+      { timeout: 30_000, timeoutMsg: `${MARKER}: 分享预检没有完成` },
+    );
+    await $('[data-testid="conversation-share-permission-picker"] [role="combobox"]').click();
+    await $('[data-conversation-share-permission="link-viewer"]').click();
     await clickTestIdByDom("conversation-share-disclosure-checkbox");
     await clickTestIdByDom("conversation-share-confirm");
     await $('[data-testid="conversation-share-error-details"]').waitForDisplayed({
@@ -214,6 +224,10 @@ describe(`${MARKER}: 远端分享账号权威与未登录拒绝`, () => {
     const beforeRetry = requests.filter(
       (request) => request.method === "POST" && request.path.includes("/shares"),
     ).length;
+    // XCODE: 冻结已发生的发布轨迹，退出后既不能新增 POST，也不能改写原 actor 证据。
+    const publicationTraceBeforeRetry = JSON.stringify(
+      requests.filter((request) => request.method === "POST" && request.path.includes("/shares")),
+    );
     await clickTestIdByDom("conversation-share-confirm");
     await browser.waitUntil(
       async () =>
@@ -226,6 +240,11 @@ describe(`${MARKER}: 远端分享账号权威与未登录拒绝`, () => {
       requests.filter((request) => request.method === "POST" && request.path.includes("/shares"))
         .length,
     ).toBe(beforeRetry);
+    expect(
+      JSON.stringify(
+        requests.filter((request) => request.method === "POST" && request.path.includes("/shares")),
+      ),
+    ).toBe(publicationTraceBeforeRetry);
     facts.remoteLogoutRejectedWithoutLocalFallback = true;
     await browser.saveScreenshot(join(artifactDir, "remote-logout-refused.png"));
   });

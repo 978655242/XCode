@@ -8,6 +8,7 @@ import {
 } from "../helpers/upstream-capture.js";
 import {
   selectUpstreamProviderModelById,
+  selectUpstreamThoughtLevelValue,
   UPSTREAM_MODEL,
   waitForUpstreamModelSelected,
 } from "../helpers/upstream-provider.js";
@@ -91,7 +92,8 @@ describe("粘贴图片 provider path 投影 E2E", () => {
     if (!visionProvider || !textOnlyProvider) {
       throw new Error("T12-T14 没有完成隔离 provider seed");
     }
-    await prepareV4ConversationE2E({ skipProvider: true });
+    // XCODE: 重启后先进入夹具项目草稿，再选择 vision，避免准备流程切换草稿作用域。
+    await openWorkspaceDraftFromSidebar(paths.workspace);
     await selectProviderModel(visionProvider.id, VISION_PROVIDER_NAME, VISION_MODEL);
 
     const runId = Date.now();
@@ -228,6 +230,8 @@ async function selectProviderModel(providerId: string, providerName: string, mod
     providerId,
     providerName,
   });
+  // XCODE: 两个专项模型均只声明 disabled，不能继承其他草稿的思考档位。
+  await selectUpstreamThoughtLevelValue("disabled");
   await waitForUpstreamModelSelected(modelId, {
     includePlainModelFallback: false,
     providerId,

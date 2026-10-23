@@ -1,14 +1,12 @@
 import { readFile, rm } from "node:fs/promises";
+import { TID_PREVIEW_PANE, TID_TOOL_SUMMARY_TRIGGER } from "@zcode/shared/test-ids";
 import {
-  TID_PREVIEW_PANE,
-  TID_SETTINGS_BACK_BUTTON,
-  TID_SETTINGS_SECTION_NAV,
-  TID_TASK_SETTINGS_BUTTON,
-  TID_TOOL_SUMMARY_TRIGGER,
-  testId,
-} from "@zcode/shared/test-ids";
-import { clearAppData, clickTestIdByDom, readSettings } from "../../../helpers/desktop-app.js";
+  clearAppData,
+  restoreElectronRendererContentSize,
+  setCurrentElectronRendererContentSize,
+} from "../../../helpers/desktop-app.js";
 import {
+  enableChangesGrouping,
   toggleLatestConversationToolGroup,
   waitForConversationToolGroup,
 } from "../../../helpers/conversation-session-tool-groups.js";
@@ -83,8 +81,15 @@ describe("TGE03 Changes responsive file summary", () => {
     await expandAssistantHistoriesWithContent();
     await toggleLatestConversationToolGroup("ChangesGroup", false);
 
+    const originalSize = await setCurrentElectronRendererContentSize(1400, 800);
+    // XCODE: 沿用 Composer 窄屏验收的窗口边界准备，不能把 430px 断言放宽到产品最小窗宽。
+    const minimum = await browser.electron.execute((electron, id) => {
+      const window = electron.BrowserWindow.fromId(id)!;
+      const previous = window.getMinimumSize();
+      window.setMinimumSize(320, 400);
+      return previous;
+    }, originalSize.windowId);
     try {
-      await setV4ElectronWindowSize(1400, 800);
       const wide = await waitForConversationToolGroup(
         "ChangesGroup",
         (group) =>
@@ -126,7 +131,13 @@ describe("TGE03 Changes responsive file summary", () => {
         { timeout: 10000, timeoutMsg: "点击 Changes file chip 后没有打开 preview pane" },
       );
     } finally {
-      await setV4ElectronWindowSize(1280, 800);
+      await browser.electron.execute(
+        (electron, id, size) =>
+          electron.BrowserWindow.fromId(id)?.setMinimumSize(size[0]!, size[1]!),
+        originalSize.windowId,
+        minimum,
+      );
+      await restoreElectronRendererContentSize(originalSize);
     }
   });
 });
@@ -143,29 +154,6 @@ async function clickChangesFileChip(fileName: string) {
     return Boolean(button);
   }, fileName);
   expect(clicked).toBe(true);
-}
-
-async function enableChangesGrouping() {
-  // XCODE: seedSettings 只写磁盘，运行中的 Settings owner 必须通过真实开关更新。
-  await clickTestIdByDom(TID_TASK_SETTINGS_BUTTON);
-  await clickTestIdByDom(testId(TID_SETTINGS_SECTION_NAV, "general"));
-  await browser.waitUntil(
-    async () =>
-      browser.execute(() => {
-        const control = document.querySelector<HTMLElement>(
-          '[aria-label="Group file changes"], [aria-label="分组文件更改"]',
-        );
-        if (!control) return false;
-        if (control.getAttribute("aria-checked") !== "true") control.click();
-        return true;
-      }),
-    { timeout: 15000, timeoutMsg: "没有找到 Changes 分组设置开关" },
-  );
-  await browser.waitUntil(async () => (await readSettings()).toolGroupingChangesEnabled === true, {
-    timeout: 15000,
-    timeoutMsg: "Changes 分组设置没有持久化",
-  });
-  await clickTestIdByDom(TID_SETTINGS_BACK_BUTTON);
 }
 
 function readChangesFileChips() {

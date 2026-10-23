@@ -1,8 +1,4 @@
-import {
-  TID_CHAT_MODEL_SELECT_TRIGGER,
-  TID_CHAT_THOUGHT_LEVEL_SELECT_TRIGGER,
-  TID_SETTINGS_BACK_BUTTON,
-} from "@zcode/shared/test-ids";
+import { TID_CHAT_MODEL_SELECT_TRIGGER, TID_SETTINGS_BACK_BUTTON } from "@zcode/shared/test-ids";
 import {
   DEFAULT_WORKSPACE,
   clearAppData,
@@ -17,9 +13,7 @@ import {
 import {
   getUpstreamProviderModelValues,
   getSelectedUpstreamModelLabel,
-  getSelectedUpstreamThoughtLevelLabel,
   selectUpstreamProviderModelById,
-  selectUpstreamThoughtLevelValue,
 } from "../../../helpers/upstream-provider.js";
 import {
   E2E_REPLY_TOKEN,
@@ -33,11 +27,13 @@ import {
 import { createCustomOpenAIChatCompletionsProvider } from "../../../helpers/custom-openai-provider.js";
 import { startConversationModelProviderReplayServer } from "../../../helpers/model-provider-replay.js";
 import { sel } from "../../../helpers/selectors.js";
+import { selectCombinedComposerThoughtLevel } from "../../../helpers/composer-model-picker.js";
+import { getV4ModelConfig } from "../../../helpers/v4-conversation.js";
 
 const QWEN_MODEL = "qwen3.5-plus";
 const KIMI_MODEL = "kimi-k2.6";
 const ENABLED_LEVEL = "enabled";
-const OFF_LEVEL = "off";
+const DISABLED_LEVEL = "disabled";
 let modelProviderReplayServer: Awaited<
   ReturnType<typeof startConversationModelProviderReplayServer>
 > | null = null;
@@ -66,7 +62,7 @@ describe("会话区 OpenAI-compatible 思考开关请求字段 E2E", () => {
     const qwenProvider = await createProvider(QWEN_MODEL, `Qwen Toggle E2E ${runId}`);
     await selectProviderModel(qwenProvider, QWEN_MODEL);
     // 表单不保存 reasoning metadata；首发先验证 Agent resolver 的 enabled 默认请求，
-    // 会话投影建立后再验证 UI 档位并切换 off。
+    // 会话投影建立后再验证 UI 档位并切换 disabled。
     await sendToggleRequest({
       assertRequest: (requestJson) => assertQwenRequest(requestJson, true),
       level: ENABLED_LEVEL,
@@ -77,7 +73,7 @@ describe("会话区 OpenAI-compatible 思考开关请求字段 E2E", () => {
     await assertSelectedThoughtLevel(ENABLED_LEVEL);
     await sendToggleRequest({
       assertRequest: (requestJson) => assertQwenRequest(requestJson, false),
-      level: OFF_LEVEL,
+      level: DISABLED_LEVEL,
       marker: `E2E_QWEN_THINKING_DISABLED_${runId}`,
       modelId: QWEN_MODEL,
     });
@@ -92,7 +88,7 @@ describe("会话区 OpenAI-compatible 思考开关请求字段 E2E", () => {
     });
     await sendToggleRequest({
       assertRequest: (requestJson) => assertKimiRequest(requestJson, "disabled"),
-      level: OFF_LEVEL,
+      level: DISABLED_LEVEL,
       marker: `E2E_KIMI_THINKING_DISABLED_${runId}`,
       modelId: KIMI_MODEL,
     });
@@ -142,7 +138,8 @@ async function sendToggleRequest(input: {
   selectLevel?: boolean;
 }) {
   if (input.selectLevel !== false) {
-    await selectUpstreamThoughtLevelValue(input.level);
+    // XCODE: 当前思考开关位于组合模型菜单；必须用真实合法值驱动控件，不等待已移除的独立按钮。
+    expect(await selectCombinedComposerThoughtLevel(input.level)).toBe(true);
     await assertSelectedThoughtLevel(input.level);
   }
 
@@ -167,27 +164,10 @@ async function sendToggleRequest(input: {
 }
 
 async function assertSelectedThoughtLevel(expectedLevel: string) {
-  await $(sel(TID_CHAT_THOUGHT_LEVEL_SELECT_TRIGGER)).waitForDisplayed({
+  await browser.waitUntil(async () => (await getV4ModelConfig()).thought === expectedLevel, {
     timeout: 15000,
-    timeoutMsg: "聊天工具栏没有显示思考档位选择器",
+    timeoutMsg: `当前思考档位没有稳定为 ${expectedLevel}`,
   });
-  await browser.waitUntil(
-    async () => {
-      const thoughtLabel = await getSelectedUpstreamThoughtLevelLabel();
-      return [
-        thoughtLabel.currentValue,
-        thoughtLabel.ariaLabel,
-        thoughtLabel.text,
-        thoughtLabel.title,
-      ]
-        .map((value) => value.replace(/\s+/g, " ").trim().toLowerCase())
-        .some((candidate) => candidate === expectedLevel);
-    },
-    {
-      timeout: 15000,
-      timeoutMsg: `当前思考档位没有稳定为 ${expectedLevel}`,
-    },
-  );
 }
 
 function assertQwenRequest(requestJson: unknown, enabled: boolean) {

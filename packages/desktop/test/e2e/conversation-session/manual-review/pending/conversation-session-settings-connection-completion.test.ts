@@ -551,12 +551,20 @@ describe(`${marker}: 设置内连接独立完成`, () => {
       await $(`[data-testid="${TID_SSH_DIALOG}"]`).waitForExist({ reverse: true });
     }
     await clickTestIdByDom(TID_SETTINGS_BACK_BUTTON);
+    // 缺失不是折叠态；各桌面平台共用切换按钮的 aria-label，logo test id 仅限 Windows/Linux。
+    const sidebar = $('[data-testid="sidebar"]');
+    await sidebar.waitForExist();
     const sidebarCollapsed = await browser.execute(
       () =>
-        (document.querySelector('[data-testid="sidebar"]')?.getBoundingClientRect().width ?? 0) <
-        100,
+        document
+          .querySelector('[data-testid="sidebar"]')!
+          .closest("[aria-hidden]")
+          ?.getAttribute("aria-hidden") === "true",
     );
-    if (sidebarCollapsed) await clickTestIdByDom("desktop-top-logo-sidebar-toggle");
+    if (sidebarCollapsed) {
+      await $('button[aria-label="切换侧边栏"], button[aria-label="Toggle sidebar"]').click();
+    }
+    await sidebar.waitForDisplayed();
     const original = await connectSSHWorkspace({
       config,
       workspacePath: config.workspacePaths[0],

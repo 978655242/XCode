@@ -44,7 +44,16 @@ describe("历史 session 思考深度冷恢复 E2E", () => {
     await prepareV4ConversationE2E({ skipProvider: true });
     await seedReplayProvider({
       id: PROVIDER_ID,
-      models: [MODEL_ID],
+      // 个人模型不会按名称继承 Built-in 能力；显式声明原断言要求的 max 及请求映射。
+      models: [
+        {
+          id: MODEL_ID,
+          reasoningLevel: {
+            values: [THOUGHT_LEVEL],
+            map: '{"chat_template_kwargs":{"reasoning_effort":reasoningLevel}}',
+          },
+        },
+      ],
       name: "GLM-5.2 Cold Resume E2E",
     });
     await seedPersistedModelSelection({

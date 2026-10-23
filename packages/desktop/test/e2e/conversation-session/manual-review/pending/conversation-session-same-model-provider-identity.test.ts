@@ -69,8 +69,7 @@ describe("会话区跨 provider 模型切换 E2E", () => {
 
 async function assertSelectedAlternateProviderModel() {
   const label = await getSelectedUpstreamModelLabel();
-  // 窄屏可以隐藏名称前缀，但完整 title 必须保留 Registry 投影的实例名称。
-  expect(label.title).toBe(`${UPSTREAM_ALTERNATE_PROVIDER_NAME}/${UPSTREAM_ALTERNATE_MODEL}`);
+  // XCODE: 合并选择器标题仅展示模型名；provider 身份由规范值和实际请求验证。
   const acceptedValues = getUpstreamProviderModelValues(UPSTREAM_ALTERNATE_MODEL, {
     includePlainModelFallback: false,
     providerId: UPSTREAM_ALTERNATE_PROVIDER_ID,

@@ -55,7 +55,7 @@ describe("会话区手动 Compact 与 Held Queue E2E", () => {
     const readySnapshot = await waitForChatState(
       (snapshot) =>
         Boolean(snapshot.taskId) &&
-        snapshot.runtimeStatus === "completed" &&
+        snapshot.sessionEnded === true &&
         snapshot.activeInputId === null,
       "manual compact held queue 预置 task 没有进入 idle completed",
       30000,
@@ -80,7 +80,7 @@ describe("会话区手动 Compact 与 Held Queue E2E", () => {
     await waitForChatState(
       (snapshot) =>
         snapshot.state !== "streaming" &&
-        snapshot.runtimeStatus === "completed" &&
+        snapshot.sessionEnded === true &&
         snapshot.activeInputId === null &&
         snapshot.queueCount === 1 &&
         snapshot.stopRequested,

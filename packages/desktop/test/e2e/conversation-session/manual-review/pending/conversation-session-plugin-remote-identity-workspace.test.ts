@@ -1,5 +1,6 @@
 import { Buffer } from "node:buffer";
-import { posix } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join, posix } from "node:path";
 import { clearAppData } from "../../../helpers/desktop-app.js";
 import {
   getPluginList,
@@ -23,6 +24,8 @@ const CASE_MARKER = "E2E_WPL_010_REMOTE_IDENTITY";
 const PLUGIN_NAME = "wpl-remote-identity";
 const PLUGIN_ID = `${PLUGIN_NAME}@inline`;
 
+type RemoteFixtureCommandResult = { code: number | null; stderr: string; stdout: string };
+
 describe("WPL-010 remote Workspace Plugin identity/path authority E2E", () => {
   let providerA: SSHLifecycleProvider | null = null;
   let providerB: SSHLifecycleProvider | null = null;
@@ -31,16 +34,22 @@ describe("WPL-010 remote Workspace Plugin identity/path authority E2E", () => {
   let workspacePath = "";
 
   after(async () => {
-    await providerA?.tunnel.close().catch(() => undefined);
-    await providerB?.tunnel.close().catch(() => undefined);
-    if (targetA && workspacePath) {
-      await cleanupRemoteFixture(targetA, workspacePath).catch(() => undefined);
-    }
-    if (targetB && workspacePath) {
-      await cleanupRemoteFixture(targetB, workspacePath).catch(() => undefined);
-    }
+    // XCODE: 独占 fixture 的清理失败必须上报，不能吞掉路径拒绝或远端非零退出。
+    const cleanupResults = await Promise.allSettled([
+      providerA?.tunnel.close(),
+      providerB?.tunnel.close(),
+      targetA && workspacePath ? cleanupRemoteFixture(targetA, workspacePath, "A") : undefined,
+      targetB && workspacePath ? cleanupRemoteFixture(targetB, workspacePath, "B") : undefined,
+    ]);
     await browser.electron.restoreAllMocks();
     await clearAppData();
+    const failures = cleanupResults.filter((result) => result.status === "rejected");
+    if (failures.length > 0) {
+      throw new AggregateError(
+        failures.map((result) => result.reason),
+        `${CASE_MARKER}: cleanup failed`,
+      );
+    }
   });
 
   it("reads the same path from each target while isolating catalog and runtime by identity", async function () {
@@ -173,6 +182,7 @@ async function seedRemoteFixture(
   workspacePath: string,
   marker: "A" | "B",
 ): Promise<void> {
+  assertAllowedRemoteWorkspace(workspacePath);
   const pluginRoot = posix.join(workspacePath, "plugin");
   const manifest = {
     name: PLUGIN_NAME,
@@ -218,9 +228,7 @@ async function seedRemoteFixture(
       `${JSON.stringify(config, null, 2)}\n`,
     ),
   ].join(" && ");
-  const result = await runSSHCommand(target, command);
-  expect(result.code).toBe(0);
-  expect(result.stderr).toBe("");
+  await runFixtureCommand(target, command, workspacePath, marker, "seed");
 }
 
 async function readRemoteWorkspaceConfig(
@@ -238,11 +246,83 @@ async function readRemoteWorkspaceConfig(
 async function cleanupRemoteFixture(
   target: SSHConnectionConfig,
   workspacePath: string,
+  marker: "A" | "B",
 ): Promise<void> {
-  if (workspacePath !== "/workspace") {
-    throw new Error(`${CASE_MARKER}: refusing to clean unexpected remote path ${workspacePath}`);
+  assertAllowedRemoteWorkspace(workspacePath);
+  await runFixtureCommand(
+    target,
+    `rm -rf -- ${quoteShell(workspacePath)}`,
+    workspacePath,
+    marker,
+    "cleanup",
+  );
+}
+
+function assertAllowedRemoteWorkspace(workspacePath: string): void {
+  // XCODE: seed 与 cleanup 共用严格目录授权；覆盖值本身也必须是本 case 专属 namespace。
+  const allowedPath = process.env.ZCODE_E2E_WPL010_WORKSPACE?.trim() || "/workspace";
+  if (
+    (allowedPath !== "/workspace" &&
+      !/^\/(?:home\/[a-zA-Z0-9_][a-zA-Z0-9_-]*|root)\/\.zcode-e2e\/wpl-010$/u.test(allowedPath)) ||
+    workspacePath !== allowedPath
+  ) {
+    throw new Error(`${CASE_MARKER}: refusing to reset unexpected remote path`);
   }
-  await runSSHCommand(target, `rm -rf -- ${quoteShell(workspacePath)}`);
+}
+
+async function runFixtureCommand(
+  target: SSHConnectionConfig,
+  command: string,
+  workspacePath: string,
+  marker: "A" | "B",
+  phase: "seed" | "cleanup",
+): Promise<void> {
+  const artifactDir = process.env.ZCODE_E2E_ARTIFACT_DIR?.trim();
+  if (!artifactDir)
+    throw new Error(`${CASE_MARKER}: fixture evidence requires ZCODE_E2E_ARTIFACT_DIR`);
+  const evidenceDir = artifactDir;
+  await mkdir(artifactDir, { recursive: true });
+  let result: RemoteFixtureCommandResult;
+  try {
+    result = await runSSHCommand(target, command);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await saveFailure({ code: null, stdout: "", stderr: message });
+    throw new Error(sanitize(message));
+  }
+  if (result.code !== 0 || result.stderr !== "") await saveFailure(result);
+  expect(result.code).toBe(0);
+  expect(sanitize(result.stderr)).toBe("");
+
+  function sanitize(text: string): string {
+    const credentials = [target.password, target.host, target.username].sort(
+      (a, b) => b.length - a.length,
+    );
+    for (const value of credentials) {
+      if (value) text = text.replaceAll(value, "[redacted]");
+    }
+    return text;
+  }
+
+  async function saveFailure(failure: RemoteFixtureCommandResult): Promise<void> {
+    // XCODE: 先落盘原始退出证据的脱敏副本，再保留原断言；不记录目标配置或环境。
+    await writeFile(
+      join(evidenceDir, `wpl-010-${phase}-${marker}-failure-${Date.now()}.json`),
+      `${JSON.stringify(
+        {
+          phase,
+          target: marker,
+          namespace: workspacePath,
+          code: failure.code,
+          stdout: sanitize(failure.stdout),
+          stderr: sanitize(failure.stderr),
+        },
+        null,
+        2,
+      )}\n`,
+      { encoding: "utf8", flag: "wx" },
+    );
+  }
 }
 
 function expectCatalogMarker(

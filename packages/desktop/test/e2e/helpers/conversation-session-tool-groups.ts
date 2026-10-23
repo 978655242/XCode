@@ -1,4 +1,11 @@
-import { TID_TOOL_SUMMARY_TRIGGER } from "@zcode/shared/test-ids";
+import {
+  TID_SETTINGS_BACK_BUTTON,
+  TID_SETTINGS_SECTION_NAV,
+  TID_TASK_SETTINGS_BUTTON,
+  TID_TOOL_SUMMARY_TRIGGER,
+  testId,
+} from "@zcode/shared/test-ids";
+import { clickTestIdByDom, readSettings } from "./desktop-app.js";
 
 export type ConversationToolGroupName =
   | "Explore"
@@ -13,6 +20,29 @@ export interface ConversationToolGroupSnapshot {
   text: string;
   toolCallId: string;
   toolName: ConversationToolGroupName;
+}
+
+export async function enableChangesGrouping(): Promise<void> {
+  // XCODE: 磁盘 seed 不会更新运行中的 Settings owner，必须沿真实开关写入。
+  await clickTestIdByDom(TID_TASK_SETTINGS_BUTTON);
+  await clickTestIdByDom(testId(TID_SETTINGS_SECTION_NAV, "general"));
+  await browser.waitUntil(
+    () =>
+      browser.execute(() => {
+        const control = document.querySelector<HTMLElement>(
+          '[aria-label="Group file changes"], [aria-label="分组文件更改"]',
+        );
+        if (!control) return false;
+        if (control.getAttribute("aria-checked") !== "true") control.click();
+        return true;
+      }),
+    { timeout: 15000, timeoutMsg: "没有找到 Changes 分组设置开关" },
+  );
+  await browser.waitUntil(async () => (await readSettings()).toolGroupingChangesEnabled === true, {
+    timeout: 15000,
+    timeoutMsg: "Changes 分组设置没有持久化",
+  });
+  await clickTestIdByDom(TID_SETTINGS_BACK_BUTTON);
 }
 
 export function listConversationToolGroups(): Promise<

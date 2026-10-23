@@ -18,8 +18,21 @@ import { reloadElectronSessionPreservingBrowserProfile } from "../helpers/e2e-el
 const CASE_ROOT = join(DEFAULT_WORKSPACE, "E2E_FILE_TREE_SHARED_SEARCH");
 const JAVA_DIRECTORY = join(CASE_ROOT, "src", "main", "java", "com", "example", "user");
 const JAVA_FILE = join(JAVA_DIRECTORY, "UserProfileService.java");
+const SECOND_JAVA_FILE = join(CASE_ROOT, "src", "main", "java", "NavigationPreference.java");
 
 describe("工作区文件树共享搜索 E2E", () => {
+  before(async () => {
+    // 命令中心按 workspace 缓存目录；首次文件搜索前准备完整夹具。
+    await rm(CASE_ROOT, { recursive: true, force: true });
+    await mkdir(JAVA_DIRECTORY, { recursive: true });
+    await writeFile(
+      JAVA_FILE,
+      "package com.example.user;\npublic final class UserProfileService {}\n",
+      "utf-8",
+    );
+    await writeFile(SECOND_JAVA_FILE, "public final class NavigationPreference {}\n", "utf-8");
+  });
+
   after(async () => {
     await browser.electron.restoreAllMocks();
     await clearAppData();
@@ -28,14 +41,6 @@ describe("工作区文件树共享搜索 E2E", () => {
 
   it("未展开深层 Java 文件可以通过左侧文件树搜索命中并打开预览", async function () {
     this.timeout(150000);
-
-    await rm(CASE_ROOT, { recursive: true, force: true });
-    await mkdir(JAVA_DIRECTORY, { recursive: true });
-    await writeFile(
-      JAVA_FILE,
-      "package com.example.user;\npublic final class UserProfileService {}\n",
-      "utf-8",
-    );
 
     await waitForDefaultWorkspaceReady();
     await openWorkspaceFileTree();
@@ -50,14 +55,6 @@ describe("工作区文件树共享搜索 E2E", () => {
   it("搜索结果中的深层目录点击后会回到树态并逐级展开定位", async function () {
     this.timeout(150000);
 
-    await rm(CASE_ROOT, { recursive: true, force: true });
-    await mkdir(JAVA_DIRECTORY, { recursive: true });
-    await writeFile(
-      JAVA_FILE,
-      "package com.example.user;\npublic final class UserProfileService {}\n",
-      "utf-8",
-    );
-
     await waitForDefaultWorkspaceReady();
     await openWorkspaceFileTree();
     await typeWorkspaceFileTreeSearch("com/example/user");
@@ -71,10 +68,7 @@ describe("工作区文件树共享搜索 E2E", () => {
   it("显式收起目录后，其他文件与 App 重启沿用同一 workspace 偏好", async function () {
     this.timeout(240000);
 
-    const secondFile = join(CASE_ROOT, "src", "main", "java", "NavigationPreference.java");
-    await mkdir(JAVA_DIRECTORY, { recursive: true });
     await writeFile(JAVA_FILE, "public final class UserProfileService {}\n", "utf-8");
-    await writeFile(secondFile, "public final class NavigationPreference {}\n", "utf-8");
 
     await waitForDefaultWorkspaceReady();
     await openFileFromCommandCenter("UserProfileService.java");

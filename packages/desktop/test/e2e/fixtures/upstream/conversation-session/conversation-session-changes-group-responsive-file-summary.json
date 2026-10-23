@@ -1,7 +1,7 @@
 {
   "version": 1,
   "caseName": "conversation-session-changes-group-responsive-file-summary",
-  "spec": "./test/e2e/conversation-session/manual-review/pending/conversation-session-changes-group-responsive-file-summary.test.ts",
+  "spec": "./test/e2e/conversation-session/conversation-session-changes-group-responsive-file-summary.test.ts",
   "fixtures": [
     {
       "id": "tge03-write-app",

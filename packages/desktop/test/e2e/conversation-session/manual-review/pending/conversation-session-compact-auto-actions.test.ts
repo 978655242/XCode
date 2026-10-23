@@ -67,7 +67,7 @@ describe("会话区 Auto Compact Actions E2E", () => {
       await waitForChatState(
         (snapshot) =>
           snapshot.state === "idle" &&
-          snapshot.runtimeStatus === "completed" &&
+          snapshot.sessionEnded === true &&
           snapshot.activeInputId === null &&
           snapshot.queueCount === 0,
         "auto compact skipped 后没有继续消费 pendingAction",
@@ -134,7 +134,7 @@ describe("会话区 Auto Compact Actions E2E", () => {
     await waitForChatState(
       (snapshot) =>
         snapshot.state === "idle" &&
-        snapshot.runtimeStatus === "completed" &&
+        snapshot.sessionEnded === true &&
         snapshot.activeInputId === null &&
         snapshot.queueCount === 0 &&
         (snapshot.targetObjective ?? "").includes(queuedGoalMarker),

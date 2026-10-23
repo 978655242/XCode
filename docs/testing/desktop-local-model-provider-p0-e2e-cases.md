@@ -963,19 +963,19 @@ P0-12 已满足当前目标中的“详细描述、实际验证、转正后重�
 | Spec             | `packages/desktop/test/e2e/conversation-session/manual-review/pending/conversation-session-claude-anthropic-reasoning-budget.test.ts` |
 | Fixture manifest | `packages/desktop/test/e2e/fixtures/cases/conversation-session/conversation-session-claude-anthropic-reasoning-budget.json`           |
 | Provider fixture | `packages/desktop/test/e2e/fixtures/upstream/conversation-session/conversation-session-claude-anthropic-reasoning-budget.json`        |
-| 当前状态         | 已转正，正式路径 replay case                                                                                                          |
+| 当前状态         | pending；显式个人 fixed budget 配置修订待统一验证                                                                                     |
 
 ### 测试场景
 
-用户在桌面端本地默认 workspace 中添加一个 case-local custom Anthropic Messages provider，目标模型为 `claude-sonnet-4`，Base URL 指向本 case 自己启动的本地 replay server，API Key 使用 E2E dummy key。用户从聊天框模型列表选择该 provider 下的模型，先选择 `low` 思考档位并发送普通文本；首轮完成后，用户将思考档位切到 `xhigh`，再发送第二条普通文本。
+用户在桌面端本地默认 workspace 中添加一个 case-local custom Anthropic Messages provider，目标模型仍为 `claude-sonnet-4`，Base URL 指向本 case 自己启动的本地 replay server，API Key 使用 E2E dummy key。在真实新增模型 metadata 表单中显式保存个人 Option Spec：档位 `low/xhigh`，CEL map 分别生成 `thinking.type=enabled`、`thinking.budget_tokens=4000/31999`，并保留 `output_config.effort=low/xhigh`；最大输出上限设为 `32000`，沿用 Anthropic 原有 map 生成 `max_tokens=32000`。用户从聊天框模型列表选择该 provider 下的模型，先选择 `low` 并发送普通文本；首轮完成后切到 `xhigh`，再发送第二条普通文本。
 
-这条 case 验证 Claude 系模型的 fixed budget 思考强度是 Anthropic Messages 请求上的 provider 参数：`thinking.type=enabled`、`thinking.budget_tokens` 和 `output_config.effort` 必须按档位变化。它不覆盖 OpenAI-compatible 的 `reasoning_effort`，不覆盖 GLM-5.2 的 `chat_template_kwargs`，不验证真实 Anthropic 线上服务可用性，也不与 queue、stop、edit/fork、remote 或 compact 叉乘。
+这条 case 验证显式个人 fixed budget 配置经设置页落盘后映射到 Anthropic Messages 请求的合同，不依赖通用 Claude 的 `disabled/enabled` 默认档位，也不继承 adaptive map。它不覆盖 OpenAI-compatible 的 `reasoning_effort` 或 GLM-5.2 的 `chat_template_kwargs`；本地 replay 不能证明真实 Anthropic 在线服务接受 `claude-sonnet-4`、fixed budget 与 `output_config.effort=low/xhigh` 这一历史组合，也不与 queue、stop、edit/fork、remote 或 compact 叉乘。
 
 ### 操作步骤
 
 1. 启动本 case 的本地 replay server，并把 dummy key、Base URL、capture artifact 写入 E2E 环境。
 2. 清理并准备 E2E app data，启动桌面端本地默认 workspace。
-3. 通过设置页添加 custom provider，API 格式选择 `anthropic-messages`，模型为 `claude-sonnet-4`。
+3. 通过设置页添加 custom provider，API 格式选择 `anthropic-messages`，模型仍为 `claude-sonnet-4`；在 metadata 表单设置最大输出 `32000`，展开高级区，把两档改为 `low/xhigh`，填写显式 fixed budget CEL map 后保存。
 4. 返回聊天框，打开模型列表，选择新增 provider 下的 `claude-sonnet-4`。
 5. 选择 `low` 思考档位。
 6. 发送带 `E2E_CLAUDE_ANTHROPIC_REASONING_LOW` marker 的普通文本，等待回复完成。
@@ -984,16 +984,16 @@ P0-12 已满足当前目标中的“详细描述、实际验证、转正后重�
 
 ### 验证条目
 
-| 编号    | 验证项                                                                                            | 有效性说明                                                                | 当前断言位置                                                                                 |
-| ------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| P0-13-A | 新增 provider 被保存为 Anthropic Messages 格式，且包含 `claude-sonnet-4` 模型                     | 证明 case 的前置供应商事实正确，不是误用 OpenAI-compatible provider       | `createCustomClaudeAnthropicProvider()`                                                      |
-| P0-13-B | 聊天框模型列表能按新增 provider 身份选择 `claude-sonnet-4`                                        | 证明模型来自目标 provider，不是裸模型名或其他 provider 命中               | `selectUpstreamProviderModelById(...providerId...)` + `assertSelectedClaudeAnthropicModel()` |
-| P0-13-C | `low` 请求使用 `/messages`，body 中 `model=claude-sonnet-4` 且包含用户 marker                     | 证明请求走 Anthropic Messages transport，并且 prompt 没丢                 | `assertUpstreamRequestCapture`、`assertClaudeAnthropicRequest`                               |
-| P0-13-D | `low` 请求写入 `thinking.type=enabled`、`thinking.budget_tokens=4000`、`output_config.effort=low` | 证明 low 档位映射到正确 provider-visible 字段                             | `assertClaudeAnthropicRequest("low")`                                                        |
-| P0-13-E | `low` 请求没有误写 `reasoning_effort`、`extra_body` 或 `chat_template_kwargs`                     | 证明 Anthropic 合同不被 OpenAI-compatible 字段污染                        | `assertClaudeAnthropicRequest("low")`                                                        |
-| P0-13-F | `xhigh` 请求仍使用同一 provider/model，且 body 包含第二个用户 marker                              | 证明同一 session completed 后切思考档位只影响后续请求，不丢 provider 身份 | `assertUpstreamRequestCapture`、`assertClaudeAnthropicRequest`                               |
-| P0-13-G | `xhigh` 请求写入 `thinking.budget_tokens=32000`、`output_config.effort=xhigh`                     | 证明 xhigh 深度真实覆盖上一轮 low                                         | `assertClaudeAnthropicRequest("xhigh")`                                                      |
-| P0-13-H | 两轮 assistant 回复可见，完成后 `idle && queue=0`                                                 | 证明 replay 响应被 UI 正确消费，未残留 busy 或 queue                      | `waitForAssistantMessageContaining`、`waitForChatState`                                      |
+| 编号    | 验证项                                                                                                 | 有效性说明                                                                | 当前断言位置                                                                                 |
+| ------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| P0-13-A | 新增 provider 被保存为 Anthropic Messages 格式，且包含 `claude-sonnet-4` 模型                          | 证明 case 的前置供应商事实正确，不是误用 OpenAI-compatible provider       | `createCustomClaudeAnthropicProvider()`                                                      |
+| P0-13-B | 聊天框模型列表能按新增 provider 身份选择 `claude-sonnet-4`                                             | 证明模型来自目标 provider，不是裸模型名或其他 provider 命中               | `selectUpstreamProviderModelById(...providerId...)` + `assertSelectedClaudeAnthropicModel()` |
+| P0-13-C | `low` 请求使用 `/messages`，body 中 `model=claude-sonnet-4` 且包含用户 marker                          | 证明请求走 Anthropic Messages transport，并且 prompt 没丢                 | `assertUpstreamRequestCapture`、`assertClaudeAnthropicRequest`                               |
+| P0-13-D | `low` 请求写入 `thinking.type=enabled`、`thinking.budget_tokens=4000`、`output_config.effort=low`      | 证明 low 档位映射到正确 provider-visible 字段                             | `assertClaudeAnthropicRequest("low")`                                                        |
+| P0-13-E | `low` 请求没有误写 `reasoning_effort`、`extra_body` 或 `chat_template_kwargs`                          | 证明 Anthropic 合同不被 OpenAI-compatible 字段污染                        | `assertClaudeAnthropicRequest("low")`                                                        |
+| P0-13-F | `xhigh` 请求仍使用同一 provider/model，且 body 包含第二个用户 marker                                   | 证明同一 session completed 后切思考档位只影响后续请求，不丢 provider 身份 | `assertUpstreamRequestCapture`、`assertClaudeAnthropicRequest`                               |
+| P0-13-G | `xhigh` 请求写入 `thinking.budget_tokens=31999`、`output_config.effort=xhigh`，两轮 `max_tokens=32000` | 证明个人 fixed budget 覆盖上一轮 low，并为可见输出保留 1 token            | `assertClaudeAnthropicRequest("xhigh")`                                                      |
+| P0-13-H | 两轮 assistant 回复可见，完成后 `idle && queue=0`                                                      | 证明 replay 响应被 UI 正确消费，未残留 busy 或 queue                      | `waitForAssistantMessageContaining`、`waitForChatState`                                      |
 
 ### Fixture 合同
 
@@ -1016,7 +1016,7 @@ P0-12 已满足当前目标中的“详细描述、实际验证、转正后重�
   - Artifact：`packages/desktop/.e2e-artifacts/desktop-e2e-20260702-150003-655/summary.md`。
   - 结论：严格只加载 common + case-local fixture 时，P0-13-A 到 P0-13-H 均由正式 spec 断言覆盖；`low` 请求体实际包含 `thinking.type=enabled`、`thinking.budget_tokens=4000`、`output_config.effort=low`，`xhigh` 请求体实际包含 `thinking.budget_tokens=32000`、`output_config.effort=xhigh`，两轮均未误写 OpenAI-compatible 或 GLM 专属字段，最终均回到 `idle` 且 `queueCount=0`。
 
-P0-13 已满足当前目标中的“详细描述、实际验证、转正后重新确认”要求。该 case 已在正式路径；Docker 准入受网络问题影响暂不执行。
+以上为历史执行记录，其中 `xhigh=32000` 不能作为当前 `31999` 请求合同的验收证据。本次修订保留设置页添加模型路径，显式声明个人 fixed budget；尚未运行检查或 GUI，统一验证由主代理执行。
 
 ## P0-14: GPT OpenAI-compatible reasoning_effort 请求字段
 

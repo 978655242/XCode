@@ -59,7 +59,7 @@ describe("会话区 Goal Interruptions E2E", () => {
       (snapshot) =>
         snapshot.state !== "streaming" &&
         snapshot.queueCount === 0 &&
-        snapshot.runtimeStatus === "completed" &&
+        snapshot.sessionEnded === true &&
         !snapshot.stopRequested &&
         snapshot.targetStatus === "paused",
       "goal verifier stop 后没有收口到 completed/paused",
@@ -110,7 +110,7 @@ describe("会话区 Goal Interruptions E2E", () => {
       (snapshot) =>
         snapshot.state !== "streaming" &&
         snapshot.queueCount === 0 &&
-        snapshot.runtimeStatus === "completed" &&
+        snapshot.sessionEnded === true &&
         !snapshot.stopRequested &&
         snapshot.targetStatus === "paused",
       "goal verifier compact stop 后没有收口到 completed/paused",

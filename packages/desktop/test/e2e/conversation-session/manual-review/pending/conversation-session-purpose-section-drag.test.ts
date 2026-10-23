@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { DEFAULT_WORKSPACE, waitForWorkspaceApp } from "../../../helpers/desktop-app.js";
+import { selectTaskOrganizeMode } from "../../../helpers/workspace-agent-warmup.js";
 
 const project = '[data-testid="project-section"]';
 const tasks = '[data-testid="conversation-section"]';
@@ -12,12 +13,16 @@ describe("CWP02 分区标题拖拽", () => {
     await waitForWorkspaceApp(DEFAULT_WORKSPACE, 30_000);
     await browser.execute((key) => localStorage.removeItem(key), preferenceKey);
     await browser.refresh();
+    await waitForWorkspaceApp(DEFAULT_WORKSPACE, 30_000);
+    await selectTaskOrganizeMode(["项目", "Project"]);
+    await $('[role="menu"]').waitForExist({ reverse: true });
     await $(project).waitForDisplayed();
   });
 
   afterEach(async () => {
     await browser.keys("Escape");
     await browser.releaseActions();
+    await $('[data-slot="dialog-overlay"]').waitForExist({ reverse: true });
   });
 
   it("标题直接向上拖动，蓝线、纵轴、折叠独立与重载持久化", async () => {
@@ -56,6 +61,7 @@ describe("CWP02 分区标题拖拽", () => {
       );
     await focusTasks();
     await browser.keys("Space");
+    await expect($(tasks).$(trigger)).toHaveAttribute("aria-pressed", "true");
     await browser.keys("ArrowDown");
     await expect($(project).$(indicator)).toHaveAttribute("data-drop-position", "after");
     await browser.keys("Escape");
@@ -64,6 +70,7 @@ describe("CWP02 分区标题拖拽", () => {
     await expect($(tasks).$(trigger)).toHaveAttribute("aria-expanded", "true");
     await focusTasks();
     await browser.keys("Space");
+    await expect($(tasks).$(trigger)).toHaveAttribute("aria-pressed", "true");
     await browser.keys("ArrowDown");
     await expect($(project).$(indicator)).toHaveAttribute("data-drop-position", "after");
     await browser.keys("Space");
@@ -143,14 +150,31 @@ async function order() {
 }
 
 async function beginDrag(source: string, target: string) {
+  // XCODE: 折叠动画会移动标题；先等实际布局结束，再计算真实指针坐标。
+  await browser.waitUntil(() =>
+    browser.execute(
+      (selectors) =>
+        selectors.every((selector) =>
+          document
+            .querySelector(selector)!
+            .getAnimations({ subtree: true })
+            .every((animation) => animation.playState !== "running"),
+        ),
+      [source, target],
+    ),
+  );
   const coords = await browser.execute(
     (source, target, trigger) => {
       const from = document.querySelector(`${source} ${trigger}`)!.getBoundingClientRect();
+      const section = document.querySelector(source)!.getBoundingClientRect();
       const to = document.querySelector(target)!.getBoundingClientRect();
       return {
         x: Math.round(from.left + 28),
         y: Math.round(from.top + from.height / 2),
-        targetY: Math.round(to.top + to.height / 2),
+        // 碰撞中心属于整个 section；标题只负责激活，不能把它的中心误当作 section 中心。
+        targetY: Math.round(
+          from.top + from.height / 2 + to.top + to.height / 2 - section.top - section.height / 2,
+        ),
         right: Math.min(innerWidth - 5, Math.round(from.right + 120)),
       };
     },
@@ -167,8 +191,17 @@ async function beginDrag(source: string, target: string) {
         { type: "pointerMove", duration: 0, x: coords.x, y: coords.y },
         { type: "pointerDown", button: 0 },
         { type: "pointerMove", duration: 100, x: coords.x + 8, y: coords.y },
-        { type: "pointerMove", duration: 250, x: coords.right, y: coords.targetY },
       ],
+    },
+  ]);
+  // XCODE: 跨阈值事件只激活 sensor；复用项目拖拽约定，确认 owner 已接管后再移向落点。
+  await expect($(source).$(trigger)).toHaveAttribute("aria-pressed", "true");
+  await browser.performActions([
+    {
+      type: "pointer",
+      id: "section-pointer",
+      parameters: { pointerType: "mouse" },
+      actions: [{ type: "pointerMove", duration: 250, x: coords.right, y: coords.targetY }],
     },
   ]);
 }

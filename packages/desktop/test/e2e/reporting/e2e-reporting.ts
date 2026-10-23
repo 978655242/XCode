@@ -36,6 +36,8 @@ interface WdioTestLike {
   fullName?: string;
   fullTitle?: string;
   title: string;
+  pending?: boolean;
+  state?: string;
   _currentRetry?: number;
   _retries?: number;
 }
@@ -44,7 +46,7 @@ interface WdioTestResultLike {
   duration: number;
   error?: unknown;
   passed: boolean;
-  status: string;
+  status?: string;
 }
 
 function includesAny(text: string, patterns: string[]): boolean {
@@ -396,6 +398,14 @@ export function createE2EReporter(options: E2EReporterOptions) {
         result.error instanceof Error ? result.error.stack?.slice(0, 2000) : undefined;
       const retryIndex = test._currentRetry ?? 0;
       const retryLimit = test._retries ?? 0;
+      // XCODE: Mocha 的动态 this.skip() 可耗时数毫秒；只依据显式 pending，不凭没有 error 猜跳过。
+      const status =
+        result.status ??
+        (test.pending || test.state === "pending"
+          ? "skipped"
+          : result.passed
+            ? "passed"
+            : "failed");
 
       const allCollectionErrors = [
         ...(failureArtifacts?.collectionErrors ?? []),
@@ -425,7 +435,7 @@ export function createE2EReporter(options: E2EReporterOptions) {
         passedOnRetry: result.passed && retryIndex > 0,
         retryIndex,
         retryLimit,
-        status: result.status,
+        status,
         title: test.title,
       } satisfies TestResultLine);
     },

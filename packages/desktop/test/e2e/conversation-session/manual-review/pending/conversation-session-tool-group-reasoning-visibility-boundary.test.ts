@@ -1,4 +1,6 @@
 import { rm } from "node:fs/promises";
+import { TID_CHAT_REASONING_TRIGGER } from "@zcode/shared/test-ids";
+import { waitForToolCallBlockByToolCallId } from "../../../helpers/conversation-session-tool.js";
 import {
   clearAppData,
   seedSettings,
@@ -7,7 +9,6 @@ import {
 import {
   listConversationToolGroups,
   toggleLatestConversationToolGroup,
-  waitForConversationToolGroup,
 } from "../../../helpers/conversation-session-tool-groups.js";
 import { ensureToolCrossProductFullAccessMode } from "../../../helpers/conversation-session-tool-cross-product.js";
 import {
@@ -88,14 +89,43 @@ describe("TGE04 reasoning visibility grouping boundary", () => {
     await reloadAndRestoreSession(sessionId);
     await expandAssistantHistoriesWithContent();
 
-    await waitForConversationToolGroup(
-      "ExecuteGroup",
-      (group) => group.status === "completed",
-      "显示 reasoning 后 Terminal 没有恢复",
-    );
+    // XCODE: 可见 reasoning 会拆开连续段；单项仍是原工具，不能期待每段新造一个合成父组。
+    const expectedTools = [
+      ["toolu_tge04_execute_a", "Bash"],
+      ["toolu_tge04_execute_b", "Bash"],
+      ["toolu_tge04_write", "Write"],
+      ["toolu_tge04_edit", "Edit"],
+    ] as const;
+    for (const [toolCallId, toolName] of expectedTools) {
+      expect(await waitForToolCallBlockByToolCallId(toolCallId, 30000)).toMatchObject({ toolCallId, toolName, status: "completed" });
+    }
+    const expectedIds: string[] = expectedTools.map(([id]) => id);
+    const boundary = await browser.execute((taskId, ids, reasoningId) => {
+      const pane = Array.from(document.querySelectorAll<HTMLElement>("[data-session-id]")).find(
+        (element) => element.dataset.sessionId === taskId && element.getClientRects().length > 0,
+      );
+      const tools = ids.map((id) => pane?.querySelector<HTMLElement>(`[data-tool-call-id="${id}"]`) ?? null);
+      const reasoning = Array.from(pane?.querySelectorAll<HTMLElement>(`[data-testid="${reasoningId}"]`) ?? []).filter((element) => element.getClientRects().length > 0);
+      const first = tools[0];
+      return {
+        orderedIds: Array.from(pane?.querySelectorAll<HTMLElement>("[data-tool-call-id]") ?? [])
+          .map((element) => element.dataset.toolCallId ?? "")
+          .filter((id) => ids.includes(id)),
+        reasoningBeforeFirst: Boolean(first && reasoning.some((element) => element.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING)),
+        reasoningBetween: tools.slice(1).map((next, index) => {
+          const previous = tools[index];
+          return Boolean(previous && next && reasoning.some((element) =>
+            Boolean(previous.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING) &&
+            Boolean(element.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING),
+          ));
+        }),
+      };
+    }, sessionId, expectedIds, TID_CHAT_REASONING_TRIGGER);
+    expect(boundary.orderedIds).toEqual(expectedIds);
+    expect(boundary.reasoningBeforeFirst).toBe(true);
+    expect(boundary.reasoningBetween).toEqual([true, true, true]);
     const visibleGroups = await listConversationToolGroups();
-    expect(visibleGroups.filter((group) => group.toolName === "ExecuteGroup").length).toBeGreaterThanOrEqual(2);
-    expect(visibleGroups.filter((group) => group.toolName === "ChangesGroup").length).toBeGreaterThanOrEqual(2);
+    expect(visibleGroups.filter((group) => group.toolName === "ExecuteGroup" || group.toolName === "ChangesGroup")).toHaveLength(0);
   });
 });
 

@@ -229,7 +229,8 @@ async function runCompletedToolTurn(
   await waitForV4UserMessageContaining(prompt);
   await waitForUpstreamRequest(
     {
-      includes: [marker],
+      // XCODE: 同工具跨场景复用 marker，首轮证据必须绑定本次唯一 prompt。
+      includes: [prompt],
       excludes: [COMPACT_REQUEST_SENTINEL],
     },
     `${toolCase.toolName}: 首发工具请求没有出现`,

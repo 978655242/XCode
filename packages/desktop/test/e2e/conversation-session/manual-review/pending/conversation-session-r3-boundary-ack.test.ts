@@ -151,21 +151,40 @@ describe(`${CASE_MARKER}: 首次主动连接的持续运行介绍`, () => {
     await openSSHSourceDirectory(config, CASE_MARKER);
     await waitForSSHDirectoryStep(CASE_MARKER, undefined, STRICT_BOUNDARY);
     expect(await intro.isExisting()).toBe(false);
-    await selectSSHRemoteDirectory(config.workspacePaths[1], CASE_MARKER);
-    await waitForRemoteTab({ caseMarker: CASE_MARKER, expectedPath: config.workspacePaths[1] });
+    const secondProject = await selectSSHRemoteDirectory(config.workspacePaths[1], CASE_MARKER);
+    const second = await waitForRemoteTab({
+      caseMarker: CASE_MARKER,
+      expectedIdentity: secondProject.workspaceIdentity,
+      expectedPath: config.workspacePaths[1],
+    });
     facts.secondProjectIntroductionAbsent = true;
 
+    // XCODE: B 的真实目录导航与 Host 设置 debounce 独立；先证明活动身份落盘再 flush DOM 并冷重启。
+    await browser.waitUntil(
+      async () => {
+        const active = (await readSettings()).lastActiveWorkspace;
+        return (
+          active?.kind === "remote" &&
+          active.workspacePath === second.workspacePath &&
+          active.workspaceIdentity === second.workspaceIdentity
+        );
+      },
+      { timeout: 15_000, timeoutMsg: `${CASE_MARKER}: 冷启动前 B 的活动身份没有持久化` },
+    );
+    facts.activeBeforeRestart = (await readSettings()).lastActiveWorkspace;
     facts.credentialsBeforeRestart = await readCredentialPresence();
     expect(facts.credentialsBeforeRestart).toEqual({ passwordRefs: 1, presentRefs: 1 });
     await reloadElectronSessionPreservingBrowserProfile(browser);
     await waitForRendererAfterColdRestart(CASE_MARKER);
     expect((await readSettings()).remoteBoundaryIntroAcknowledgedVersion).toBe(1);
-    await waitForRemoteTab({
+    const restored = await waitForRemoteTab({
       caseMarker: CASE_MARKER,
+      expectedIdentity: secondProject.workspaceIdentity,
       expectedPath: config.workspacePaths[1],
-      requireActive: false,
       timeoutMs: 180_000,
     });
+    expect(restored.workspaceIdentity).toBe(second.workspaceIdentity);
+    facts.restoredIdentity = restored.workspaceIdentity;
     await openSSHSourceDirectory(config, CASE_MARKER);
     await waitForSSHDirectoryStep(CASE_MARKER, undefined, STRICT_BOUNDARY);
     expect(await intro.isExisting()).toBe(false);

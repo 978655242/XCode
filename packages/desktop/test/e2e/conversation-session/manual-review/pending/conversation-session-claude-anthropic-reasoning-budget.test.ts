@@ -273,6 +273,43 @@ async function addModelThroughMetadataDialog(modelId: string) {
     timeoutMsg: `新增 Claude Anthropic provider 模型 ID 没有写入输入框: ${modelId}`,
   });
 
+  // XCODE: 通用 Claude 配置只有 disabled/enabled；本例通过真实设置表单声明个人 fixed budget，不能依赖历史 catalog。
+  const maxOutput = $('[role="dialog"] [data-model-max-output="true"] input');
+  await browser.waitUntil(async () => (await maxOutput.getAttribute("aria-busy")) !== "true", {
+    timeout: 15000,
+    timeoutMsg: "Claude 模型 catalog 查询没有结束",
+  });
+  await maxOutput.setValue("32000");
+  await $('[role="dialog"] [data-model-advanced-trigger="true"]').click();
+  await $('[role="dialog"] [data-model-advanced="true"]').waitForDisplayed({ timeout: 15000 });
+  // XCODE: 高级控件始终挂载；等待真实展开结束后再编辑，避免把过渡中的隐藏文本当配置。
+  await browser.execute(async () => {
+    const advanced = document.querySelector('[role="dialog"] [data-model-advanced="true"]');
+    await Promise.all(
+      (advanced?.getAnimations({ subtree: true }) ?? []).map((animation) => animation.finished),
+    );
+  });
+  for (const [index, value] of [
+    CLAUDE_ANTHROPIC_LOW_LEVEL,
+    CLAUDE_ANTHROPIC_XHIGH_LEVEL,
+  ].entries()) {
+    const level = (
+      await $$('[role="dialog"] [data-model-reasoning-chip="true"] > button:first-of-type')
+    )[index]!;
+    await level.click();
+    const input = $('[role="dialog"] [data-model-reasoning-level-input="true"]');
+    await input.waitForDisplayed({ timeout: 15000 });
+    // XCODE: WebDriver clear 会先失焦收起行内编辑器；聚焦全选后直接输入，最后 Enter 提交。
+    await input.click();
+    await browser.keys([process.platform === "darwin" ? "Meta" : "Control", "a"]);
+    await input.addValue(value);
+    await browser.keys("Enter");
+    await input.waitForExist({ reverse: true, timeout: 15000 });
+  }
+  await $('[role="dialog"] [data-model-reasoning-level-map-editor="true"] textarea').setValue(
+    '{"thinking":{"type":"enabled","budget_tokens":reasoningLevel == "low" ? 4000 : 31999},"output_config":{"effort":reasoningLevel}}',
+  );
+
   await saveProviderModelMetadataDialog("Claude Anthropic provider");
 }
 
@@ -361,12 +398,12 @@ function assertClaudeAnthropicRequest(
   expectedLevel: string,
 ) {
   expect(record.path).toContain("/messages");
+  expect(readNestedNumber(record.requestJson, ["max_tokens"])).toBe(32000);
   expect(readNestedString(record.requestJson, ["thinking", "type"])).toBe("enabled");
   expect(readNestedNumber(record.requestJson, ["thinking", "budget_tokens"])).toBe(
     expectedLevel === CLAUDE_ANTHROPIC_LOW_LEVEL
       ? CLAUDE_ANTHROPIC_LOW_BUDGET_TOKENS
-      : // 修复原因：fixed thinking 与可见输出共享 32K 总预算；xhigh catalog 为
-        // 32K 时 wire 必须留 1 token 给可见输出，因此实际 budget 是 31,999。
+      : // XCODE: 个人 fixed budget 显式为 32K 总输出保留 1 token，不依赖 catalog 或运行时裁剪。
         CLAUDE_ANTHROPIC_XHIGH_BUDGET_TOKENS - 1,
   );
   expect(readNestedString(record.requestJson, ["output_config", "effort"])).toBe(expectedLevel);

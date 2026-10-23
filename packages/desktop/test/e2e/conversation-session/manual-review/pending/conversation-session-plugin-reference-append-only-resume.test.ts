@@ -5,17 +5,23 @@
 //
 // Bug 根因防线：只检查当前请求“还含有 plugin_reference”无法发现旧 reminder 被删除、
 // 重排或重建。这里逐项比较相邻请求的完整 messages 前缀，直接锁住 Prefix Cache 合同。
-import { clearAppData } from "../../../helpers/desktop-app.js";
+import {
+  DEFAULT_WORKSPACE,
+  clearAppData,
+  getActiveWorkspacePath,
+  readSettings,
+} from "../../../helpers/desktop-app.js";
 import {
   assertUpstreamRequestCapture,
   waitForUpstreamNetworkCapture,
 } from "../../../helpers/upstream-capture.js";
 import {
-  restartIntoWorkspacePreservingProfile,
   seedPersistedModelSelection,
   seedReplayProvider,
   waitForSelectedModel,
 } from "../../../helpers/model-provider-restart.js";
+import { restartIntoWorkspacePreservingProfile } from "../../../helpers/model-provider-restart-runtime.js";
+import { waitForActiveWorkspacePath } from "../../../helpers/workspace-agent-warmup.js";
 import {
   prepareV4ConversationE2E,
   selectV4TaskById,
@@ -64,7 +70,8 @@ describe("PLG13/PLG14 Plugin 引用多轮热/冷恢复 append-only", () => {
       providerId: PROVIDER_ID,
       reasoningLevel: "disabled",
     });
-    await restartIntoWorkspacePreservingProfile();
+    await waitForPersistedLocalWorkspace(DEFAULT_WORKSPACE);
+    await restartIntoWorkspacePreservingProfile(DEFAULT_WORKSPACE);
     await prepareV4ConversationE2E({ skipProvider: true });
     await waitForSelectedModel(PROVIDER_ID, MODEL_ID);
 
@@ -89,6 +96,9 @@ describe("PLG13/PLG14 Plugin 引用多轮热/冷恢复 append-only", () => {
     await waitForV4AssistantMessageContaining(PARKING_REPLY, 60_000);
     const parkingSessionId = await readIdleBoundSession("parking session 没有完成");
     expect(parkingSessionId).not.toBe(targetSessionId);
+    // XCODE: 全局新任务由产品分配 cwd；parking 可以独立于目标项目，不能硬等默认目录恢复。
+    const parkingWorkspace = await getActiveWorkspacePath();
+    if (!parkingWorkspace) throw new Error("parking session 没有发布实际执行目录");
 
     await selectV4TaskById(targetSessionId);
     await waitForV4TimelineContaining(U2_MARKER, 60_000);
@@ -101,7 +111,9 @@ describe("PLG13/PLG14 Plugin 引用多轮热/冷恢复 append-only", () => {
     // PLG14 冷恢复：先切回 parking，避免目标 task 在记录前被自动打开；随后保留
     // profile 完整重启 Electron、Host 和 CLI，再由侧栏重新打开目标 task。
     await selectV4TaskById(parkingSessionId);
-    await restartIntoWorkspacePreservingProfile();
+    await waitForActiveWorkspacePath(parkingWorkspace);
+    await waitForPersistedLocalWorkspace(parkingWorkspace);
+    await restartIntoWorkspacePreservingProfile(parkingWorkspace);
     await waitForSelectedModel(PROVIDER_ID, MODEL_ID);
     await waitForV4Pane(
       (snapshot) => snapshot.sessionId !== targetSessionId,
@@ -125,6 +137,17 @@ describe("PLG13/PLG14 Plugin 引用多轮热/冷恢复 append-only", () => {
     expect(timelineHasReminder).toBe(false);
   });
 });
+
+async function waitForPersistedLocalWorkspace(workspacePath: string): Promise<void> {
+  // XCODE: Host 活动入口先落盘，再由现有重启 helper flush 独立的 Chromium pane-session 存储。
+  await browser.waitUntil(
+    async () => {
+      const active = (await readSettings()).lastActiveWorkspace;
+      return active?.kind === "local" && active.workspacePath === workspacePath;
+    },
+    { timeout: 15_000, timeoutMsg: `冷启动前实际活动目录没有持久化: ${workspacePath}` },
+  );
+}
 
 async function sendAndCapture(prompt: string, marker: string, reply: string) {
   await sendV4Prompt(prompt);

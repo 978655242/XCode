@@ -78,7 +78,7 @@ async function longPressGroup(page: Page, title: string) {
   }
 }
 
-// wdio fixture 以 VITE_ZCODE_E2E_STORE_BRIDGE=1 自动启动本仓 Web :5173（端口需空闲）；desktop URL 指向同一地址。
+// XCODE: wdio fixture 启动本仓 Web，实际动态端口由运行时环境传入。
 describe("虚拟项目手机 shared-host 导航", () => {
   after(async () => {
     await restoreHandoffProbes();
@@ -192,8 +192,14 @@ describe("虚拟项目手机 shared-host 导航", () => {
       );
       const pairUrl = await pairing;
       const target = new URL(pairUrl);
-      if (target.origin !== "http://127.0.0.1:5173")
-        throw new Error("VP13 requires current local Web build");
+      // XCODE: 当前 Web 使用动态端口，必须与本轮夹具的实际地址精确匹配。
+      const configuredUrl = process.env.ZCODE_WEB_REMOTE_CONTROL_URL?.trim();
+      if (
+        !configuredUrl ||
+        target.origin !== new URL(configuredUrl).origin ||
+        target.pathname !== "/remote/v4"
+      )
+        throw new Error("VP13 requires current local Web build at /remote/v4");
       // 本机抓包代理可能向 Chrome 签发不受信任证书；允许测试浏览器显式直连 relay。
       mobileBrowser = await chromium.launch({
         ...(process.env.ZCODE_E2E_MOBILE_BROWSER_EXECUTABLE

@@ -23,6 +23,7 @@ import {
   clearAppData,
   clickTestIdByDom,
   clickTestIdByWebDriver,
+  DEFAULT_WORKSPACE,
   setInputValueByTestIdDom,
   waitForTestIdByDom,
 } from "../../../helpers/desktop-app.js";
@@ -31,11 +32,15 @@ import {
   getToolCallDiagnostics,
 } from "../../../helpers/conversation-session-tool-diagnostics.js";
 import { waitForToolCallBlockByToolName } from "../../../helpers/conversation-session-tool.js";
+import { startDraftFromProject } from "../../../helpers/project-sidebar.js";
+import {
+  selectUpstreamModel,
+  selectUpstreamThoughtLevel,
+} from "../../../helpers/upstream-provider.js";
 import {
   approveV4Permission,
   prepareV4ConversationE2E,
   sendV4Prompt,
-  startNewV4Draft,
   waitForV4Pane,
   waitForV4TimelineContaining,
 } from "../../../helpers/v4-conversation.js";
@@ -91,8 +96,10 @@ describe("会话内 CronUpdate 更新既有定时任务 E2E", () => {
     const originalAutomation =
       await waitForAutomationRecordByTitle(ORIGINAL_TITLE);
 
-    // 普通 desktop-continuous 会话先查询真实 ID，再对同一条记录执行 patch 更新。
-    await startNewV4Draft();
+    // XCODE: CronList 按项目查询，必须从创建自动化的同一目录进入真实模型草稿。
+    await startDraftFromProject(DEFAULT_WORKSPACE);
+    await selectUpstreamModel();
+    await selectUpstreamThoughtLevel();
     await sendV4Prompt(`${MARKER} 请先查询并更新已有的定时任务`);
     await waitForV4TimelineContaining(MARKER);
     // 自动 compact 会回收早期 tool output；在批准前按 DOM 轨迹确认只走

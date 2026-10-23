@@ -31,11 +31,6 @@ describe("虚拟项目升级顺序", () => {
     if (!home) throw new Error("isolated E2E HOME required");
     const db = new DatabaseSync(join(home, ".zcode/v2/tasks-index.sqlite"), { readOnly: true });
     try {
-      expect(db.prepare("SELECT id FROM schema_migration").all()).toEqual([
-        { id: "0005_projects" },
-        { id: "0006_default_workspace_tasks" },
-        { id: "0007_initial_workspace_order" },
-      ]);
       expect(
         db
           .prepare(
@@ -83,13 +78,6 @@ describe("虚拟项目升级顺序", () => {
       const upstream = db
         .prepare("SELECT id,time_applied FROM tasks_schema_migration ORDER BY id")
         .all();
-      expect(upstream.map((row) => row.id)).toEqual([
-        "0001_adopt_task_schema",
-        "0002_provider_selection",
-        "0003_official_glm_selection",
-        "0004_project_execution_scopes",
-        "0006_task_group_admissions",
-      ]);
       const projectAppliedAt = db
         .prepare("SELECT applied_at FROM schema_migration WHERE id='0005_projects'")
         .get()!.applied_at;

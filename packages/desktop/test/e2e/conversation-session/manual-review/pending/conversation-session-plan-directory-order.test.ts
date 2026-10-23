@@ -6,13 +6,13 @@ import {
 } from "@zcode/shared/test-ids";
 
 import { clearAppData } from "../../../helpers/desktop-app.js";
+import { waitForV4PlanModeEnabled } from "../../../helpers/v4-conversation.js";
 import {
   expandAssistantHistoriesWithContent,
   prepareConversationE2E,
   sendPrompt,
   waitForAssistantMessageContaining,
   waitForUpstreamRequest,
-  waitForToolCallBlockByToolName,
   waitForToolCallBlockContaining,
   waitForUserMessageContaining,
 } from "../../../helpers/conversation-session.js";
@@ -49,7 +49,7 @@ describe("conversation session plan directory and original tool order", () => {
       "plan directory initial request",
       60_000,
     );
-    await waitForToolCallBlockByToolName("EnterPlanMode", 60_000);
+    await waitForV4PlanModeEnabled(60_000);
     await waitForUpstreamRequest(
       {
         includes: [EXIT_MARKER],

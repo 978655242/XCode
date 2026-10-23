@@ -24,11 +24,11 @@ import {
   type SeedReplayProviderModel,
 } from "./model-provider-restart-config.js";
 import { getV4DraftThoughtState } from "./v4-conversation.js";
+import { getComposerRecentStorageKey } from "./conversation-session-store.js";
 
 const paths = getE2EAppDataPaths();
 const SETTINGS_FILE = join(paths.appDataDir, "setting.json");
 const CREDENTIALS_FILE = paths.credentialsFile;
-const MODEL_SELECTION_RECENT_KEY_PREFIX = "zcode-model-selection-recent-v1";
 
 export { seedTurboAgentStartupModel } from "./model-provider-restart-runtime.js";
 
@@ -143,10 +143,11 @@ export async function seedPersistedModelSelection(params: {
   providerId: string;
   reasoningLevel: string;
 }) {
+  const storageKey = await getComposerRecentStorageKey(paths.workspace);
   await browser.execute(
-    (workspacePath, keyPrefix, selection, appProvider) => {
+    (storageKey, selection, appProvider) => {
       window.localStorage.setItem(
-        `${keyPrefix}:${workspacePath}`,
+        storageKey,
         JSON.stringify({
           providerId: selection.providerId,
           modelId: selection.modelId,
@@ -155,49 +156,45 @@ export async function seedPersistedModelSelection(params: {
       );
       window.localStorage.setItem("zcode-last-agent-provider", appProvider);
     },
-    paths.workspace,
-    MODEL_SELECTION_RECENT_KEY_PREFIX,
+    storageKey,
     params,
     ZCODE_AGENT_PROVIDER,
   );
 }
 
 export async function readLastSelectedAgentConfig() {
-  return await browser.execute(
-    (workspacePath, keyPrefix) => {
-      const raw = window.localStorage.getItem(`${keyPrefix}:${workspacePath}`);
-      if (!raw) return null;
-      const recent: unknown = JSON.parse(raw);
-      // Recent 扩展为模型与权限并列保存；重启断言同时兼容旧的纯模型种子。
-      const record = recent && typeof recent === "object" && !Array.isArray(recent) ? recent : null;
-      const selection =
-        record && "modelSelection" in record ? record.modelSelection : (record ?? recent);
-      const candidate =
-        selection && typeof selection === "object" && !Array.isArray(selection)
-          ? (selection as {
-              providerId?: unknown;
-              modelId?: unknown;
-              options?: { reasoningLevel?: unknown };
-            })
-          : null;
-      if (
-        !candidate ||
-        typeof candidate.providerId !== "string" ||
-        typeof candidate.modelId !== "string" ||
-        candidate.providerId.length === 0 ||
-        candidate.modelId.length === 0
-      ) {
-        return null;
-      }
-      return {
-        schemaVersion: 1,
-        model: `${candidate.providerId}/${candidate.modelId}`,
-        thoughtLevel: candidate.options?.reasoningLevel ?? null,
-      };
-    },
-    paths.workspace,
-    MODEL_SELECTION_RECENT_KEY_PREFIX,
-  );
+  const storageKey = await getComposerRecentStorageKey(paths.workspace);
+  return await browser.execute((storageKey) => {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return null;
+    const recent: unknown = JSON.parse(raw);
+    // Recent 扩展为模型与权限并列保存；重启断言同时兼容旧的纯模型种子。
+    const record = recent && typeof recent === "object" && !Array.isArray(recent) ? recent : null;
+    const selection =
+      record && "modelSelection" in record ? record.modelSelection : (record ?? recent);
+    const candidate =
+      selection && typeof selection === "object" && !Array.isArray(selection)
+        ? (selection as {
+            providerId?: unknown;
+            modelId?: unknown;
+            options?: { reasoningLevel?: unknown };
+          })
+        : null;
+    if (
+      !candidate ||
+      typeof candidate.providerId !== "string" ||
+      typeof candidate.modelId !== "string" ||
+      candidate.providerId.length === 0 ||
+      candidate.modelId.length === 0
+    ) {
+      return null;
+    }
+    return {
+      schemaVersion: 1,
+      model: `${candidate.providerId}/${candidate.modelId}`,
+      thoughtLevel: candidate.options?.reasoningLevel ?? null,
+    };
+  }, storageKey);
 }
 
 export async function waitForLastSelectedAgentConfig(params: {
@@ -221,7 +218,10 @@ export async function waitForLastSelectedAgentConfig(params: {
   } catch {
     const storedAgentPreferences = await browser.execute(() =>
       Object.fromEntries(
-        Object.entries(window.localStorage).filter(([key]) => key.startsWith("zcode-last-agent-")),
+        Object.entries(window.localStorage).filter(
+          ([key]) =>
+            key.startsWith("zcode-last-agent-") || key.startsWith("zcode-composer-recent:v2:"),
+        ),
       ),
     );
     throw new Error(
@@ -359,26 +359,21 @@ export async function restartIntoWorkspacePreservingProfile() {
 export async function waitForSelectedModel(providerId: string, modelId: string) {
   const expected = encodeCustomModelValue(providerId, modelId);
   let actual: string | null = null;
-  let storedConfig: string | null = null;
   try {
     await browser.waitUntil(
       async () => {
         const snapshot = await browser.execute(
-          (value, triggerTestId, workspacePath, keyPrefix) => {
+          (value, triggerTestId) => {
             const trigger = document.querySelector<HTMLElement>(`[data-testid="${triggerTestId}"]`);
             return {
               actual: trigger?.dataset.modelCurrentValue ?? null,
               matched: trigger?.dataset.modelCurrentValue === value,
-              storedConfig: window.localStorage.getItem(`${keyPrefix}:${workspacePath}`),
             };
           },
           expected,
           TID_CHAT_MODEL_SELECT_TRIGGER,
-          paths.workspace,
-          MODEL_SELECTION_RECENT_KEY_PREFIX,
         );
         actual = snapshot.actual;
-        storedConfig = snapshot.storedConfig;
         return snapshot.matched;
       },
       {
@@ -387,10 +382,7 @@ export async function waitForSelectedModel(providerId: string, modelId: string) 
       },
     );
   } catch (error) {
-    throw new Error(
-      `toolbar 没有选择 ${expected}，actual=${actual}，storedConfig=${storedConfig}`,
-      { cause: error },
-    );
+    throw new Error(`toolbar 没有选择 ${expected}，actual=${actual}`, { cause: error });
   }
 }
 

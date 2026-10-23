@@ -47,7 +47,7 @@ describe("会话区 Interrupted Actions E2E", () => {
       await waitForChatState(
         (snapshot) =>
           snapshot.state !== "streaming" &&
-          snapshot.runtimeStatus === "completed" &&
+          snapshot.sessionEnded === true &&
           snapshot.queueCount === 0,
         "queue=0 的 running stop 后没有进入 interrupted completed",
         30000,
@@ -108,7 +108,7 @@ describe("会话区 Interrupted Actions E2E", () => {
     const forkQueueEmptySource = await waitForChatState(
       (snapshot) =>
         snapshot.state !== "streaming" &&
-        snapshot.runtimeStatus === "completed" &&
+        snapshot.sessionEnded === true &&
         snapshot.queueCount === 0 &&
         Boolean(snapshot.sessionId || snapshot.taskId),
       "queue=0 interrupted assistant stop 后没有稳定下来",
@@ -158,7 +158,7 @@ describe("会话区 Interrupted Actions E2E", () => {
     const forkHeldSource = await waitForChatState(
       (snapshot) =>
         snapshot.state !== "streaming" &&
-        snapshot.runtimeStatus === "completed" &&
+        snapshot.sessionEnded === true &&
         snapshot.queueCount === 1 &&
         Boolean(snapshot.sessionId || snapshot.taskId),
       "held queue interrupted assistant stop 后没有保留父 queue",

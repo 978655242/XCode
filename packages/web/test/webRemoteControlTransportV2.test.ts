@@ -18,6 +18,7 @@ async function fixture(
   options: Parameters<typeof createFakeRelayV2>[0] = { users: { jwt: "user-1" } },
   terminalJwt = "jwt",
   tokenFetcher = fetch,
+  onDiagnostic?: ConstructorParameters<typeof WebRemoteControlTerminalTransport>[0]["onDiagnostic"],
 ) {
   const relay = await createFakeRelayV2(options);
   cleanup.push(() => relay.close());
@@ -59,6 +60,7 @@ async function fixture(
     onStateChange: (state) => states.push(state),
     onFailure: (failure) => failures.push(failure),
     onError: vi.fn(),
+    onDiagnostic,
     onSendReady,
     reloadPage: vi.fn(),
   });
@@ -241,18 +243,30 @@ describe("terminal 与 V2 假 relay 的线级契约", () => {
 
   it("网络和5xx保持500ms指数退避，上限10秒", async () => {
     let fail: "server" | "network" | undefined = "server";
-    const h = await fixture({
-      users: { jwt: "user-1" },
-      onHttp: (call) =>
-        (call.body as { role?: string }).role === "terminal" && fail
-          ? fail === "server"
-            ? { status: 503 }
-            : { networkError: true }
-          : undefined,
-    });
+    let retryScheduled = Promise.withResolvers<void>();
+    const paired = Promise.withResolvers<void>();
+    const h = await fixture(
+      {
+        users: { jwt: "user-1" },
+        onHttp: (call) =>
+          (call.body as { role?: string }).role === "terminal" && fail
+            ? fail === "server"
+              ? { status: 503 }
+              : { networkError: true }
+            : undefined,
+      },
+      "jwt",
+      fetch,
+      (diagnostic) => {
+        if (diagnostic.type === "recover-scheduled") retryScheduled.resolve();
+        if (diagnostic.type === "state-transition" && diagnostic.state === "paired")
+          paired.resolve();
+      },
+    );
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
     h.terminal.start();
-    await delay(60);
+    // XCODE: 真实 HTTP 结束后才建立退避计时；固定等 60ms 会在并发负载下推进过早。
+    await retryScheduled.promise;
     const tokens = () =>
       h.relay.httpCalls.filter((r) => (r.body as { role?: string }).role === "terminal").length;
     let count = 1;
@@ -260,14 +274,15 @@ describe("terminal 与 V2 假 relay 的线级契约", () => {
       await vi.advanceTimersByTimeAsync(ms - 1);
       await delay(30);
       expect(tokens()).toBe(count);
+      retryScheduled = Promise.withResolvers<void>();
       await vi.advanceTimersByTimeAsync(1);
-      await delay(60);
+      await retryScheduled.promise;
       expect(tokens()).toBe(++count);
       fail = "network";
     }
     fail = undefined;
     await vi.advanceTimersByTimeAsync(10000);
-    await delay(100);
+    await paired.promise;
     expect(h.states.at(-1)).toBe("paired");
     expect(h.failures).toEqual([]);
   });

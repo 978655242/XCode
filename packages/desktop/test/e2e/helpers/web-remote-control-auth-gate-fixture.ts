@@ -15,7 +15,10 @@ export async function prepareWebRemoteControlAuthGateFixture(options: {
       (spec) =>
         spec.endsWith("conversation-session-virtual-project-mobile.test.ts") ||
         spec.endsWith("conversation-session-web-remote-project-directory.test.ts") ||
-        spec.endsWith("conversation-session-web-remote-unread.test.ts"),
+        spec.endsWith("conversation-session-web-remote-unread.test.ts") ||
+        // XCODE: R3 手机场景复用当前 Web 与原 relay 鉴权夹具。
+        spec.endsWith("conversation-session-r3-mobile.test.ts") ||
+        spec.endsWith("conversation-session-r3-mobile-permission.test.ts"),
     )
   )
     return prepareWebRemoteControlSessionEventsFixture({

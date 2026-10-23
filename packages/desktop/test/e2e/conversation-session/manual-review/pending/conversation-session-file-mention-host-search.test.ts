@@ -9,13 +9,13 @@ import {
 } from "../../../helpers/desktop-app.js";
 
 const marker = "E2E_MFH01_HOST_SEARCH";
-const relativePath = `.zcode-e2e/file-mention-host-search/${marker}.ts`;
 const root = join(getE2EAppDataPaths().workspace, ".zcode-e2e", "file-mention-host-search");
+const filePath = join(root, `${marker}.ts`);
 
 describe("MFH01：@ 文件候选由 Host 查询", () => {
   before(async () => {
     await mkdir(root, { recursive: true });
-    await writeFile(join(root, `${marker}.ts`), "export const marker = true;\n");
+    await writeFile(filePath, "export const marker = true;\n");
     // 冷启动可能先连接到过渡窗口；切到产品窗口后，再退出隔离用户目录的首次引导。
     await browser.waitUntil(
       async () => {
@@ -40,7 +40,8 @@ describe("MFH01：@ 文件候选由 Host 查询", () => {
     await setInputValueByTestIdDom(TID_V4_COMPOSER_INPUT, `@${marker}`, {
       stabilizeLexicalCaretAtEnd: true,
     });
-    const option = await $(`[data-option-id="file:${relativePath}"]`);
+    // XCODE: Host 文件候选使用绝对路径 ID；相对路径观察不到同一个真实候选。
+    const option = await $(`[data-option-id="file:${filePath}"]`);
     await option.waitForDisplayed({ timeout: 30000 });
     await option.click();
     const input = await $(`[data-testid="${TID_V4_COMPOSER_INPUT}"]`);

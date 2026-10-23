@@ -13,6 +13,9 @@ import {
   TID_CHAT_MODEL_SELECT_ITEM,
   TID_CHAT_MODEL_SELECT_TRIGGER,
   TID_CHAT_THOUGHT_LEVEL_SELECT_ITEM,
+  TID_CONFIRM_DIALOG_CONFIRM,
+  TID_SETTINGS_BACK_BUTTON,
+  TID_SETTINGS_SECTION_NAV,
   TID_CHAT_THOUGHT_LEVEL_SELECT_TRIGGER,
   TID_PROMPT_SUGGESTION_OPTION,
   TID_PROMPT_SUGGESTION_PANEL,
@@ -20,6 +23,8 @@ import {
   TID_LOGIN_API_KEY_INPUT,
   TID_LOGIN_USE_API_KEY_BUTTON,
   TID_TASK_ITEM,
+  TID_TASK_ARCHIVE,
+  TID_TASK_SETTINGS_BUTTON,
   TID_TASK_NEW_BUTTON,
   TID_V4_AUTODRAIN_TOGGLE,
   TID_V4_ATTACHMENT,
@@ -30,7 +35,6 @@ import {
   TID_V4_COMPOSER_INPUT,
   TID_V4_COMPOSER_KEEP_QUEUE_SEND,
   TID_V4_COMPOSER_SEND,
-  TID_V4_DELETE_SESSION,
   TID_V4_EDIT,
   TID_V4_EDIT_INPUT,
   TID_V4_EDIT_REWIND_WORKSPACE,
@@ -45,8 +49,6 @@ import {
   TID_V4_QUEUE_ITEM,
   TID_V4_QUEUE_PAUSED_BANNER,
   TID_V4_QUEUE_RESUME,
-  TID_V4_RENAME_INPUT,
-  TID_V4_RENAME_SUBMIT,
   TID_V4_ROW,
   TID_V4_ROW_ATTACHMENTS,
   TID_V4_SESSION_PANE,
@@ -114,10 +116,12 @@ export interface V4CompactMarkerSnapshot {
 
 export interface V4ConversationStateSnapshot {
   activeInputId: string | null;
+  controlPhase: string | null;
   modelSwitchPending: boolean;
   queueCount: number;
   runtimeStatus: string | null;
   sessionId: string | null;
+  sessionEnded: boolean | null;
   state: string | null;
   stopRequested: boolean;
   targetId: string | null;
@@ -344,10 +348,12 @@ export async function getV4ConversationState(): Promise<V4ConversationStateSnaps
   if (!browserSnapshot.taskId) {
     return {
       activeInputId: null,
+      controlPhase: null,
       modelSwitchPending: browserSnapshot.modelSwitchPending,
       queueCount: browserSnapshot.queueCount,
       runtimeStatus: browserSnapshot.runtimeStatus,
       sessionId: null,
+      sessionEnded: null,
       state: browserSnapshot.runtimeStatus === "streaming" ? "streaming" : "idle",
       stopRequested: false,
       targetId: null,
@@ -388,10 +394,12 @@ export async function getV4ConversationState(): Promise<V4ConversationStateSnaps
 
   return {
     activeInputId: taskStore.activeInputId,
+    controlPhase: taskStore.controlPhase,
     modelSwitchPending: browserSnapshot.modelSwitchPending,
     queueCount: browserSnapshot.queueCount,
     runtimeStatus: effectiveRuntimeStatus,
     sessionId: browserSnapshot.taskId,
+    sessionEnded: taskStore.sessionEnded,
     state: effectiveRuntimeStatus === "streaming" || hasBlockingGoalWork ? "streaming" : "idle",
     stopRequested: taskStore.stopRequested,
     targetId: taskStore.taskMeta?.targetId ?? null,
@@ -1114,12 +1122,44 @@ export async function clickV4BackgroundWorkCancel(workId: string) {
   }, workId);
 }
 
-/** 点击会话删除按钮（deleteSession 命令）。 */
+/** 通过任务行归档，再在归档管理中永久删除当前任务。 */
 export async function clickV4DeleteSession() {
-  return clickTestIdByDom(TID_V4_DELETE_SESSION, {
-    timeout: 15000,
-    timeoutMsg: "v4 删除按钮没有出现",
-  });
+  const { taskId } = await getV4ConversationState();
+  if (!taskId) throw new Error("永久删除前没有当前任务身份");
+  const row = $(sel(testId(TID_TASK_ITEM, taskId)));
+  await row.waitForDisplayed({ timeout: 15000 });
+  // XCODE: 当前产品从归档管理永久删除，不能把单纯归档后隐藏当成删除成功。
+  await row.moveTo();
+  await row.$(sel(testId(TID_TASK_ARCHIVE, taskId))).click();
+  await browser.waitUntil(
+    async () => (await row.getAttribute("data-archive-confirming-task-id")) === taskId,
+    { timeout: 15000, timeoutMsg: "任务行没有进入归档确认" },
+  );
+  await row.$(sel(testId(TID_TASK_ARCHIVE, taskId))).click();
+  await row.waitForExist({ reverse: true, timeout: 15000 });
+  await $(sel(TID_TASK_SETTINGS_BUTTON)).click();
+  const archives = $(sel(testId(TID_SETTINGS_SECTION_NAV, "archives")));
+  await archives.waitForClickable({ timeout: 15000 });
+  await archives.click();
+  // XCODE: 普通任务视图和未分类任务没有项目祖先，归档管理的真实分组才是删除入口。
+  await $('[data-testid="archive-group-toggle"]').waitForClickable({ timeout: 15000 });
+  for (const toggle of await $$('[data-testid="archive-group-toggle"]')) {
+    if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+  }
+  const archivedSelector = `[data-testid="archive-task"][data-task-id=${JSON.stringify(taskId)}]`;
+  const archived = $(archivedSelector);
+  await archived.waitForDisplayed({ timeout: 15000 });
+  if ((await $$(archivedSelector).length) !== 1) {
+    throw new Error(`归档管理中待删除任务身份不唯一: ${taskId}`);
+  }
+  const remove = archived.$('[data-testid="archive-delete"]');
+  await remove.waitForClickable({ timeout: 15000 });
+  await remove.click();
+  const confirm = $(sel(TID_CONFIRM_DIALOG_CONFIRM));
+  await confirm.waitForClickable({ timeout: 15000 });
+  await confirm.click();
+  await archived.waitForExist({ reverse: true, timeout: 15000 });
+  await $(sel(TID_SETTINGS_BACK_BUTTON)).click();
 }
 
 /** 读取 Composer 当前 mode/模型选择显示。 */
@@ -1534,16 +1574,25 @@ export function getV4SessionTitle(): Promise<string | null> {
   }, TID_V4_SESSION_TITLE);
 }
 
-/** 在 header 重命名输入框写入标题并点提交（renameSession 命令）。 */
+/** 从当前任务行右键菜单打开重命名对话框，提交真实 TaskService 命令。 */
 export async function renameV4Session(title: string) {
-  await setInputValueByTestIdDom(TID_V4_RENAME_INPUT, title, {
-    timeout: 15000,
-    timeoutMsg: "v4 重命名输入框没有出现",
-  });
-  await clickTestIdByDom(TID_V4_RENAME_SUBMIT, {
-    timeout: 15000,
-    timeoutMsg: "v4 重命名提交按钮没有出现",
-  });
+  const { taskId } = await getV4ConversationState();
+  if (!taskId) throw new Error("重命名前没有当前任务身份");
+  const row = $(sel(testId(TID_TASK_ITEM, taskId)));
+  await row.waitForClickable({ timeout: 15000 });
+  // XCODE: 旧 header 输入框已移除，任务行菜单与对话框才是当前用户入口。
+  await row.click({ button: "right" });
+  const rename = $(
+    '//*[@role="menuitem" and (normalize-space(.)="重命名任务" or normalize-space(.)="Rename task")]',
+  );
+  await rename.waitForClickable({ timeout: 15000 });
+  await rename.click();
+  const dialog = $('[role="dialog"][data-state="open"]');
+  const input = dialog.$("input");
+  await input.waitForDisplayed({ timeout: 15000 });
+  await input.setValue(title);
+  await browser.keys("Enter");
+  await dialog.waitForDisplayed({ reverse: true, timeout: 15000 });
 }
 
 /** 读取输入控制条：autoDrain（data-auto-drain）与 followupMode（data-followup-mode）。 */
@@ -2457,6 +2506,14 @@ export async function switchV4Mode(mode: string) {
     testId(TID_CHAT_MODE_SELECT_ITEM, mode),
     `v4 模式选择器没有出现目标模式项: ${mode}`,
   );
+}
+
+export async function waitForV4PlanModeEnabled(timeout: number): Promise<void> {
+  // XCODE: EnterPlanMode 仍执行但不再渲染内部工具卡；观察真实模式，调用方继续验证原 tool_result 和审批。
+  await browser.waitUntil(async () => (await getV4ConfigProjection()).planEnabled, {
+    timeout,
+    timeoutMsg: "EnterPlanMode 后真实 plan 模式没有启用",
+  });
 }
 
 /** 读取 config 投影扩展锚点（data-mode / data-usage-*，M5 additive）。 */

@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolveE2ERuntimePath } from "../../../helpers/e2e-runtime-paths.js";
+import { readTtftReceiverOrigin } from "../../../helpers/ttft-otlp.js";
 import {
   prepareV4ConversationE2E,
   sendV4Prompt as sendPrompt,
@@ -34,7 +35,7 @@ interface RecordData {
   };
 }
 async function readExport(): Promise<RecordData[]> {
-  const response = await fetch("http://127.0.0.1:14318/records");
+  const response = await fetch(new URL("/records", readTtftReceiverOrigin()));
   if (!response.ok) throw new Error(`OTLP receiver: ${response.status}`);
   return response.json() as Promise<RecordData[]>;
 }
@@ -48,6 +49,11 @@ describe("TTFT01 真实 Composer 到最终 OTLP", () => {
   });
   // wdio-electron-service 会移除第一个形参；在函数体内解构才能真正执行窗口操作。
   beforeEach(async () => {
+    // XCODE: 原专用 exporter 由隔离启动环境启用；不读取固定端口或其他会话的接收器。
+    if (process.env.ZCODE_LOCAL_TTFT_ENABLED !== "1") {
+      throw new Error("TTFT stages requires launch env ZCODE_LOCAL_TTFT_ENABLED=1");
+    }
+    readTtftReceiverOrigin();
     await browser.electron.execute((electron) => {
       const { BrowserWindow } = electron;
       const win = BrowserWindow.getAllWindows().find((item) => !item.isDestroyed());
@@ -57,7 +63,8 @@ describe("TTFT01 真实 Composer 到最终 OTLP", () => {
   });
   it("正文先到：一次发送只生成一个总样本和六个主阶段", async function () {
     this.timeout(180000);
-    await fetch("http://127.0.0.1:14318/reset", { method: "POST" });
+    const reset = await fetch(new URL("/reset", readTtftReceiverOrigin()), { method: "POST" });
+    expect(reset.ok).toBe(true);
     await prepareV4ConversationE2E();
     await browser.electron.execute((electron) => {
       const { BrowserWindow } = electron;

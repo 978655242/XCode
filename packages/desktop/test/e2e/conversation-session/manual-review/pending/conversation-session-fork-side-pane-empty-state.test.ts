@@ -63,7 +63,10 @@ describe("fork 后 Side Pane 空态 manual review", () => {
     );
     const childSidePane = await readOpenSidePaneState();
     expect(childSidePane.launcherVisible).toBe(true);
-    expect(childSidePane.visibleTabIds).toEqual([]);
+    // XCODE: new-tab 启动页自身有 tab ID；隔离断言应针对原辅助对话及其内容。
+    expect(childSidePane.visibleTabIds).not.toContain(parentSideChat.tabId);
+    expect(childSidePane.visibleTabIds.filter((id) => id.startsWith("selection-side-chat:"))).toEqual([]);
+    expect(await browser.execute(() => document.body.innerText)).not.toContain(SIDE_DRAFT);
     expect(childSidePane.openItemIds).toContain("selection-side-conversation");
 
     await selectV4TaskById(parentSessionId);

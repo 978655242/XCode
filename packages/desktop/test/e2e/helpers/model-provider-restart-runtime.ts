@@ -5,7 +5,7 @@ import { flushElectronStorageData } from "./e2e-electron-storage.js";
 import { skipOccupationOnboardingIfPresent } from "./occupation-onboarding.js";
 
 const paths = getE2EAppDataPaths();
-const MODEL_SELECTION_RECENT_KEY_PREFIX = "zcode-model-selection-recent-v1:";
+const MODEL_SELECTION_RECENT_KEY_PREFIX = "zcode-composer-recent:v2:";
 let retainedRestartUserDataDir: string | null = null;
 
 export interface ModelProviderRestartOptions {
@@ -77,9 +77,8 @@ export async function restartIntoWorkspaceRestoringPreferences(
         Object.entries(window.localStorage).filter(
           ([key]) =>
             key.startsWith("zcode-last-agent-") ||
-            // Bug 根因：重启 helper 只恢复旧的 agent 键，遗漏当前唯一结构化
-            // Model Selection recent 键，导致冷启动断言看到 storedConfig=null 并
-            // 回退 preferredSelection。两类键必须在同一退出屏障后一起恢复。
+            // XCODE: 新 profile 必须一起恢复项目导航归属和 Recent，不能退回旧 workspace 种子。
+            key.startsWith("zcode-composer-workspace-scope:v1:") ||
             key.startsWith(modelSelectionRecentKeyPrefix),
         ),
       ),
@@ -97,7 +96,6 @@ export async function restartIntoWorkspaceRestoringPreferences(
     }
     window.location.reload();
   }, persistedModelPreferences);
-  // 通用回退 case 需要在新 renderer 启动后恢复“待判定偏好”，不能把无效模型
-  // 提前写成 Agent 启动模型。它们只验证偏好回退，不验证首个 deferred session。
+  // XCODE: 恢复当前项目的待校验偏好，再由 Renderer 依照真实目录处理失效选择。
   await waitForWorkspaceApp(workspacePath, 60000);
 }
