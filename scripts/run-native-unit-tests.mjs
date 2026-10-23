@@ -31,6 +31,7 @@ try {
       "packages/desktop/test/newApiOAuthRoutes.test.ts",
       "packages/desktop/test/desktopLocalDevelopmentBundle.test.ts",
       "packages/desktop/scripts/devElectronAppArgs.test.mjs",
+      "packages/desktop/scripts/devElectronAppBundle.test.mjs",
       "scripts/test/unit-test-isolation.test.mjs",
       "scripts/test/architecture-policy-xwork.test.mjs",
     ],
@@ -58,6 +59,18 @@ try {
   } finally {
     process.off("SIGINT", interrupt);
     process.off("SIGTERM", terminate);
+  }
+  // 一键启动器依赖 launchctl 与 /usr/sbin/lsof，只在 macOS 上有意义；Linux CI 跳过。
+  if (process.exitCode === 0 && process.platform === "darwin") {
+    process.exitCode = await new Promise((resolve, reject) => {
+      const python = spawn("python3", ["scripts/xcode/start-local.test.py"], {
+        cwd,
+        stdio: "inherit",
+        env: { ...process.env, HOME: root, USERPROFILE: root },
+      });
+      python.once("error", reject);
+      python.once("close", (code) => resolve(code ?? 1));
+    });
   }
 } finally {
   await rm(root, { recursive: true, force: true });
