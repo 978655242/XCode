@@ -17,7 +17,13 @@ describe("model provider restart runtime", () => {
       options: { reasoningLevel: "high" },
     };
     const record = withMode ? { modelSelection: selection, mode: "yolo" } : selection;
-    vi.stubGlobal("window", { localStorage: { getItem: () => JSON.stringify(record) } });
+    // XCODE: helper 先读 Composer 作用域键（为空时回退本机任务作用域），只有 Recent v2 键返回记录。
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: (key: string) =>
+          key.startsWith("zcode-composer-recent:v2:") ? JSON.stringify(record) : null,
+      },
+    });
     vi.stubGlobal("browser", {
       execute: async (script: (...args: unknown[]) => unknown, ...args: unknown[]) =>
         Reflect.apply(script, undefined, args),
@@ -31,7 +37,12 @@ describe("model provider restart runtime", () => {
   });
 
   it("Recent 只有 mode 时不伪造模型配置", async () => {
-    vi.stubGlobal("window", { localStorage: { getItem: () => JSON.stringify({ mode: "yolo" }) } });
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: (key: string) =>
+          key.startsWith("zcode-composer-recent:v2:") ? JSON.stringify({ mode: "yolo" }) : null,
+      },
+    });
     vi.stubGlobal("browser", {
       execute: async (script: (...args: unknown[]) => unknown, ...args: unknown[]) =>
         Reflect.apply(script, undefined, args),
