@@ -78,7 +78,12 @@ function installBrowserFixture(initialStep: Step) {
         return { getClientRects: () => [1] };
       }
       if (selector === '[data-testid="ssh-error"]' && step === "error") {
-        return { getClientRects: () => [1], innerText: "Authentication failed" };
+        // XCODE: helper 用 querySelector 区分更新中的旋转图标；真实错误面板没有该图标。
+        return {
+          getClientRects: () => [1],
+          innerText: "Authentication failed",
+          querySelector: () => null,
+        };
       }
       if (selector === '[data-testid="confirm-dialog-confirm"]' && step === "unexpected-confirm") {
         return confirmation;
