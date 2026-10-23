@@ -1,6 +1,5 @@
 import { openMobilePairingPage } from "#e2e/helpers/mobile-pairing";
 import { readV4UserMessagesInBrowser } from "#e2e/helpers/mobile-message-evidence";
-import { WEB_REMOTE_CONTROL_FIXTURE_CREDENTIALS } from "#e2e/helpers/web-remote-control-session-events-fixture";
 import { releaseControlledReplay } from "#e2e/helpers/controlled-replay";
 import { execFile } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -224,12 +223,6 @@ describe(`${CASE_MARKER}: 手机 viewport 经真实 relay 配对，选择 SSH ta
         hasTouch: true,
         locale: "zh-CN",
       });
-      // XCODE: 独立及重建的手机 context 都需原 relay 夹具登录态，仍走真实配对。
-      await context.addInitScript((credentials: typeof WEB_REMOTE_CONTROL_FIXTURE_CREDENTIALS) => {
-        if (sessionStorage.getItem("r3-mobile-credentials-seeded")) return;
-        sessionStorage.setItem("r3-mobile-credentials-seeded", "1");
-        for (const [key, value] of Object.entries(credentials)) localStorage.setItem(key, value);
-      }, WEB_REMOTE_CONTROL_FIXTURE_CREDENTIALS);
       const page = await context.newPage();
       await openMobilePairingPage(page, pairUrl, {
         artifactDir,
@@ -623,12 +616,6 @@ PY`,
       hasTouch: true,
       locale: "zh-CN",
     });
-    // XCODE: 纯草稿路径也需原登录态，不发送准备消息或注入配对结果。
-    await context.addInitScript((credentials: typeof WEB_REMOTE_CONTROL_FIXTURE_CREDENTIALS) => {
-      if (sessionStorage.getItem("r3-mobile-credentials-seeded")) return;
-      sessionStorage.setItem("r3-mobile-credentials-seeded", "1");
-      for (const [key, value] of Object.entries(credentials)) localStorage.setItem(key, value);
-    }, WEB_REMOTE_CONTROL_FIXTURE_CREDENTIALS);
     const mobile = await context.newPage();
     let phase = "pairing";
     try {

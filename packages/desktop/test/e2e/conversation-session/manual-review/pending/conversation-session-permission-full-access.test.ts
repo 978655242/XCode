@@ -58,9 +58,8 @@ describe("PA158 审批完全访问", () => {
     await sendV4Prompt("E2E_PA158_QUEUE_PLAN");
     await waitForV4QueueCount(1);
     await $('[data-testid="v4-composer-plan-marker"] button').click();
-    // XCODE: 当前手动审批模式名为 guarded；保持原队列权限语义，不给产品恢复旧 edit 别名。
-    await switchV4Mode("guarded");
-    expect(await getV4ConfigProjection()).toMatchObject({ mode: "guarded", planEnabled: false });
+    await switchV4Mode("edit");
+    expect(await getV4ConfigProjection()).toMatchObject({ mode: "edit", planEnabled: false });
     await sendV4Prompt("E2E_PA158_QUEUE_EDIT");
     await waitForV4QueueCount(2);
     const queue = await getV4QueueItems();

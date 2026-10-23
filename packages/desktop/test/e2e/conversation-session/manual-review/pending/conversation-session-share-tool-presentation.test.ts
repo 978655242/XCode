@@ -34,15 +34,12 @@ describe("FETCH01 / SHARE-TOOLS01: shared readonly tool presentation", () => {
     expect(tool.text).not.toContain("EXTRACTION_MUST_NOT_BE_VISIBLE");
     // 验证真实发布 UI 与本地 fake API；人工 review 前只保留 pending，不自行转正。
     await $("[data-testid=conversation-share-trigger]").click();
-    // XCODE: 当前 popover 由发布按钮触发检查聚焦，不再经过旧 next 步骤。
-    await $("[data-testid=conversation-share-popover]").waitForDisplayed();
-    const publish = await $("[data-testid=conversation-share-confirm]");
-    await publish.waitForClickable();
-    await publish.click();
+    await $("[data-testid=conversation-share-next]").waitForClickable();
+    await $("[data-testid=conversation-share-next]").click();
     await $("[data-testid=conversation-share-disclosure-checkbox]").waitForClickable();
     await $("[data-testid=conversation-share-disclosure-checkbox]").click();
-    await publish.waitForClickable();
-    await publish.click();
+    await $("[data-testid=conversation-share-confirm]").waitForClickable();
+    await $("[data-testid=conversation-share-confirm]").click();
     await $("[data-testid=conversation-share-success-dock]").waitForDisplayed({ timeout: 90_000 });
     expect(await $("[data-testid=conversation-share-open-browser]").isEnabled()).toBe(true);
     await $("[data-testid=conversation-share-copy-link]").click();

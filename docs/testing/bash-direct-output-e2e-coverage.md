@@ -273,18 +273,3 @@ case-local fixture 可用 `{{latestBashTaskId}}` 引用当前 provider request �
 `Command running in background with ID: ...` 的真实 Bash task ID，用于 TaskOutput/TaskStop。
 只消费已存在的模型可见工具结果，不伪造 runtime/task registry 状态；没有 ID 时保持 token
 未替换，令缺失前置条件显式暴露。既有 `latestAgentId` 保持独立。
-
-## 3.16.2 同步后回归
-
-`xwork-upstream-20261021235530503-smoke` 中，本 spec 的 BDO01–BDO07 共 **8/8 通过**，
-包括前台与后台分别真实写入 5 GiB、跨 watchdog 周期后增加 1 byte、实时输出、读取/打开失败及后续执行。
-同批模型恢复 4/4、Markdown/HTML cold resume 1/1 通过；账号相关 6 个失败仍保留在原报告，
-不能将该批次整体记为通过。
-
-上游 Bash 输出已优先使用 `TMPDIR/zcode-bash-*/<sessionId>/`，旧 `storage/cli/exec` 拼接不再成立。
-夹具从本轮私有临时目录枚举当前 session 的实际目录，并要求唯一匹配；文件大小、首尾内容、
-5 GiB 边界、真实进程和错误恢复断言均保留。每条结束后清理该会话登记的实际输出路径。
-
-此结果来自 macOS 的隔离 Electron/replay，使用短私有 TMP 与 HOME、任务级保活命令；
-不代表 Windows/Linux Desktop 或实体手机验收。原始失败和后续复测使用不同 run ID 保存。
-

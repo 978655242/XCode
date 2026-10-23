@@ -123,15 +123,8 @@ async function obtainPairingUrl(): Promise<string> {
       { timeout: 60_000, timeoutMsg: `${CASE}: pairing link unavailable` },
     );
     const url = await pairing;
-    // XCODE: 当前 Web 使用动态端口，必须与本轮夹具的实际地址精确匹配。
-    const configuredUrl = process.env.ZCODE_WEB_REMOTE_CONTROL_URL?.trim();
-    const target = new URL(url);
-    if (
-      !configuredUrl ||
-      target.origin !== new URL(configuredUrl).origin ||
-      target.pathname !== "/remote/v4"
-    )
-      throw new Error(`${CASE}: requires current local Web frontend at /remote/v4`);
+    if (new URL(url).origin !== "http://127.0.0.1:5173")
+      throw new Error(`${CASE}: requires current local Web frontend`);
     await browser.keys("Escape");
     return url;
   } finally {

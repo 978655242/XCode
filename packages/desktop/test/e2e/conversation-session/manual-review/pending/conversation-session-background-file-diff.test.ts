@@ -289,63 +289,36 @@ async function clickFileSummaryReview() {
 }
 
 async function waitForPreviewDiff() {
-  let latest = { header: "", text: "" };
-  try {
-    await browser.waitUntil(
-      async () => {
-        latest = await browser.execute(
-          (previewPaneTestId, expectedPath) => {
-            // XCODE: 统一 FileManager 不创建 code-viewer 标签；按可见面包屑分段还原完整相对路径。
-            let manager: HTMLElement | undefined;
-            let header = "";
-            for (const candidate of document.querySelectorAll<HTMLElement>("[data-file-manager-pane]")) {
-              if (!candidate.checkVisibility()) continue;
-              header = Array.from(candidate.firstElementChild?.querySelectorAll<HTMLElement>("span") ?? [])
-                .filter((segment) => !segment.querySelector("span"))
-                .map((segment) => segment.textContent?.trim() ?? "")
-                .filter(Boolean)
-                .slice(0, expectedPath.split("/").length)
-                .join("/");
-              if (header === expectedPath) {
-                manager = candidate;
-                break;
-              }
-            }
-            const preview = manager?.querySelector<HTMLElement>(
-              `[data-testid="${previewPaneTestId}"]`,
-            );
-            const diff = preview?.querySelector<HTMLElement>("[data-diff-viewer]");
-            const fragments: string[] = [diff?.innerText ?? ""];
-            const visit = (root: ParentNode) => {
-              for (const element of Array.from(
-                root.querySelectorAll<HTMLElement>("*"),
-              )) {
-                if (!element.shadowRoot) continue;
-                fragments.push(element.shadowRoot.textContent ?? "");
-                visit(element.shadowRoot);
-              }
-            };
-            if (diff) visit(diff);
-            return { header, text: fragments.join("\n").replace(/\u00a0/g, " ") };
-          },
-          TID_PREVIEW_PANE,
-          RELATIVE_PATH,
+  let latest = "";
+  await browser.waitUntil(
+    async () => {
+      latest = await browser.execute((previewPaneTestId) => {
+        const preview = document.querySelector<HTMLElement>(
+          `[data-testid="${previewPaneTestId}"]`,
         );
-        return (
-          latest.header === RELATIVE_PATH &&
-          latest.text.includes("before-background-diff") &&
-          latest.text.includes("after-background-diff")
-        );
-      },
-      {
-        timeout: 30000,
-        timeoutMsg: "BG41 Review 没有打开真实 before/after Diff",
-      },
-    );
-  } catch (error) {
-    throw new Error(
-      `BG41 Review 没有打开真实 before/after Diff; latest=${JSON.stringify(latest)}`,
-      { cause: error },
-    );
-  }
+        if (!preview) return "";
+        const fragments: string[] = [preview.innerText ?? ""];
+        const visit = (root: ParentNode) => {
+          for (const element of Array.from(
+            root.querySelectorAll<HTMLElement>("*"),
+          )) {
+            if (!element.shadowRoot) continue;
+            fragments.push(element.shadowRoot.textContent ?? "");
+            visit(element.shadowRoot);
+          }
+        };
+        visit(preview);
+        return fragments.join("\n").replace(/\u00a0/g, " ");
+      }, TID_PREVIEW_PANE);
+      return (
+        latest.includes("result.md") &&
+        latest.includes("before-background-diff") &&
+        latest.includes("after-background-diff")
+      );
+    },
+    {
+      timeout: 30000,
+      timeoutMsg: `BG41 Review 没有打开真实 before/after Diff: ${latest}`,
+    },
+  );
 }

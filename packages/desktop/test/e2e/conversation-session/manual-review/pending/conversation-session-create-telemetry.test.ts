@@ -1,8 +1,4 @@
-import {
-  clearAppData,
-  DEFAULT_WORKSPACE,
-  waitForDefaultWorkspaceReady,
-} from "../../../helpers/desktop-app.js";
+import { clearAppData, waitForDefaultWorkspaceReady } from "../../../helpers/desktop-app.js";
 import {
   prepareV4ConversationE2E,
   selectV4TaskById,
@@ -12,7 +8,6 @@ import {
   waitForV4Pane,
   waitForV4TimelineContaining,
 } from "../../../helpers/v4-conversation.js";
-import { startDraftFromProject } from "../../../helpers/project-sidebar.js";
 
 describe("TEL11 session_create", () => {
   after(async () => {
@@ -24,8 +19,6 @@ describe("TEL11 session_create", () => {
     this.timeout(360_000);
     await waitForDefaultWorkspaceReady(90_000);
     await prepareV4ConversationE2E();
-    // XCODE: 通用准备会复用默认空态；项目来源必须由真实项目新建点击确定。
-    await startDraftFromProject(DEFAULT_WORKSPACE);
     const telemetryFetch = await browser.electron.mock("net", "fetch");
     await telemetryFetch.mockResolvedValue({ ok: true, status: 204 });
     const reports = async (elementName = "session_create") => {

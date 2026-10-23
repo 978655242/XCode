@@ -1,6 +1,9 @@
-import { TID_CHAT_TOOL_CALL_BLOCK, TID_TOOL_SUMMARY_TRIGGER } from "@zcode/shared/test-ids";
+import {
+  TID_CHAT_ASSISTANT_HISTORY_TRIGGER,
+  TID_CHAT_TOOL_CALL_BLOCK,
+  TID_TOOL_SUMMARY_TRIGGER,
+} from "@zcode/shared/test-ids";
 import { clearAppData } from "../../../helpers/desktop-app.js";
-import { expandAssistantHistoriesWithContent } from "../../../helpers/conversation-session-tool-diagnostics.js";
 import {
   expectNoUpstreamRequestForTextWithin,
   prepareConversationE2E,
@@ -168,15 +171,25 @@ interface AskUserQuestionBlockDiagnostics {
   matched: boolean;
 }
 
-async function getExpandedAskUserQuestionBlockDiagnostics(
+function getExpandedAskUserQuestionBlockDiagnostics(
   text: string,
 ): Promise<AskUserQuestionBlockDiagnostics> {
-  // XCODE: 先挂载 V4 工作历史，再展开问答详情读取真实答案。
-  await expandAssistantHistoriesWithContent();
   return browser.execute(
-    (toolBlockPrefix, summaryTriggerPrefix, expectedText) => {
+    (historyTriggerPrefix, toolBlockPrefix, summaryTriggerPrefix, expectedText) => {
       const normalizeText = (value: string | null | undefined) =>
         (value ?? "").replace(/\u00a0/g, " ").trim();
+      const historyTriggers = Array.from(
+        document.querySelectorAll<HTMLElement>(`[data-testid^="${historyTriggerPrefix}-"]`),
+      );
+      for (const trigger of historyTriggers) {
+        if (
+          trigger.getAttribute("data-history-has-content") === "true" &&
+          trigger.getAttribute("aria-expanded") !== "true"
+        ) {
+          trigger.click();
+        }
+      }
+
       const blocks = Array.from(
         document.querySelectorAll<HTMLElement>(
           `[data-testid^="${toolBlockPrefix}-"][data-tool-name="AskUserQuestion"]`,
@@ -208,6 +221,7 @@ async function getExpandedAskUserQuestionBlockDiagnostics(
         matched: snapshots.some((block) => block.text.includes(expectedText)),
       };
     },
+    TID_CHAT_ASSISTANT_HISTORY_TRIGGER,
     TID_CHAT_TOOL_CALL_BLOCK,
     TID_TOOL_SUMMARY_TRIGGER,
     text,

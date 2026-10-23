@@ -6,11 +6,11 @@ import {
   collectProcessTreeByRootPids,
   listSystemProcesses,
 } from "../../../helpers/e2e-process-cleanup.js";
-import { startDraftFromProject } from "../../../helpers/project-sidebar.js";
 import {
   prepareV4ConversationE2E,
   selectV4TaskById,
   sendV4Prompt,
+  startNewV4Draft,
   waitForV4Pane,
 } from "../../../helpers/v4-conversation.js";
 import { isV4TurnCompleted } from "../../../helpers/v4-turn-completion.js";
@@ -46,8 +46,6 @@ describe("Node REPL Browser Use 无状态多 Session E2E", () => {
   it("BSM01/BSM02: fresh kernel、BrowserControl 连续且两个 session 共享 modern child", async function () {
     this.timeout(240_000);
     await prepareV4ConversationE2E();
-    // MCP 按 cwd 隔离；两条会话都从同一项目新建，不能走生成独立目录的全局入口。
-    await startDraftFromProject(E2E_PATHS.workspace);
 
     const runId = Date.now();
     await sendV4Prompt(
@@ -60,7 +58,7 @@ describe("Node REPL Browser Use 无状态多 Session E2E", () => {
       "Session A 的 Browser Use 两次调用没有完成",
     );
 
-    await startDraftFromProject(E2E_PATHS.workspace);
+    await startNewV4Draft();
     await sendV4Prompt(
       `${SESSION_B_MARKER}_${runId}: use ${NODE_REPL_TOOL} for Browser Use once and report only the fixture result.`,
     );

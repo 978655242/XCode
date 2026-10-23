@@ -1,7 +1,6 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { clearAppData, DEFAULT_WORKSPACE } from "../../../helpers/desktop-app.js";
-import { waitForV4PlanModeEnabled } from "../../../helpers/v4-conversation.js";
 import {
   E2E_REPLY_TOKEN,
   prepareConversationE2E,
@@ -70,7 +69,7 @@ describe("会话区 Plan mode MCP 权限边界 E2E", () => {
       60000,
     );
 
-    await waitForV4PlanModeEnabled(60000);
+    await waitForToolCallBlockByToolName("EnterPlanMode", 60000);
     await waitForUpstreamRequest(
       {
         includes: [PROMPT_MARKER, ENTER_TOOL_CALL_ID],

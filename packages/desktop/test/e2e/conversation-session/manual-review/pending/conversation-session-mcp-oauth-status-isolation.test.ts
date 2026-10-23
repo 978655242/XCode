@@ -1,6 +1,7 @@
 import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
+  TID_CHAT_VIEW,
   TID_MCP_OPEN_AUTHORIZATION_BUTTON,
   TID_MCP_SERVER_ROW,
   TID_PLUGIN_MCP_SERVER_ROW,
@@ -12,16 +13,15 @@ import {
 } from "@zcode/shared/test-ids";
 import {
   clearAppData,
-  DEFAULT_WORKSPACE,
   clickTestIdByDom,
   getE2EAppDataPaths,
   waitForTestIdByDom,
-  waitForWorkspaceApp,
 } from "../../../helpers/desktop-app.js";
 import {
   E2E_REPLY_TOKEN,
   prepareConversationE2E,
   sendPrompt,
+  startNewTask,
   waitForAssistantMessageContaining,
   waitForChatState,
   waitForComposerText,
@@ -148,11 +148,9 @@ describe("会话区 MCP OAuth 状态刷新隔离 E2E", () => {
       testIdValue: testId(TID_MCP_SERVER_ROW, PLAIN_HTTP_MCP_NAME),
       toolCount: 1,
     });
-    const authorizedSnapshot = oauthServer.snapshot();
-    // XCODE: session 与 Settings 各自持有 MCP owner；连接初始化可分别发生，OAuth 事务仍须精确一次。
-    expect(authorizedSnapshot.authorizedInitializeCount).toBeGreaterThan(pendingSnapshot.authorizedInitializeCount);
-    expect(authorizedSnapshot).toMatchObject({
+    expect(oauthServer.snapshot()).toMatchObject({
       authorizationRequestCount: 1,
+      authorizedInitializeCount: 1,
       plainHttpInitializeCount: pendingSnapshot.plainHttpInitializeCount,
       registrationRequestCount: 1,
       tokenRequestCount: 1,
@@ -164,9 +162,12 @@ describe("会话区 MCP OAuth 状态刷新隔离 E2E", () => {
       timeout: 15_000,
       timeoutMsg: "MCP 设置页返回按钮没有出现",
     });
-    await waitForWorkspaceApp(DEFAULT_WORKSPACE, 15_000);
-    await prepareConversationE2E();
+    await waitForTestIdByDom(TID_CHAT_VIEW, {
+      timeout: 15_000,
+      timeoutMsg: "完成 MCP OAuth 后没有回到工作区",
+    });
     await ensureToolCrossProductFullAccessMode();
+    await startNewTask();
 
     const prompt = `${PROMPT_MARKER}: Call ${DIRECT_MCP_TOOL_NAME} exactly once with marker "${PROMPT_MARKER}", then call ${PLAIN_HTTP_MCP_TOOL_NAME} exactly once with the same marker, then reply with exactly "${E2E_REPLY_TOKEN}" and no other text.`;
     await sendPrompt(prompt);
@@ -477,8 +478,10 @@ async function verifyConfigLoadFailureKeepsMcpRuntime(
     timeout: 15_000,
     timeoutMsg: "制造 MCP 配置读取失败前无法返回工作区",
   });
-  // XCODE: V4 不再渲染 ChatView，返回时等待同一项目工作区，保留原 MCP owner。
-  await waitForWorkspaceApp(DEFAULT_WORKSPACE, 15_000);
+  await waitForTestIdByDom(TID_CHAT_VIEW, {
+    timeout: 15_000,
+    timeoutMsg: "制造 MCP 配置读取失败前工作区没有恢复",
+  });
   await writeFile(CLI_CONFIG_FILE, "{ invalid e2e mcp config", "utf8");
   const plainHttpInitializeCount = server.snapshot().plainHttpInitializeCount;
 
@@ -507,7 +510,10 @@ async function verifyConfigLoadFailureKeepsMcpRuntime(
     timeout: 15_000,
     timeoutMsg: "恢复 MCP 配置前无法返回工作区",
   });
-  await waitForWorkspaceApp(DEFAULT_WORKSPACE, 15_000);
+  await waitForTestIdByDom(TID_CHAT_VIEW, {
+    timeout: 15_000,
+    timeoutMsg: "恢复 MCP 配置前工作区没有出现",
+  });
   await openMcpSettings();
   await waitForMcpRow({
     status: "connected",

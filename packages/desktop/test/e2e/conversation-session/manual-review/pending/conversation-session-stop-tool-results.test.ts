@@ -69,16 +69,16 @@ describe("B12 Stop 后 Read 结果完整性对照", () => {
               record.module === "core.runtime" && record.event === "model.request.started",
           ),
         ).toHaveLength(1);
-        // XCODE: PreToolUse 挂起时取消发生在 handler 的失败日志边界之前；
-        // 观察原 turn 的取消终态，下一轮仍须逐个验证三个真实 tool_result。
-        expect(
-          stoppedLogs.some(
-            (record) =>
-              record.event === "turn.failed" &&
-              record.status === "cancelled" &&
-              JSON.stringify(record.error).includes("TURN_CANCELLED"),
-          ),
-        ).toBe(true);
+        for (const toolId of toolIds.slice(1)) {
+          expect(
+            stoppedLogs.some(
+              (record) =>
+                record.event === "tool.call.failed" &&
+                record.toolCallId === toolId &&
+                JSON.stringify(record.error).includes("TOOL_CANCELLED"),
+            ),
+          ).toBe(true);
+        }
 
         await sendV4Prompt(`${marker}_FOLLOWUP: 请继续回复。`);
         // 缺 result 时 SDK 在发 HTTP 之前失败；直接保留原始错误，避免伪装成 fixture miss。

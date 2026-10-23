@@ -15,10 +15,6 @@ import {
   waitForUserMessageContaining,
 } from "../../../helpers/conversation-session.js";
 import { ensureToolCrossProductFullAccessMode } from "../../../helpers/conversation-session-tool-cross-product.js";
-import {
-  expandAssistantHistoriesWithContent,
-  expandVisibleToolCallGroups,
-} from "../../../helpers/conversation-session-tool-diagnostics.js";
 
 const CASE_ROOT = join(DEFAULT_WORKSPACE, "bash-read-state-e2e");
 const TARGET_RELATIVE_PATH = "bash-read-state-e2e/target.txt";
@@ -65,9 +61,6 @@ describe("会话区 Bash read-state E2E", () => {
       120000,
     );
 
-    // XCODE: 终态工具已折叠进工作历史及分组，展开后再读取完整调用列表。
-    await expandAssistantHistoriesWithContent();
-    await expandVisibleToolCallGroups();
     const toolBlocks = await listToolCallBlocks();
     expect(toolBlocks.filter((block) => block.toolName === "Bash").length).toBeGreaterThanOrEqual(2);
     expect(toolBlocks.some((block) => block.toolName === "Edit")).toBe(true);

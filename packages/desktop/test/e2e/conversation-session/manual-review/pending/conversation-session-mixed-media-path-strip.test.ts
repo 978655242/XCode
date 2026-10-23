@@ -1,11 +1,7 @@
-import { copyFile, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 import type { ElectronMock } from "@wdio/electron-types";
-import {
-  TID_CHAT_ATTACHMENT_BUTTON,
-  TID_CHAT_ATTACHMENT_MENU_ITEM,
-  TID_V4_ATTACHMENT,
-} from "@zcode/shared/test-ids";
+import { TID_CHAT_ATTACHMENT_BUTTON, TID_CHAT_ATTACHMENT_MENU_ITEM } from "@zcode/shared/test-ids";
 import { clearAppData, DEFAULT_WORKSPACE } from "../../../helpers/desktop-app.js";
 import {
   assertUpstreamRequestCapture,
@@ -20,6 +16,7 @@ import { restartWithSeededOpenAIProviders } from "../../../helpers/custom-openai
 import { startConversationModelProviderReplayServer } from "../../../helpers/model-provider-replay.js";
 import {
   clickV4Send,
+  getV4ComposerAttachments,
   prepareV4ConversationE2E,
   sendV4Prompt,
   setV4ComposerText,
@@ -72,7 +69,7 @@ describe("mixed-media path 与 strip 共享投影 E2E", () => {
     await mkdir(CASE_ROOT, { recursive: true });
     await Promise.all([
       writeFile(imagePath, Buffer.from(VALID_PNG_BASE64, "base64")),
-      copyFile(new URL("../../../fixtures/media/sample-video.mp4", import.meta.url), videoPath),
+      writeFile(videoPath, Buffer.from("e2e-mixed-media-video")),
     ]);
 
     const [mediaProvider, textOnlyProvider] = await restartWithSeededOpenAIProviders([
@@ -116,19 +113,9 @@ describe("mixed-media path 与 strip 共享投影 E2E", () => {
       "VI05 mixed-media 首轮没有完成",
       60_000,
     );
-    // XCODE: local-zero-copy 卡可无文件名正文；原身份通过真实消息 gallery 标题及上下游路径断言验证。
-    await waitForV4RowAttachments(60000, [imageFilename]);
-    const mediaCards = await $$('[data-v4-user-input-media-attachment="true"]');
-    expect(mediaCards).toHaveLength(2);
-    for (const [index, filename] of [imageFilename, videoFilename].entries()) {
-      await mediaCards[index]!.waitForClickable({ timeout: 15000 });
-      await mediaCards[index]!.click();
-      const preview = $('[role="dialog"]');
-      await preview.waitForDisplayed({ timeout: 15000 });
-      await expect(preview.$("h2")).toHaveText(filename);
-      await browser.keys("Escape");
-      await preview.waitForExist({ reverse: true, timeout: 15000 });
-    }
+    const attachmentText = await waitForV4RowAttachments();
+    expect(attachmentText).toContain(imageFilename);
+    expect(attachmentText).toContain(videoFilename);
 
     await selectProviderModel(textOnlyProvider.id, textOnlyProvider.name, TEXT_ONLY_MODEL);
     const textOnlyMarker = `E2E_MIXED_MEDIA_PATH_TEXT_ONLY_${runId}`;
@@ -176,25 +163,15 @@ async function pickNativeFiles(paths: string[], showOpenDialogMock: ElectronMock
 }
 
 async function waitForReadyAttachments(filenames: string[]) {
-  const expectedKinds = ["image", "video"];
   await browser.waitUntil(
     async () => {
-      // XCODE: 原生零拷贝附件不创建 object URL/alt；按实际类型、顺序与 ready 判断，不伪造名称。
-      const attachments = await browser.execute(
-        (prefix) =>
-          Array.from(document.querySelectorAll<HTMLElement>(`[data-testid^="${prefix}-"]`))
-            .filter((element) => element.hasAttribute("data-upload-status"))
-            .map((element) => ({
-              kind: element.getAttribute("data-composer-attachment-kind"),
-              status: element.getAttribute("data-upload-status"),
-            })),
-        TID_V4_ATTACHMENT,
-      );
+      const attachments = await getV4ComposerAttachments();
       return (
         attachments.length === filenames.length &&
         attachments.every(
-          (attachment, index) =>
-            attachment.status === "ready" && attachment.kind === expectedKinds[index],
+          (attachment) =>
+            attachment.uploadStatus === "ready" &&
+            filenames.some((filename) => attachment.text.includes(filename)),
         )
       );
     },

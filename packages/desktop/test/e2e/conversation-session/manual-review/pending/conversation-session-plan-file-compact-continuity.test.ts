@@ -2,7 +2,6 @@ import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { DEFAULT_WORKSPACE, clearAppData } from "../../../helpers/desktop-app.js";
 import type { E2ENetworkCaptureArtifact } from "../../../helpers/network-capture-proxy.js";
-import { waitForV4PlanModeEnabled } from "../../../helpers/v4-conversation.js";
 import {
   E2E_REPLY_TOKEN,
   getUpstreamRequestRecordCount,
@@ -81,7 +80,7 @@ describe("conversation session plan file compact continuity", () => {
       "plan file compact initial plan-mode request",
       60000,
     );
-    await waitForV4PlanModeEnabled(60000);
+    await waitForToolCallBlockByToolName("EnterPlanMode", 60000);
 
     await waitForUpstreamRequest(
       {

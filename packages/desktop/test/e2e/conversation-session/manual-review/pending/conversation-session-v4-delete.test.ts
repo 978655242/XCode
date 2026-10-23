@@ -1,5 +1,8 @@
-// Manual review pending：从任务行归档，再通过归档管理永久删除当前任务。
-// 使用真实 TaskService 生命周期入口，核对删除后 pane 回到 draft；不恢复旧 header 控件。
+// Manual review pending：旧 v4 header 删除入口已按产品边界移除；
+// 后续只允许从左侧 task 列表既有生命周期入口重写本 case。
+// 证据层 L3：建立 session → 点删除 → deleteSession 命令 → v4-bridge closeSession
+//（卸载 + dispose gateway 会话 + 清事件日志）→ pane 回到 draft（shell 起新草稿）。
+// 证明会话删除全链路（closeSession 桥接 + onSessionDeleted 导航；真删 record 属 M5）。
 import { clearAppData } from "../../../helpers/desktop-app.js";
 import {
   clickV4DeleteSession,
@@ -9,7 +12,7 @@ import {
   waitForV4TimelineContaining,
 } from "../../../helpers/v4-conversation.js";
 
-describe("v4 任务生命周期：归档管理永久删除", () => {
+describe("v4 M4 门禁：deleteSession", () => {
   after(async () => {
     await browser.electron.restoreAllMocks();
     await clearAppData();

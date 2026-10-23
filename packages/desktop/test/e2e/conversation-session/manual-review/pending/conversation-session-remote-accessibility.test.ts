@@ -12,8 +12,6 @@ import {
   clearAppData,
   DEFAULT_WORKSPACE,
   readSettings,
-  restoreElectronRendererContentSize,
-  setCurrentElectronRendererContentSize,
   waitForWorkspaceApp,
 } from "#e2e/helpers/desktop-app";
 import { prepareV4ConversationE2E } from "#e2e/helpers/v4-conversation";
@@ -133,28 +131,28 @@ async function capture(state: string) {
         theme,
       );
       for (const width of [1400, 900]) {
-        // XCODE: 宽窄屏只约束真实内容宽度；macOS 会限制窗口高度，必须恢复本次实际原尺寸。
-        const originalSize = await setCurrentElectronRendererContentSize(width);
-        try {
-          await browser.executeAsync((done) =>
-            requestAnimationFrame(() => requestAnimationFrame(() => done())),
+        // Electron 不提供 WebDriver 的 Browser.getWindowForTarget；使用原生 resize 并返回实际尺寸取证。
+        const bounds = await browser.electron.execute((electron, size) => {
+          const main = electron.BrowserWindow.getAllWindows().find(
+            (window) => !window.isDestroyed() && window.isVisible(),
           );
-          const sidebarWidth = await browser.execute(() => {
-            const shell = document.querySelector<HTMLElement>(
-              '[style*="--workspace-sidebar-width"]',
-            );
-            return shell
-              ? getComputedStyle(shell).getPropertyValue("--workspace-sidebar-width").trim()
-              : null;
-          });
-          expect(sidebarWidth).toBe("264px");
-          if (state === "settings") await assertLogTimestampContrast();
-          await browser.saveScreenshot(
-            resolve(artifact, `${state}-${locale}-${theme}-${width}.png`),
-          );
-        } finally {
-          await restoreElectronRendererContentSize(originalSize);
-        }
+          if (!main) throw new Error("视觉采样没有可见 Electron 主窗口");
+          main.setSize(size, 1000);
+          return { windowId: main.id, size: main.getSize() };
+        }, width);
+        expect(bounds.size).toEqual([width, 1000]);
+        await browser.executeAsync((done) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => done())),
+        );
+        const sidebarWidth = await browser.execute(() => {
+          const shell = document.querySelector<HTMLElement>('[style*="--workspace-sidebar-width"]');
+          return shell
+            ? getComputedStyle(shell).getPropertyValue("--workspace-sidebar-width").trim()
+            : null;
+        });
+        expect(sidebarWidth).toBe("264px");
+        if (state === "settings") await assertLogTimestampContrast();
+        await browser.saveScreenshot(resolve(artifact, `${state}-${locale}-${theme}-${width}.png`));
       }
     }
   }

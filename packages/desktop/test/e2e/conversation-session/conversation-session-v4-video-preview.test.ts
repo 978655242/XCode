@@ -4,7 +4,7 @@
 // 2) 图片与视频进入同一个 gallery，并通过按钮/方向键首尾循环，图片工具与视频 controls 隔离；
 // 3) Desktop sent video 优先播放 artifact/local_ref 路径，非 fast-start MP4 也支持 seek，无可用路径时走 artifact 分片；
 // 4) 不可解码视频保留 gallery 导航/重开，edit 与完整进程重启后仍按持久化原始序号预览。
-import { mkdir, open, readFile, realpath, rm } from "node:fs/promises";
+import { mkdir, open, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ElectronMock } from "@wdio/electron-types";
@@ -80,9 +80,8 @@ describe("v4 VI06/VI07：image/video 媒体 gallery 与 edit", () => {
     // Bug 根因：旧 E2E 只使用 moov 在 mdat 前的 fast-start MP4，无法触发自定义
     // scheme 对文件尾元数据的读取；改用同一可播 fixture 的尾部 moov 形态覆盖真实回归。
     const sourceVideo = moveMoovBoxBehindMediaData(await readFile(VIDEO_SOURCE_PATH));
+    const largeVideoPath = join(CASE_ROOT, LARGE_VIDEO_FILENAME);
     await mkdir(CASE_ROOT, { recursive: true });
-    // XCODE: 原生选择器返回真实路径，避免 macOS 临时目录软链造成身份断言偏差。
-    const largeVideoPath = join(await realpath(CASE_ROOT), LARGE_VIDEO_FILENAME);
     await createSparseLargePlayableMp4(largeVideoPath, sourceVideo);
     const showOpenDialogMock = await browser.electron.mock("dialog", "showOpenDialog");
 

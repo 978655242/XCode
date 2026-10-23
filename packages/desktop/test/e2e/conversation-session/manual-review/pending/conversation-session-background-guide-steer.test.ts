@@ -1,9 +1,12 @@
+import { TID_CHAT_INPUT } from "@zcode/shared/test-ids";
 import { clearAppData, readSettings } from "../../../helpers/desktop-app.js";
 import { waitForUpstreamNetworkRequestStarted } from "../../../helpers/upstream-capture.js";
 import {
   clickChatStop,
+  clickChatSend,
   findFirstUpstreamRequestIndex,
   getChatRootSnapshot,
+  getComposerText,
   getUpstreamRequestRecordCount,
   getQueueItems,
   prepareConversationE2E,
@@ -54,8 +57,7 @@ describe("会话区 Background Guide Steer E2E", () => {
       30000,
     );
 
-    // XCODE: 复用当前 composer 输入路径，避免依赖已移除的旧输入框 TID。
-    await sendPrompt(
+    await sendPromptWithoutInputClick(
       `${guideMarker}: This guidance should be coalesced with the background launch tool result.`,
     );
     await waitForComposerText("", "background guide steer 引导消息发送后输入框没有清空");
@@ -127,6 +129,23 @@ async function waitForGuideProjection(marker: string) {
       timeoutMsg: `background guide steer 没有观察到 guide 投影或合流: ${marker}`,
     },
   );
+}
+
+async function sendPromptWithoutInputClick(prompt: string) {
+  const focused = await browser.execute((inputTestId) => {
+    const input = document.querySelector<HTMLElement>(
+      `[data-testid="${inputTestId}"]`,
+    );
+    input?.focus();
+    return document.activeElement === input;
+  }, TID_CHAT_INPUT);
+  expect(focused).toBe(true);
+  await browser.keys(prompt);
+  await browser.waitUntil(async () => (await getComposerText()) === prompt, {
+    timeout: 10000,
+    timeoutMsg: `background guide steer 没有通过键盘写入 prompt: ${prompt}`,
+  });
+  await clickChatSend();
 }
 
 async function stopIfBusy() {

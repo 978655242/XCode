@@ -32,11 +32,10 @@ import {
 import {
   ensureUpstreamProviderForE2E,
   selectUpstreamModel,
-  selectUpstreamThoughtLevel,
+  selectUpstreamThoughtLevelValue,
 } from "#e2e/helpers/upstream-provider";
 import {
   getV4ConversationState,
-  prepareV4ConversationE2E,
   selectV4TaskById,
   sendV4Prompt,
   startNewV4Draft,
@@ -207,11 +206,11 @@ describe(`${CASE}: 实际 Web 查看与桌面唯一未读写者`, () => {
     if (!artifacts || !process.env.ZCODE_E2E_HOME_DIR)
       throw new Error("MRO03 isolated runner required");
     await prepareSSHConnectionPage(CASE);
-    // XCODE: 先回到真实夹具项目草稿，再选择当前模型支持的思考档位。
-    await prepareV4ConversationE2E({ skipProvider: true });
     await ensureUpstreamProviderForE2E({ skipToolbarSelection: true });
+    await startNewV4Draft();
+    // 回放模型只提供 disabled；用例不依赖通用 helper 的 high 默认档位。
     await selectUpstreamModel();
-    await selectUpstreamThoughtLevel();
+    await selectUpstreamThoughtLevelValue("disabled");
     await installHandoffRpcProbe();
     webBrowser = await chromium.launch({
       ...(process.env.ZCODE_E2E_MOBILE_BROWSER_EXECUTABLE || process.env.R3_MOBILE_CHROME
@@ -224,9 +223,9 @@ describe(`${CASE}: 实际 Web 查看与桌面唯一未读写者`, () => {
     });
     for (const width of [1440, 390]) {
       if (width === 390) {
-        await prepareV4ConversationE2E({ skipProvider: true });
+        await startNewV4Draft();
         await selectUpstreamModel();
-        await selectUpstreamThoughtLevel();
+        await selectUpstreamThoughtLevelValue("disabled");
       }
       await sendV4Prompt(`${CASE}_SEED: 只回复 MRO03_SEED_DONE`);
       await waitForV4AssistantMessageContaining("MRO03_SEED_DONE", 90_000);
@@ -373,10 +372,10 @@ describe(`${CASE}: 实际 Web 查看与桌面唯一未读写者`, () => {
     if (!backgroundAddress) {
       // 允许用现有mocha grep单独定位真实可见性场景，仍通过UI建立自己的任务前置。
       await prepareSSHConnectionPage(CASE);
-      await prepareV4ConversationE2E({ skipProvider: true });
       await ensureUpstreamProviderForE2E({ skipToolbarSelection: true });
+      await startNewV4Draft();
       await selectUpstreamModel();
-      await selectUpstreamThoughtLevel();
+      await selectUpstreamThoughtLevelValue("disabled");
       await installHandoffRpcProbe();
       await sendV4Prompt(`${CASE}_SEED: 只回复 MRO03_SEED_DONE`);
       await waitForV4AssistantMessageContaining("MRO03_SEED_DONE", 90_000);

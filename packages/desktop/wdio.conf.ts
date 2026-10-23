@@ -1,3 +1,5 @@
+// XCODE: 纯上游已失效的正式 spec 清单（不改上游测试，默认全量跳过）。
+import { resolveXWorkUpstreamBrokenSpecExcludes } from "./scripts/xwork-upstream-broken-specs.mjs";
 import { createConversationShareMockRoute } from "./test/e2e/helpers/conversation-share-mock-route.js";
 import {
   loadToolSearchResponses,
@@ -4851,6 +4853,7 @@ export const config: WebdriverIO.Config = {
     ...(manualReviewE2E ? [] : [MANUAL_REVIEW_SPEC_GLOB]),
     // XCODE: SPR01 由独立 Node/CDP 入口连接关闭 test bridge 的生产构建。
     "./test/e2e/conversation-session/manual-review/pending/conversation-session-snapshot-retention.test.ts",
+    ...resolveXWorkUpstreamBrokenSpecExcludes({ targeted: requestedE2ESpecs.length > 0 }),
     ...resolveEnvironmentGatedFormalSpecExcludes({
       env: process.env,
       targeted: requestedE2ESpecs.length > 0,

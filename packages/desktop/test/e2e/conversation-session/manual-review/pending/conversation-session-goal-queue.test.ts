@@ -77,7 +77,7 @@ describe("会话区 Goal Queue E2E", () => {
     await waitForChatState(
       (snapshot) =>
         snapshot.state !== "streaming" &&
-        snapshot.sessionEnded === true &&
+        snapshot.runtimeStatus === "completed" &&
         snapshot.activeInputId === null &&
         snapshot.queueCount === 3,
       // 修复原因：stop ACK 可能早于 runtime terminal 投影；后续 queue 编辑
@@ -161,7 +161,7 @@ describe("会话区 Goal Queue E2E", () => {
     await waitForChatState(
       (snapshot) =>
         snapshot.state !== "streaming" &&
-        snapshot.sessionEnded === true &&
+        snapshot.runtimeStatus === "completed" &&
         snapshot.activeInputId === null &&
         snapshot.queueCount === 2,
       // 修复原因：连续 queued goal 的 send-now 覆盖 active target 属于 running-send-now 专项边界；

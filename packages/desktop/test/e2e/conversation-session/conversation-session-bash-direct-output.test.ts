@@ -1,6 +1,5 @@
 import {
   copyFile,
-  glob,
   mkdir,
   open,
   readFile,
@@ -11,8 +10,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
-import { clearAppData, DEFAULT_WORKSPACE } from "../helpers/desktop-app.js";
+import { clearAppData, DEFAULT_WORKSPACE, getE2EAppDataPaths } from "../helpers/desktop-app.js";
 import { resolveE2ERuntimePath } from "../helpers/e2e-runtime-paths.js";
 import {
   getLatestUpstreamToolResultByToolCallId,
@@ -95,13 +93,13 @@ async function result(id: string) {
 async function outputPath(id: string) {
   const sessionId = (await getV4PaneSnapshot()).sessionId;
   expect(sessionId).not.toBe("draft");
-  // XCODE: 上游将 Bash 输出移到随机临时根；按实际会话目录定位，不能拼旧 storage 路径。
-  const directories: string[] = [];
-  for await (const directory of glob(`zcode-bash-*/${sessionId}`, { cwd: tmpdir() })) {
-    directories.push(directory);
-  }
-  expect(directories).toHaveLength(1);
-  const path = join(tmpdir(), directories[0]!, `${id}-stdout.log`);
+  const path = join(
+    getE2EAppDataPaths().storageRoot,
+    "cli",
+    "exec",
+    sessionId!,
+    `${id}-stdout.log`,
+  );
   outputs.add(path);
   return path;
 }

@@ -2,15 +2,12 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ElectronMock } from "@wdio/electron-types";
-import {
-  DEFAULT_WORKSPACE,
-  restoreElectronRendererContentSize,
-  setCurrentElectronRendererContentSize,
-} from "../../../helpers/desktop-app.js";
+import { DEFAULT_WORKSPACE } from "../../../helpers/desktop-app.js";
 import {
   getV4ComposerText,
   prepareV4ConversationE2E,
   sendV4Prompt,
+  setV4ElectronWindowSize,
   waitForV4AssistantMessageContaining,
   waitForV4Pane,
   waitForV4QueueCount,
@@ -91,9 +88,8 @@ describe("会话区消息图片画廊与共享预览 E2E", () => {
   });
 
   it("MIG03: small 与 390px viewport 换成两列和单列且不横向滚动", async () => {
-    // XCODE: 小屏验收只改变宽度；保存真实内容区尺寸，避免 macOS 高度约束和清理错误覆盖原失败。
-    const originalSize = await setCurrentElectronRendererContentSize(700);
     try {
+      await setV4ElectronWindowSize(700, 900);
       const small = await waitForResponsiveColumns(2);
       expect(small.galleryHorizontalOverflow).toBe(false);
       expect(small.documentHorizontalOverflow).toBe(false);
@@ -104,7 +100,7 @@ describe("会话区消息图片画廊与共享预览 E2E", () => {
       expect(mobile.documentHorizontalOverflow).toBe(false);
     } finally {
       await clearRendererViewport();
-      await restoreElectronRendererContentSize(originalSize);
+      await setV4ElectronWindowSize(1440, 900);
     }
   });
 

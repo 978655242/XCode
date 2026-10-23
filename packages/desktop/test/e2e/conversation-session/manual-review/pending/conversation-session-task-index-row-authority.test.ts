@@ -13,6 +13,7 @@ import {
 import { ensureProjectExpanded, projectSectionSelector } from "../../../helpers/project-sidebar.js";
 
 const CASE_TIMEOUT_MS = 120_000;
+const SHOW_MORE_LABELS = ["Show more", "显示更多"];
 
 describe("TSL23：tasks-index 是 Project 持久任务行权威", () => {
   after(async () => {
@@ -90,12 +91,18 @@ function readAuthorityTaskIds(): Promise<string[]> {
   );
 }
 
-async function clickWorkspaceShowMore(): Promise<boolean> {
-  // 分页入口是项目 section 内直接承载文案的 Button，没有内层 span。
-  const showMore = $(
-    `${projectSectionSelector(DEFAULT_WORKSPACE)} button[data-task-list-show-more="true"]`,
+function clickWorkspaceShowMore(): Promise<boolean> {
+  return browser.execute(
+    (workspaceTestId, labels) => {
+      const workspaceRow = document.querySelector<HTMLElement>(workspaceTestId);
+      const workspaceListItem = workspaceRow;
+      const showMore = Array.from(
+        workspaceListItem?.querySelectorAll<HTMLElement>("span") ?? [],
+      ).find((element) => labels.includes((element.textContent ?? "").trim()));
+      showMore?.click();
+      return Boolean(showMore);
+    },
+    projectSectionSelector(DEFAULT_WORKSPACE),
+    SHOW_MORE_LABELS,
   );
-  if (!(await showMore.isExisting())) return false;
-  await showMore.click();
-  return true;
 }

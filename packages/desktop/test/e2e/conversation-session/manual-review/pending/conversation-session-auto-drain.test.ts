@@ -54,7 +54,7 @@ describe("会话区 Auto Drain E2E", () => {
     await waitForChatState(
       (snapshot) =>
         snapshot.state === "idle" &&
-        snapshot.sessionEnded === true &&
+        snapshot.runtimeStatus === "completed" &&
         snapshot.queueCount === 0,
       "首轮完成后没有自动消费 queued prompt 并清空 queue",
       90000,

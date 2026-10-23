@@ -5,7 +5,12 @@ import {
   TID_COMPOSER_WORK_OUTSIDE_PROJECT,
   TID_COMPOSER_WORKSPACE_TRIGGER,
 } from "@zcode/shared/test-ids";
-import { DEFAULT_WORKSPACE, clearAppData, waitForWorkspaceApp } from "#e2e/helpers/desktop-app";
+import {
+  DEFAULT_CONVERSATION_WORKSPACE,
+  DEFAULT_WORKSPACE,
+  clearAppData,
+  waitForWorkspaceApp,
+} from "#e2e/helpers/desktop-app";
 
 const CASE_MARKER = "E2E_LOCAL_CONVERSATION_IDENTITY";
 const REMOTE_IDENTITY = buildServerRemoteWorkspaceIdentity({
@@ -112,27 +117,17 @@ describe(`${CASE_MARKER}: 本地项目解除绑定按完整工作区身份匹配
     const workOutsideProject = $(`[data-testid="${TID_COMPOSER_WORK_OUTSIDE_PROJECT}"]`);
     await workOutsideProject.waitForDisplayed({ timeout: 10_000 });
     await workOutsideProject.click();
-    let conversationWorkspacePath: string | null = null;
     await browser.waitUntil(
       async () => {
         const state = await readNavigation();
-        const active = state.tabs.find((tab) => tab.id === state.activeTabId);
-        // XCODE: 项目外草稿使用产品实际分配的目录；身份必须本机，不能固定等待旧 default 路径。
-        const localConversation = Boolean(
-          state.activeWorkspacePath &&
-          state.activeWorkspacePath !== DEFAULT_WORKSPACE &&
-          state.activeWorkspaceIdentity === null &&
-          active?.workspacePurpose === "conversation" &&
-          active.workspaceIdentity === null &&
-          active.remoteSessionId === null,
+        return (
+          state.activeWorkspacePath === DEFAULT_CONVERSATION_WORKSPACE &&
+          state.activeWorkspaceIdentity === null
         );
-        if (localConversation) conversationWorkspacePath = state.activeWorkspacePath;
-        return localConversation;
       },
       { timeout: 10_000, timeoutMsg: `${CASE_MARKER}: 点击后没有进入本地 conversation workspace` },
     );
-    if (!conversationWorkspacePath) throw new Error(`${CASE_MARKER}: 本机会话目录没有分配`);
-    await waitForWorkspaceApp(conversationWorkspacePath, 10_000);
+    await waitForWorkspaceApp(DEFAULT_CONVERSATION_WORKSPACE, 10_000);
 
     const after = await readNavigation();
     facts.after = after;

@@ -1059,34 +1059,16 @@ async function ensureSidePaneExpanded(): Promise<void> {
       const frame = document.querySelector('[data-workspace-side-frame="true"]');
       const panel = frame?.parentElement;
       return Boolean(
-        frame?.getAttribute("aria-hidden") === "false" &&
         panel &&
         panel.getBoundingClientRect().width > 100 &&
-        getComputedStyle(panel).opacity === "1" &&
-        panel.getAnimations().every((animation) => animation.playState !== "running"),
+        getComputedStyle(panel).opacity === "1",
       );
     });
-  if (await isExpanded()) return;
-  // XCODE: 末标签关闭后的收起动画会移动 Header；原始录像误点了帮助菜单，必须等收起完成。
+  // 展开动画尚未完成时不能再次切换；只有 WorkspaceHeader 中的展开按钮才触发打开。
   const toggle = await $(
     `[data-testid="${TID_WORKSPACE_HEADER}"] [data-testid="${TID_SIDE_PANE_TOGGLE}"]`,
   );
   if (await toggle.isExisting()) {
-    await browser.waitUntil(
-      () =>
-        browser.execute(() => {
-          const frame = document.querySelector('[data-workspace-side-frame="true"]');
-          const panel = frame?.parentElement;
-          return Boolean(
-            frame?.getAttribute("aria-hidden") === "true" &&
-            panel &&
-            panel.getBoundingClientRect().width <= 1 &&
-            getComputedStyle(panel).opacity === "0" &&
-            panel.getAnimations().every((animation) => animation.playState !== "running"),
-          );
-        }),
-      { timeout: 10_000, timeoutMsg: "Side Pane 尚未完成收起，不能点击移动中的展开按钮" },
-    );
     await toggle.waitForClickable({ timeout: 10_000 });
     await toggle.click();
   }

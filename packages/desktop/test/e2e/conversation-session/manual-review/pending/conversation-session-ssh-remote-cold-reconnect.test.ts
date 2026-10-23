@@ -95,12 +95,9 @@ describe(`${CASE_MARKER}: SSH cold restart and automatic reconnect`, () => {
     await browser.waitUntil(
       async () => {
         const settings = await readSettings();
-        const activeWorkspace = settings.lastActiveWorkspace;
-        // XCODE: 冷启动读取活动目录，不再把兼容成员投影当作 tab 顺序。
         return (
-          activeWorkspace?.workspacePath === workspaceB &&
-          "workspaceIdentity" in activeWorkspace &&
-          activeWorkspace.workspaceIdentity === taskB.identity
+          settings.lastWorkspaceSession?.[settings.lastActiveTabIndex ?? 0]?.workspacePath ===
+          workspaceB
         );
       },
       { timeout: 15_000, timeoutMsg: `${CASE_MARKER}: 原激活项目没有持久化` },

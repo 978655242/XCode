@@ -1,7 +1,6 @@
 import { readFile, rm } from "node:fs/promises";
 import { clearAppData } from "../../../helpers/desktop-app.js";
 import { resolveE2EToolPath } from "../../../helpers/e2e-runtime-paths.js";
-import { waitForV4PlanModeEnabled } from "../../../helpers/v4-conversation.js";
 import {
   E2E_READONLY_TOOL_FILE_CONTENT,
   E2E_REPLY_TOKEN,
@@ -75,7 +74,7 @@ describe("conversation session plan mode capabilities", () => {
       "plan mode deny initial request",
       60000,
     );
-    await waitForV4PlanModeEnabled(60000);
+    await waitForToolCallBlockByToolName("EnterPlanMode", 60000);
 
     await waitForUpstreamRequest(
       {
@@ -145,7 +144,7 @@ describe("conversation session plan mode capabilities", () => {
       "plan mode tool boundary initial request",
       60000,
     );
-    await waitForV4PlanModeEnabled(60000);
+    await waitForToolCallBlockByToolName("EnterPlanMode", 60000);
 
     await waitForUpstreamRequest(
       {

@@ -8,7 +8,6 @@ import {
   TID_AUTOMATIONS_OPEN,
   TID_CHAT_ATTACHMENT_BUTTON,
   TID_SETTINGS_PAGE,
-  TID_SETTINGS_BACK_BUTTON,
   TID_SETTINGS_SECTION_NAV,
   TID_TASK_SETTINGS_BUTTON,
   TID_V4_COMPOSER_INPUT,
@@ -110,12 +109,6 @@ export async function readPlusMenuAddOptionIds(): Promise<string[]> {
 
 /** 从侧栏进入自动化页，并等页面内容容器渲染。 */
 export async function openAutomationsPage(): Promise<void> {
-  // XCODE: 设置仍是覆盖层；先通过真实返回关闭，再打开自动化，不能点击被覆盖的侧栏冒充页面切换。
-  const settings = $(sel(TID_SETTINGS_PAGE));
-  if (await settings.isDisplayed()) {
-    await clickTestIdByDom(TID_SETTINGS_BACK_BUTTON, { timeout: 15000 });
-    await settings.waitForDisplayed({ reverse: true, timeout: 15000 });
-  }
   await clickTestIdByDom(TID_AUTOMATIONS_OPEN, {
     timeoutMsg: "侧栏没有出现自动化入口",
   });

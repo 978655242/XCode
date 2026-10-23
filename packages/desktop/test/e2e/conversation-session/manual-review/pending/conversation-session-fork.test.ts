@@ -311,7 +311,7 @@ function getSnapshotSessionId(snapshot: ChatSnapshot): string | null {
 
 function isRuntimeCompleted(snapshot: ChatSnapshot): boolean {
   return (
-    snapshot.sessionEnded === true && snapshot.activeInputId === null
+    snapshot.runtimeStatus === "completed" && snapshot.activeInputId === null
   );
 }
 

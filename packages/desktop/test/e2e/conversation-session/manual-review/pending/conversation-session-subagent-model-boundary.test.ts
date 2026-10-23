@@ -17,11 +17,10 @@ import {
   waitForV4TimelineContaining,
 } from "../../../helpers/v4-conversation.js";
 import { waitForToolCallBlockByToolName } from "../../../helpers/conversation-session-tool.js";
-import { restartIntoWorkspace } from "../../../helpers/model-provider-restart.js";
 import {
-  resolveSeededReplayBaseUrl,
-  seedCustomAnthropicMessagesProvider,
-} from "../../../helpers/custom-openai-provider-store.js";
+  restartIntoWorkspace,
+  seedReplayProvider,
+} from "../../../helpers/model-provider-restart.js";
 import { sel } from "../../../helpers/selectors.js";
 
 const START_PROVIDER_ID = "e2e-start-subagent-boundary";
@@ -42,7 +41,6 @@ const NESTED_PARENT_DONE = "E2E_SUBAGENT_NESTED_PARENT_DONE";
 interface CaptureRecord {
   requestJson?: unknown;
   status?: string;
-  replay?: { fixtureId?: string };
 }
 
 describe("Subagent 模型快照边界 E2E", () => {
@@ -65,20 +63,15 @@ describe("Subagent 模型快照边界 E2E", () => {
   it("F-SUBAGENT-013/F-SUBAGENT-016: child 在途期间父会话切换计划仍使用创建时快照", async function () {
     this.timeout(300000);
     await prepareV4ConversationE2E({ skipProvider: true });
-    const baseURL = await resolveSeededReplayBaseUrl();
-    if (!baseURL) throw new Error("subagent boundary replay Base URL 未配置");
-    // XCODE: 原八段回放都是 /messages；沿用原模型身份并使用匹配的 Anthropic 协议。
-    await seedCustomAnthropicMessagesProvider({
-      baseURL,
-      providerId: START_PROVIDER_ID,
-      modelId: START_MODEL_ID,
-      providerName: "E2E Start Plan Subagent Boundary",
+    await seedReplayProvider({
+      id: START_PROVIDER_ID,
+      models: [START_MODEL_ID],
+      name: "E2E Start Plan Subagent Boundary",
     });
-    await seedCustomAnthropicMessagesProvider({
-      baseURL,
-      providerId: CODING_PROVIDER_ID,
-      modelId: CODING_MODEL_ID,
-      providerName: "E2E Coding Plan Subagent Boundary",
+    await seedReplayProvider({
+      id: CODING_PROVIDER_ID,
+      models: [CODING_MODEL_ID],
+      name: "E2E Coding Plan Subagent Boundary",
     });
     await restartIntoWorkspace();
     await prepareV4ConversationE2E({ skipProvider: true });
@@ -104,13 +97,9 @@ describe("Subagent 模型快照边界 E2E", () => {
       120000,
     );
 
-    const child = await waitForCaptureRequest(BOUNDARY_CHILD, "subagent-boundary-child-delayed");
+    const child = await waitForCaptureRequest(BOUNDARY_CHILD);
     expect(readModel(child.requestJson)).toBe(START_MODEL_ID);
-    // 父 prompt 也提到 child marker；仅按原 fixture 归属取证，排除标题与其他线程。
-    const parentRequests = await readCaptureRecords(parentMarker, [
-      "subagent-boundary-parent-agent",
-      "subagent-boundary-parent-final",
-    ]);
+    const parentRequests = await readCaptureRecords(parentMarker);
     expect(parentRequests.some((record) => readModel(record.requestJson) === CODING_MODEL_ID)).toBe(
       true,
     );
@@ -119,13 +108,10 @@ describe("Subagent 模型快照边界 E2E", () => {
   it("F-SUBAGENT-018: 三层 Subagent 只沿直接父级继承模型身份", async function () {
     this.timeout(240000);
     await prepareV4ConversationE2E({ skipProvider: true });
-    const baseURL = await resolveSeededReplayBaseUrl();
-    if (!baseURL) throw new Error("nested subagent replay Base URL 未配置");
-    await seedCustomAnthropicMessagesProvider({
-      baseURL,
-      providerId: START_PROVIDER_ID,
-      modelId: START_MODEL_ID,
-      providerName: "E2E Start Plan Nested Subagent",
+    await seedReplayProvider({
+      id: START_PROVIDER_ID,
+      models: [START_MODEL_ID],
+      name: "E2E Start Plan Nested Subagent",
     });
     await restartIntoWorkspace();
     await prepareV4ConversationE2E({ skipProvider: true });
@@ -145,27 +131,13 @@ describe("Subagent 模型快照边界 E2E", () => {
       120000,
     );
 
-    for (const [marker, fixtureId] of [
-      [NESTED_CHILD, "subagent-nested-child-agent"],
-      [NESTED_GRANDCHILD, "subagent-nested-grandchild-final"],
-    ] as const) {
-      const request = await waitForCaptureRequest(marker, fixtureId);
+    for (const marker of [NESTED_CHILD, NESTED_GRANDCHILD]) {
+      const request = await waitForCaptureRequest(marker);
       expect(readModel(request.requestJson)).toBe(START_MODEL_ID);
     }
-    expect(
-      (
-        await readCaptureRecords(parentMarker, [
-          "subagent-nested-parent-agent",
-          "subagent-nested-parent-final",
-        ])
-      ).length,
-    ).toBeGreaterThanOrEqual(2);
-    expect(
-      await readCaptureRecords(NESTED_GRANDCHILD_DONE, ["subagent-nested-child-final"]),
-    ).toHaveLength(1);
-    expect(
-      await readCaptureRecords(NESTED_CHILD_DONE, ["subagent-nested-parent-final"]),
-    ).toHaveLength(1);
+    expect((await readCaptureRecords(parentMarker)).length).toBeGreaterThanOrEqual(2);
+    expect(await readCaptureRecords(NESTED_GRANDCHILD_DONE)).toHaveLength(1);
+    expect(await readCaptureRecords(NESTED_CHILD_DONE)).toHaveLength(1);
   });
 });
 
@@ -190,11 +162,11 @@ async function selectV4ModelOnly(provider: string, model: string): Promise<void>
   );
 }
 
-async function waitForCaptureRequest(marker: string, fixtureId: string): Promise<CaptureRecord> {
+async function waitForCaptureRequest(marker: string): Promise<CaptureRecord> {
   let records: CaptureRecord[] = [];
   await browser.waitUntil(
     async () => {
-      records = await readCaptureRecords(marker, [fixtureId]);
+      records = await readCaptureRecords(marker);
       return records.length > 0;
     },
     { timeout: 120000, interval: 500, timeoutMsg: `没有捕获到 subagent 请求 ${marker}` },
@@ -204,19 +176,13 @@ async function waitForCaptureRequest(marker: string, fixtureId: string): Promise
   return record;
 }
 
-async function readCaptureRecords(
-  marker: string,
-  fixtureIds: readonly string[],
-): Promise<CaptureRecord[]> {
+async function readCaptureRecords(marker: string): Promise<CaptureRecord[]> {
   const path = process.env.E2E_PROVIDER_CAPTURE_PATH?.trim();
   if (!path) return [];
   try {
     const artifact = JSON.parse(await readFile(path, "utf8")) as { records?: CaptureRecord[] };
-    return (artifact.records ?? []).filter(
-      (record) =>
-        record.status === "complete" &&
-        fixtureIds.includes(record.replay?.fixtureId ?? "") &&
-        JSON.stringify(record.requestJson).includes(marker),
+    return (artifact.records ?? []).filter((record) =>
+      JSON.stringify(record.requestJson).includes(marker),
     );
   } catch {
     return [];

@@ -5,13 +5,7 @@
 
 ## 背景
 
-<!-- XCODE: node_repl 每次 js 都创建 fresh kernel，共享的是 BrowserControl 服务与 tab 归属，不能跨调用复用 JS 变量。 -->
-
-主 agent 和 subagent 共用宿主 `node_repl` MCP 服务，但每次 `js` 调用都会创建新的 Node-backed
-JavaScript 内核，global binding 和模块缓存都不跨调用保留（见
-`apps/zcode-cli/packages/node-repl-host/src/tool-contract.ts`）。每次调用都要完整初始化 Browser client；
-持久化的是 BrowserControl 服务中的 tab，恢复时使用当前 `tabs.list()` 事实或真实 tool result 中的
-stable tab id，不能依赖父调用的 `globalThis`、Browser 或 Tab wrapper。
+宿主 `node_repl` MCP 是一个通用的 JavaScript 内核进程，主 agent 和 subagent 共用这一个 MCP 进程。
 Browser Use 需要拿到桌面窗口或 CLI managed headless runtime 的宿主控制权，所以 tab 归属、workspace
 和 clientMode 都必须能追溯到客户端认识的某个会话。
 
@@ -46,7 +40,7 @@ Browser Use 需要拿到桌面窗口或 CLI managed headless runtime 的宿主�
 ## 调用链路
 
 ```text
-parent runtime                  shared node_repl MCP service（每次 js fresh kernel） bootstrap broker（每 server context 一份状态）     Desktop
+parent runtime                  shared node_repl MCP        bootstrap broker（每 server context 一份状态）     Desktop
   | Agent tool → spawn child          |                             |                                          |
   | forChildSession(child, parent,    |                             |                                          |
   |   tabOwner:"parent") ------------------------------------------>| childSessionParents[child]=parent        |

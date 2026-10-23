@@ -130,7 +130,7 @@ describe("会话区 Edit User Query E2E", () => {
     await waitForChatState(
       (snapshot) =>
         snapshot.state !== "streaming" &&
-        snapshot.sessionEnded === true &&
+        snapshot.runtimeStatus === "completed" &&
         snapshot.queueCount === 3,
       "edit 重跑完成后没有稳定保留 3 条 queue",
       90000,
@@ -178,7 +178,7 @@ describe("会话区 Edit User Query E2E", () => {
     await waitForChatState(
       (snapshot) =>
         snapshot.state !== "streaming" &&
-        snapshot.sessionEnded === true &&
+        snapshot.runtimeStatus === "completed" &&
         snapshot.queueCount === 3,
       "held queue 下手动 compact 完成后没有继续保留 queue",
       90000,
@@ -217,7 +217,7 @@ describe("会话区 Edit User Query E2E", () => {
       (snapshot) =>
         (snapshot.sessionId || snapshot.taskId) === taskId &&
         snapshot.state !== "streaming" &&
-        snapshot.sessionEnded === true &&
+        snapshot.runtimeStatus === "completed" &&
         snapshot.queueCount === 0,
       "interrupted resubmit stop 后没有进入可编辑的 completed(interrupted) 状态",
       30000,

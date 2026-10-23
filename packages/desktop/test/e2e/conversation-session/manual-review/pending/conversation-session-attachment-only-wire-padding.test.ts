@@ -1,4 +1,4 @@
-// XCODE: T06W 沿用当前附件合同，空 user envelope 仅在 provider wire 补精确 (no content)。
+// T06W：附件-only query 的 UI/session 事实保持空正文，只在 provider wire 边界补一个空格。
 // 证据层 L3：真实 paste → begin/chunk/commit → draft firstInput → Anthropic Messages request matcher。
 import { TID_V4_COMPOSER_INPUT } from "@zcode/shared/test-ids";
 import { clearAppData } from "../../../helpers/desktop-app.js";
@@ -22,7 +22,7 @@ describe("T06W：attachment-only provider wire padding", () => {
     await clearAppData();
   });
 
-  it("空正文附件首发只在 provider wire user content 补精确占位", async function () {
+  it("空正文附件首发只在 provider wire user content 补单个空格", async function () {
     this.timeout(CASE_TIMEOUT_MS);
 
     await prepareV4ConversationE2E();
@@ -30,7 +30,7 @@ describe("T06W：attachment-only provider wire padding", () => {
     await clickV4Send();
 
     const capture = await waitForUpstreamNetworkCapture(ATTACHMENT_CONTENT);
-    expect(readUserWireTextParts(capture.requestJson)).toContain("(no content)");
+    expect(readUserWireTextParts(capture.requestJson)).toContain(" ");
     await waitForV4TimelineContaining(REPLY_MARKER, 60_000);
     await waitForV4Pane(
       (snapshot) =>

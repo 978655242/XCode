@@ -170,13 +170,8 @@ describe("Markdown preview selection", () => {
     );
     await historyChip.waitForDisplayed();
     expect(await historyChip.getText()).toContain("selection.md");
-    // XCODE: 草稿晋升会关闭文件面板，重开后须展开收起的目录再选择同一文件。
-    await openProjectFileTree(DEFAULT_WORKSPACE);
-    for (const path of [dirname(filePath), filePath]) {
-      const row = await $(`[data-testid="${testId(TID_WORKSPACE_FILE_TREE_ROW, path)}"]`);
-      await row.waitForDisplayed({ timeout: 15000 });
-      await row.click();
-    }
+    // 草稿提升为任务会切换 task-owned 侧栏，重新打开该文件后再选区。
+    await $(`[data-testid="${testId(TID_WORKSPACE_FILE_TREE_ROW, filePath)}"]`).click();
     await preview.waitForDisplayed({ timeout: 15000 });
     await browser.execute(
       (paneTestId, inputTestId) => {

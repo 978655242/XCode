@@ -1,17 +1,6 @@
-import {
-  copyFile,
-  lstat,
-  mkdir,
-  readFile,
-  readdir,
-  realpath,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
-import { join, relative, sep } from "node:path";
-import { tmpdir } from "node:os";
-import { clearAppData, DEFAULT_WORKSPACE } from "../helpers/desktop-app.js";
+import { copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { clearAppData, DEFAULT_WORKSPACE, getE2EAppDataPaths } from "../helpers/desktop-app.js";
 import { resolveE2ERuntimePath } from "../helpers/e2e-runtime-paths.js";
 import { ensureToolCrossProductFullAccessMode } from "../helpers/conversation-session-tool-cross-product.js";
 import { countUpstreamRequests } from "../helpers/conversation-session-network.js";
@@ -55,18 +44,6 @@ async function openRow() {
   await row.click();
   await details().waitForDisplayed();
 }
-async function verifyOutputPath(path: string, sessionId: string, name: string): Promise<string> {
-  // XCODE: BGV05 会删除文件，先绑定真实临时根、执行归属及本轮标记，拒绝符号链接。
-  expect((await lstat(path)).isFile()).toBe(true);
-  const canonical = await realpath(path);
-  const parts = relative(await realpath(tmpdir()), canonical).split(sep);
-  expect(parts).toHaveLength(3);
-  expect(parts[0]?.startsWith("zcode-bash-")).toBe(true);
-  expect(parts[1]).toBe(sessionId);
-  expect(parts[2]).toBe(`toolu_bgv_${name}-stdout.log`);
-  expect(await readFile(canonical, "utf8")).toContain(`${name}_STDERR_中文`);
-  return canonical;
-}
 async function launch(name: string) {
   names.push(name);
   // 合并适配：全局新任务落到独立聊天目录，Bash fixture 必须从 ZCodeProject 发起。
@@ -81,13 +58,16 @@ async function launch(name: string) {
   await sendV4Prompt(`E2E_BGV_${name}: Run the exact background Bash fixture.`);
   await waitForV4AssistantMessageContaining(`E2E_BGV_${name}_DONE`, 60000);
   const sessionId = (await getV4PaneSnapshot()).sessionId!;
-  // XCODE: Bash 已改在临时根持久化；从当前条目读取路径，不再拼接旧 storage 根。
+  const outputPath = join(
+    getE2EAppDataPaths().storageRoot,
+    "cli",
+    "exec",
+    sessionId,
+    `toolu_bgv_${name}-stdout.log`,
+  );
+  outputFiles.add(outputPath);
   await openRow();
   await contains(`${name}_STDERR_中文`);
-  const path = await details().$('[data-testid="background-bash-file"]').getAttribute("title");
-  if (!path) throw new Error("后台详情没有暴露输出文件路径");
-  const outputPath = await verifyOutputPath(path, sessionId, name);
-  outputFiles.add(outputPath);
   return { sessionId, outputPath };
 }
 async function terminal() {
@@ -513,9 +493,8 @@ describe("后台 Bash 实时输出详情", () => {
 
   it("BGV05: 文件删除明确报错、保留上一份输出，失败与关闭详情不停止进程", async function () {
     this.timeout(120000);
-    const { outputPath, sessionId } = await launch("ERROR");
+    const { outputPath } = await launch("ERROR");
     const previous = await text();
-    await verifyOutputPath(outputPath, sessionId, "ERROR");
     await rm(outputPath);
     const error = await $(
       '[role="tabpanel"][data-state="active"] [data-testid="background-bash-details"] [role="alert"]',

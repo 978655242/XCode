@@ -614,67 +614,47 @@ async function waitForPreviewRenderer(
   renderer: "docx" | "excel" | "pptx" | "pdf" | "markdown" | "audio" | "video",
 ) {
   let latest = { hasError: false, header: "", ready: false, text: "" };
-  try {
-    await browser.waitUntil(
-      async () => {
-        latest = await browser.execute(
-          (previewTestId, expectedFilename, expectedRenderer) => {
-            // XCODE: 文件头已 portal 到 FileManager，正文只用于验证 renderer。
-            let manager: HTMLElement | undefined;
-            let header = "";
-            for (const candidate of document.querySelectorAll<HTMLElement>(
-              "[data-file-manager-pane]",
-            )) {
-              if (!candidate.checkVisibility()) continue;
-              header = (candidate.firstElementChild?.textContent ?? "").replace(/\u00a0/g, " ");
-              if (header.includes(expectedFilename)) {
-                manager = candidate;
-                break;
-              }
-            }
-            const pane = manager?.querySelector<HTMLElement>(`[data-testid="${previewTestId}"]`);
-            const text = (pane?.innerText ?? "").replace(/\u00a0/g, " ");
-            const hasError = Boolean(pane?.querySelector('[role="alert"]'));
-            let ready = false;
-            if (expectedRenderer === "docx" || expectedRenderer === "excel") {
-              ready = Boolean(
-                pane?.querySelector(`[data-office-preview-kind="${expectedRenderer}"]`),
-              );
-            } else if (expectedRenderer === "pptx") {
-              ready = Boolean(pane?.querySelector("aside[aria-label] button[aria-label]"));
-            } else if (expectedRenderer === "pdf") {
-              ready = Boolean(pane?.querySelector(".react-pdf__Document .react-pdf__Page"));
-            } else if (expectedRenderer === "audio") {
-              ready = Boolean(pane?.querySelector("audio[controls]"));
-            } else if (expectedRenderer === "video") {
-              ready = Boolean(pane?.querySelector("video[controls][playsinline]"));
-            } else {
-              ready = text.includes("APC05 Markdown renderer marker");
-            }
-            return {
-              hasError,
-              header,
-              ready,
-              text,
-            };
-          },
-          TID_PREVIEW_PANE,
-          filename,
-          renderer,
-        );
-        return !latest.hasError && latest.header.includes(filename) && latest.ready;
-      },
-      {
-        timeout: 90_000,
-        timeoutMsg: "Preview Pane renderer 没有就绪",
-      },
-    );
-  } catch (error) {
-    throw new Error(
-      `Preview Pane renderer 没有就绪: ${filename}/${renderer}; latest=${JSON.stringify(latest)}`,
-      { cause: error },
-    );
-  }
+  await browser.waitUntil(
+    async () => {
+      latest = await browser.execute(
+        (previewTestId, expectedFilename, expectedRenderer) => {
+          const pane = document.querySelector<HTMLElement>(`[data-testid="${previewTestId}"]`);
+          const text = (pane?.innerText ?? "").replace(/\u00a0/g, " ");
+          const hasError = Boolean(pane?.querySelector('[role="alert"]'));
+          let ready = false;
+          if (expectedRenderer === "docx" || expectedRenderer === "excel") {
+            ready = Boolean(
+              pane?.querySelector(`[data-office-preview-kind="${expectedRenderer}"]`),
+            );
+          } else if (expectedRenderer === "pptx") {
+            ready = Boolean(pane?.querySelector("aside[aria-label] button[aria-label]"));
+          } else if (expectedRenderer === "pdf") {
+            ready = Boolean(pane?.querySelector(".react-pdf__Document .react-pdf__Page"));
+          } else if (expectedRenderer === "audio") {
+            ready = Boolean(pane?.querySelector("audio[controls]"));
+          } else if (expectedRenderer === "video") {
+            ready = Boolean(pane?.querySelector("video[controls][playsinline]"));
+          } else {
+            ready = text.includes("APC05 Markdown renderer marker");
+          }
+          return {
+            hasError,
+            header: text.split("\n")[0] ?? "",
+            ready,
+            text,
+          };
+        },
+        TID_PREVIEW_PANE,
+        filename,
+        renderer,
+      );
+      return !latest.hasError && latest.text.includes(filename) && latest.ready;
+    },
+    {
+      timeout: 90_000,
+      timeoutMsg: `Preview Pane renderer 没有就绪: ${filename}/${renderer}; latest=${JSON.stringify(latest)}`,
+    },
+  );
 }
 
 async function assertPreviewVideoSurvivesResizeAndFullscreen() {

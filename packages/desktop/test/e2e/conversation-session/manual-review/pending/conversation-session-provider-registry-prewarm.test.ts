@@ -1,4 +1,4 @@
-import { formatModelPickerValue } from "@zcode/shared/model-selection";
+import { encodeCustomModelValue } from "@zcode/shared";
 import { clearAppData } from "../../../helpers/desktop-app.js";
 import {
   assertUpstreamRequestCapture,
@@ -74,8 +74,7 @@ describe("草稿预热 process provider registry 就绪屏障 E2E", () => {
     });
     await waitForSelectedModel(PROVIDER_ID, MODEL_ID);
     expect(await readLastSelectedAgentConfig()).toMatchObject({
-      // XCODE: 持久偏好读数投影为公共 provider/model 引用，不使用 UI custom: 编码。
-      model: formatModelPickerValue({ providerId: PROVIDER_ID, modelId: MODEL_ID }),
+      model: encodeCustomModelValue(PROVIDER_ID, MODEL_ID),
       schemaVersion: 1,
     });
 

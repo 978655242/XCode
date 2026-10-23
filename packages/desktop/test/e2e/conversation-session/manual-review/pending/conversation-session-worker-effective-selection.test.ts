@@ -217,13 +217,18 @@ describe("Todo99 Worker 有效选择真实执行", () => {
           ...effective,
           options: { reasoningLevel: "low" },
         });
-        await expect(
-          host.task.setModel({
+        // XCODE: E2E 用 webdriverio 的 expect，没有 vitest 的 rejects；直接记录 setModel 是否被拒绝。
+        const invalidReasoningRejected = await host.task
+          .setModel({
             taskId: created.taskId,
             traceId: generateTraceId("w99"),
             modelSelection: { ...effective, options: { reasoningLevel: "invalid" } },
-          }),
-        ).rejects.toThrow();
+          })
+          .then(
+            () => false,
+            () => true,
+          );
+        expect(invalidReasoningRejected).toBe(true);
         expect(
           (await host.task.getTaskModelSelection({ taskId: created.taskId }))?.options
             ?.reasoningLevel,

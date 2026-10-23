@@ -29,8 +29,7 @@ import {
   waitForV4ConversationState,
 } from "../../../helpers/v4-conversation.js";
 
-// XCODE: 当前官方目录已迁移到 documents:visual-judge，旧 judge 身份无法执行。
-const AGENT_ID = "plugin:documents@zcode-plugins-official:visual-judge";
+const AGENT_ID = "plugin:document-skills@zcode-plugins-official:judge";
 const PARENT = "E2E_PLUGIN_OVERRIDE_COLD_PARENT";
 const CHILD = "E2E_PLUGIN_OVERRIDE_COLD_CHILD";
 const RESULT = "E2E_PLUGIN_OVERRIDE_COLD_RESULT";
@@ -42,7 +41,7 @@ describe("PLM-LC-020 插件 Subagent 覆盖冷启动请求", () => {
     await clearAppData();
   });
 
-  it("完整重启后 visual-judge 使用已保存模型/high，父 continuation 保持原模型/max", async () => {
+  it("完整重启后 judge 使用已保存模型/high，父 continuation 保持原模型/max", async () => {
     requirePluginManualReview();
     await prepareV4ConversationE2E({ skipProvider: true });
     const selection = {
@@ -66,7 +65,7 @@ describe("PLM-LC-020 插件 Subagent 覆盖冷启动请求", () => {
     await restartIntoWorkspacePreservingProfile();
     await prepareV4ConversationE2E({ skipProvider: true });
     await sendV4PromptAndWaitAccepted(
-      `${PARENT}: Use Agent with subagent_type documents:visual-judge, then report its result.`,
+      `${PARENT}: Use Agent with subagent_type document-skills:judge, then report its result.`,
       PARENT,
       "插件覆盖冷启动消息未被接受",
     );

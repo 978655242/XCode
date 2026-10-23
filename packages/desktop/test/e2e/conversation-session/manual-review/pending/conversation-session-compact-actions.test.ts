@@ -48,7 +48,7 @@ describe("会话区 Compacting Actions E2E", () => {
     await waitForChatState(
       (snapshot) =>
         snapshot.state === "idle" &&
-        snapshot.sessionEnded === true &&
+        snapshot.runtimeStatus === "completed" &&
         snapshot.activeInputId === null &&
         snapshot.queueCount === 0,
       "compacting actions 第一轮预置消息没有完成",
@@ -63,7 +63,7 @@ describe("会话区 Compacting Actions E2E", () => {
     await waitForChatState(
       (snapshot) =>
         snapshot.state === "idle" &&
-        snapshot.sessionEnded === true &&
+        snapshot.runtimeStatus === "completed" &&
         snapshot.activeInputId === null &&
         snapshot.queueCount === 0,
       "compacting actions 第二轮预置消息没有完成",
@@ -143,7 +143,7 @@ describe("会话区 Compacting Actions E2E", () => {
     await waitForChatState(
       (snapshot) =>
         snapshot.state === "idle" &&
-        snapshot.sessionEnded === true &&
+        snapshot.runtimeStatus === "completed" &&
         snapshot.activeInputId === null &&
         snapshot.queueCount === 0 &&
         (snapshot.targetObjective ?? "").includes(queuedGoalMarker),

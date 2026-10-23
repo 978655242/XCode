@@ -2,8 +2,6 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { readTtftReceiverOrigin } from "../../../helpers/ttft-otlp.js";
-import { startDraftFromProject } from "#e2e/helpers/project-sidebar";
 import {
   TID_V4_COMPOSER_KEEP_QUEUE_SEND,
   TID_TASK_SETTINGS_BUTTON,
@@ -45,7 +43,7 @@ type Span = {
   }>;
 };
 async function spans(): Promise<Span[]> {
-  const response = await fetch(new URL("/records", readTtftReceiverOrigin()));
+  const response = await fetch("http://127.0.0.1:14318/records");
   if (!response.ok) throw new Error(`OTLP receiver: ${response.status}`);
   const records = (await response.json()) as Array<{
     data: { resourceSpans?: Array<{ scopeSpans: Array<{ spans: Span[] }> }> };
@@ -185,20 +183,21 @@ describe("TTFT02 真实发送诊断到最终 OTLP", () => {
       );
   });
   before(async () => {
-    // XCODE: exporter 必须在 Electron 启动前配置；本 spec 只启动并清理该动态端口的原 receiver。
-    if (process.env.ZCODE_LOCAL_TTFT_ENABLED !== "1") {
-      throw new Error("TTFT diagnostics requires launch env ZCODE_LOCAL_TTFT_ENABLED=1");
+    // XCODE: exporter 在 Electron 启动时配置；receiver 由本 spec 独占，不能 reset 他人的出口。
+    if (
+      process.env.ZCODE_LOCAL_TTFT_ENABLED !== "1" ||
+      process.env.OTEL_EXPORTER_OTLP_ENDPOINT !== "http://127.0.0.1:14318"
+    ) {
+      throw new Error(
+        "TTFT diagnostics requires launch env ZCODE_LOCAL_TTFT_ENABLED=1 OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:14318",
+      );
     }
-    const receiverPort = new URL(readTtftReceiverOrigin()).port;
     const ready = Promise.withResolvers<void>();
     const closed = Promise.withResolvers<void>();
     receiverClosed = closed.promise;
     receiver = spawn(
       process.execPath,
-      [
-        fileURLToPath(new URL("../../../../../scripts/ttft-otlp-receiver.mjs", import.meta.url)),
-        receiverPort,
-      ],
+      [fileURLToPath(new URL("../../../../../scripts/ttft-otlp-receiver.mjs", import.meta.url))],
       { stdio: ["ignore", "pipe", "pipe"] },
     );
     let startupError = "";
@@ -206,7 +205,7 @@ describe("TTFT02 真实发送诊断到最终 OTLP", () => {
       startupError += chunk.toString();
     });
     receiver.stdout!.on("data", (chunk: Buffer) => {
-      if (chunk.toString().includes(`OTLP receiver ready:${receiverPort}`)) ready.resolve();
+      if (chunk.toString().includes("OTLP receiver ready:14318")) ready.resolve();
     });
     receiver.once("error", ready.reject);
     receiver.once("close", (code) => {
@@ -253,7 +252,7 @@ describe("TTFT02 真实发送诊断到最终 OTLP", () => {
       const roots = (await spans()).filter((span) => span.name === "local_ttft");
       type MetricPoint = { count?: string; attributes?: { key: string }[] };
       const metrics = async () => {
-        const response = await fetch(new URL("/records", readTtftReceiverOrigin()));
+        const response = await fetch("http://127.0.0.1:14318/records");
         if (!response.ok) throw new Error(`OTLP receiver: ${response.status}`);
         const records = (await response.json()) as Array<{
           data: {
@@ -332,7 +331,7 @@ describe("TTFT02 真实发送诊断到最终 OTLP", () => {
 
   it("队列转正保留原输入，后台返回仍导出首输出和独立阶段", async function () {
     this.timeout(180000);
-    const reset = await fetch(new URL("/reset", readTtftReceiverOrigin()), { method: "POST" });
+    const reset = await fetch("http://127.0.0.1:14318/reset", { method: "POST" });
     expect(reset.ok).toBe(true);
     await prepareV4ConversationE2E();
     await focus();
@@ -472,8 +471,7 @@ describe("TTFT02 真实发送诊断到最终 OTLP", () => {
   it("立即引导独立分类，不抢占主轮工具首输出", async function () {
     this.timeout(120000);
     await waitForV4ConversationState((state) => state.state === "idle", "失败轮未结束");
-    // XCODE: 引导读取默认项目的文件夹具；全局新建会分配独立 cwd。
-    await startDraftFromProject(DEFAULT_WORKSPACE);
+    await startNewV4Draft();
     await focus();
     await setInteractionBehavior("guide");
     await focus();

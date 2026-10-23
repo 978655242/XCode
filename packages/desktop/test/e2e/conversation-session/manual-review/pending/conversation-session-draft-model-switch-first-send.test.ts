@@ -104,6 +104,7 @@ describe("会话区草稿模型切换首发 E2E", () => {
     const beforeRestartDraft = await getV4ComposerDraftScopeSnapshot(DEFAULT_WORKSPACE, sessionId);
     expect(beforeRestartDraft).toMatchObject({
       exists: true,
+      mode: "edit",
       modelSelection: {
         modelId: UPSTREAM_MODEL,
         providerId: UPSTREAM_PROVIDER_ID,
@@ -116,6 +117,7 @@ describe("会话区草稿模型切换首发 E2E", () => {
     await selectV4TaskById(sessionId);
     expect(await getV4ComposerDraftScopeSnapshot(DEFAULT_WORKSPACE, sessionId)).toMatchObject({
       exists: true,
+      mode: "edit",
       modelSelection: {
         modelId: UPSTREAM_MODEL,
         providerId: UPSTREAM_PROVIDER_ID,

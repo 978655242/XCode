@@ -1,6 +1,5 @@
 import { openMobilePairingPage } from "#e2e/helpers/mobile-pairing";
 import { readRemoteToolExecutionEvents } from "#e2e/helpers/remote-tool-execution-evidence";
-import { WEB_REMOTE_CONTROL_FIXTURE_CREDENTIALS } from "#e2e/helpers/web-remote-control-session-events-fixture";
 import { execFile } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import {
@@ -226,12 +225,6 @@ describe(`${CASE_MARKER}: 权限阻塞在手机端呈现、重建手机 bridge �
         hasTouch: true,
         locale: "zh-CN",
       });
-      // XCODE: 权限恢复重建的手机 context 也需原登录态，仍走真实 admission。
-      await context.addInitScript((credentials: typeof WEB_REMOTE_CONTROL_FIXTURE_CREDENTIALS) => {
-        if (sessionStorage.getItem("r3-mobile-permission-credentials-seeded")) return;
-        sessionStorage.setItem("r3-mobile-permission-credentials-seeded", "1");
-        for (const [key, value] of Object.entries(credentials)) localStorage.setItem(key, value);
-      }, WEB_REMOTE_CONTROL_FIXTURE_CREDENTIALS);
       const page = await context.newPage();
       await openMobilePairingPage(page, pairUrl, {
         artifactDir,

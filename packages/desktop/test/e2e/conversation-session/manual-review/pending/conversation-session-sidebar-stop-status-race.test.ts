@@ -214,7 +214,6 @@ async function waitForTaskLoadingIndicator(
   expected: boolean,
   timeoutMsg: string,
 ) {
-  // TaskListItem 的旋转类属于 HTML 前置槽，SVG 图标本身不再旋转。
   await browser.waitUntil(
     () =>
       browser
@@ -223,7 +222,7 @@ async function waitForTaskLoadingIndicator(
             Boolean(
               document
                 .querySelector<HTMLElement>(`[data-testid="${taskItemTestId}"]`)
-                ?.querySelector(":scope > div:first-child > span.animate-spin"),
+                ?.querySelector("svg.animate-spin"),
             ),
           testId(TID_TASK_ITEM, taskId),
         )
@@ -251,9 +250,7 @@ async function installSidebarIndicatorProbe(taskId: string) {
         const row = document.querySelector<HTMLElement>(
           `[data-testid="${taskItemTestId}"]`,
         );
-        const loading = Boolean(
-          row?.querySelector(":scope > div:first-child > span.animate-spin"),
-        );
+        const loading = Boolean(row?.querySelector("svg.animate-spin"));
         if (!loading) {
           probe.seenTerminal = true;
         } else if (probe.seenTerminal) {

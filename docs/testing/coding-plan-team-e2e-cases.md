@@ -50,8 +50,7 @@ pnpm --filter @zcode/desktop test:e2e -- --spec './test/e2e/provider-family-resp
 ### 通用约束
 
 - 本组 case 不生成 DeepSeek provider replay fixture，因为测试不发送模型请求。
-- 每次 mock scenario 重启前显式把 `lastActiveWorkspace` 固定到隔离 HOME 的 `ZCodeProject`；旧 `lastWorkspaceSession` 只是 Host 派生的兼容成员投影，不能再和 tab 索引一起决定场景入口。不能继承上一条 case 留下的 conversation workspace，否则就绪断言和模型选择会落到不同作用域。
-- 验证账号模型连续操作前，通过真实 Composer 连接入口建立个人或团队起点，再选择目标模型；Family 设置不代表当前 Composer 已选该账号。套餐徽标按独立的 `profile-menu-plan` 容器验证，侧栏 tooltip 会接管内部原生 `title`。
+- 每次 mock scenario 重启前显式把 `lastWorkspaceSession` 固定到隔离 HOME 的 `ZCodeProject`；不能继承上一条 case 留下的 conversation workspace，否则 workspace 就绪断言和 model-resolution seed 会落到不同 bucket。
 - WDIO mock server 负责业务接口：
   - `/api/biz/subscription/enterprise/v2/pricing`
   - `/api/biz/customer/getCustomerInfo`
@@ -187,19 +186,3 @@ OAuth 初始化冲突回归加强：polling/deep-link 的真实 SettingService �
 AUTH-05 加强回归 Electron 通过（产物 `packages/desktop/.e2e-artifacts/desktop-e2e-20261012144218138-p47669-8fbdc8dc0a4bea3e/`）：`oauth-cas-success.json` 记录一次初始化写入尝试、并发团队选择及版本保持、只读 Provider 刷新和登录成功。定向单测 18 条通过；旧实现对应 3 条失败，确认覆盖正常查询下的二次自动覆盖路径。
 
 2026-10-15 夹具维护：CTP-26 临时禁用普通 Provider 时保留并原样恢复 `personalConfig`。保存接口替换完整 Overlay，不能以 `{}` 切换 enabled，否则会清空 API 配置并污染后续 CTP-27/CTP-22。
-
-### 上游同步后的连接前提（2026-10-23）
-
-XWork 保留 `modelSelectionGroups` 的空模型目录过滤。CTP-20/22/23/24/27/30 的账号连接和目录准备通过设置页的 Provider 导航与「连接方式」完成，再在 Composer 选择原有真实模型；普通 API 切换也必须选择真实模型，不能只聚焦供应商分组。
-
-CTP-20/22 的 DOM 采样只记录实际可见的 Composer 控件；设置页期间的卸载不等于思考档位清空。仍检查可见控件的档位、模型、持久化身份及实际出现的 loading/aria-busy，但不强制设置页动作产生旧 Composer 控件的加载次数。CTP-23 在设置页检查连接选项的中英文，CTP-24 从原过期团队切到原有效团队并核对完整 product/org/project。
-
-Team 模型分组使用完整 family/product/org/project 身份对应的 JSON key，不使用通用 registry Provider key。CTP-24 的原第二团队与 Team A 共享 `product-team-a`，只切换 org/project。CTP-22 的普通 API 模型选择助手负责打开根菜单，调用方不得提前打开后又将它切闭。
-
-CTP-28/29/31 是 Composer 自身的 CAS、展示 mismatch 和同 owner 无事件重试回归。先通过设置页建立原夹具中有效的 Team A 目录，再用同 Provider 的原 Team B 触发被测 Composer 命令，保留原故障端口、错误提示、解除锁及回执时序；设置页处理器不拥有这套 Composer pending 状态机，不能用页面卸载冒充原锁恢复。
-
-CTP-05 仍保留账号全部用量来源及未选中 Team tab 断言，不通过删除断言或恢复空模型分组转绿。完整运行 `xwork-upstream-20261022185828240-smoke` 得到 39 passed、2 failed；连接迁移、两尺寸两主题、原 Composer 故障回归和重置时序均通过，剩余失败是中英文两项 CTP-05。切 Personal 后 Account owner 发布 Team `unknown / entitled:false`，当前用量来源门禁据此无法提供未选中 Team tab；最终 Renderer view 未直接采样，产品路径保持原样并单独记账。
-
-重置机会徽标助手须等待真实 Dialog 显示后返回，再检查原 FIVE_HOUR 按钮和 use/status 时序；不以点击已返回代替 Portal 就绪。
-
-390px 视口会按产品规则自动收起任务侧栏。统一设置助手先读取侧栏祖先的真实 `aria-hidden`，需要时通过现有「切换侧边栏 / Toggle sidebar」按钮展开，再点击设置入口；保留窄屏尺寸、原连接切换、滚动及宽度断言，不改变产品自动折叠规则。

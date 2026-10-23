@@ -25,8 +25,9 @@ import AppPage from "../pages/app.page.js";
 import {
   clickTestIdByDom,
   setInputValueByTestIdDom,
+  waitForDefaultWorkspaceReady,
 } from "./desktop-app.js";
-import { prepareV4ConversationE2E } from "./v4-conversation.js";
+import { ensureUpstreamProviderForE2E } from "./upstream-provider.js";
 import { getQueueItems as readQueueItemsForDiagnostics } from "./conversation-session-queue.js";
 import { getTaskStoreSnapshot as readTaskStoreSnapshotForDiagnostics } from "./conversation-session-store.js";
 import { readV4ChatRootSnapshotInBrowser } from "./conversation-session-chat-root-snapshot-script.js";
@@ -137,11 +138,9 @@ export {
 
 export interface ChatRootSnapshot {
   activeInputId: string | null;
-  controlPhase: string | null;
   queueCount: number;
   runtimeStatus: string | null;
   sessionId: string | null;
-  sessionEnded: boolean | null;
   state: string | null;
   modelSwitchPending: boolean;
   stopRequested: boolean;
@@ -166,11 +165,44 @@ export async function prepareConversationE2E(
   options: PrepareConversationE2EOptions = {},
 ) {
   await ensureReadonlyToolFixtureFile();
-  // XCODE: 旧准备器先等固定 cwd，但全局新建已使用独立目录；复用真实项目入口避免准备阶段卡死。
-  await prepareV4ConversationE2E(options);
+  await ensureConversationShellReady();
+  if (options.resetDraftBeforeProvider) {
+    // 修复原因：连续 case 可能停在上一条带 goal 的 active session 上。
+    // 先进入空草稿，避免 provider 初始化把默认模型断言写到旧 session。
+    await startNewTask();
+  }
+  if (!options.skipProvider) {
+    await ensureUpstreamProviderForE2E();
+  }
+  await ensureConversationDraftReady();
 }
 
+async function ensureConversationShellReady() {
+  try {
+    await waitForDefaultWorkspaceReady(30000);
+    return;
+  } catch (error) {
+    if (!(await hasApiKeyLoginButton())) {
+      throw error;
+    }
 
+    // 修复原因：renderer target 切换失败时曾被登录兜底吞掉，误报成
+    // “欢迎页没有出现 API Key 登录入口”。只有确认当前页面真是欢迎页时才回退登录。
+    await loginWithApiKey();
+    await waitForDefaultWorkspaceReady(30000);
+  }
+}
+
+async function hasApiKeyLoginButton() {
+  const exists = await browser
+    .execute(
+      (currentTestId) =>
+        Boolean(document.querySelector(`[data-testid="${currentTestId}"]`)),
+      TID_LOGIN_USE_API_KEY_BUTTON,
+    )
+    .catch(() => false);
+  return Boolean(exists);
+}
 
 export async function loginWithApiKey() {
   await clickTestIdByDom(TID_LOGIN_USE_API_KEY_BUTTON, {
@@ -196,6 +228,13 @@ export async function startNewTask() {
   await waitForConversationDraftReady("新建任务后没有进入空草稿态");
 }
 
+async function ensureConversationDraftReady() {
+  const current = await inspectConversationComposer();
+  if (current.displayed && current.draftReady) {
+    return;
+  }
+  await startNewTask();
+}
 
 async function waitForConversationDraftReady(timeoutMsg: string) {
   try {
@@ -653,7 +692,36 @@ export async function waitForChatState(
 }
 
 export async function getChatRootSnapshot(): Promise<ChatRootSnapshot> {
-  // XCODE: 当前产品仅使用 V4 pane；不再读取已移除的 ChatView data-* 终态。
+  const legacySnapshot = await browser.execute((chatViewTestId) => {
+    const root = document.querySelector<HTMLElement>(
+      `[data-testid="${chatViewTestId}"]`,
+    );
+    if (!root) {
+      return null;
+    }
+    const rawQueueCount = root.getAttribute("data-queue-count");
+    return {
+      activeInputId: root.getAttribute("data-active-input-id") || null,
+      queueCount: rawQueueCount ? Number(rawQueueCount) : 0,
+      runtimeStatus: root.getAttribute("data-runtime-status") || null,
+      sessionId: root.getAttribute("data-session-id") || null,
+      state: root.getAttribute("data-state") || null,
+      modelSwitchPending:
+        root.getAttribute("data-model-switch-pending") === "true",
+      stopRequested: root.getAttribute("data-stop-requested") === "true",
+      targetId: root.getAttribute("data-target-id") || null,
+      targetObjective: root.getAttribute("data-target-objective") || null,
+      targetStatus: root.getAttribute("data-target-status") || null,
+      taskId: root.getAttribute("data-task-id") || null,
+    } satisfies ChatRootSnapshot;
+  }, TID_CHAT_VIEW);
+
+  if (legacySnapshot) {
+    return legacySnapshot;
+  }
+
+  // 修复原因：V4 硬切后 chat-view 的 data-* 状态合同已经删除；共享 helper
+  // 仍需保留 legacy ChatRootSnapshot 的 Goal/stop/workspace 隔离语义。
   const v4Snapshot = await browser.execute(
     readV4ChatRootSnapshotInBrowser,
     testId(TID_V4_SESSION_PANE, "workspace-main"),
@@ -670,11 +738,9 @@ export async function getChatRootSnapshot(): Promise<ChatRootSnapshot> {
   if (!v4Snapshot.taskId) {
     return {
       activeInputId: null,
-      controlPhase: null,
       queueCount: v4Snapshot.queueCount,
       runtimeStatus: v4Snapshot.runtimeStatus,
       sessionId: null,
-      sessionEnded: null,
       state: v4Snapshot.runtimeStatus === "streaming" ? "streaming" : "idle",
       modelSwitchPending: v4Snapshot.modelSwitchPending,
       stopRequested: false,
@@ -731,11 +797,9 @@ export async function getChatRootSnapshot(): Promise<ChatRootSnapshot> {
 
   return {
     activeInputId: taskStore.activeInputId,
-    controlPhase: taskStore.controlPhase,
     queueCount: v4Snapshot.queueCount,
     runtimeStatus: effectiveRuntimeStatus,
     sessionId: v4Snapshot.taskId,
-    sessionEnded: taskStore.sessionEnded,
     // Goal continuation/verifier 是独立的 completion work，普通 turn runtime 在这段
     // 时间可以保持 completed；V4 helper 必须合成两套状态，才能保留 legacy 的
     // completion-blocking `state=streaming` 合同。

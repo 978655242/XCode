@@ -75,7 +75,6 @@ interface TaskCase {
   followReply: string;
   identity: string;
   label: "A" | "B";
-  projectId: string;
   remoteSessionId: string;
   taskId: string;
   workspacePath: string;
@@ -294,10 +293,9 @@ async function connectWorkspaceAndSendFirstTurn(options: {
     // 向导已收起：从已注册设备行进入目录选择，追加 project workspace。
     await openSSHSourceDirectory(options.config, CASE_MARKER);
   }
-  const project = await selectSSHRemoteDirectory(options.workspacePath, CASE_MARKER);
+  await selectSSHRemoteDirectory(options.workspacePath, CASE_MARKER);
   await waitForWorkspaceApp(options.workspacePath, WORKSPACE_READY_TIMEOUT_MS);
   const tab = await waitForRemoteTab({
-    expectedIdentity: project.workspaceIdentity,
     expectedPath: options.workspacePath,
   });
   expect(tab.remoteKind).toBe("ssh");
@@ -309,7 +307,6 @@ async function connectWorkspaceAndSendFirstTurn(options: {
   if (!tab.workspaceIdentity) {
     throw new Error(`${CASE_MARKER}: workspace ${options.label} 缺少稳定 workspaceIdentity`);
   }
-  expect(tab.workspaceIdentity).toBe(project.workspaceIdentity);
 
   await selectUpstreamProviderModelById(MODEL_ID, {
     includePlainModelFallback: false,
@@ -348,7 +345,6 @@ async function connectWorkspaceAndSendFirstTurn(options: {
     followReply,
     identity: tab.workspaceIdentity,
     label: options.label,
-    projectId: project.projectId,
     remoteSessionId: tab.remoteSessionId,
     taskId: running.taskId,
     workspacePath: options.workspacePath,
@@ -421,11 +417,8 @@ async function assertTaskRow(
   await browser
     .waitUntil(
       async () => {
-        // XCODE: 新项目可能与既有项目同名，任务仍必须归属返回的精确项目 section。
-        latest = await readProjectTaskRowState(task.taskId, {
-          projectId: task.projectId,
-          workspaceIdentity: task.identity,
-        });
+        // 虚拟项目侧栏：task 行必须落在其 workspace 对应的项目 section 内。
+        latest = await readProjectTaskRowState(task.taskId, task.workspacePath);
         return (
           latest.exists &&
           latest.inProject &&
