@@ -267,7 +267,11 @@ export function createWindowsE2EShardPlan({
           }
         : {}),
       ...(useWeightedSpecBuckets
-        ? { ZCODE_E2E_SPEC: weightedSpecBuckets[offset].specs.join(",") }
+        ? {
+            ZCODE_E2E_SPEC: weightedSpecBuckets[offset].specs.join(","),
+            // XCODE: 标记父 runner 的内部分配，子 worker 仍应用全量默认排除。
+            XWORK_E2E_SPEC_ORIGIN: "shard",
+          }
         : {}),
     };
 

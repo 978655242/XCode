@@ -2254,6 +2254,12 @@ async function startCodingPlanDataPlaneProxy(specs: readonly string[]) {
   }
   // XCODE: Highspeed 直接与 fallback 数据面共用当前 worker 原回放，保留完整匹配与分块时序。
   if (resolveHighspeedE2EMockScenario(specs)) {
+    // XCODE: capture 只准备抓包代理，不能要求不存在的 replay server。
+    if (upstreamE2EHttpMode === "capture") {
+      if (!upstreamCaptureProxy) throw new Error("Highspeed capture proxy was not prepared");
+      await configureCodingPlanGatewayProxy(codingPlanTeamMockBaseUrl, upstreamCaptureProxy.proxyUrl);
+      return;
+    }
     if (!upstreamReplayServer) throw new Error("Highspeed replay was not prepared");
     const replayUrl = new URL("/anthropic/v1/messages", upstreamReplayServer.baseUrl);
     codingPlanDataPlaneProxy = await startE2ENetworkCaptureProxy({

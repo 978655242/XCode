@@ -1,5 +1,5 @@
-// XWork 扩展：这些正式 spec 在纯上游 ZCode 产品上同样失效（上游产品已改接口/入口，
-// 测试未跟进）。按 docs/xcode/UPSTREAM-EXTENSION.md §7 不修改上游测试，默认全量跳过；
+// XWork 扩展：暂缓维护这些上游正式 spec；部分失效归因来自静态分类，尚未逐项实测。
+// 按 docs/xcode/UPSTREAM-EXTENSION.md §7 撤回测试适配，默认全量跳过；
 // 显式 --spec 定向运行仍会执行，便于上游修复后复核。上游修复后从此清单删除。
 // 清单与失效原因见 docs/xcode/e2e-acceptance.md §4。
 export const XWORK_UPSTREAM_BROKEN_FORMAL_SPECS = [
@@ -16,6 +16,7 @@ export const XWORK_UPSTREAM_BROKEN_FORMAL_SPECS = [
   "./test/e2e/workspace-file-tree/workspace-file-tree-shared-search.test.ts",
 ];
 
-export function resolveXWorkUpstreamBrokenSpecExcludes({ targeted }) {
-  return targeted ? [] : XWORK_UPSTREAM_BROKEN_FORMAL_SPECS;
+export function resolveXWorkUpstreamBrokenSpecExcludes({ targeted, env = process.env }) {
+  // 内部分片也会填 ZCODE_E2E_SPEC，必须按来源判断，避免把全量分配误当成定向复核。
+  return targeted && env.XWORK_E2E_SPEC_ORIGIN !== "shard" ? [] : XWORK_UPSTREAM_BROKEN_FORMAL_SPECS;
 }

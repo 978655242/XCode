@@ -60,7 +60,7 @@ TTFT 诊断的引导场景使用默认项目内的 Read 夹具，须通过 `star
 
 `modelSelectionGroups` 过滤空模型目录是 XWork 的产品规则。套餐切换 E2E 通过设置页的 Provider 导航与「连接方式」选择，沿用 `selectTeamPlanInSettings` 的真实 UI 顺序；连接完成后再选择已有模型。不能为建立测试起点重新展示空目录账号分组，也不能把连接身份当成 Composer 已选模型。
 
-Highspeed 队列回归的 Account 数据面应转发到当前 worker 已选择的原回放服务器，保留 `response.chunks` 的实际间隔、匹配次数及请求证据；不能用只支持静态 `body` 的卡片响应器替代流式队列回放。Stop 工具配对与 Team 权限历史回归不验收自动压缩，使用正常上下文窗口，避免 manual-review 的 240/80 小窗口在原工具历史之间插入无关 compact。
+Highspeed 队列回归的 Account 数据面在 replay 模式转发到当前 worker 已选择的原回放服务器，保留 `response.chunks` 的实际间隔、匹配次数及请求证据；capture 模式复用该 worker 的 capture proxy，不要求另起 replay server。不能用只支持静态 `body` 的卡片响应器替代流式队列回放。Stop 工具配对与 Team 权限历史回归不验收自动压缩，使用正常上下文窗口，避免 manual-review 的 240/80 小窗口在原工具历史之间插入无关 compact。
 
 声明流式转发的主机若未匹配原回放路径，明确报错并禁止出网；Host 正常抽卡回放与队列回放沿用同一接线。实际 Electron SDK 的 URL 及卡片状态仍以整 spec 回归为准。
 
@@ -129,12 +129,14 @@ CTP-05 仍保留账号全部用量来源及未选中 Team tab 断言，不通过
 初始窗口尚无导航记录时使用本机任务作用域 `["desktop","local",null]`；不从目录猜测项目，
 也不复制旧 workspace v1 选择。真实重启同时保留导航归属和 Recent v2，以验证同一作用域的恢复。
 
-## 4. 上游自身失效的用例（不修复）
+## 4. 暂缓维护的上游用例
 
-下列用例在纯上游 ZCode 产品上同样失效：上游产品已改接口或入口，例如 `runtimeStatus` 改为 `sessionEnded`、删除改走归档、`EnterPlanMode` 不再渲染工具卡、Recent 存储键升级到 v2，但测试没有跟进。XWork 不修改这些上游测试文件，待上游修复后随同步自动恢复。
+以下用例来自上游接口与入口变化的静态分类，包括 `runtimeStatus` / `sessionEnded`、归档删除入口、`EnterPlanMode` 工具卡和 Recent v2。部分分类尚未逐项在纯上游运行验证，不表示每个失败都已确认是上游缺陷。XWork 暂时撤回这批适配；上游更新后需定向复测，再从跳过清单移除。
 
 - 正式用例（11 个）：列在 `packages/desktop/scripts/xwork-upstream-broken-specs.mjs`，默认全量跳过。用 `--spec` 定向运行时仍会执行，可用来复核上游是否已修复。上游修复后从清单删除。
 - manual-review 用例（77 个）：默认全量不执行，不另行排除。
+
+加权全量分片通过 `ZCODE_E2E_SPEC` 分配用例时，由父 runner 设置 `XWORK_E2E_SPEC_ORIGIN=shard`；它是内部任务分配，仍须执行默认排除。用户直接指定 `--spec` 或 `ZCODE_E2E_SPEC` 时保留定向复核能力。
 
 正式用例：
 
