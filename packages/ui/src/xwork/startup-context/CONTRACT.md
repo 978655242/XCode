@@ -6,4 +6,4 @@ Root 冷启动恢复 Composer 归属时不代表用户点了 New Task。通过 R
 
 已选会话、显式新建、已初始化归属优先；迟到或重复调用无状态通知。所有读写复用稳定 workspace identity 分桶，远端 attachment ID 不参与身份。
 
-`XWorkRoot` 组合上游 Root；桌面与 Web 从 `@zcode/ui` 的公开导出接入。Pane 恢复、attachment 校验、手机 replayable 隔离及 Host/CLI 事实所有者均沿用原路径。
+`createXWorkRoot` 从 `@zcode/ui/xwork-startup-context` 公开子路径接入，由桌面与 Web 入口传入原 Root 组件后组合。原 `@zcode/ui` 根导出及其隔离边界保持不变。Pane 恢复、attachment 校验、手机 replayable 隔离及 Host/CLI 事实所有者均沿用原路径。

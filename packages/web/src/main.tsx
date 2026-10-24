@@ -16,8 +16,7 @@ import { createRoot } from "react-dom/client";
 import {
   AppErrorBoundary,
   ensurePendingTaskDraft,
-  // XCODE: 复用独立归属水合，保留手机 replayable 的会话恢复边界。
-  XWorkRoot as Root,
+  Root as UpstreamRoot,
   ZCodeIntlProvider,
   generateMobileDeviceFingerprint,
   installDocumentHiddenMotionPause,
@@ -27,6 +26,8 @@ import {
   type Theme,
   type WebRemoteControlTerminalTransportState as UiWebRemoteControlTerminalTransportState,
 } from "@zcode/ui";
+// XCODE: 独立公开子路径组合归属水合，保留原 UI 根导出边界。
+import { createXWorkRoot } from "@zcode/ui/xwork-startup-context";
 import "./styles.css";
 import {
   connectViaProtocol,
@@ -111,6 +112,9 @@ import {
   resolveWebRemoteControlScreenLocale,
   showWebRemoteControlVersionNotice,
 } from "#src/web-remote-control/views.js";
+
+// XCODE: 入口注入上游组件，沿用手机 replayable 的会话恢复边界。
+const Root: typeof UpstreamRoot = createXWorkRoot(UpstreamRoot);
 
 type RootServices = Parameters<typeof Root>[0]["services"];
 type ServiceMethod = (...args: any[]) => unknown;
