@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { useEffect } from "react";
 import {
   AppErrorBoundary,
-  Root,
+  Root as UpstreamRoot,
   GlobalDatabaseStartupLoading,
   UpdateStatusWindowRoot,
   ZCodeIntlProvider,
@@ -17,6 +17,8 @@ import {
   setStreamClientId,
   setReactErrorArmsReporter,
 } from "@zcode/ui";
+// XCODE: 独立公开子路径组合归属水合，保留原 UI 根导出边界。
+import { createXWorkRoot } from "@zcode/ui/xwork-startup-context";
 import "@zcode/ui/styles.css";
 import { connectViaMessagePort, createMessagePortServiceConnection } from "@zcode/client";
 import {
@@ -42,6 +44,9 @@ import {
   parseRemoteWorkspaceServicePortMessage,
   type RemoteWorkspaceServicePortRegistration,
 } from "./remoteWorkspaceServicePortBridge.js";
+
+// XCODE: 入口注入上游组件，冷启动只水合归属，不制造 New Task 意图。
+const Root: typeof UpstreamRoot = createXWorkRoot(UpstreamRoot);
 
 type DesktopRendererImportMetaEnv = {
   VITE_ZCODE_E2E_STORE_BRIDGE?: string;

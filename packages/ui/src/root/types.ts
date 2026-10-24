@@ -51,6 +51,14 @@ export interface WebRemoteControlWorkspaceSwitcherApi {
   ): Promise<void>;
 }
 
+// XCODE: 通用启动扩展仅传递归属元数据，不暴露 store 或改变默认恢复动作。
+export interface RestoredDraftContext {
+  readonly workspacePath: string;
+  readonly workspaceIdentity?: string;
+  readonly projectId: string | null;
+  readonly taskGroupId?: string | null;
+}
+
 export interface RootProps {
   services: IServiceAccessor;
   platform: IPlatformService;
@@ -76,6 +84,8 @@ export interface RootProps {
   isWindowsDesktop?: boolean;
   /** 是否恢复上次关闭时的标签页，首个窗口 true，新窗口 false */
   restoreSession?: boolean;
+  /** XCODE: 可选归属恢复接点；未注入时保留上游 startDraft 行为。 */
+  restoreDraftContext?: (context: RestoredDraftContext) => void;
   /** 是否允许访问本地设置服务，远程窗口 false */
   supportsSettings?: boolean;
   /** 是否允许在当前壳层里切换/新开工作区 */

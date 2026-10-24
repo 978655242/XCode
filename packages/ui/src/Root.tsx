@@ -203,6 +203,8 @@ function RootInner({
   isMacDesktop,
   isWindowsDesktop,
   restoreSession = true,
+  // XCODE: 恢复实现由入口注入，默认沿用上游行为。
+  restoreDraftContext,
   supportsSettings = true,
   allowOpenWorkspace = true,
   preferDirectoryBrowser,
@@ -897,12 +899,22 @@ function RootInner({
             V4_DRAFT_SCOPE_ROOT,
             scope,
           );
-          useZCodeSessionStore
-            .getState()
-            .startDraft(tab.workspacePath, undefined, tab.workspaceIdentity, {
+          // XCODE: 只开放通用归属恢复接点；未注入时不改变上游默认动作。
+          if (restoreDraftContext) {
+            restoreDraftContext({
+              workspacePath: tab.workspacePath,
+              workspaceIdentity: tab.workspaceIdentity,
               projectId: scope.projectId,
               taskGroupId: draft?.taskGroupId,
             });
+          } else {
+            useZCodeSessionStore
+              .getState()
+              .startDraft(tab.workspacePath, undefined, tab.workspaceIdentity, {
+                projectId: scope.projectId,
+                taskGroupId: draft?.taskGroupId,
+              });
+          }
           logger.info("[Root] 已恢复新建草稿归属", {
             workspacePath: tab.workspacePath,
             workspaceIdentity: tab.workspaceIdentity,
@@ -923,7 +935,7 @@ function RootInner({
           : {}),
       };
     },
-    [restoreWorkspaceTabs, composerClientNamespace, tabStoreApi],
+    [restoreWorkspaceTabs, composerClientNamespace, tabStoreApi, restoreDraftContext],
   );
 
   const { isRestoring, hasCompletedInitialRestore, hasCompletedFullRestore } = useTabPersistence({

@@ -47,3 +47,16 @@ modules:
     layers:
       adapters: .
     owner: cli
+  # xwork-startup-context：由 architecture:adopt 登记
+  - id: xwork-startup-context
+    roots:
+      - packages/ui/src/xwork/startup-context
+    managed: true
+    requires:
+      - ui
+    publicEntrypoints:
+      - packages/ui/src/xwork/startup-context/index.ts
+      - packages/ui/src/xwork/startup-context/contract.ts
+    layers:
+      ui: .
+    owner: conversation
