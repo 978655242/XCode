@@ -35,6 +35,7 @@ import { sel } from "./selectors.js";
 import { createAndConfigurePersonalProvider } from "./personal-provider-settings.js";
 import { saveProviderModelMetadataDialog } from "./provider-model-metadata-dialog.js";
 import { resolveUpstreamModels } from "./upstream-recorded-models.js";
+import { getComposerRecentStorageKey } from "./conversation-session-store.js";
 
 export const UPSTREAM_PROVIDER_ID = process.env.E2E_PROVIDER_ID?.trim() || "e2e-upstream";
 export const UPSTREAM_PROVIDER_NAV_KEY = `custom:${UPSTREAM_PROVIDER_ID}`;
@@ -52,7 +53,6 @@ export const UPSTREAM_THOUGHT_LEVEL = readUpstreamThoughtLevel();
 export const UPSTREAM_SECONDARY_THOUGHT_LEVEL =
   process.env.E2E_PROVIDER_SECONDARY_THOUGHT_LEVEL?.trim() || "max";
 const E2E_PROVIDER_REPLAY_API_KEY = "e2e-fixture-key";
-const MODEL_SELECTION_RECENT_KEY_PREFIX = "zcode-model-selection-recent-v1";
 const UPSTREAM_THOUGHT_LEVEL_MAX_ATTEMPTS = 8;
 const UPSTREAM_THOUGHT_LEVEL_LABELS_BY_VALUE: Record<string, string[]> = {
   high: ["High", "高"],
@@ -233,10 +233,11 @@ async function createMissingUpstreamProvider() {
 }
 
 async function seedUpstreamToolbarPreferences() {
+  const storageKey = await getComposerRecentStorageKey(DEFAULT_WORKSPACE);
   await browser.execute(
-    (workspacePath, keyPrefix, providerId, modelId, thoughtLevel, appProvider) => {
+    (storageKey, providerId, modelId, thoughtLevel, appProvider) => {
       window.localStorage.setItem(
-        `${keyPrefix}:${workspacePath}`,
+        storageKey,
         JSON.stringify({
           providerId,
           modelId,
@@ -245,8 +246,7 @@ async function seedUpstreamToolbarPreferences() {
       );
       window.localStorage.setItem("zcode-last-agent-provider", appProvider);
     },
-    DEFAULT_WORKSPACE,
-    MODEL_SELECTION_RECENT_KEY_PREFIX,
+    storageKey,
     UPSTREAM_PROVIDER_ID,
     UPSTREAM_MODEL,
     UPSTREAM_THOUGHT_LEVEL,

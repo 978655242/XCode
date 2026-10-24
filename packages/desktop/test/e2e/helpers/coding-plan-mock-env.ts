@@ -31,6 +31,9 @@ const CODING_PLAN_TEAM_SPEC_MARKERS = [
   "conversation-session-share-tool-presentation.test.ts",
   // 分享浮窗仅测 Desktop 交互，账号与套餐旁路请求必须留在本地。
   "conversation-session-share-popover.test.ts",
+  // XCODE: pending 分享沿用浮窗的合成缓存用户与本地控制面，避免真实 401 清除登录态。
+  "conversation-session-share-publish-import.test.ts",
+  "conversation-session-ssh-remote-share-authority.test.ts",
   "conversation-session-start-plan-independent.test.ts",
   // 创建埋点回归复用本地账号控制面，避免初始化/发送访问真实套餐与登录服务。
   "conversation-session-create-telemetry.test.ts",

@@ -51,6 +51,7 @@ function installV4SnapshotBrowser(options: {
 }
 
 function installTaskStoreBrowser(workspace: Record<string, unknown>) {
+  vi.stubGlobal("document", { querySelectorAll: () => [] });
   vi.stubGlobal("window", {
     localStorage: {},
     __zcodeSessionStoreE2E: {
@@ -196,5 +197,60 @@ describe("V4 ChatRootSnapshot task Goal and stop semantics", () => {
     expect(
       readTaskStoreSnapshotInBrowser("task-stopping", "workspace").snapshot.stopRequested,
     ).toBe(true);
+  });
+
+  it("only reports terminal control from the matching live and rendered session projection", () => {
+    installTaskStoreBrowser({
+      activeTaskId: "task-projection",
+      taskRuntimeByTaskId: { "task-projection": { status: "completed" } },
+    });
+    const state = {
+      status: "live",
+      snapshot: {
+        sessionId: "task-projection",
+        seq: 2,
+        control: { phase: "running", sessionEnded: false },
+      },
+    };
+    const props = {
+      sessionId: "task-projection",
+      workspacePath: "workspace",
+      workspaceIdentity: "",
+      projectionStore: { getState: () => state },
+    };
+    let renderedSeq = "2";
+    let visible = true;
+    const pane = {
+      getAttribute: (name: string) =>
+        name === "data-session-id" ? "task-projection" : renderedSeq,
+      getClientRects: () => (visible ? [{}] : []),
+      __reactFiber$e2e: {
+        memoizedProps: {},
+        return: { memoizedProps: props, return: null },
+      },
+    };
+    vi.stubGlobal("document", { querySelectorAll: () => [pane] });
+    const read = () => readTaskStoreSnapshotInBrowser("task-projection", "workspace").snapshot;
+
+    expect(read()).toMatchObject({ controlPhase: "running", sessionEnded: false });
+    state.snapshot = {
+      sessionId: "task-projection",
+      seq: 3,
+      control: { phase: "completedSuccess", sessionEnded: true },
+    };
+    expect(read()).toMatchObject({ controlPhase: null, sessionEnded: null });
+    renderedSeq = "3";
+    expect(read()).toMatchObject({ controlPhase: "completedSuccess", sessionEnded: true });
+    props.workspaceIdentity = "ssh://other-owner/workspace";
+    expect(read()).toMatchObject({ controlPhase: null, sessionEnded: null });
+    props.workspaceIdentity = "";
+    props.sessionId = "other-session";
+    expect(read()).toMatchObject({ controlPhase: null, sessionEnded: null });
+    props.sessionId = "task-projection";
+    state.status = "connecting";
+    expect(read()).toMatchObject({ controlPhase: null, sessionEnded: null });
+    state.status = "live";
+    visible = false;
+    expect(read()).toMatchObject({ controlPhase: null, sessionEnded: null });
   });
 });

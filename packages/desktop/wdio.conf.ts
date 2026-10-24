@@ -1,3 +1,5 @@
+// XCODE: 纯上游已失效的正式 spec 清单（不改上游测试，默认全量跳过）。
+import { resolveXWorkUpstreamBrokenSpecExcludes } from "./scripts/xwork-upstream-broken-specs.mjs";
 import { createConversationShareMockRoute } from "./test/e2e/helpers/conversation-share-mock-route.js";
 import {
   loadToolSearchResponses,
@@ -109,6 +111,7 @@ import {
   ASK_USER_QUESTION_E2E_CLOCK_SCALE_ENV,
   BIGMODEL_PROVIDER_ID,
   ZAI_PROVIDER_ID,
+  ZCODE_NO_PROXY_ENV_KEY,
 } from "@zcode/shared";
 import {
   seedPersonalProviderConfig,
@@ -156,6 +159,11 @@ import {
   startClientScenesMockServer,
   type ClientScenesMockServer,
 } from "./test/e2e/helpers/client-scenes-mock-server.js";
+import {
+  CODING_PLAN_GATEWAY_MESSAGES_PATH,
+  configureCodingPlanGatewayProxy,
+  createCodingPlanGatewayMockRoute,
+} from "./test/e2e/helpers/coding-plan-gateway-mock.js";
 import {
   resolvePluginCdnZipMarketplaceLastUpdated,
   seedPluginCdnZipMarketplaceFixture,
@@ -793,7 +801,13 @@ function resolvePluginReplayFixturePaths(specs: string[]): string[] {
   if (workerSpecsContain(specs, "plugin-management-")) {
     fixtureDirs.push(resolve(UPSTREAM_REPLAY_FIXTURE_ROOT, "plugin-management"));
   }
-  return fixtureDirs.filter(existsSync);
+  // XCODE: 回放加载器接收 JSON 文件；目录不能直接交给 readFileSync。
+  return fixtureDirs.filter(existsSync).flatMap((directory) =>
+    readdirSync(directory, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+      .map((entry) => resolve(directory, entry.name))
+      .sort(),
+  );
 }
 
 function readPositiveIntegerEnv(name: string): number | undefined {
@@ -885,10 +899,19 @@ function readUpstreamE2EHttpMode() {
 
 function applyUpstreamE2EHttpModeForWorker(specs: string[]) {
   upstreamE2EHttpMode = resolveUpstreamE2EHttpModeForWorker({
-    caseLocalReplayFixtureAvailable: hasUpstreamCaseLocalReplayFixtureForWorker({
-      caseFixtureDir: UPSTREAM_CONVERSATION_SESSION_REPLAY_FIXTURE_DIR,
-      specs,
-    }),
+    caseLocalReplayFixtureAvailable:
+      hasUpstreamCaseLocalReplayFixtureForWorker({
+        caseFixtureDir: UPSTREAM_CONVERSATION_SESSION_REPLAY_FIXTURE_DIR,
+        specs,
+      }) ||
+      // XCODE: 这三个原 case 共用专属插件 JSON；不属于缺 fixture 的线上 capture 场景。
+      (specs.length > 0 &&
+        specs.every((spec) =>
+          /conversation-session-plugin-mcp-skill-(not-installed|disabled|installed-enabled)\.test\.ts$/.test(
+            spec,
+          ),
+        ) &&
+        resolvePluginReplayFixturePaths(specs).length > 0),
     explicitReplayFixture: Boolean(process.env.E2E_PROVIDER_REPLAY_FIXTURE_PATH?.trim()),
     requestedMode: requestedUpstreamE2EHttpMode,
     specs,
@@ -1253,8 +1276,10 @@ async function startCodingPlanTeamMockIfNeeded(specs: string[] = []) {
     query: Record<string, string>;
   }> = [];
   const shareMockRoute = createConversationShareMockRoute();
+  const codingPlanGatewayRoute = createCodingPlanGatewayMockRoute();
   codingPlanTeamMockServer = createServer(async (request, response) => {
     if (await shareMockRoute(request, response)) return;
+    if (await codingPlanGatewayRoute(request, response)) return;
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     if (url.pathname === "/__e2e/coding-plan/case-mode" && request.method === "POST") {
       presentation = undefined;
@@ -2170,13 +2195,6 @@ async function stopCodingPlanTeamMock() {
   clearCodingPlanTeamMockEnv(process.env, ownedBaseUrl);
 }
 
-const HIGHSPEED_DATA_PLANE_FIXTURE_PATHS = [
-  "test/e2e/fixtures/upstream/conversation-session/conversation-session-highspeed-card.json",
-  "test/e2e/fixtures/upstream/conversation-session/conversation-session-highspeed-card-draw-timeout.json",
-  "test/e2e/fixtures/upstream/conversation-session/conversation-session-highspeed-card-draw-miss.json",
-  "test/e2e/fixtures/upstream/conversation-session/conversation-session-highspeed-card-fallback-unlocks-model.json",
-];
-
 interface DataPlaneTurnFixture {
   match: { lastUserMessageIncludes: string[] };
   response: { body: string };
@@ -2229,11 +2247,70 @@ async function startCodingPlanDataPlaneProxy(specs: readonly string[]) {
   // 数据面按当前 worker 启动；混合批次中的 ToolSearch 不影响其他账号用例。
   if (!shouldPrepareCodingPlanTeamMock(specs)) return;
   // ToolSearch 的多轮应答使用主 capture proxy，避免两个代理覆盖同一网络设置。
-  if (specs.some((spec) => spec.includes("conversation-session-toolsearch"))) return;
+  if (specs.some((spec) => spec.includes("conversation-session-toolsearch"))) {
+    if (!upstreamCaptureProxy) throw new Error("ToolSearch capture proxy was not prepared");
+    await configureCodingPlanGatewayProxy(codingPlanTeamMockBaseUrl, upstreamCaptureProxy.proxyUrl);
+    return;
+  }
+  // XCODE: Highspeed 直接与 fallback 数据面共用当前 worker 原回放，保留完整匹配与分块时序。
+  if (resolveHighspeedE2EMockScenario(specs)) {
+    // XCODE: capture 只准备抓包代理，不能要求不存在的 replay server。
+    if (upstreamE2EHttpMode === "capture") {
+      if (!upstreamCaptureProxy) throw new Error("Highspeed capture proxy was not prepared");
+      await configureCodingPlanGatewayProxy(
+        codingPlanTeamMockBaseUrl,
+        upstreamCaptureProxy.proxyUrl,
+      );
+      return;
+    }
+    if (!upstreamReplayServer) throw new Error("Highspeed replay was not prepared");
+    const replayUrl = new URL("/anthropic/v1/messages", upstreamReplayServer.baseUrl);
+    codingPlanDataPlaneProxy = await startE2ENetworkCaptureProxy({
+      artifactPath: CODING_PLAN_DATA_PLANE_ARTIFACT_PATH,
+      caDir: E2E_CODING_PLAN_DATA_PLANE_CA_DIR,
+      recordResponseChunkTimeline: true,
+      responseMocks: [
+        {
+          host: "open.bigmodel.cn",
+          method: "POST",
+          path: "/api/paas/c1f3a7e2/v2/client",
+          body: JSON.stringify({ code: 500, msg: "E2E handshake unavailable" }),
+        },
+        {
+          host: "open.bigmodel.cn",
+          method: "POST",
+          path: "/api/anthropic/v1/messages",
+          forwardUrl: replayUrl,
+        },
+        {
+          host: "zcode.z.ai",
+          method: "POST",
+          path: "/api/v1/highspeed/anthropic/v1/messages",
+          forwardUrl: replayUrl,
+        },
+      ],
+    });
+    Object.assign(process.env, codingPlanDataPlaneProxy.env);
+    // XCODE: 默认 bypass 含 zcode.z.ai，会绕过本例原流回放并触发真实 TLS 失败。
+    const noProxy = DEFAULT_E2E_NETWORK_CAPTURE_NO_PROXY.split(",")
+      .filter((host) => host !== "zcode.z.ai")
+      .join(",");
+    for (const key of ["NO_PROXY", "no_proxy", ZCODE_NO_PROXY_ENV_KEY]) process.env[key] = noProxy;
+    await configureCodingPlanGatewayProxy(
+      codingPlanTeamMockBaseUrl,
+      upstreamReplayServer.baseUrl,
+      true,
+    );
+    return;
+  }
   if (codingPlanDataPlaneProxy) {
     for (const [key, value] of Object.entries(codingPlanDataPlaneProxy.env)) {
       process.env[key] = value;
     }
+    await configureCodingPlanGatewayProxy(
+      codingPlanTeamMockBaseUrl,
+      codingPlanDataPlaneProxy.proxyUrl,
+    );
     return;
   }
   // SR87 的真实请求走 Account 数据面，而非 上游 代理；必须让本例的
@@ -2262,17 +2339,6 @@ async function startCodingPlanDataPlaneProxy(specs: readonly string[]) {
         "test/e2e/fixtures/upstream/conversation-session/conversation-session-start-plan-independent.json",
       )
     : null;
-  // Highspeed 抽卡 case 的每轮请求都走 Team Coding Plan 内建 HTTPS Endpoint（spec §7）；
-  // 静态 body 无法区分轮次，多轮 case 会在首轮就误判完成，必须按轮次标记回放。
-  const highspeedFixtures = specs.some((spec) =>
-    spec.includes("conversation-session-highspeed-card"),
-  )
-    ? (
-        await Promise.all(
-          HIGHSPEED_DATA_PLANE_FIXTURE_PATHS.map((path) => readDataPlaneTurnFixtures(path)),
-        )
-      ).flat()
-    : null;
   codingPlanDataPlaneProxy = await startE2ENetworkCaptureProxy({
     artifactPath: CODING_PLAN_DATA_PLANE_ARTIFACT_PATH,
     caDir: E2E_CODING_PLAN_DATA_PLANE_CA_DIR,
@@ -2299,22 +2365,28 @@ async function startCodingPlanDataPlaneProxy(specs: readonly string[]) {
           ]
         : []),
       {
-        body: highspeedFixtures
-          ? createDataPlaneTurnResponder(highspeedFixtures, {
-              fallbackBody: modelResponseBody,
-              title: { id: "highspeed-title", text: '{"title":"Highspeed draw"}' },
-            })
-          : modelResponseBody,
+        body: modelResponseBody,
         headers: { "content-type": "text/event-stream; charset=utf-8" },
         host: "open.bigmodel.cn",
         method: "POST",
         path: "/api/anthropic/v1/messages",
+      },
+      {
+        body: modelResponseBody,
+        headers: { "content-type": "text/event-stream; charset=utf-8" },
+        host: new URL(codingPlanTeamMockBaseUrl).host,
+        method: "POST",
+        path: CODING_PLAN_GATEWAY_MESSAGES_PATH,
       },
     ],
   });
   for (const [key, value] of Object.entries(codingPlanDataPlaneProxy.env)) {
     process.env[key] = value;
   }
+  await configureCodingPlanGatewayProxy(
+    codingPlanTeamMockBaseUrl,
+    codingPlanDataPlaneProxy.proxyUrl,
+  );
 }
 
 async function readRequestJson<T>(request: IncomingMessage): Promise<T> {
@@ -2346,6 +2418,11 @@ async function startUpstreamCaptureProxy(specs: readonly string[]) {
           .replace(/\.test\.ts$/, ""),
       )
     : undefined;
+  const toolSearchResponseBody = toolSearchResponses
+    ? (body: string) =>
+        toolSearchResponses.get(toolSearchResponseStage(JSON.parse(body) as ToolSearchRequest))
+          .response.body
+    : undefined;
   const apiKey = toolSearchFixture ? E2E_PROVIDER_REPLAY_API_KEY : readE2EProviderApiKey();
   const responseMocks = requestSecurityCaptureMocks(process.env, e2eProviderPresetName);
   upstreamCaptureProxy = await startE2ENetworkCaptureProxy({
@@ -2367,14 +2444,19 @@ async function startUpstreamCaptureProxy(specs: readonly string[]) {
             body: JSON.stringify({ code: 500, msg: "E2E handshake unavailable" }),
           },
           {
-            body: (body) =>
-              toolSearchResponses!.get(
-                toolSearchResponseStage(JSON.parse(body) as ToolSearchRequest),
-              ).response.body,
+            body: toolSearchResponseBody!,
             headers: { "content-type": "text/event-stream; charset=utf-8" },
             host: "open.bigmodel.cn",
             method: "POST",
             path: "/api/anthropic/v1/messages",
+          },
+          // XCODE: 原生网关改写后的 URL 也交给同一阶段回放，抓包仍记录实际请求地址。
+          {
+            body: toolSearchResponseBody!,
+            headers: { "content-type": "text/event-stream; charset=utf-8" },
+            host: new URL(codingPlanTeamMockBaseUrl).host,
+            method: "POST",
+            path: CODING_PLAN_GATEWAY_MESSAGES_PATH,
           },
         ]
       : responseMocks,
@@ -3218,6 +3300,14 @@ async function resetE2EHome(specs: string[] = []) {
       workspacePath: resolve(E2E_HOME_DIR, "ZCodeProject"),
     });
   }
+  if (workerSpecsContain(specs, "conversation-session-delete-all-archived-tasks.test.ts")) {
+    // XCODE: 归档验收必须在 Host 打开 SQLite 前使用现有真实记录种子。
+    await seedDeleteAllArchivedTasksFixture({
+      cliEntryPoint: ZCODE_CLI_ENTRYPOINT,
+      e2eHomeDir: E2E_HOME_DIR,
+      workspacePath: resolve(E2E_HOME_DIR, "ZCodeProject"),
+    });
+  }
   if (specs.some((spec) => spec.includes(TASK_TITLE_MARQUEE_SPEC))) {
     await seedTaskTitleMarqueeFixture({
       cliEntryPoint: ZCODE_CLI_ENTRYPOINT,
@@ -3676,6 +3766,9 @@ function resolvePluginMcpSkillState(
     if (arg.includes("conversation-session-plugin-resident-freeze-cold-resume.test.ts")) {
       return "workspace-freeze";
     }
+    if (arg.endsWith("conversation-session-plugin-mcp-skill-disabled.test.ts")) {
+      return "installed-disabled";
+    }
     const match = arg.match(PLUGIN_MCP_SKILL_SPEC_PATTERN);
     if (match && match[1]) {
       return match[1] as
@@ -3741,7 +3834,14 @@ function seedE2EWorkspacePluginState(specs: string[] = []) {
   const pluginId = "e2e-plugin-mcp-ping@e2e-fixture";
   const pluginRoot = resolve(DESKTOP_DIR, "test/e2e/fixtures/plugin-mcp-skill/e2e-plugin-mcp-ping");
   mkdirSync(resolve(workspacePath, ".zcode"), { recursive: true });
-  const userConfig = JSON.parse(readFileSync(userConfigPath, "utf-8")) as Record<string, unknown>;
+  // XCODE: 模型配置已迁到 Personal provider 文件，插件种子不能假定旧 CLI config 已存在。
+  let userConfig: Record<string, unknown> = {};
+  try {
+    userConfig = JSON.parse(readFileSync(userConfigPath, "utf-8")) as Record<string, unknown>;
+  } catch (error) {
+    if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") throw error;
+  }
+  mkdirSync(E2E_CLI_CONFIG_DIR, { recursive: true });
   const userPlugins = (userConfig.plugins as Record<string, unknown> | undefined) ?? {};
   const userEnabledPlugins =
     (userPlugins.enabledPlugins as Record<string, boolean> | undefined) ?? {};
@@ -3806,10 +3906,14 @@ function seedE2EBuiltinWorkspacePluginDisable(specs: string[] = []) {
   const pluginId = "skill-creator@zcode-plugins-official";
   const workspaceA = resolve(E2E_HOME_DIR, "ZCodeProject");
   const workspaceB = resolve(E2E_HOME_DIR, "WorkspaceB");
-  const userConfig = JSON.parse(readFileSync(E2E_CLI_CONFIG_FILE, "utf-8")) as Record<
-    string,
-    unknown
-  >;
+  // XCODE: 仅缺文件时初始化；损坏 JSON 与权限错误继续阻断隔离种子准备。
+  let userConfig: Record<string, unknown> = {};
+  try {
+    userConfig = JSON.parse(readFileSync(E2E_CLI_CONFIG_FILE, "utf-8")) as Record<string, unknown>;
+  } catch (error) {
+    if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") throw error;
+  }
+  mkdirSync(E2E_CLI_CONFIG_DIR, { recursive: true });
   const userPlugins = (userConfig.plugins as Record<string, unknown> | undefined) ?? {};
   const enabledPlugins = (userPlugins.enabledPlugins as Record<string, boolean> | undefined) ?? {};
   const options =
@@ -4252,7 +4356,7 @@ You are the healthy E2E reviewer. Reply only with the requested marker.
       content: `---
 name: e2e-team-scope-reviewer
 description: E2E custom subagent bound to a Team connection without organization/project scope.
-model: custom:team-plan:e2e-missing-scope:team-model
+model: team-plan:e2e-missing-scope/team-model
 tools: Read
 maxTurns: 1
 ---
@@ -4317,13 +4421,20 @@ async function seedUpstreamE2EModelConfig(specs: string[] = []) {
   const builtInSubagentModelOverridesSpec = isBuiltInSubagentModelSelectionOverridesSpec(specs);
   const settingsSubagentCreateEditPersistenceSpec =
     isSettingsSubagentCreateEditPersistenceSpec(specs);
+  // XCODE: 这些原 profile 明确保存 low/high；通用 high/max 夹具不足以建立刷新前提。
+  const subagentRefreshProfileSpec = specs.some((spec) =>
+    /conversation-session-subagent-(catalog-refresh|context-boundaries|cross-host|multi-workspace|profile-fields|runtime-refresh)\.test\.ts$/.test(
+      spec,
+    ),
+  );
   const exposeSubagentReasoningMetadata =
     // 思考隔离专项需要核对真实 wire；空 Map 会让参数缺席，无法验证 session 隔离。
     specs.some((spec) =>
-      /conversation-session-(thought-level-session-isolation|readstate-model-isolation|v4-goal)\.test\.ts$/.test(
+      /conversation-session-(thought-level-session-isolation|readstate-model-isolation|v4-goal|model-provider-session-isolation|new-session-inherits-model|draft-model-switch-first-send|goal-session-model|model-config|model-switch-auto-compact|model-switch-compact|model-switch-edit-fork|model-switch-tool-edit-fork|model-switch-queue|same-model-provider-identity)\.test\.ts$/.test(
         spec,
       ),
     ) ||
+    subagentRefreshProfileSpec ||
     builtInSubagentModelOverridesSpec ||
     settingsSubagentCreateEditPersistenceSpec ||
     specs.some((spec) => spec.includes("plugin-subagent-override-cold.test.ts")) ||
@@ -4411,6 +4522,17 @@ async function seedUpstreamE2EModelConfig(specs: string[] = []) {
         // 默认 240-token 窗口会在 Read/Edit 之间插入 compact，并清空 read guard，
         // 把本 case 剪枝掉的 compact 语义错误混入缺陷回归。
         !spec.includes("conversation-session-background-file-diff.test.ts") &&
+        // XCODE: D19 与 running-fork 仅比较原工具/partial 历史，不允许小窗口插入额外自动压缩。
+        !spec.includes("conversation-session-v4-auto-drain-running-fork.test.ts") &&
+        !spec.includes("conversation-session-tool-history-order.test.ts") &&
+        // XCODE: 这四个原具名回放仅验证运行中队列、工具或 Goal 后台交付，没有额外自动压缩序列。
+        !spec.includes("conversation-session-queue-operations.test.ts") &&
+        !spec.includes("conversation-session-tool-actions.test.ts") &&
+        !spec.includes("conversation-session-turn-steer-probe.test.ts") &&
+        !spec.includes("conversation-session-v4-goal-background-queue.test.ts") &&
+        // XCODE: Stop 配对及 Team 权限只检查原始工具历史，240/80 会在续轮前合法替换该历史。
+        !spec.includes("conversation-session-stop-tool-results.test.ts") &&
+        !spec.includes("conversation-session-subagent-team-scope.test.ts") &&
         // HK16 竞速回归只验证「确认窗打开期间用户批准先到者胜」；240/80 小窗口
         // 若在 tool_use 与 tool_result 之间插入无 fixture 的 compact 请求，其挂起
         // 表象与本 case 要回归的死锁缺陷无法区分，必须保留默认上下文窗口。
@@ -4433,6 +4555,7 @@ async function seedUpstreamE2EModelConfig(specs: string[] = []) {
         !spec.includes("conversation-session-subagent-catalog-refresh.test.ts") &&
         // SHR09 只改变 profile 字段；保持历史便于断言旧 part 不变与单段父轨迹。
         !spec.includes("conversation-session-subagent-profile-fields.test.ts") &&
+        !spec.includes("conversation-session-subagent-runtime-refresh.test.ts") &&
         // XCODE: 并行 child 计数恢复必须观察同一段工具序列，不能由极小窗口替换历史。
         !spec.includes("conversation-session-subagent-parallel-projection.test.ts") &&
         !spec.includes("conversation-session-subagent-context-boundaries.test.ts") &&
@@ -4467,7 +4590,9 @@ async function seedUpstreamE2EModelConfig(specs: string[] = []) {
           composerToolbarSpec
         ? builtInSubagentModelOverridesSpec
           ? ["off", "low", "high", "max"]
-          : ["high", "max"]
+          : subagentRefreshProfileSpec
+            ? ["low", "high", "max"]
+            : ["high", "max"]
         : ["disabled"],
     // 只有专项 wire 用例注入思考参数；普通 replay 的响应节奏由 fixture 控制。
     map: exposeSubagentReasoningMetadata
@@ -4735,6 +4860,9 @@ export const config: WebdriverIO.Config = {
     ...(upstreamProviderSpecRequested ? [] : [UPSTREAM_PROVIDER_SPEC]),
     ...(turnSteerProbeSpecRequested ? [] : [TURN_STEER_PROBE_SPEC]),
     ...(manualReviewE2E ? [] : [MANUAL_REVIEW_SPEC_GLOB]),
+    // XCODE: SPR01 由独立 Node/CDP 入口连接关闭 test bridge 的生产构建。
+    "./test/e2e/conversation-session/manual-review/pending/conversation-session-snapshot-retention.test.ts",
+    ...resolveXWorkUpstreamBrokenSpecExcludes({ targeted: requestedE2ESpecs.length > 0 }),
     ...resolveEnvironmentGatedFormalSpecExcludes({
       env: process.env,
       targeted: requestedE2ESpecs.length > 0,
@@ -4885,7 +5013,16 @@ export const config: WebdriverIO.Config = {
       startedAt: new Date(),
     });
   },
-  async beforeSession(_config, capabilities, specs, cid) {
+  async beforeSession(workerConfig, capabilities, specs, cid) {
+    if (
+      specs.some((spec) => spec.endsWith("conversation-session-background-bash-output.test.ts"))
+    ) {
+      // XCODE: 冷恢复需真实等待 publisher 的 120s grace 与 60s tick，外层不能先按 120s 截断。
+      workerConfig.mochaOpts = {
+        ...workerConfig.mochaOpts,
+        timeout: Math.max(workerConfig.mochaOpts?.timeout ?? 0, 360_000 + manualReviewHoldMs),
+      };
+    }
     // Bugfix: 现有 e2e 会读写 ~/.zcode/v2；如果多个 spec 复用真实 HOME，
     // 上一个 spec 的凭据、最近项目和 localStorage 会串到下一个 spec，
     // 既污染开发者本机数据，也让“首次启动”类断言变得随机。

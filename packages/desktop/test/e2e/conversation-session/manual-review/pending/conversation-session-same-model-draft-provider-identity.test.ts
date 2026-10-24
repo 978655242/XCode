@@ -1,5 +1,4 @@
 import {
-  TID_CHAT_MODEL_SELECT_GROUP,
   TID_CHAT_MODEL_SELECT_ITEM,
   TID_CHAT_MODEL_SELECT_TRIGGER,
   TID_SETTINGS_BACK_BUTTON,
@@ -298,14 +297,11 @@ async function assertModelMenuSelectedProvider(
     providerId: provider.id,
   });
   const modelItemTestIds = acceptedValues.map((value) => testId(TID_CHAT_MODEL_SELECT_ITEM, value));
-  const providerGroupTestId = testId(
-    TID_CHAT_MODEL_SELECT_GROUP,
-    `registry-provider:${provider.id}`,
-  );
-  const previousProviderGroupTestId = testId(
-    TID_CHAT_MODEL_SELECT_GROUP,
-    `registry-provider:${previousProvider.id}`,
-  );
+  // XCODE: 合并菜单直接标记模型项，不再发布旧 provider 子菜单的 selected 节点。
+  const previousModelItemTestIds = getUpstreamProviderModelValues(scenario.modelId, {
+    includePlainModelFallback: false,
+    providerId: previousProvider.id,
+  }).map((value) => testId(TID_CHAT_MODEL_SELECT_ITEM, value));
 
   const trigger = $(sel(TID_CHAT_MODEL_SELECT_TRIGGER));
   await trigger.waitForClickable({
@@ -317,21 +313,15 @@ async function assertModelMenuSelectedProvider(
   try {
     await browser.waitUntil(
       async () => {
-        const rootSnapshot = await collectModelMenuSelectionSnapshot({
+        const snapshot = await collectModelMenuSelectionSnapshot({
           modelItemTestIds,
-          previousProviderGroupTestId,
-          providerGroupTestId,
+          previousModelItemTestIds,
         });
-        if (!rootSnapshot.providerGroupSelected || rootSnapshot.previousProviderGroupSelected) {
-          return false;
-        }
-        await openModelProviderGroup(providerGroupTestId);
-        const itemSnapshot = await collectModelMenuSelectionSnapshot({
-          modelItemTestIds,
-          previousProviderGroupTestId,
-          providerGroupTestId,
-        });
-        return itemSnapshot.targetItemSelected;
+        return (
+          snapshot.targetItemSelected &&
+          !snapshot.previousItemSelected &&
+          acceptedValues.includes(snapshot.triggerCurrentValue)
+        );
       },
       {
         timeout: 30000,
@@ -347,8 +337,7 @@ async function assertModelMenuSelectedProvider(
           providerId: provider.id,
           snapshot: await collectModelMenuSelectionSnapshot({
             modelItemTestIds,
-            previousProviderGroupTestId,
-            providerGroupTestId,
+            previousModelItemTestIds,
           }),
         },
         null,
@@ -361,39 +350,15 @@ async function assertModelMenuSelectedProvider(
   }
 }
 
-async function openModelProviderGroup(providerGroupTestId: string) {
-  await browser.execute((currentTestId) => {
-    const element = Array.from(document.querySelectorAll<HTMLElement>("[data-testid]")).find(
-      (item) => item.dataset.testid === currentTestId,
-    );
-    if (!element) {
-      return;
-    }
-    element.focus();
-    for (const eventName of ["pointerenter", "mouseenter", "mousemove"] as const) {
-      element.dispatchEvent(
-        new MouseEvent(eventName, {
-          bubbles: true,
-          cancelable: true,
-          view: window,
-        }),
-      );
-    }
-    element.click();
-  }, providerGroupTestId);
-}
-
 async function collectModelMenuSelectionSnapshot({
   modelItemTestIds,
-  previousProviderGroupTestId,
-  providerGroupTestId,
+  previousModelItemTestIds,
 }: {
   modelItemTestIds: string[];
-  previousProviderGroupTestId: string;
-  providerGroupTestId: string;
+  previousModelItemTestIds: string[];
 }) {
   return browser.execute(
-    (modelItemPrefix, targetItems, targetGroup, previousGroup, triggerTestId) => {
+    (modelItemPrefix, targetItems, previousItems, triggerTestId) => {
       const allItems = Array.from(
         document.querySelectorAll<HTMLElement>(`[data-testid^="${modelItemPrefix}-"]`),
       ).map((element) => ({
@@ -402,23 +367,19 @@ async function collectModelMenuSelectionSnapshot({
         testId: element.dataset.testid ?? "",
         text: element.innerText.trim(),
       }));
-      const providerGroup = document.querySelector<HTMLElement>(`[data-testid="${targetGroup}"]`);
-      const previousProviderGroup = document.querySelector<HTMLElement>(
-        `[data-testid="${previousGroup}"]`,
-      );
       const targetItemsSet = new Set(targetItems);
+      const previousItemsSet = new Set(previousItems);
       const targetItemsInDom = allItems.filter((item) => targetItemsSet.has(item.testId));
       return {
         allSelectedItems: allItems.filter(
           (item) => item.selected === "true" || item.checked === "true",
         ),
         bodyText: document.body?.innerText?.slice(0, 1800) ?? "",
-        previousProviderGroupExists: Boolean(previousProviderGroup),
-        previousProviderGroupSelected:
-          previousProviderGroup?.getAttribute("data-model-provider-selected") === "true",
-        providerGroupExists: Boolean(providerGroup),
-        providerGroupSelected:
-          providerGroup?.getAttribute("data-model-provider-selected") === "true",
+        previousItemSelected: allItems.some(
+          (item) =>
+            previousItemsSet.has(item.testId) &&
+            (item.selected === "true" || item.checked === "true"),
+        ),
         targetItemSelected: targetItemsInDom.some(
           (item) => item.selected === "true" || item.checked === "true",
         ),
@@ -433,8 +394,7 @@ async function collectModelMenuSelectionSnapshot({
     },
     TID_CHAT_MODEL_SELECT_ITEM,
     modelItemTestIds,
-    providerGroupTestId,
-    previousProviderGroupTestId,
+    previousModelItemTestIds,
     TID_CHAT_MODEL_SELECT_TRIGGER,
   );
 }

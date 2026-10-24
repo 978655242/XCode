@@ -157,6 +157,10 @@ export async function createBotWorkerIntegration(baseUrl: string, dropTextContai
           HOME: home,
           USERPROFILE: home,
           ZCODE_DATA_BASE_DIR: home,
+          // XCODE: 嵌套 worker 不能继承父 HOME 的独立 CLI 数据路径。
+          ZCODE_STORAGE_DIR: join(home, ".zcode"),
+          ZCODE_SESSION_DB_PATH: join(home, ".zcode/cli/db/db.sqlite"),
+          ZCODE_LOG_DIR: join(home, ".zcode/cli/log"),
           ZCODE_RUNTIME_ENV: "development",
           ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: builtin,
           ZCODE_PERSONAL_PROVIDER_CONFIG_FILE: personalFilePath,

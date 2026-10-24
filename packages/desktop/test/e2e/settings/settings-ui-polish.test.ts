@@ -1256,25 +1256,31 @@ async function readModelOrder(): Promise<string[]> {
 }
 
 async function openModelMetadataDialog(modelId: string, expandAdvanced = false) {
-  const clicked = await browser.execute((targetModelId) => {
-    const row = document.querySelector<HTMLElement>(
-      `[data-model-provider-model-id="${CSS.escape(targetModelId)}"]`,
-    );
-    const button = Array.from(row?.querySelectorAll<HTMLButtonElement>("button") ?? []).find(
-      (candidate) => candidate.querySelector("svg.lucide-pencil") !== null,
-    );
-    button?.click();
-    return Boolean(button);
-  }, modelId);
-  if (!clicked) throw new Error(`模型编辑按钮不存在：${modelId}`);
+  const row = $(`[data-model-provider-model-id="${modelId}"]`);
+  const button = row.$("button:has(svg.lucide-pencil)");
+  await button.waitForClickable({ timeout: 15000 });
+  await button.click();
+  const dialog = $('[role="dialog"][data-state="open"]');
+  await dialog.$('[data-model-reasoning-level-editor="true"]').waitForExist({ timeout: 15000 });
+  // XCODE: 打开和高级区展开都会移动 Dialog；每次真实点击前先等布局动画结束。
+  await browser.execute(async () => {
+    const dialog = document.querySelector('[role="dialog"][data-state="open"]')!;
+    await Promise.all(dialog.getAnimations().map((animation) => animation.finished));
+  });
+  if (expandAdvanced) await dialog.$('[data-model-advanced-trigger="true"]').click();
   await browser.waitUntil(
-    async () =>
-      browser.execute(
-        () => document.querySelector('[data-model-reasoning-level-editor="true"]') !== null,
-      ),
-    { timeout: 15000, timeoutMsg: "模型配置弹窗没有出现" },
+    () =>
+      browser.execute(() => {
+        const dialog = document.querySelector('[role="dialog"][data-state="open"]');
+        return Boolean(
+          dialog &&
+          dialog
+            .getAnimations({ subtree: true })
+            .every((animation) => animation.playState !== "running"),
+        );
+      }),
+    { timeout: 15000, timeoutMsg: "模型配置弹窗尚未完成展开" },
   );
-  if (expandAdvanced) await $('[data-model-advanced-trigger="true"]').click();
 }
 
 async function readReasoningLevelValues(): Promise<string[]> {
@@ -1297,22 +1303,15 @@ async function closeAndReopenModelEditor(action: "save" | "cancel") {
 }
 
 async function clickVisibleButton(label: RegExp) {
-  const clicked = await browser.execute(
-    (source, flags) => {
-      const matcher = new RegExp(source, flags);
-      const button = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
-        (candidate) => {
-          const rect = candidate.getBoundingClientRect();
-          return rect.width > 0 && rect.height > 0 && matcher.test(candidate.innerText.trim());
-        },
-      );
-      button?.click();
-      return Boolean(button);
-    },
-    label.source,
-    label.flags,
-  );
-  if (!clicked) throw new Error(`没有找到按钮：${label}`);
+  const dialog = $('[role="dialog"][data-state="open"]');
+  for (const button of await dialog.$$('[data-model-settings-footer="true"] button')) {
+    if ((await button.isDisplayed()) && label.test((await button.getText()).trim())) {
+      await button.waitForClickable({ timeout: 15000 });
+      await button.click();
+      return;
+    }
+  }
+  throw new Error(`没有找到模型配置按钮：${label}`);
 }
 
 async function waitForModelOrder(expected: readonly string[]) {

@@ -1,3 +1,4 @@
+import type { ConversationSnapshot } from "@zcode/shared/zcode-protocol-v4";
 import type { TaskStoreSnapshot } from "./conversation-session-store.js";
 
 type BrowserConfigOption = {
@@ -67,6 +68,18 @@ type BrowserWorkspaceState = {
   >;
 };
 
+type MountedSessionProjectionProps = {
+  sessionId?: string | null;
+  workspacePath?: string;
+  workspaceIdentity?: string | null;
+  projectionStore?: {
+    getState(): {
+      status: string;
+      snapshot: Pick<ConversationSnapshot, "sessionId" | "seq" | "control"> | null;
+    };
+  } | null;
+};
+
 export function readTaskStoreSnapshotInBrowser(
   taskIdArg: string,
   workspaceKeyArg?: string,
@@ -94,7 +107,7 @@ export function readTaskStoreSnapshotInBrowser(
     const result: Record<string, string | null> = {};
     try {
       for (const [key, value] of Object.entries(window.localStorage)) {
-        if (key.startsWith("zcode-model-selection-recent-v1:")) {
+        if (key.startsWith("zcode-composer-recent:v2:")) {
           result[key] = value;
         }
       }
@@ -125,6 +138,53 @@ export function readTaskStoreSnapshotInBrowser(
       });
     }
     return String(error);
+  };
+  const readRenderedControl = (
+    workspaceKey: string,
+  ): Pick<TaskStoreSnapshot, "controlPhase" | "sessionEnded"> => {
+    // XCODE: V4 不再维护旧 runtimeStatus；只读当前 pane 已持有且已呈现的 projection，避免跨 Host 或旧帧误判终态。
+    for (const pane of document.querySelectorAll<HTMLElement>(
+      "[data-session-id][data-projection-seq]",
+    )) {
+      if (pane.getAttribute("data-session-id") !== taskIdArg || !pane.getClientRects().length)
+        continue;
+      const renderedSeq = pane.getAttribute("data-projection-seq");
+      const fiberKey = Object.keys(pane).find((key) => key.startsWith("__reactFiber$"));
+      if (!fiberKey || !renderedSeq) continue;
+      const fiber: unknown = Reflect.get(pane, fiberKey);
+      const alternate: unknown =
+        fiber && typeof fiber === "object" ? Reflect.get(fiber, "alternate") : null;
+      for (const start of [fiber, alternate]) {
+        let ancestor: unknown = start;
+        while (ancestor && typeof ancestor === "object") {
+          const rawProps: unknown = Reflect.get(ancestor, "memoizedProps");
+          if (rawProps && typeof rawProps === "object") {
+            // 同进程 PluginUiSessionProvider 的公开 props；snapshot 仍由真实 store 校验和持有。
+            const props = rawProps as MountedSessionProjectionProps;
+            if (
+              props.sessionId === taskIdArg &&
+              (props.workspaceIdentity?.trim() || props.workspacePath) === workspaceKey &&
+              typeof props.projectionStore?.getState === "function"
+            ) {
+              const projection = props.projectionStore.getState();
+              const snapshot = projection.snapshot;
+              if (
+                projection.status === "live" &&
+                snapshot?.sessionId === taskIdArg &&
+                String(snapshot.seq) === renderedSeq
+              ) {
+                return {
+                  controlPhase: snapshot.control.phase,
+                  sessionEnded: snapshot.control.sessionEnded,
+                };
+              }
+            }
+          }
+          ancestor = Reflect.get(ancestor, "return");
+        }
+      }
+    }
+    return { controlPhase: null, sessionEnded: null };
   };
   const bridge = (
     window as typeof window & {
@@ -174,6 +234,7 @@ export function readTaskStoreSnapshotInBrowser(
         activeInputId: null,
         activeTaskConfigOptions: [],
         activeTaskId: null,
+        controlPhase: null,
         // 修复原因：CI 若误用 production 构建，renderer 不会暴露测试 store bridge。
         // 单独标记 bridge 缺失，避免把环境问题误判成 task store hydrate 慢。
         error: bridgeMissing ? "session-store-bridge-missing" : "task-not-found-in-store",
@@ -186,6 +247,7 @@ export function readTaskStoreSnapshotInBrowser(
         runtimeStatus: null,
         selectedProvider: null,
         selectedSupplierKey: null,
+        sessionEnded: null,
         stopRequested: false,
         streamingAssistantCount: 0,
         taskConfigOptions: [],
@@ -218,6 +280,7 @@ export function readTaskStoreSnapshotInBrowser(
         activeTaskId ? workspace.taskConfigOptionsByTaskId?.[activeTaskId] : null,
       ),
       activeTaskId,
+      ...readRenderedControl(workspaceKey),
       error: runtime?.error ?? null,
       hasPendingPermission: taskUi?.permissionRequest != null || pendingPermissionCount > 0,
       knownWorkspaceKeys,

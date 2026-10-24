@@ -64,6 +64,36 @@ describe("desktop e2e reporting lifecycle", () => {
     }
   });
 
+  it("records explicit Mocha pending without turning an unclassified failure into a skip", async () => {
+    const artifactsDir = await createArtifactsDir();
+    const previous = process.env.ZCODE_E2E_ARTIFACT_DIR;
+    process.env.ZCODE_E2E_ARTIFACT_DIR = artifactsDir;
+    try {
+      const reporter = createE2EReporter({
+        containerE2E: false,
+        desktopDir: artifactsDir,
+        repoRoot: process.cwd(),
+        requestedSpecs: [],
+      });
+      reporter.recordTestResult(
+        { title: "platform skip", pending: true },
+        { duration: 3, passed: false },
+      );
+      reporter.recordTestResult({ title: "unknown failure" }, { duration: 3, passed: false });
+      const rows = (await readFile(path.join(artifactsDir, "test-results.ndjson"), "utf8"))
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line) as { title: string; status: string; passed: boolean });
+      expect(rows.map(({ title, status, passed }) => ({ title, status, passed }))).toEqual([
+        { title: "platform skip", status: "skipped", passed: false },
+        { title: "unknown failure", status: "failed", passed: false },
+      ]);
+    } finally {
+      if (previous === undefined) delete process.env.ZCODE_E2E_ARTIFACT_DIR;
+      else process.env.ZCODE_E2E_ARTIFACT_DIR = previous;
+    }
+  });
+
   it("appends lifecycle ndjson and aggregates by phase", async () => {
     const artifactsDir = await createArtifactsDir();
     process.env.ZCODE_E2E_ARTIFACT_DIR = artifactsDir;

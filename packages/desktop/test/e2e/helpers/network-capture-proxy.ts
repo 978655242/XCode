@@ -2,6 +2,7 @@
 import { createPrivateKey, createPublicKey, X509Certificate } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { readdir, readFile, rm } from "node:fs/promises";
+import { globalAgent as httpAgent } from "node:http";
 import { join, resolve } from "node:path";
 import { rootCertificates } from "node:tls";
 import {
@@ -110,16 +111,14 @@ interface StartNetworkCaptureProxyOptions {
   responseMocks?: readonly E2ENetworkCaptureResponseMock[];
 }
 
-export interface E2ENetworkCaptureResponseMock {
-  /** case-local 回放可按请求体选择固定响应，仍经真实 HTTPS/鉴权/SDK 路径。 */
-  body: string | ((requestBody: string) => string);
+export type E2ENetworkCaptureResponseMock = {
   headers?: Record<string, string>;
   host?: string;
   method?: string;
   path: string;
   statusCode?: number;
   statusMessage?: string;
-}
+} & ({ body: string | ((requestBody: string) => string) } | { forwardUrl: URL });
 
 interface MutableCaptureRecord extends E2ENetworkCaptureRecord {
   requestChunks: Buffer[];
@@ -249,7 +248,36 @@ export async function startE2ENetworkCaptureProxy(
 
     const mockResponse = findResponseMock(record, options.responseMocks);
     if (mockResponse) {
-      serveResponseMock(ctx, record, mockResponse);
+      if ("forwardUrl" in mockResponse) {
+        const target = mockResponse.forwardUrl;
+        if (
+          target.protocol !== "http:" ||
+          target.hostname !== "127.0.0.1" ||
+          Number(target.port) <= 0 ||
+          target.username ||
+          target.password ||
+          target.hash
+        ) {
+          callback(new Error("E2E streamed replay requires an explicit loopback HTTP URL"));
+          return;
+        }
+        // XCODE: 动态 Highspeed 端点仍经真实 TLS/SDK，响应由原 replay owner 流式转发，不能拼接 chunks。
+        const requestOptions = ctx.proxyToServerRequestOptions!;
+        ctx.isSSL = false;
+        requestOptions.host = target.hostname;
+        requestOptions.port = target.port;
+        requestOptions.path = target.pathname + target.search;
+        requestOptions.headers.host = target.host;
+        requestOptions.agent = httpAgent;
+      } else {
+        serveResponseMock(ctx, record, mockResponse);
+        return;
+      }
+    } else if (
+      options.responseMocks?.some((mock) => "forwardUrl" in mock && mock.host === record.host)
+    ) {
+      // XCODE: 已声明本地回放的主机不能因路径不匹配绕过夹具，重新访问真实供应商。
+      callback(new Error("Unmatched E2E streamed replay route"));
       return;
     }
 
@@ -343,7 +371,7 @@ export async function startE2ENetworkCaptureProxy(
   function serveResponseMock(
     ctx: IContext,
     record: MutableCaptureRecord,
-    mock: E2ENetworkCaptureResponseMock,
+    mock: Extract<E2ENetworkCaptureResponseMock, { body: unknown }>,
   ) {
     const requestChunks: Buffer[] = [];
     let requestBodyBytes = 0;

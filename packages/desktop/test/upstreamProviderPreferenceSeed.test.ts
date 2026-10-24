@@ -46,7 +46,7 @@ describe("Upstream E2E 工具栏偏好种子", () => {
     vi.unstubAllGlobals();
   });
 
-  it("按 workspace App Recent 协议写入结构化稀疏选择", async () => {
+  it("按默认任务导航作用域的 Recent 协议写入结构化稀疏选择", async () => {
     const storage = createStorage();
     vi.stubGlobal("window", { localStorage: storage });
     vi.stubGlobal("browser", {
@@ -57,15 +57,16 @@ describe("Upstream E2E 工具栏偏好种子", () => {
 
     await ensureUpstreamProviderForE2E({ skipToolbarSelection: true });
 
-    expect(storage.getItem("zcode-model-selection-recent-v1:/tmp/zcode-e2e-workspace")).toBe(
-      JSON.stringify({
-        providerId: UPSTREAM_PROVIDER_ID,
-        modelId: UPSTREAM_MODEL,
-        ...(UPSTREAM_THOUGHT_LEVEL.trim()
-          ? { options: { reasoningLevel: UPSTREAM_THOUGHT_LEVEL.trim() } }
-          : {}),
-      }),
-    );
+    // XCODE: 未保存导航意图时 V4 读取本机任务作用域，旧 workspace key 已不再被消费。
+    expect(
+      JSON.parse(storage.getItem('zcode-composer-recent:v2:["desktop","local",null]') ?? "null"),
+    ).toEqual({
+      providerId: UPSTREAM_PROVIDER_ID,
+      modelId: UPSTREAM_MODEL,
+      ...(UPSTREAM_THOUGHT_LEVEL.trim()
+        ? { options: { reasoningLevel: UPSTREAM_THOUGHT_LEVEL.trim() } }
+        : {}),
+    });
     expect(storage.getItem("zcode-last-agent-provider")).toBe(ZCODE_AGENT_PROVIDER);
   });
 });

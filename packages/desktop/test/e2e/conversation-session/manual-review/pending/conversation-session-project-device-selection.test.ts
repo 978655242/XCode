@@ -149,9 +149,20 @@ async function releaseDirectoryRequest() {
 }
 
 async function openForm() {
+  // 表单已关闭时仍可能保留退出动画的遮罩；等卸载后再点下一次新建。
+  await $('[data-slot="dialog-overlay"]').waitForExist({ reverse: true });
   await $('[data-testid="project-section"]').moveTo();
   await $('[data-testid="virtual-project-add"]').click();
   await $('[data-testid="virtual-project-name"]').waitForDisplayed();
+}
+async function closeForm() {
+  const cancel = $(
+    '//*[@role="dialog"][.//*[@data-testid="virtual-project-name"]]//button[normalize-space(.)="取消" or normalize-space(.)="Cancel"]',
+  );
+  await cancel.waitForClickable();
+  await cancel.click();
+  await $('[data-testid="virtual-project-name"]').waitForExist({ reverse: true });
+  await $('[data-slot="dialog-overlay"]').waitForExist({ reverse: true });
 }
 async function chooseDevice(id: string) {
   await $('[data-testid="virtual-project-device"]').click();
@@ -212,7 +223,7 @@ describe(marker, () => {
       `${projectName}_INVALID`,
     );
     expect(await $(`[data-project-name="${projectName}_INVALID"]`).isExisting()).toBe(false);
-    await browser.keys("Escape");
+    await closeForm();
 
     const paths = [
       join(DEFAULT_WORKSPACE, ".e2e-device", "one"),
@@ -427,7 +438,7 @@ describe(marker, () => {
     expect(await $('[data-testid="virtual-project-directory-browser"]').isExisting()).toBe(false);
     expect(await $$('[data-testid="remote-project-pick"]').length).toBeGreaterThan(0);
     await $('[data-testid="remote-project-back"]').click();
-    await browser.keys("Escape");
+    await closeForm();
   });
   it("RDUX15-01/02 从真实本地和远端任务默认设备，断线与快照刷新不覆盖选择", async function () {
     this.timeout(5 * 60_000);
@@ -450,7 +461,7 @@ describe(marker, () => {
     await openTask(localTaskId, local.id);
     await openForm();
     await expectSelectedDevice("local");
-    await browser.keys("Escape");
+    await closeForm();
 
     const remote = (await readDirectory()).entries.find((entry) => entry.name === projectName)!;
     const path = remote.roots[0]!.rootPath;
@@ -531,7 +542,7 @@ describe(marker, () => {
       "Snapshot refreshed device",
     ]);
     await expectSelectedDevice("local");
-    await browser.keys("Escape");
+    await closeForm();
     await openForm();
     await expectSelectedDevice(remote.hostId);
     await callHandoffHost(ServiceChannels.SourceServerManagement, "disconnectSource", [sourceId]);
@@ -539,13 +550,13 @@ describe(marker, () => {
       (await $('[data-testid="virtual-project-device"]').getText()).includes("离线"),
     );
     await expectSelectedDevice(remote.hostId);
-    await browser.keys("Escape");
+    await closeForm();
     await openForm();
     await expectSelectedDevice(remote.hostId);
     expect(await $('[data-testid="virtual-project-browse"]').getText()).toContain(
       "连接并选择文件夹",
     );
-    await browser.keys("Escape");
+    await closeForm();
   });
 });
 

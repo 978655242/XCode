@@ -2,6 +2,7 @@ import { remoteHostIdFromWorkspaceIdentity } from "@zcode/shared";
 import { readFile } from "node:fs/promises";
 
 import type { ModelSelectionView } from "@zcode/provider";
+import type { IProjectService } from "@zcode/services";
 import type {
   BotsConfigFile,
   BotsStateFile,
@@ -36,6 +37,7 @@ export interface BotsServiceHarnessOptions {
   config: BotsConfigFile;
   state?: BotsStateFile;
   modelSelectionService?: Pick<IModelSelectionService, "getView">;
+  projectService?: IProjectService;
   fetch?: typeof fetch;
   remoteWorkspaceService?: Record<string, unknown>;
   runStartupBackgroundTasks?: boolean;
@@ -185,6 +187,7 @@ export function createBotsServiceHarness(options: BotsServiceHarnessOptions): Bo
 
   const service = createBotsService({
     ...createBotProjectFixture(options.projectWorkspaces),
+    ...(options.projectService ? { projectService: options.projectService } : {}),
     credentialService: {
       load: async () => "app-secret-e2e",
       save: async () => undefined,

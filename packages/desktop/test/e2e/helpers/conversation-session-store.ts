@@ -4,6 +4,7 @@ export interface TaskStoreSnapshot {
   activeInputId: string | null;
   activeTaskId: string | null;
   activeTaskConfigOptions: ConfigOptionSnapshot[];
+  controlPhase: string | null;
   error: string | null;
   hasPendingPermission: boolean;
   knownWorkspaceKeys: string[];
@@ -14,6 +15,7 @@ export interface TaskStoreSnapshot {
   queueCount: number;
   queuedTexts: string[];
   runtimeStatus: string | null;
+  sessionEnded: boolean | null;
   stopRequested: boolean;
   streamingAssistantCount: number;
   taskConfigOptions: ConfigOptionSnapshot[];
@@ -62,6 +64,31 @@ export interface TimelineSummarySnapshot {
   targetId: string | null;
   type: string | null;
   verificationPassed: boolean | null;
+}
+
+// XCODE: 旧 workspace Recent 不会迁移到项目，夹具必须沿当前导航意图定位同一 owner。
+export function getComposerRecentStorageKey(workspacePath: string): Promise<string> {
+  return browser.execute((currentWorkspace) => {
+    const raw = window.localStorage.getItem(
+      `zcode-composer-workspace-scope:v1:${JSON.stringify(["desktop", currentWorkspace])}`,
+    );
+    // XCODE: 上游未保存导航意图时使用本机任务作用域，不从目录猜项目归属。
+    if (!raw) return 'zcode-composer-recent:v2:["desktop","local",null]';
+    const scope: unknown = JSON.parse(raw);
+    if (
+      !scope ||
+      typeof scope !== "object" ||
+      !("clientNamespace" in scope) ||
+      typeof scope.clientNamespace !== "string" ||
+      !("hostId" in scope) ||
+      typeof scope.hostId !== "string" ||
+      !("projectId" in scope) ||
+      (scope.projectId !== null && typeof scope.projectId !== "string")
+    ) {
+      throw new Error(`当前 Composer 作用域尚未就绪: ${currentWorkspace}`);
+    }
+    return `zcode-composer-recent:v2:${JSON.stringify([scope.clientNamespace, scope.hostId, scope.projectId])}`;
+  }, workspacePath);
 }
 
 /** 读取当前 v4 Composer 的唯一持久 Draft；不再探测已删除的 Zustand 草稿镜像。 */
