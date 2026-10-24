@@ -16,7 +16,8 @@ import { createRoot } from "react-dom/client";
 import {
   AppErrorBoundary,
   ensurePendingTaskDraft,
-  Root,
+  // XCODE: 复用独立归属水合，保留手机 replayable 的会话恢复边界。
+  XWorkRoot as Root,
   ZCodeIntlProvider,
   generateMobileDeviceFingerprint,
   installDocumentHiddenMotionPause,

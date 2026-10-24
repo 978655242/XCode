@@ -101,6 +101,32 @@ flowchart TD
 迁移读操作不写盘；明确保存/清除后记录旧数据已认领，防止项目换目录或正文删空后重新读出旧草稿。保留旧版可读取数据，不批量删除历史目录。
 导航另外记住每个工作区最后打开的新建作用域，仅用于刷新恢复入口；正文与 Recent 仍以项目/任务作用域为唯一数据源。
 
+<!-- XCODE: 记录可选启动归属水合扩展及验收边界，保留未注入时的上游默认行为。 -->
+
+### 冷启动的归属恢复与会话选择
+
+自动恢复 Composer 项目/分组归属只水合现有 workspace UI store 的元数据，不代表用户新建任务；即使只有记住的作用域、没有文字草稿，也不得递增 `draftFocusVersion`、清空当前会话选择或重置模型、权限与待发送状态。工作区身份始终使用 `workspaceIdentity?.trim() || workspacePath`。
+
+已初始化的归属、已选中的任务及显式 New Task 优先于迟到的自动水合；重复水合不产生新的状态通知。归属变化沿用现有 draft runtime 失效代次，避免复用其他项目的预热上下文。显式 New Task 仍使用原 `startDraft()`，继续递增焦点代次并阻止旧会话恢复。
+
+```mermaid
+sequenceDiagram
+    participant Tabs as 启动页签
+    participant UI as Workspace UI store
+    participant Pane as Pane 恢复
+    participant Host as 当前远端 attachment
+    Tabs->>UI: 水合项目/分组归属（不产生新建意图）
+    Tabs->>Pane: 激活页签的启动恢复标记
+    Pane->>UI: 沿既有选择路径恢复持久化 session
+    Host-->>Pane: attachment ready
+    Pane->>Host: 校验原 task 存在性并订阅快照
+    Note over UI,Pane: 用户显式新建/切换后，旧恢复结果不再覆盖新意图
+```
+
+通用接点为 `RootProps.restoreDraftContext`：未注入时保留上游的原恢复实现；XWork 在独立 `xwork/startup-context` 模块中提供归属水合，并通过公开的 `XWorkRoot` 包装接入桌面与 Web。没有第二份会话状态、存储键、重试或队列，也不改变桌面 continuous、手机 replayable、Host/CLI 事实所有者及三个既有恢复字段。上游具备通用修复后优先随同步收敛。
+
+回归需覆盖：记住作用域但无文字草稿时自动恢复原会话；显式 New Task 优先；迟到水合不覆盖新任务/归属；同路径不同远端身份隔离；远端任务在 Desktop 完整退出期间完成后，重开自动恢复同一 task、输入/请求恰好一次且可续发。手机 replayable 不消费桌面 pane 的本地恢复键。
+
 ## 功能影响简报
 
 变更层级：draft-default、persistence、commit-effect、recovery。模式：implementation-handoff。

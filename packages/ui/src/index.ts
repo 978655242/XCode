@@ -119,3 +119,5 @@ export { GlobalDatabaseStartupLoading } from "./root/GlobalDatabaseStartupLoadin
 
 export { LocalTtftObserver, setLocalTtftObserver } from "@/v4/telemetry/localTtftObserver.js";
 export { ensurePendingTaskDraft } from "@/v4/composer/composerDraftStore.js";
+// XCODE: 下游启动归属水合通过独立组合接入，保留原 Root 导出。
+export { XWorkRoot } from "./xwork/startup-context/index.js";

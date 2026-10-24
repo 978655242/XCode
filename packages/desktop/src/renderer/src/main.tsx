@@ -5,7 +5,8 @@ import { createRoot } from "react-dom/client";
 import { useEffect } from "react";
 import {
   AppErrorBoundary,
-  Root,
+  // XCODE: 冷启动仅水合归属，保留 pane 对会话选择的所有权。
+  XWorkRoot as Root,
   GlobalDatabaseStartupLoading,
   UpdateStatusWindowRoot,
   ZCodeIntlProvider,
