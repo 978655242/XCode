@@ -18,5 +18,7 @@ export const XWORK_UPSTREAM_BROKEN_FORMAL_SPECS = [
 
 export function resolveXWorkUpstreamBrokenSpecExcludes({ targeted, env = process.env }) {
   // 内部分片也会填 ZCODE_E2E_SPEC，必须按来源判断，避免把全量分配误当成定向复核。
-  return targeted && env.XWORK_E2E_SPEC_ORIGIN !== "shard" ? [] : XWORK_UPSTREAM_BROKEN_FORMAL_SPECS;
+  return targeted && env.XWORK_E2E_SPEC_ORIGIN !== "shard"
+    ? []
+    : XWORK_UPSTREAM_BROKEN_FORMAL_SPECS;
 }

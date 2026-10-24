@@ -2257,7 +2257,10 @@ async function startCodingPlanDataPlaneProxy(specs: readonly string[]) {
     // XCODE: capture 只准备抓包代理，不能要求不存在的 replay server。
     if (upstreamE2EHttpMode === "capture") {
       if (!upstreamCaptureProxy) throw new Error("Highspeed capture proxy was not prepared");
-      await configureCodingPlanGatewayProxy(codingPlanTeamMockBaseUrl, upstreamCaptureProxy.proxyUrl);
+      await configureCodingPlanGatewayProxy(
+        codingPlanTeamMockBaseUrl,
+        upstreamCaptureProxy.proxyUrl,
+      );
       return;
     }
     if (!upstreamReplayServer) throw new Error("Highspeed replay was not prepared");
