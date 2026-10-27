@@ -117,6 +117,8 @@ import { updateModelIoPreferences } from "./model-io-preferences.js";
 import { updateOffPeakToolPolicy } from "./off-peak-tool-policy.js";
 import { updateDynamicWorkflowPolicy } from "./dynamic-workflow-policy.js";
 import { grantWorkspaceHookTrustForProtocol } from "./workspace-hook-trust.js";
+// XCODE: additive guide handlers leave the existing nonstream workspace method unchanged.
+import { readPluginSource, streamWorkspaceText } from "../xwork-plugin-guides/index.js";
 import {
   V4InteractionRegistry,
   resolveV4InteractionRegistryOptionsFromEnv,
@@ -726,6 +728,13 @@ export class ZCodeProtocolAgentServer {
         return await updateOffPeakToolPolicy(this.context, request.params);
       case zcodeProtocolMethods.workspaceUpdateDynamicWorkflowPolicy:
         return await updateDynamicWorkflowPolicy(this.context, request.params);
+      // XCODE: shared cancellation retains the existing operation admission and lifetime.
+      case zcodeProtocolMethods.xworkPluginGuideSource:
+        return await readPluginSource(this.context, request.params);
+      case zcodeProtocolMethods.xworkWorkspaceStreamText:
+        return await this.withWorkspaceGenerateTextSignal(request, (signal) =>
+          streamWorkspaceText(this.context, request.params, signal),
+        );
       case zcodeProtocolMethods.workspaceGenerateText:
         return await this.withWorkspaceGenerateTextSignal(request, (signal) =>
           generateWorkspaceText(this.context, request.params, signal),
@@ -986,7 +995,7 @@ export class ZCodeProtocolAgentServer {
               PROTOCOL_CLIENT_REQUEST_ERROR_CODES.timedOut,
               `Client request timed out: ${method}`,
               {
-              timeoutMs: options.timeoutMs,
+                timeoutMs: options.timeoutMs,
               },
             ),
           );

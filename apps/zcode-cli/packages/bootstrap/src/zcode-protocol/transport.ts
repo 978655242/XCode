@@ -14,6 +14,8 @@ import {
   zcodeProtocolNotifications,
 } from "@zcode/shared";
 import type { Logger } from "@zcode/contracts";
+// XCODE: 插件指南的只读/辅助流独立并发，不阻塞普通会话请求。
+import { isPluginGuideConcurrentMethod } from "../xwork-plugin-guides/index.js";
 
 type ZCodeProtocolOutgoingMessage =
   | ZCodeProtocolError
@@ -301,7 +303,8 @@ export class ZCodeProtocolNdjsonConnection {
       (message.method === zcodeProtocolMethods.sessionStop ||
         message.method === zcodeProtocolMethods.workspaceCancelGenerateText ||
         message.method === zcodeProtocolMethods.providerUpdateAccountConfig ||
-        MCP_APP_CONCURRENT_METHODS.has(message.method))
+        MCP_APP_CONCURRENT_METHODS.has(message.method) ||
+        isPluginGuideConcurrentMethod(message.method))
     );
   }
 

@@ -6,6 +6,7 @@
     "#src/*": "./src/*"
   },
   "exports": {
+    "./xwork-plugin-guides": "./src/xwork-plugin-guides/index.ts",
     ".": "./src/index.ts",
     "./runtime-env": "./src/runtimeEnv.ts",
     "./test-ids": "./src/test-ids.ts",

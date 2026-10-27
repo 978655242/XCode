@@ -1,3 +1,5 @@
+// XCODE: 插件说明使用独立流式扩展，不改变原 generateWorkspaceText。
+import { createPluginGuideAgentExtension } from "../xwork-plugin-guides/node.js";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { isAuxiliarySessionKind } from "@zcode/shared";
 import {
@@ -1241,6 +1243,13 @@ export function createZCodeAgentService(
   options?: CreateZCodeAgentServiceOptions,
 ): IZCodeAgentService & { disposeAllAndWait(): Promise<void> } {
   const processManager = new ZCodeAgentProcessManager(options);
+  // XCODE: 在装配点注入通用模型及插件管理能力。
+  const pluginGuideAgent = createPluginGuideAgentExtension({
+    getClient,
+    getPluginManagementClient,
+    buildWorkspaceRef,
+    syncAccount: ensureAccountProviderConfigSynced,
+  });
   // Windows indicator 与 macOS producer lifecycle client 共用已校验、去重的 sideband facts。
   const cuaOperationTurnTracker =
     options?.cuaOperationStateReporter || options?.onCuaPipSessionLifecycle
@@ -2217,6 +2226,9 @@ export function createZCodeAgentService(
           }
           return;
         }
+
+        // XCODE: 独立说明流只投影到对应 client/operation 的订阅。
+        if (pluginGuideAgent.accept(client, message)) return;
 
         if (message.method === zcodeProtocolNotifications.pluginOperationProgress) {
           const parsed = zcodePluginOperationProgressNotificationSchema.safeParse(message.params);
@@ -3666,6 +3678,8 @@ export function createZCodeAgentService(
   }
 
   function disposeLocalState(): void {
+    // XCODE: Host 释放时取消说明模型流并移除订阅。
+    pluginGuideAgent.dispose();
     accountProviderConfigUnsubscribe?.();
     accountProviderConfigUnsubscribe = undefined;
     modelSelectionSubscription?.dispose();
@@ -3917,6 +3931,8 @@ export function createZCodeAgentService(
   }
 
   return {
+    // XCODE: 追加独立说明端口，原 workspace 方法保持原样。
+    ...pluginGuideAgent.methods,
     async prepareStorage(params) {
       const client = await processManager.getClient(params);
       wireClient(client, params, "chat");

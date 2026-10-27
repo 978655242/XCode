@@ -1,3 +1,5 @@
+// XCODE: 插件说明为独立可选 Host 能力。
+import type { IPluginGuideService } from "./xwork-plugin-guides/contract.js";
 import type { IRemoteProjectService } from "#src/remote-projects/contract.js";
 import type { ITaskGroupService } from "#src/task-groups/contract.js";
 import type { WindowProjectDirectoryServices } from "#src/window-project-directory/contract.js";
@@ -116,6 +118,8 @@ export interface IServiceAccessor {
   readonly pluginsService: IPluginsService;
   /** 设置页插件管理（UI 不再直触 zcodeAgentService 的 plugins/* 面） */
   readonly pluginManagementService: IPluginManagementService;
+  // XCODE: 旧 Host/测试不提供时，说明入口显示能力不可用。
+  readonly pluginGuideService?: IPluginGuideService;
   readonly subagentsService: ISubagentsService;
   readonly commandsService: ICommandsService;
   readonly hooksService: IHooksService;

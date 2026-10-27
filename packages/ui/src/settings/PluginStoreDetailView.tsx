@@ -98,6 +98,7 @@ export function PluginStoreDetailView({
   onRetryDescribe,
   onUsePrompt,
   advanced,
+  headerActions,
 }: {
   item: StorePluginItem;
   actions: PluginStoreActions;
@@ -107,6 +108,8 @@ export function PluginStoreDetailView({
   onUsePrompt: (item: StorePluginItem, prompt: string) => void;
   /** 高级折叠区（rootPath/Hook 明细/配置项），仅已安装且有运行时信息时由父级注入。 */
   advanced?: ReactNode;
+  // XCODE: 可选组合插槽让下游扩展详情，缺省保留上游界面和行为。
+  headerActions?: ReactNode;
 }) {
   const { intl, locale } = useZCodeIntl();
   const displayName = resolveItemDisplayName(item, locale);
@@ -135,7 +138,7 @@ export function PluginStoreDetailView({
       <div className="space-y-3">
         <PluginStoreAvatar item={item} className="size-16 rounded-2xl" iconClassName="size-6" />
         <div
-          className="flex min-w-0 items-center justify-between gap-3"
+          className={`flex min-w-0 items-center justify-between gap-3${headerActions ? " flex-wrap" : ""}`}
           data-testid="plugin-store-title-actions"
         >
           <div className="flex min-w-0 items-center gap-2">
@@ -144,7 +147,8 @@ export function PluginStoreDetailView({
             </h1>
             <PluginStorePaidPlanBadge item={item} />
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className={`flex shrink-0 items-center gap-1.5${headerActions ? " flex-wrap" : ""}`}>
+            {headerActions}
             <PluginStoreUpdateButton item={item} actions={actions} />
             {item.installed ? (
               <>

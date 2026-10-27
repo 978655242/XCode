@@ -194,3 +194,6 @@ export type {
   SessionEventSink,
 } from "@zcode/contracts";
 export { LogLevel, SessionEventType } from "@zcode/contracts";
+
+// XCODE: independent workspace text streams reuse Core model/auth/admission and usage accounting.
+export { streamWorkspaceModelText } from "./xwork-plugin-guides/index.js";

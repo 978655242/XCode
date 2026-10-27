@@ -423,6 +423,9 @@ import { IMcpSyncService } from "./mcp-sync/mcpSync.js";
 import { IPluginSyncService } from "./plugin-sync/pluginSync.js";
 import { IPluginsService } from "./plugins/plugins.js";
 import { IPluginManagementService } from "./plugins/pluginManagement.js";
+// XCODE: 独立插件说明服务由当前 Host 持有。
+import { IPluginGuideService } from "./xwork-plugin-guides/contract.js";
+import { createNodePluginGuideService } from "./xwork-plugin-guides/node.js";
 import { ISubagentsService } from "./subagents/subagents.js";
 import { ICommandsService } from "./commands/commands.js";
 import { IHooksService } from "./hooks/hooks.js";
@@ -3115,6 +3118,15 @@ export function createLocalServices(options: {
         reportTelemetryEvent: options?.reportPluginTelemetryEvent,
       }),
     )
+    // XCODE: 当前 Environment 的模型选择与本地说明仓库统一在 Host 装配。
+    .register(
+      IPluginGuideService,
+      createNodePluginGuideService({
+        agent: zcodeAgentService,
+        readModelSelectionView: (_target, selection) =>
+          providerRuntime.modelSelection.getView(selection ? { selection } : undefined),
+      }),
+    )
     .register(ISubagentsService, subagentsService)
     .register(ICommandsService, createCommandsService({ isDesktopRuntime: true }))
     .register(
@@ -3289,6 +3301,12 @@ function readTelemetryOAuthUserId(rawUserInfo: string | null): string {
 }
 
 export function disposeServiceResources(services: ServiceCollection): void {
+  // XCODE: 先取消说明请求，再释放 Agent 进程。
+  (
+    services.getOptional(IPluginGuideService) as
+      | (IPluginGuideService & { dispose?(): void })
+      | undefined
+  )?.dispose?.();
   const content = services.getOptional(ICloudContentService);
   if (content && hasDisposeAllAndWait(content)) void content.disposeAllAndWait().catch(() => {});
   (
@@ -3332,6 +3350,12 @@ export function disposeServiceResources(services: ServiceCollection): void {
 }
 
 export async function disposeServiceResourcesAndWait(services: ServiceCollection): Promise<void> {
+  // XCODE: 先取消说明请求，再等待 Agent 进程退出。
+  (
+    services.getOptional(IPluginGuideService) as
+      | (IPluginGuideService & { dispose?(): void })
+      | undefined
+  )?.dispose?.();
   (
     services.getOptional(IGenUiService) as (IGenUiService & { dispose?(): void }) | undefined
   )?.dispose?.();
