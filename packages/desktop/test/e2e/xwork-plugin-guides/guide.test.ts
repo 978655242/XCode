@@ -339,6 +339,50 @@ describe("XWork plugin guide: real Desktop stream and Host persistence", () => {
     await screenshot("06-full-restart-cached-guide-and-questions");
   });
 
+  it("PG-11: automatically continues a length-limited stream and saves one complete guide", async function () {
+    this.timeout(90_000);
+    if (!provider) throw new Error("The isolated guide provider is unavailable");
+    const before = await savedDocument();
+    const requestCount = provider.requests.length;
+    provider.setMode("continuation");
+    await ask("GUIDE_CONTINUATION: Finish the guide after the provider output limit.");
+    await waitForRequestCount(requestCount + 2);
+    await browser.waitUntil(async () => (await savedDocument()).revision !== before.revision, {
+      timeout: 30_000,
+    });
+    await waitForSaved("GUIDE_REVISED");
+    const continued = await savedDocument();
+    expect(continued.markdown).toContain("GUIDE_REVISED");
+    expect(continued.markdown.match(/GUIDE_REVISED/g)).toHaveLength(1);
+    expect(continued.messages).toHaveLength(before.messages.length + 2);
+    expect(
+      continued.messages.some((message) => message.content.startsWith("Output token limit hit.")),
+    ).toBe(false);
+    const resumedMessages = provider.requests[requestCount + 1]!.body.messages as Array<{
+      role: string;
+      content: string;
+    }>;
+    expect(resumedMessages.at(-2)).toMatchObject({
+      role: "assistant",
+      content: expect.stringContaining("<guide>"),
+    });
+    expect(resumedMessages.at(-1)).toMatchObject({
+      role: "user",
+      content: expect.stringContaining("Resume directly"),
+    });
+    expect(provider.requests.slice(requestCount).map((request) => request.completed)).toEqual([
+      true,
+      true,
+    ]);
+    await assertSevenHeadings();
+    observations.continuation = {
+      beforeRevision: before.revision,
+      document: continued,
+      requestCount: provider.requests.length,
+    };
+    await screenshot("07-output-limit-automatic-continuation");
+  });
+
   async function waitForRequestCount(count: number) {
     await browser.waitUntil(() => (provider?.requests.length ?? 0) >= count, {
       timeout: 30_000,

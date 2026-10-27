@@ -9,7 +9,7 @@ import {
   type PluginGuideLocale,
 } from "@zcode/shared/xwork-plugin-guides";
 
-type Mode = "held" | "complete" | "failure";
+type Mode = "held" | "complete" | "failure" | "continuation";
 type RequestRecord = { body: Record<string, unknown>; completed: boolean; aborted: boolean };
 export interface PluginGuideProvider {
   baseURL: string;
@@ -193,7 +193,10 @@ export async function startPluginGuideProvider(): Promise<PluginGuideProvider> {
       response.write(
         `data: ${JSON.stringify({ id, object: "chat.completion.chunk", created, model: body.model, choices, ...(usage ? { usage } : {}) })}\n\n`,
       );
-    const choice = (delta: Record<string, string>, finish_reason: "stop" | null = null) => ({
+    const choice = (
+      delta: Record<string, string>,
+      finish_reason: "stop" | "length" | null = null,
+    ) => ({
       index: 0,
       delta,
       finish_reason,
@@ -206,14 +209,19 @@ export async function startPluginGuideProvider(): Promise<PluginGuideProvider> {
       }
     };
     event([choice({ role: "assistant", content: "" })]);
-    await stream(parts.preview);
+    const continuing =
+      mode === "continuation" &&
+      messages.at(-1)?.content ===
+        "Output token limit hit. Resume directly — no apology, no recap of what you were doing. Pick up mid-thought if that is where the cut happened. Break remaining work into smaller pieces.";
+    if (!continuing) await stream(parts.preview);
     await gate;
     if (response.destroyed) return;
-    await stream(parts.remainder);
+    if (mode !== "continuation" || continuing) await stream(parts.remainder);
     if (response.destroyed) return;
-    event([choice({}, "stop")]);
+    const truncated = mode === "continuation" && !continuing;
+    event([choice({}, truncated ? "length" : "stop")]);
     event([], { prompt_tokens: 120, completion_tokens: 240, total_tokens: 360 });
-    successful = true;
+    successful = !truncated;
     response.end("data: [DONE]\n\n");
   }
 
