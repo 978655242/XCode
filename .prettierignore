@@ -7,3 +7,8 @@ apps/zcode-cli/
 # oxfmt 解析会报错；只排除这两个文件，其余 graphs fixture 仍参与格式检查。
 apps/zcode-cli/packages/dynamic-workflow/tests/graphs/control-flow-for-await.ts
 apps/zcode-cli/packages/dynamic-workflow/tests/graphs/async-promise-for-await-of.ts
+
+# XCODE: 品牌资产里的 HTML 由 docs/brand/*/source/ 脚本生成，内嵌 base64 图片与内联 SVG，
+# 格式化会改变内联空白导致排版偏移，且下次重新生成会被覆盖，因此不参与格式检查。
+docs/brand/**/*.html
+.skill-archive/**/*.html
