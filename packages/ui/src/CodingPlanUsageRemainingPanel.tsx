@@ -11,6 +11,8 @@ import { ChevronRightIcon, Loader2 } from "lucide-react";
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+// XCODE: 私有额度按服务端真实周期与时区显示，与设置页一致。
+import { formatNativePlanQuotaResetTime } from "@/settings/model-provider-section/nativePlanSettingsPresentation.js";
 import {
   findCodingPlanQuotaLimit,
   formatQuotaRemainingPercentage,
@@ -270,13 +272,11 @@ export function CodingPlanUsageRemainingPanel({
           <>
             {nativeQuotaLimit ? (
               <UsageLimitRow
-                label={intl.formatMessage({ id: "settings.usage.native.currentPeriod" })}
-                value={formatQuotaRemainingPercentage(locale, nativeQuotaLimit)}
-                resetTime={formatQuotaResetTime({
-                  locale,
-                  value: nativeQuotaLimit.native?.nextResetTime,
-                  format: "dateTime",
+                label={intl.formatMessage({
+                  id: `settings.usage.nativeRemaining.${nativeQuotaLimit.native!.period}`,
                 })}
+                value={formatQuotaRemainingPercentage(locale, nativeQuotaLimit)}
+                resetTime={formatNativePlanQuotaResetTime(locale, nativeQuotaLimit.native!)}
               />
             ) : null}
             {fiveHourTokenLimit ? (

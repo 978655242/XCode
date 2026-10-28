@@ -1,6 +1,36 @@
-import type { NativeCodingPlanReadSnapshot } from "@zcode/shared";
+import type { NativeCodingPlanReadSnapshot, UsageQuotaLimit } from "@zcode/shared";
 
 export type NativePlanReferenceOffer = NativeCodingPlanReadSnapshot["plans"][number];
+
+export type NativePlanQuota = Pick<
+  NonNullable<UsageQuotaLimit["native"]>,
+  | "unlimited"
+  | "usedPercentage"
+  | "period"
+  | "nextResetTime"
+  | "resetTimeZone"
+  | "resetUtcOffsetSeconds"
+>;
+
+// XCODE: 重置时间沿用服务端时区，避免电脑时区使设置页与浮层显示不同重置日。
+export function formatNativePlanQuotaResetTime(
+  locale: string,
+  quota: NativePlanQuota,
+  format: "date" | "dateTime" = "dateTime",
+): string | undefined {
+  if (quota.period === "never" || quota.nextResetTime == null) return undefined;
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: quota.resetTimeZone === "server-local" ? "UTC" : quota.resetTimeZone,
+    month: "short",
+    day: "numeric",
+    ...(format === "dateTime"
+      ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23" as const }
+      : {}),
+  }).format(
+    quota.nextResetTime +
+      (quota.resetTimeZone === "server-local" ? quota.resetUtcOffsetSeconds * 1000 : 0),
+  );
+}
 
 /** XCODE: 只比较同币种和完整周期的参考价，不能将季度总价当成月价或混算币种。 */
 export function getNativePlanReferenceOffers(plans: readonly NativePlanReferenceOffer[]) {

@@ -5,10 +5,16 @@ import { ZCodeAboutLogo } from "@/components/ui/ZCodeAboutLogo.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import type { NativePlanSettingsRead } from "@/hooks/useNativePlanSettings.js";
 import type { ProviderSettingsFormProvider } from "@/lib/providerSettingsFormTypes.js";
+import {
+  formatQuotaRemainingPercentage,
+  getQuotaRemainingPercentage,
+} from "@/lib/codingPlanQuotaPresentation.js";
 import { PlanStatusCardSurface } from "./StatusCards.js";
 import { PlanEntryCard } from "./PlanEntryCard.js";
 import {
   formatNativePlanPrice,
+  formatNativePlanQuotaResetTime,
+  type NativePlanQuota,
   getNativePlanReferenceOffers,
 } from "./nativePlanSettingsPresentation.js";
 
@@ -38,7 +44,7 @@ export function NativePlanProviderDetail({
           ? "settings.modelProvider.codingPlan.status.notPurchased"
           : `settings.usage.nativeAuthorization.${snapshot?.entitlement.status ?? "unassigned"}`;
   const offers = getNativePlanReferenceOffers(snapshot?.plans ?? []);
-  const quantity = new Intl.NumberFormat(locale);
+  // 原始 quota 计数不能替代源版剩余百分比卡；两处设置页共用同一呈现。
   return (
     <div className="flex min-w-0 flex-col gap-4" data-native-plan-detail="true">
       <div className="flex h-8 min-w-0 items-center gap-2">
@@ -96,19 +102,22 @@ export function NativePlanProviderDetail({
           }
           usageContent={
             quota ? (
-              <p className="text-ui-base text-foreground-subtle">
-                {quota.unlimited
-                  ? intl.formatMessage({ id: "settings.usage.nativeUnlimited" })
-                  : intl.formatMessage(
-                      { id: "settings.usage.nativeQuotaAmounts" },
-                      {
-                        used: quantity.format(BigInt(quota.used)),
-                        total: quota.total === null ? "—" : quantity.format(BigInt(quota.total)),
-                        remaining:
-                          quota.remaining === null ? "—" : quantity.format(BigInt(quota.remaining)),
-                      },
-                    )}
-              </p>
+              <div className="space-y-2">
+                <h4 className="text-ui-base font-medium text-foreground">
+                  {intl.formatMessage({ id: "settings.usage.quotaTitle" })}
+                </h4>
+                <NativePlanQuotaCard
+                  compact
+                  quota={{
+                    unlimited: quota.unlimited,
+                    usedPercentage: quota.used_percentage,
+                    period: quota.reset_period,
+                    nextResetTime: quota.next_reset_time,
+                    resetTimeZone: quota.reset_time_zone,
+                    resetUtcOffsetSeconds: quota.reset_utc_offset_seconds,
+                  }}
+                />
+              </div>
             ) : undefined
           }
         />
@@ -178,6 +187,80 @@ export function NativePlanProviderDetail({
         />
         {snapshot?.entitlement.status === "active" && provider.executable ? children : null}
       </div>
+    </div>
+  );
+}
+
+// XCODE: 私有单周期复用源版卡片布局，只展示后端实际支持的重置窗口。
+export function NativePlanQuotaCard({
+  quota,
+  compact = false,
+}: {
+  quota: NativePlanQuota;
+  compact?: boolean;
+}) {
+  const { intl, locale } = useZCodeIntl();
+  const label = intl.formatMessage({ id: `settings.usage.nativeRemaining.${quota.period}` });
+  const limit = {
+    type: "NATIVE_QUOTA",
+    percentage: quota.usedPercentage ?? undefined,
+    usageDetails: [],
+  };
+  const percentage = quota.unlimited ? null : getQuotaRemainingPercentage(limit);
+  const value = quota.unlimited
+    ? intl.formatMessage({ id: "settings.usage.nativeUnlimited" })
+    : formatQuotaRemainingPercentage(locale, limit);
+  const resetTime = formatNativePlanQuotaResetTime(locale, quota);
+  return (
+    <div
+      role="group"
+      aria-label={label}
+      className={`min-w-0 flex-1 ${compact ? "rounded-lg bg-surface p-3" : "rounded-xl bg-surface/70 p-4"}`}
+    >
+      <div className={`flex ${compact ? "min-h-6" : "min-h-5"} min-w-0 items-center`}>
+        <span
+          className={`min-w-0 truncate text-ui-base text-foreground ${compact ? "font-medium" : ""}`}
+        >
+          {label}
+        </span>
+      </div>
+      <div className={`${compact ? "mt-2" : "mt-1"} flex min-w-0 items-baseline gap-1.5`}>
+        <span
+          className={`${compact ? "text-ui-lg leading-none" : "text-ui-xl"} font-semibold text-foreground`}
+        >
+          {value}
+        </span>
+        {resetTime ? (
+          <time
+            dateTime={new Date(quota.nextResetTime!).toISOString()}
+            className={`min-w-0 truncate ${compact ? "text-ui-sm" : "text-ui-base"} text-foreground-subtle`}
+          >
+            {resetTime}
+          </time>
+        ) : (
+          <span
+            className={`min-w-0 truncate ${compact ? "text-ui-sm" : "text-ui-base"} text-foreground-subtle`}
+          >
+            {intl.formatMessage({ id: `settings.usage.nativePeriod.${quota.period}` })}
+          </span>
+        )}
+      </div>
+      {percentage != null ? (
+        <div
+          role="progressbar"
+          aria-label={label}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={percentage}
+          aria-valuetext={value}
+          className={`${compact ? "mt-2 h-1.5 bg-secondary" : "mt-3 h-2 bg-background"} overflow-hidden rounded-full`}
+        >
+          <div
+            className="h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
+            style={{ width: `${percentage}%`, backgroundColor: "var(--color-usage-chart-1)" }}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

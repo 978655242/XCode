@@ -15,6 +15,8 @@ import { CodingPlanQuotaResetOpportunity } from "@/components/coding-plan-quota-
 import { buildCodingPlanQuotaResetDialogConfig } from "@/components/coding-plan-quota-reset/buildCodingPlanQuotaResetDialogConfig.js";
 import { useCodingPlanQuotaResetUi } from "@/hooks/useCodingPlanQuotaResetUi.js";
 import type { useZCodeIntl } from "@/i18n/IntlProvider.js";
+// XCODE: 私有额度周期与日期复用设置页的真实服务端事实。
+import { formatNativePlanQuotaResetTime } from "@/settings/model-provider-section/nativePlanSettingsPresentation.js";
 import {
   findCodingPlanQuotaLimit,
   formatQuotaRemainingPercentage,
@@ -274,28 +276,11 @@ export function ChatCodingPlanUsageRemainingPanel({
       ? {
           color: "var(--color-usage-chart-1)",
           key: "nativePeriod",
-          label: intl.formatMessage({ id: "settings.usage.native.currentPeriod" }),
+          label: intl.formatMessage({
+            id: `settings.usage.nativeRemaining.${nativeQuotaLimit.native!.period}`,
+          }),
           limit: nativeQuotaLimit,
-          // 修复原因：Native 重置日按服务端时区展示（server-local 用权威 offset），
-          // 与设置页 CodingPlanUsagePanel 一致，不借用户电脑时区，避免跨日边界显示不同日期。
-          resetTime:
-            nativeQuotaLimit.native?.nextResetTime != null
-              ? new Intl.DateTimeFormat(locale, {
-                  timeZone:
-                    nativeQuotaLimit.native.resetTimeZone === "server-local"
-                      ? "UTC"
-                      : nativeQuotaLimit.native.resetTimeZone,
-                  month: "short",
-                  day: "numeric",
-                }).format(
-                  new Date(
-                    nativeQuotaLimit.native.nextResetTime +
-                      (nativeQuotaLimit.native.resetTimeZone === "server-local"
-                        ? nativeQuotaLimit.native.resetUtcOffsetSeconds * 1000
-                        : 0),
-                  ),
-                )
-              : undefined,
+          resetTime: formatNativePlanQuotaResetTime(locale, nativeQuotaLimit.native!, "date"),
         }
       : null,
     fiveHourTokenLimit
