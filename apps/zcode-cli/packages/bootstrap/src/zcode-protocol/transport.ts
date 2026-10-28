@@ -15,7 +15,9 @@ import {
 } from "@zcode/shared";
 import type { Logger } from "@zcode/contracts";
 // XCODE: 插件指南的只读/辅助流独立并发，不阻塞普通会话请求。
-import { isPluginGuideConcurrentMethod } from "../xwork-plugin-guides/index.js";
+// 修复原因：经 index.js 导入会连带加载 handlers 与 @zcode/core 模型运行时，使 transport 冷启动
+// 从约 150ms 增至约 1s，CI 上 newApiAppliedAdmission 的 worker 因此超时；传输层只需纯判定函数。
+import { isPluginGuideConcurrentMethod } from "../xwork-plugin-guides/dispatch-policy.js";
 
 type ZCodeProtocolOutgoingMessage =
   | ZCodeProtocolError
