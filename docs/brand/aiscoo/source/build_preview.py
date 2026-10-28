@@ -1,14 +1,14 @@
-"""Build a self-contained preview.html: every asset is inlined, so the single file can be shared."""
+"""Rebuild preview.html from the published assets; every asset is inlined, so the single file can be shared."""
 import base64
 import html
 import re
 from pathlib import Path
 
-OUT = Path(__file__).parent
+PKG = Path(__file__).resolve().parent.parent   # docs/brand/aiscoo/
 
 
 def data_uri(name):
-    return "data:image/svg+xml;base64," + base64.b64encode((OUT / name).read_bytes()).decode()
+    return "data:image/svg+xml;base64," + base64.b64encode((PKG / name).read_bytes()).decode()
 
 
 def img(name, style=""):
@@ -16,7 +16,7 @@ def img(name, style=""):
 
 
 def splash(theme):
-    s = (OUT / "splash.html").read_text()
+    s = (PKG / "splash/splash.html").read_text()
     if theme == "dark":
         # Force the dark branch regardless of the viewer's system theme.
         s = s.replace("@media (prefers-color-scheme:dark){", "@media all{")
@@ -57,11 +57,13 @@ code{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#121317}
 """
 
 FILES = [
-    ("动效应用 Logo", "ai-lockup-anim-light.svg / ai-lockup-anim-dark.svg"),
-    ("静态应用 Logo", "ai-lockup-light.svg / ai-lockup-dark.svg，PNG：export/lockup-*@2x.png"),
-    ("启动页", "splash.html（动效：ai-mark-anim.svg / ai-mark-anim-white.svg）"),
-    ("启动页静态 Logo（收起）", "ai-mark-tucked.svg / ai-mark-tucked-white.svg，PNG：export/mark-ai-tucked-*.png"),
-    ("应用图标", "export/Aiscoo.icns / export/Aiscoo.ico / export/icon-1024.png / export/icon-dark-1024.png"),
+    ("应用图标 · macOS", "app-icon/macos/Aiscoo.icns（另附 Aiscoo.iconset）"),
+    ("应用图标 · Windows", "app-icon/windows/Aiscoo.ico"),
+    ("应用图标 · 原图", "app-icon/png/icon-light-1024.png / icon-dark-1024.png（含 SVG）"),
+    ("应用 Logo · 静态", "logo/svg/aiscoo-light.svg / aiscoo-dark.svg，PNG：logo/png/aiscoo-*@2x.png"),
+    ("应用 Logo · 动效", "logo-animated/aiscoo-animated-light.svg / aiscoo-animated-dark.svg"),
+    ("启动页", "splash/splash.html（动效：splash/ai-animated-*.svg）"),
+    ("ai 图形 · 缩起", "mark/svg/ai-light.svg / ai-dark.svg，PNG：mark/png/ai-*-512.png"),
 ]
 
 
@@ -73,30 +75,30 @@ def main():
 <header><h1>Aiscoo Logo</h1><p>a 是躲在 i 后面的 AI：探出、张望、看圆点、圆点跳动、眨眼、缩回，8 秒一轮，缩回后停约 3.7 秒。</p></header>
 
 <section><h2>应用 Logo · 动效</h2>
-<div class="row"><div class="card wide">{img("ai-lockup-anim-light.svg")}</div>
-<div class="card wide dark">{img("ai-lockup-anim-dark.svg")}</div></div></section>
+<div class="row"><div class="card wide">{img("logo-animated/aiscoo-animated-light.svg")}</div>
+<div class="card wide dark">{img("logo-animated/aiscoo-animated-dark.svg")}</div></div></section>
 
 <section><h2>启动页</h2><p class="note">首帧和"减少动态效果"时显示收起状态。</p>
 <div class="row">{splash("light")}{splash("dark")}</div></section>
 
 <section><h2>启动页静态 Logo · 收起状态</h2>
-<div class="row"><div class="card">{img("ai-mark-tucked.svg", "width:180px")}</div>
-<div class="card dark">{img("ai-mark-tucked-white.svg", "width:180px")}</div></div></section>
+<div class="row"><div class="card">{img("mark/svg/ai-light.svg", "width:180px")}</div>
+<div class="card dark">{img("mark/svg/ai-dark.svg", "width:180px")}</div></div></section>
 
 <section><h2>应用图标</h2>
-<div class="row"><div class="card">{img("ai-icon.svg", "width:260px")}</div>
-<div class="card">{img("ai-icon-dark.svg", "width:260px")}</div></div>
-<div class="card"><div class="sizes">{sizes("ai-icon.svg")}{sizes("ai-icon-dark.svg")}</div></div></section>
+<div class="row"><div class="card">{img("app-icon/png/icon-light.svg", "width:260px")}</div>
+<div class="card">{img("app-icon/png/icon-dark.svg", "width:260px")}</div></div>
+<div class="card"><div class="sizes">{sizes("app-icon/png/icon-light.svg")}{sizes("app-icon/png/icon-dark.svg")}</div></div></section>
 
 <section><h2>应用 Logo · 静态</h2>
-<div class="row"><div class="card wide">{img("ai-lockup-light.svg")}</div>
-<div class="card wide dark">{img("ai-lockup-dark.svg")}</div></div></section>
+<div class="row"><div class="card wide">{img("logo/svg/aiscoo-light.svg")}</div>
+<div class="card wide dark">{img("logo/svg/aiscoo-dark.svg")}</div></div></section>
 
-<section><h2>文件清单</h2><p class="note">路径相对于本文件所在目录。</p>
+<section><h2>文件清单</h2><p class="note">路径相对于本文件所在目录（docs/brand/aiscoo/）。</p>
 <table><tr><th>用途</th><th>文件</th></tr>{rows}</table></section>
 </main></body></html>
 """
-    (OUT / "preview.html").write_text(page)
+    (PKG / "preview.html").write_text(page)
     print(f"preview.html {len(page) // 1024} KB")
 
 

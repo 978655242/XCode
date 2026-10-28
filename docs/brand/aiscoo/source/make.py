@@ -1,16 +1,16 @@
-"""Rebuild all final Aiscoo assets from ai.py (i-as-wall design)."""
+"""Rebuild every published Aiscoo SVG and the splash page in place, from the parameters in ai.py."""
 import re
 import xml.dom.minidom as dom
 from pathlib import Path
 import ai
 from build import svg
 
-OUT = Path(__file__).parent
+PKG = Path(__file__).resolve().parent.parent   # docs/brand/aiscoo/
 
 
-def write(name, content):
+def write(rel, content):
     dom.parseString(content)
-    (OUT / name).write_text(content)
+    (PKG / rel).write_text(content)
 
 
 def inner(s):
@@ -29,20 +29,24 @@ def icon(dark):
     return svg(1024, 1024, body)
 
 
-for a, sfx in ((True, "-anim"), (False, "")):
-    write(f"ai-lockup{sfx}-light.svg", ai.lockup(ai.INK, ai.PAPER, "l", a, tucked=True))
-    write(f"ai-lockup{sfx}-dark.svg", ai.lockup(ai.PAPER, "#1C1C1E", "d", a, tucked=True))
-    write(f"ai-mark{sfx}.svg", ai.mark(ai.INK, ai.PAPER, "m", a, tucked=a))
-    write(f"ai-mark{sfx}-white.svg", ai.mark(ai.PAPER, "#1C1C1E", "w", a, tucked=a))
-write("ai-mark-tucked.svg", ai.mark(ai.INK, ai.PAPER, "t", False, tucked=True))
-write("ai-mark-tucked-white.svg", ai.mark(ai.PAPER, "#1C1C1E", "tw", False, tucked=True))
-write("ai-icon.svg", icon(False))
-write("ai-icon-dark.svg", icon(True))
+write("logo/svg/aiscoo-light.svg", ai.lockup(ai.INK, ai.PAPER, "l", False, tucked=True))
+write("logo/svg/aiscoo-dark.svg", ai.lockup(ai.PAPER, "#1C1C1E", "d", False, tucked=True))
+write("logo-animated/aiscoo-animated-light.svg", ai.lockup(ai.INK, ai.PAPER, "l", True, tucked=True))
+write("logo-animated/aiscoo-animated-dark.svg", ai.lockup(ai.PAPER, "#1C1C1E", "d", True, tucked=True))
+write("splash/ai-animated-light.svg", ai.mark(ai.INK, ai.PAPER, "m", True, tucked=True))
+write("splash/ai-animated-dark.svg", ai.mark(ai.PAPER, "#1C1C1E", "w", True, tucked=True))
+write("mark/svg/ai-light.svg", ai.mark(ai.INK, ai.PAPER, "t", False, tucked=True))
+write("mark/svg/ai-dark.svg", ai.mark(ai.PAPER, "#1C1C1E", "tw", False, tucked=True))
+write("app-icon/png/icon-light.svg", icon(False))
+write("app-icon/png/icon-dark.svg", icon(True))
 
-s = (OUT / "splash.html").read_text()
-s = re.sub(r'<div class="logo light">.*?</svg></div>',
-           lambda m: '<div class="logo light">' + (OUT / "ai-mark-anim.svg").read_text().strip() + '</div>', s, flags=re.S)
-s = re.sub(r'<div class="logo dark">.*?</svg></div>',
-           lambda m: '<div class="logo dark">' + (OUT / "ai-mark-anim-white.svg").read_text().strip() + '</div>', s, flags=re.S)
-(OUT / "splash.html").write_text(s)
-print("ok")
+# The splash page inlines the animated marks so it plays without external files.
+splash = PKG / "splash/splash.html"
+s = splash.read_text()
+for theme, rel in (("light", "splash/ai-animated-light.svg"), ("dark", "splash/ai-animated-dark.svg")):
+    s, n = re.subn(rf'<div class="logo {theme}">.*?</svg></div>',
+                   lambda m, rel=rel: f'<div class="logo {theme}">' + (PKG / rel).read_text().strip() + '</div>',
+                   s, flags=re.S)
+    assert n == 1, f"splash.html: expected one {theme} logo slot, found {n}"
+splash.write_text(s)
+print("updated SVGs and splash/splash.html under", PKG)

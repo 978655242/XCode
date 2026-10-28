@@ -30,12 +30,11 @@
 
 `source/` 里是生成上面所有文件的脚本，需要 Python 3。
 
-1. 修改 `source/ai.py` 顶部的参数：
+1. 修改 `source/ai.py` 中的参数：
    - `LETTER_GAP`：字母间距
    - `I_STEM_TOP, I_DOT_CY, I_DOT_R`：i 的高度和圆点
    - `ACTIVE, CYCLE`：动效节奏
-2. 把 `splash/splash.html` 复制到 `source/`，因为 `make.py` 会把动效写进这个文件。
-3. 在 `source/` 目录下运行 `python3 make.py`，生成所有 SVG 和 `splash.html`。
-4. 运行 `python3 build_preview.py`，生成预览页。
+2. 在 `source/` 目录下运行 `python3 make.py`。它会直接更新 `logo/`、`logo-animated/`、`splash/`、`mark/svg/` 和 `app-icon/png/` 里的 SVG，并把动效写进 `splash/splash.html`。
+3. 运行 `python3 build_preview.py`，更新 `preview.html`。
 
 `.png`、`.icns`、`.ico` 需要另外导出：用浏览器把 SVG 截成 PNG，再用 macOS 自带的 `iconutil` 生成 `.icns`。
