@@ -2,6 +2,12 @@
 import { requestSecurityMessagesEnUS } from "@/request-security-edition/messages.js";
 /** English translations */
 const enUS: Record<string, string> = {
+  // XCODE: Match upstream quota labels using the actual backend reset period.
+  "settings.usage.nativeRemaining.daily": "Daily",
+  "settings.usage.nativeRemaining.weekly": "Weekly",
+  "settings.usage.nativeRemaining.monthly": "Monthly",
+  "settings.usage.nativeRemaining.custom": "Current period",
+  "settings.usage.nativeRemaining.never": "Subscription remaining",
   "settings.usage.nativeOfficialDisconnect": "Disconnect official cloud",
   "settings.modelProvider.native.providerGroup": "Official",
   "settings.modelProvider.native.expiresAt": "Valid until {time}",

@@ -2,6 +2,12 @@
 import { requestSecurityMessagesZhCN } from "@/request-security-edition/messages.js";
 /** 中文翻译 */
 const zhCN: Record<string, string> = {
+  // XCODE: 额度标题按后端真实周期展示，与源版剩余额度卡一致。
+  "settings.usage.nativeRemaining.daily": "每日剩余",
+  "settings.usage.nativeRemaining.weekly": "每周剩余",
+  "settings.usage.nativeRemaining.monthly": "每月剩余",
+  "settings.usage.nativeRemaining.custom": "当前周期剩余",
+  "settings.usage.nativeRemaining.never": "订阅剩余",
   "settings.usage.nativeOfficialDisconnect": "断开官方云",
   "settings.modelProvider.native.providerGroup": "官方",
   "settings.modelProvider.native.expiresAt": "有效期至 {time}",

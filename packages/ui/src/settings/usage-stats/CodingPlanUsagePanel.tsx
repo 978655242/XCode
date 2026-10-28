@@ -20,6 +20,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { BUILTIN_MODEL_PROVIDER_IDS, getModelProviderFamilySpec } from "@zcode/shared";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
+// XCODE: 单周期私有额度与模型设置共用源版布局。
+import { NativePlanQuotaCard } from "@/settings/model-provider-section/NativePlanProviderDetail.js";
 import { useUsageEntitlement } from "@/hooks/useUsageEntitlement.js";
 import { useCodingPlanQuotaResetUi } from "@/hooks/useCodingPlanQuotaResetUi.js";
 import { useCodingPlanUsageStats } from "@/hooks/useUsageStats.js";
@@ -525,7 +527,9 @@ function CodingPlanQuotaCards({
       ? [
           {
             key: "native",
-            label: intl.formatMessage({ id: "settings.usage.native.currentPeriod" }),
+            label: intl.formatMessage({
+              id: `settings.usage.nativeRemaining.${nativeLimit.native!.period}`,
+            }),
             limit: nativeLimit,
             progressColor: "var(--color-usage-chart-1)",
           },
@@ -604,9 +608,7 @@ function CodingPlanQuotaCards({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h3 className="text-ui-lg font-medium text-foreground">
-            {intl.formatMessage({
-              id: nativeLimit ? "settings.usage.native.planLimits" : "settings.usage.quotaTitle",
-            })}
+            {intl.formatMessage({ id: "settings.usage.quotaTitle" })}
           </h3>
           {(fiveHourCardVisible && resetUi.entry) || (weeklyCardVisible && resetUi.week.entry) ? (
             <CodingPlanQuotaResetOpportunity
@@ -636,83 +638,14 @@ function CodingPlanQuotaCards({
           </Button>
         </div>
       </div>
-      {nativeLimit ? (
-        <p className="text-ui-base text-foreground-subtle">
-          {intl.formatMessage({ id: "settings.usage.nativeAdminReset" })}
-        </p>
-      ) : null}
       <div className={quotaCardsLayoutClass}>
         {cards.map((card) => {
-          const percentage = getQuotaRemainingPercentage(card.limit);
-          const native = card.limit.native;
-          const resetTime =
-            native?.nextResetTime != null
-              ? new Intl.DateTimeFormat(locale, {
-                  timeZone: native.resetTimeZone === "server-local" ? "UTC" : native.resetTimeZone,
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                }).format(
-                  new Date(
-                    native.nextResetTime +
-                      (native.resetTimeZone === "server-local"
-                        ? native.resetUtcOffsetSeconds * 1000
-                        : 0),
-                  ),
-                )
-              : formatUsageStatsQuotaResetTime(locale, card.limit.nextResetTime);
-          // XCODE: 私有单周期调整信息布局，沿用官方卡片表面以保留原进度轨道对比。
-          if (native) {
-            const value = native.unlimited
-              ? intl.formatMessage({ id: "settings.usage.nativeUnlimited" })
-              : intl.formatMessage(
-                  { id: "settings.usage.native.remaining" },
-                  { percentage: formatQuotaRemainingPercentage(locale, card.limit) },
-                );
-            return (
-              <div
-                key={card.key}
-                role="group"
-                aria-label={card.label}
-                className="min-w-0 flex-1 rounded-2xl border border-border bg-surface/70 px-5 py-4"
-              >
-                <p className="text-ui-base font-medium text-foreground">{card.label}</p>
-                <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-ui-base text-foreground-subtle">
-                  {resetTime && native.nextResetTime != null ? (
-                    <time dateTime={new Date(native.nextResetTime).toISOString()}>
-                      {intl.formatMessage(
-                        { id: "settings.usage.native.resetsAt" },
-                        { time: resetTime },
-                      )}
-                    </time>
-                  ) : (
-                    <span>
-                      {intl.formatMessage({ id: `settings.usage.nativePeriod.${native.period}` })}
-                    </span>
-                  )}
-                  <span className="ml-auto shrink-0 tabular-nums">{value}</span>
-                </div>
-                {!native.unlimited && percentage != null ? (
-                  <div
-                    role="progressbar"
-                    aria-label={card.label}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={percentage}
-                    aria-valuetext={value}
-                    className="mt-3 h-2 overflow-hidden rounded-full bg-background"
-                  >
-                    <div
-                      className="min-w-2 h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
-                      style={{
-                        width: `${percentage}%`,
-                        backgroundColor: card.progressColor,
-                      }}
-                    />
-                  </div>
-                ) : null}
-              </div>
-            );
+          // XCODE: 只替换私有额度项，官方卡片保持上游呈现与重置行为。
+          if (card.limit.native) {
+            return <NativePlanQuotaCard key={card.key} quota={card.limit.native} />;
           }
+          const percentage = getQuotaRemainingPercentage(card.limit);
+          const resetTime = formatUsageStatsQuotaResetTime(locale, card.limit.nextResetTime);
           return (
             <div key={card.key} className="min-w-0 flex-1 rounded-xl bg-surface/70 p-4">
               {/* min-h 与重置动作(h-5)对齐:没有动作的额度卡也保持同高,避免同排数值/进度条错位。 */}
@@ -784,6 +717,11 @@ function CodingPlanQuotaCards({
           );
         })}
       </div>
+      {nativeLimit ? (
+        <p className="text-ui-base text-foreground-subtle">
+          {intl.formatMessage({ id: "settings.usage.nativeAdminReset" })}
+        </p>
+      ) : null}
     </section>
   );
 }

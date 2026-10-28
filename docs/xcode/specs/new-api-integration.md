@@ -304,8 +304,8 @@ secret 不进入 provider config、header rule、modelConfigs、Renderer DTO 或
 - 新增来源/范围判别，支持 private-user entitlement，不能硬塞 `scope=team` 或 fake org/project。
 - 原 QuotaSnapshot 的 five-hour/week/TOKENS_LIMIT 桶识别改为原生 reset_period/nextResetTime/真实 quota 单位；保留原 panel/card 容器，但不得继续显示一个假第二周期。
 - 原 percentage 表示**已用比例**，剩余显示才做 100-percentage。unlimited 单独显示“无限制”，total/remaining/percentage 为 null，不能显示为 0。
-- 设置页「用量统计」的私有额度卡使用「套餐限额」区与圆角描边卡片：标题为「当前订阅周期」，下一行左侧显示真实重置时间或周期规则，右侧显示「剩余 xx%」，底部沿用官方 ZCode 原有进度条的颜色、轨道、间距、圆角、最小宽度和动效。卡片背景沿用官方额度卡表面，与原进度轨道保持可见对比。保留刷新入口和管理员说明，不直接展示 IANA 时区字符串或「已用／总额／剩余 quota」原始数值。
-- 重置时间继续按服务端时区与 offset 格式化；`never` 显示「不自动重置」，不制造每周限额或倒计时。有限额度沿用原版剩余比例与精度，耗尽进度为 0；无限额度显示「无限制」，未知比例显示占位，二者均不绘制有限进度条。此规则仅约束用量统计额度卡，模型设置页与官方额度卡保持现有契约。
+- 设置页「用量统计」与「模型设置」的私有额度展示对齐源 ZCode：区标题为「剩余额度」，周期卡依次展示周期标题、左侧醒目的剩余百分比及紧邻的重置日期、底部进度条；不使用「套餐限额」、描边卡或左右分列的「剩余 xx%」布局，不展示原始 quota 数值。背景、圆角、字体、间距与进度条沿用对应源版表面；管理员说明保留在额度卡之后。
+- 仅展示后端实际返回的唯一周期：monthly 为「每月剩余」，weekly 为「每周剩余」，daily 为「每日剩余」，custom 为「当前周期剩余」，never 为「订阅剩余」。不从月额度推算或补出五小时、每周卡片。设置页重置日期显示月日及时间，紧凑浮层显示月日；均按服务端时区与 offset 格式化，不直接展示 IANA 字符串。`never` 显示「不自动重置」；未知比例显示占位，无限额度显示「无限制」，二者不绘制有限进度条，耗尽时进度严格为 0。英文同步对应周期文案。
 - 设置页「用量统计」不展示顶部的「New API 账号用量 — 全部已记录的 Key 与资金来源 · 授权有效」说明行及其动态授权状态文案；统计口径保持不变。
 - 设置页「用量统计」的 Native 来源标签显示为「XWork Zen」；此展示名不改变账号、Provider ID 或统计口径。
 - raw ID/额度/计数在 HTTP 和 shared 边界使用十进制字符串。显示转换需有限且安全；金额/扣费不参与客户端计算。超过安全整数的精确值不能无标记截断，图表使用显示精度，不用于账务。
@@ -322,7 +322,7 @@ Native 主权益的 mcpQuota 必须 null，不能暗示新私有套餐附带官�
 #### 对话上下文浮层的模型来源边界
 
 - Composer 的结构化 `modelSelection.providerId` 是当前模型展示的唯一来源；不借 Session 旧值或全局登录账号补值。
-- 仅当前选择属于 New API Registry 的模型时，对话浮层展示 Native 订阅额度。展示与原生 ZCode 一致：只有原生「剩余额度」标题、头部「查看」入口和一根「当前订阅周期」额度条；不加授权状态行、只读周期按钮或独立周期弹窗（授权状态与周期详情在设置页的用量统计里看）。
+- 仅当前选择属于 New API Registry 的模型时，对话浮层展示 Native 订阅额度。展示与原生 ZCode 一致：原生「剩余额度」标题、头部详情入口和一根按真实周期命名的额度条（月周期为「每月剩余」）；不加授权状态行、只读周期按钮或独立周期弹窗（授权状态与周期详情在设置页的用量统计里看）。
 - Native 额度属于账号，不属于某个 transport：浮层以当前所选 Native provider 为优先来源，未投影或无 owner 时回退到其余已连接的 Native provider；任一 transport（Anthropic Messages、OpenAI Chat Completions、OpenAI Responses）单独存在都必须能显示额度。原生 `ChatCodingPlanUsageRemainingPanel` 原样复用，不改 UI。
 - 自定义 API Key、本地模型及其他非 Native 模型不得展示或通过 hover 查询 Native 订阅；官方 Coding/Start 模型继续沿原有各自来源读取。
 - 自定义模型复用接入 New API 前的 `ChatContextUsage` 布局：上下文总量/容量、占比进度条，以及运行时实际提供的组成和缓存命中率。没有真实用量的新对话不显示上下文触发器，不补假 0 或假 100%。
