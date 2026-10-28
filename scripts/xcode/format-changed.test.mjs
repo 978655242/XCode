@@ -71,6 +71,16 @@ test("still fails a previously formatted file that the change broke", (t) => {
   assert.match(result.stderr, /格式不符：clean\.ts/);
 });
 
+test("passes a change that touches only files oxfmt does not format", (t) => {
+  const repo = repository(t);
+  repo.write("assets.zip", "PK\u0003\u0004binary");
+  repo.git("add", "assets.zip");
+  repo.git("commit", "-qm", "add binary asset");
+  const result = repo.check();
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stderr, /格式不符/);
+});
+
 test("passes formatted changes without listing anything", (t) => {
   const repo = repository(t);
   repo.write("clean.ts", `${formatted}export const more = 2;\n`);

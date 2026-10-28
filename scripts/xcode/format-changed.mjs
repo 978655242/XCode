@@ -33,10 +33,14 @@ async function unformatted(files, cwd) {
     if (error.code !== 1) throw error;
     return error;
   });
+  // 修复原因：没有可格式化文件时（如改动只含 .zip），oxfmt 退出 0 但仍在 stdout 打印
+  // "Finished in …ms on 0 files" 汇总行，旧实现把它当成文件名，导致只改二进制资产的 PR
+  // 被误判为格式不符（见 PR #31）。只保留属于本次检查列表的路径，过滤掉汇总等非路径输出。
+  const requested = new Set(files);
   return result.stdout
     .split("\n")
     .map((line) => line.trim())
-    .filter(Boolean);
+    .filter((line) => requested.has(line));
 }
 
 /** base 上已存在且本就未格式化的文件。用分离的临时 worktree 保证配置与路径一致。 */
