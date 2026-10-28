@@ -21,19 +21,24 @@ async function git(args, cwd) {
 /** 返回 oxfmt --check 未通过的文件；在 cwd 下运行以沿用该目录的 .oxfmtrc.json 与忽略规则。 */
 async function unformatted(files, cwd) {
   if (files.length === 0) return [];
-  const result = await run(
+  const differences = await run(
     oxfmt,
     ["--list-different", "--no-error-on-unmatched-pattern", ...files],
     {
       cwd,
       maxBuffer: 64 * 1024 * 1024,
     },
-  ).catch((error) => {
-    // --list-different 有差异时退出 1；其余是工具错误。
-    if (error.code !== 1) throw error;
-    return error;
-  });
-  return result.stdout
+  ).then(
+    // 退出 0 即无差异。没有可格式化文件时 oxfmt 会往 stdout 打印
+    // "Finished in …ms on 0 files" 摘要，不能当作文件名解析，否则只改二进制文件的 PR 会误报。
+    () => "",
+    (error) => {
+      // --list-different 有差异时退出 1；其余是工具错误。
+      if (error.code !== 1) throw error;
+      return error.stdout;
+    },
+  );
+  return differences
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);

@@ -71,6 +71,15 @@ test("still fails a previously formatted file that the change broke", (t) => {
   assert.match(result.stderr, /格式不符：clean\.ts/);
 });
 
+test("passes when no changed file is formattable", (t) => {
+  const repo = repository(t);
+  repo.write("assets.zip", "PK\u0003\u0004binary");
+  repo.git("add", "assets.zip");
+  repo.git("commit", "-qm", "add binary asset");
+  const result = repo.check();
+  assert.equal(result.status, 0, result.stderr);
+});
+
 test("passes formatted changes without listing anything", (t) => {
   const repo = repository(t);
   repo.write("clean.ts", `${formatted}export const more = 2;\n`);
