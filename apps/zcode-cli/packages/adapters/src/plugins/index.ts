@@ -76,6 +76,9 @@ export {
   uninstallMarketplacePlugin,
   updateMarketplace,
   validateMarketplacePlugin,
+  // XCODE: generic read-only source composition for plugin guide materials.
+  resolveInstalledPluginRoot,
+  withPluginSourceRoot,
   validateLocalPluginPath,
   validateMarketplaceSource,
   type DescribeMarketplacePluginResult,
@@ -102,6 +105,8 @@ export {
   comparePluginVersions,
   type PluginUpdateStatus,
 } from "./version-compare.js";
+// XCODE: public read-only guide source extension.
+export { readPluginGuideSource } from "../xwork-plugin-guides/index.js";
 
 const ZCODE_MANIFEST_PATH = join(".zcode-plugin", "plugin.json");
 const CLAUDE_MANIFEST_PATH = join(".claude-plugin", "plugin.json");

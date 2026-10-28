@@ -69,12 +69,7 @@ const CLAUDE_MARKETPLACE_REFRESH_TIMEOUT_MS = 30_000;
 const MARKETPLACE_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]{0,127}$/;
 const PLUGIN_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]{0,127}$/;
 const SOURCE_SHA256_PATTERN = /^[a-f0-9]{64}$/u;
-const UNSUPPORTED_MANIFEST_FIELDS = [
-  "channels",
-  "lspServers",
-  "outputStyles",
-  "settings",
-] as const;
+const UNSUPPORTED_MANIFEST_FIELDS = ["channels", "lspServers", "outputStyles", "settings"] as const;
 
 export type MarketplaceSource =
   | { source: "url"; headers?: Record<string, string>; url: string }
@@ -1222,7 +1217,9 @@ export async function validateLocalPluginPath(input: {
       },
     ];
   }
-  const rootPath = statSync(resolved).isDirectory() ? resolved : resolveManifestRootFromFile(resolved);
+  const rootPath = statSync(resolved).isDirectory()
+    ? resolved
+    : resolveManifestRootFromFile(resolved);
   if (findMarketplaceManifestPath(rootPath)) {
     return validateMarketplaceSource({
       signal: input.signal,
@@ -1396,6 +1393,20 @@ async function cacheMarketplacePlugin(input: {
     input.state.plugins.push(record);
   }
   return { ...(activation ? { activation } : {}), record };
+}
+
+// XCODE: read-only consumers share source verification and keep temporary roots within this lifetime.
+export async function withPluginSourceRoot<T>(
+  input: Parameters<typeof resolvePluginSourceRoot>[0],
+  read: (rootPath: string) => Promise<T>,
+): Promise<T> {
+  let resolved: ResolvedPluginSourceRoot | undefined;
+  try {
+    resolved = await resolvePluginSourceRoot(input);
+    return await read(resolved.path);
+  } finally {
+    await cleanupPluginSourceBestEffort(resolved?.cleanup);
+  }
 }
 
 async function resolvePluginSourceRoot(input: {

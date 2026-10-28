@@ -12,7 +12,7 @@
  * 独立输入展示壳，不承载会话编排逻辑，仅做三处适配：
  * 1. useChatViewActiveTaskProvider 来自 @/v4/activeTaskProvider.js（配置面读取）；
  * 2. ChatComposerPasteEvent 收口为本文件导出的结构类型；
- * 3. mention 面板用 enableMentionPanel 控制；slash command 始终读取 CLI workspace catalog。
+ * 3. mention / slash command 面板由可选开关控制，主 Composer 默认保持启用。
  */
 import { $getPromptMarkdown } from "@/mentions/promptSerialization.js";
 import { PromptClipboardPlugin } from "@/mentions/PromptClipboardPlugin.js";
@@ -907,7 +907,8 @@ function E2ELexicalInputBridgePlugin({ inputTestId }: { inputTestId?: string }) 
       getEditorState: () => editor.getEditorState(),
       getText: () => getEditorMarkdown(editor.getEditorState()),
       setText: (text: string) => replaceEditorText(editor, text),
-      setTextWithPluginMentions: (text: string) => replaceEditorTextWithPluginMentions(editor, text),
+      setTextWithPluginMentions: (text: string) =>
+        replaceEditorTextWithPluginMentions(editor, text),
       setEditorStateJson: (editorStateJson: string) =>
         replaceEditorStateJson(editor, editorStateJson),
     };
@@ -1287,7 +1288,8 @@ function EditorApiPlugin({
       setMention: (mention, trailingText) =>
         replaceEditorWithMention(editor, mention, trailingText),
       setText: (text: string) => replaceEditorText(editor, text),
-      setTextWithPluginMentions: (text: string) => replaceEditorTextWithPluginMentions(editor, text),
+      setTextWithPluginMentions: (text: string) =>
+        replaceEditorTextWithPluginMentions(editor, text),
       setEditorStateJson: (editorStateJson: string) =>
         replaceEditorStateJson(editor, editorStateJson),
       setSkillMention: (skillName: string, markdown = `$${skillName}`, trailingText = " ") =>
@@ -1335,6 +1337,8 @@ interface LexicalChatInputProps {
   appSlashCommands?: readonly AppSlashCommand[];
   /** mention（@/#）面板开关。v4 数据面未就绪时显式关闭，入口保留。 */
   enableMentionPanel?: boolean;
+  // XCODE: 辅助文本输入不订阅或执行任务命令，默认保持上游行为。
+  enableSlashCommands?: boolean;
 }
 
 const EDITOR_THEME = {
@@ -1366,6 +1370,7 @@ export function LexicalChatInput({
   excludedSlashCommandNames,
   appSlashCommands,
   enableMentionPanel = true,
+  enableSlashCommands = true,
 }: LexicalChatInputProps) {
   const inputMountedAtRef = useRef(Date.now());
   const lastReadyLogKeyRef = useRef<string | null>(null);
@@ -1503,19 +1508,21 @@ export function LexicalChatInput({
           <EditablePlugin editable={!disabled} />
           <E2ELexicalInputBridgePlugin inputTestId={inputTestId} />
           <EditorApiPlugin editorApiRef={editorApiRef} />
-          <LeadingChineseSlashAliasPlugin disabled={disabled} />
+          {enableSlashCommands ? <LeadingChineseSlashAliasPlugin disabled={disabled} /> : null}
           <PasteCapturePlugin disabled={disabled} onPaste={onPaste} />
         </div>
-        <SlashCommandPlugin
-          workspacePath={workspacePath}
-          workspaceIdentity={workspaceIdentity}
-          sessionId={skillCatalogSessionId ?? taskId}
-          provider={activeTaskProvider}
-          container={triggerPanelContainer}
-          disabled={disabled}
-          excludedCommandNames={excludedSlashCommandNames}
-          appCommands={appSlashCommands}
-        />
+        {enableSlashCommands ? (
+          <SlashCommandPlugin
+            workspacePath={workspacePath}
+            workspaceIdentity={workspaceIdentity}
+            sessionId={skillCatalogSessionId ?? taskId}
+            provider={activeTaskProvider}
+            container={triggerPanelContainer}
+            disabled={disabled}
+            excludedCommandNames={excludedSlashCommandNames}
+            appCommands={appSlashCommands}
+          />
+        ) : null}
         {enableMentionPanel ? (
           <MentionPlugin
             workspacePath={workspacePath}

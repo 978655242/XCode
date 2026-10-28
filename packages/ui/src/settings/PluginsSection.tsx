@@ -31,10 +31,9 @@ import {
   PluginWarningList,
 } from "@/settings/InstalledPluginManagement.js";
 import { PluginConfigControls } from "@/settings/PluginConfigControls.js";
-import {
-  PluginStoreAdvancedSection,
-  PluginStoreDetailView,
-} from "@/settings/PluginStoreDetailView.js";
+import { PluginStoreAdvancedSection } from "@/settings/PluginStoreDetailView.js";
+// XCODE: 管理页沿当前 Scope 的 Host 组合相同说明阅读页。
+import { XWorkPluginStoreDetailView } from "@/xwork/plugin-guides/index.js";
 import {
   PluginStoreItemMenu,
   PluginStoreOpenUiButton,
@@ -685,7 +684,13 @@ function PluginList({
             onSectionSelect={showMarketplaceBreadcrumb ? onOpenPluginStore : closeDetail}
           />
         ) : null}
-        <PluginStoreDetailView
+        <XWorkPluginStoreDetailView
+          workspacePath={target?.workspacePath}
+          workspaceIdentity={target?.workspaceIdentity}
+          remoteSessionId={target?.remoteSessionId}
+          guideService={targetServiceResolution.services.pluginGuideService ?? null}
+          modelSelectionService={targetServiceResolution.services.modelSelectionService ?? null}
+          guideHostReady={targetServiceResolution.rpcReady}
           item={selectedStoreItem}
           actions={actions}
           onRetryDescribe={() => {}}

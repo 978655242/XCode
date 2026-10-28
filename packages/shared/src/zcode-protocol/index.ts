@@ -467,6 +467,8 @@ export const zcodeProtocolNotifications = {
   pluginOperationProgress: "plugins/operationProgress",
   processResourceSample: "process/resourceSample",
   processNetworkRequests: "process/networkRequests",
+  // XCODE: independent plugin guide text deltas, outside session replay.
+  xworkWorkspaceTextDelta: "xwork/workspace/textDelta",
 } as const;
 
 /** 启动控制面独立于 task stream；数据库身份不可携带路径/凭据。 */
@@ -4312,6 +4314,9 @@ export const zcodeProtocolMethods = {
   // browser-use 反向请求由 agent 发起，host 转给 main 中的 CDP executor。
   interactionBrowserList: "interaction/browserList",
   interactionBrowserExecute: "interaction/browserExecute",
+  // XCODE: read-only guide sources and a real auxiliary workspace text stream.
+  xworkPluginGuideSource: "xwork/plugins/guideSource",
+  xworkWorkspaceStreamText: "xwork/workspace/streamText",
 } as const;
 
 export type ZCodeProtocolMethod = (typeof zcodeProtocolMethods)[keyof typeof zcodeProtocolMethods];

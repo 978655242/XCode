@@ -8,6 +8,8 @@ export default defineConfig({
       "tests/**/*.test.ts",
       "packages/*/test/**/*.test.ts",
       "packages/*/tests/**/*.test.ts",
+      // XCODE: independent guide contract regressions live with their owned CLI modules.
+      "packages/*/src/xwork-plugin-guides/contract.test.ts",
     ],
   },
 });

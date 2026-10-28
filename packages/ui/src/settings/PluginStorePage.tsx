@@ -30,10 +30,9 @@ import {
 } from "@/settings/InstalledPluginManagement.js";
 import { AddMarketplaceSourceDialog } from "@/settings/AddMarketplaceSourceDialog.js";
 import { PluginStoreListView, type PluginStoreSegment } from "@/settings/PluginStoreListView.js";
-import {
-  PluginStoreAdvancedSection,
-  PluginStoreDetailView,
-} from "@/settings/PluginStoreDetailView.js";
+import { PluginStoreAdvancedSection } from "@/settings/PluginStoreDetailView.js";
+// XCODE: 使用独立包装组合说明阅读页，保留市场详情和原有操作。
+import { XWorkPluginStoreDetailView } from "@/xwork/plugin-guides/index.js";
 import { PluginStoreSourcesDialog } from "@/settings/PluginStoreSourcesDialog.js";
 import type { PluginStoreActions } from "@/settings/PluginStoreCard.js";
 import {
@@ -696,7 +695,10 @@ export function PluginStorePage({
           />
         </div>
       ) : view === "detail" && detailItem ? (
-        <PluginStoreDetailView
+        <XWorkPluginStoreDetailView
+          workspacePath={workspacePath}
+          workspaceIdentity={workspaceIdentity}
+          remoteSessionId={remoteSessionId}
           item={detailItem}
           actions={actions}
           describeEntry={describeCache[detailItem.id]}

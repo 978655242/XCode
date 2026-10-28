@@ -91,6 +91,7 @@ export function ChatPromptEditor({
   excludedSlashCommandNames,
   appSlashCommands,
   enableMentionPanel,
+  enableSlashCommands,
 }: {
   workspacePath: string;
   workspaceIdentity?: string;
@@ -160,6 +161,8 @@ export function ChatPromptEditor({
   appSlashCommands?: readonly AppSlashCommand[];
   /** mention 面板开关（透传 LexicalChatInput）。 */
   enableMentionPanel?: boolean;
+  // XCODE: 独立辅助输入可关闭任务命令，默认保持主 Composer 行为。
+  enableSlashCommands?: boolean;
 }) {
   const { intl } = useZCodeIntl();
   const isInline = layout === "inline";
@@ -372,6 +375,7 @@ export function ChatPromptEditor({
         excludedSlashCommandNames={excludedSlashCommandNames}
         appSlashCommands={appSlashCommands}
         enableMentionPanel={enableMentionPanel}
+        enableSlashCommands={enableSlashCommands}
       />
     </div>
   );

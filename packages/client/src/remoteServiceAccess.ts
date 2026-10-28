@@ -1,3 +1,5 @@
+// XCODE: 插件说明 RPC 指向当前 Host owner。
+import { IPluginGuideService } from "@zcode/services";
 import { IGenUiService } from "@zcode/services";
 import { ProxyChannel, type IChannelClient } from "@zcode/rpc";
 import {
@@ -118,6 +120,8 @@ export class RemoteServiceAccess implements IServiceAccessor {
   readonly pluginSyncService: IPluginSyncService;
   readonly pluginsService: IPluginsService;
   readonly pluginManagementService: IPluginManagementService;
+  // XCODE: 说明状态与问答不存于 Renderer。
+  readonly pluginGuideService: IPluginGuideService;
   readonly subagentsService: ISubagentsService;
   readonly commandsService: ICommandsService;
   readonly hooksService: IHooksService;
@@ -291,6 +295,10 @@ export class RemoteServiceAccess implements IServiceAccessor {
     );
     this.pluginManagementService = ProxyChannel.toService<IPluginManagementService>(
       channelClient.getChannel(IPluginManagementService.channelName),
+    );
+    // XCODE: 本地、远端与手机复用同一说明服务协议。
+    this.pluginGuideService = ProxyChannel.toService<IPluginGuideService>(
+      channelClient.getChannel(IPluginGuideService.channelName),
     );
     this.subagentsService = ProxyChannel.toService<ISubagentsService>(
       channelClient.getChannel(ISubagentsService.channelName),

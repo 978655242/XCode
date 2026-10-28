@@ -1,0 +1,3 @@
+# Read-only plugin guide materials
+
+`readPluginGuideSource` reads installed material or cached marketplace identity. Identity mode never materializes remote sources. Documents use the existing source resolver and its scoped cleanup, without install or enable mutation. Only UTF-8 README, SKILL, command and agent Markdown plus manifest capability/configuration names are returned. Symlinks, traversal, binary input and source budgets produce explicit exclusions. `sourceRevision` describes cached provenance; only `fingerprintKind: content` proves inspected text. No runtime configuration values are read.

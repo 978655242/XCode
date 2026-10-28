@@ -1,3 +1,5 @@
+// XCODE: 产品说明频道仅在 attachment 装配时追加，不修改上游默认暴露策略。
+import { withPluginGuideExposure } from "@zcode/services/xwork-plugin-guides";
 import type { IChannelServer } from "@zcode/rpc";
 import {
   ServiceCollection,
@@ -107,6 +109,6 @@ export function exposeWindowHostAttachmentServices(params: {
   params.services.exposeOnChannelServer(
     params.server,
     params.overrides,
-    resolveWindowHostServiceExposurePolicy(params.clientMode),
+    withPluginGuideExposure(resolveWindowHostServiceExposurePolicy(params.clientMode)),
   );
 }
