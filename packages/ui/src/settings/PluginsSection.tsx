@@ -689,6 +689,8 @@ function PluginList({
           workspaceIdentity={target?.workspaceIdentity}
           remoteSessionId={target?.remoteSessionId}
           guideService={targetServiceResolution.services.pluginGuideService ?? null}
+          modelSelectionService={targetServiceResolution.services.modelSelectionService ?? null}
+          guideHostReady={targetServiceResolution.rpcReady}
           item={selectedStoreItem}
           actions={actions}
           onRetryDescribe={() => {}}

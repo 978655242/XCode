@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Loader2, RefreshCw, Save } from "lucide-react";
-import type { IPluginGuideService } from "./contract.js";
+import type { IPluginGuideService, PluginGuideModelHost } from "./contract.js";
 import { PLUGIN_GUIDE_SECTIONS, type PluginGuideTarget } from "@zcode/shared/xwork-plugin-guides";
 import { Button } from "@/components/ui/button.js";
 import { MessageResponse } from "@/components/ai-elements/message.js";
@@ -18,6 +18,7 @@ import { usePluginGuideModel } from "./usePluginGuideModel.js";
 
 interface PluginGuideReaderProps {
   service: IPluginGuideService | null | undefined;
+  modelHost: PluginGuideModelHost;
   target: PluginGuideTarget | null;
   displayName: string;
   onBack: () => void;
@@ -37,6 +38,7 @@ export function PluginGuideReader(props: PluginGuideReaderProps) {
 
 function PluginGuideReaderContent({
   service,
+  modelHost,
   target,
   displayName,
   onBack,
@@ -53,6 +55,7 @@ function PluginGuideReaderContent({
   const { snapshot } = projection;
   const document = snapshot?.document;
   const model = usePluginGuideModel(
+    modelHost,
     target,
     document,
     Boolean(snapshot && (document || snapshot.phase !== "reading")),

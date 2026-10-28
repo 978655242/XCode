@@ -13,6 +13,8 @@ export function XWorkPluginStoreDetailView({
   workspaceIdentity,
   remoteSessionId,
   guideService,
+  modelSelectionService,
+  guideHostReady = true,
   ...detail
 }: XWorkPluginStoreDetailViewProps) {
   const { intl, locale } = useZCodeIntl();
@@ -26,7 +28,13 @@ export function XWorkPluginStoreDetailView({
     locale,
   ]);
   const open = openTarget === targetIdentity;
-  const service = guideService === undefined ? services?.pluginGuideService : guideService;
+  // 说明服务与模型目录必须来自同一来源：显式传入时都用调用方解析出的 Host，否则都用上下文。
+  const explicit = guideService !== undefined;
+  const service = explicit ? guideService : services?.pluginGuideService;
+  const modelHost = {
+    modelSelectionService: explicit ? modelSelectionService : services?.modelSelectionService,
+    ready: explicit ? guideHostReady : true,
+  };
   const version =
     detail.item.info?.version ??
     detail.item.installedMeta?.version ??
@@ -61,6 +69,7 @@ export function XWorkPluginStoreDetailView({
         <PluginGuideReader
           key={targetIdentity}
           service={service}
+          modelHost={modelHost}
           target={
             workspacePath
               ? {

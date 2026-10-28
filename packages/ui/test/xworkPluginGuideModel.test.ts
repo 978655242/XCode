@@ -9,15 +9,27 @@ import {
 } from "@zcode/shared/xwork-plugin-guides";
 import { usePluginGuideModel } from "@/xwork/plugin-guides/usePluginGuideModel.js";
 import type { IPluginGuideService } from "@/xwork/plugin-guides/contract.js";
+import type { IModelSelectionService } from "@zcode/services";
 import { usePluginGuide } from "@/xwork/plugin-guides/usePluginGuide.js";
 
-const catalog = vi.hoisted(() => ({ state: {} as Record<string, unknown>, read: vi.fn() }));
+const catalog = vi.hoisted(() => ({
+  state: {} as Record<string, unknown>,
+  read: vi.fn(),
+  resolve: vi.fn(),
+}));
 vi.mock("@/hooks/useModelSelectionView.js", () => ({
-  useModelSelectionView: (...args: unknown[]) => {
+  useModelSelectionServiceView: (...args: unknown[]) => {
     catalog.read(...args);
     return { state: catalog.state, reload: vi.fn() };
   },
+  // 回归：说明阅读器不得再按路径独立解析模型目录（见 PR #33 评审）。
+  useModelSelectionView: (...args: unknown[]) => {
+    catalog.resolve(...args);
+    throw new Error("guide model must use the guide Host's model selection service");
+  },
 }));
+const hostModels = { name: "guide-host-models" } as unknown as IModelSelectionService;
+const host = { modelSelectionService: hostModels, ready: true };
 vi.mock("@/i18n/IntlProvider.js", () => ({
   useZCodeIntl: () => ({ intl: { formatMessage: ({ id }: { id: string }) => id } }),
 }));
@@ -58,12 +70,9 @@ afterEach(() => {
 describe("reader-local guide model", () => {
   it("uses the target Host and lowest public effort without writing preferred selection", () => {
     catalog.state = { status: "ready", view: view() };
-    const { result } = renderHook(() => usePluginGuideModel(target, undefined, true));
-    expect(catalog.read).toHaveBeenCalledWith(
-      target.workspacePath,
-      target.remoteSessionId,
-      target.workspaceIdentity,
-    );
+    const { result } = renderHook(() => usePluginGuideModel(host, target, undefined, true));
+    expect(catalog.read).toHaveBeenCalledWith(hostModels, true, "remote-waiting");
+    expect(catalog.resolve).not.toHaveBeenCalled();
     expect(result.current.selection).toEqual({ ...preferred, options: { reasoningLevel: "low" } });
     expect(result.current.groups.map((group) => group.key)).toEqual(["registry-provider:p"]);
     expect(preferred.options.reasoningLevel).toBe("max");
@@ -72,7 +81,7 @@ describe("reader-local guide model", () => {
     const selected = { ...preferred, options: { reasoningLevel: "high" } };
     catalog.state = { status: "ready", view: view() };
     const saved = { selection: selected } as PluginGuideDocument;
-    const { result, rerender } = renderHook(() => usePluginGuideModel(target, saved, true));
+    const { result, rerender } = renderHook(() => usePluginGuideModel(host, target, saved, true));
     expect(result.current.selection).toEqual(selected);
     act(() => result.current.setSelection({ ...preferred, options: { reasoningLevel: "max" } }));
     const changed = view();
@@ -98,6 +107,7 @@ describe("reader-local guide model", () => {
     catalog.state = { status: "ready", view: view() };
     const { result, rerender } = renderHook(() =>
       usePluginGuideModel(
+        host,
         target,
         { selection: { providerId: "gone", modelId: "m" } } as PluginGuideDocument,
         true,
@@ -112,7 +122,7 @@ describe("reader-local guide model", () => {
   it("waits for the saved document before pinning the default and cannot use a waiting remote", () => {
     catalog.state = { status: "ready", view: view() };
     const { result, rerender } = renderHook(
-      ({ ready }) => usePluginGuideModel(target, undefined, ready),
+      ({ ready }) => usePluginGuideModel(host, target, undefined, ready),
       { initialProps: { ready: false } },
     );
     expect(result.current.selection).toBeUndefined();
@@ -120,6 +130,29 @@ describe("reader-local guide model", () => {
     rerender({ ready: true });
     expect(result.current.canGenerate).toBe(false);
     expect(result.current.groups).toEqual([]);
+  });
+  it("reads the guide Host's catalog even when the target has no attached remote session", () => {
+    // 远程配置工作区没有已附加标签页：target 只有 identity，没有 remoteSessionId。
+    // 说明服务已绑定该 Host，模型目录必须来自同一 Host，不能进入 remote-waiting。
+    catalog.state = { status: "ready", view: view() };
+    const detached = { ...target, remoteSessionId: undefined };
+    const { result } = renderHook(() => usePluginGuideModel(host, detached, undefined, true));
+    expect(catalog.read).toHaveBeenCalledWith(hostModels, true, "remote-waiting");
+    expect(catalog.resolve).not.toHaveBeenCalled();
+    expect(result.current.canGenerate).toBe(true);
+  });
+  it("pauses the catalog while the guide Host's RPC is not ready", () => {
+    catalog.state = { status: "unavailable", reason: "remote-waiting" };
+    const { result } = renderHook(() =>
+      usePluginGuideModel(
+        { modelSelectionService: hostModels, ready: false },
+        target,
+        undefined,
+        true,
+      ),
+    );
+    expect(catalog.read).toHaveBeenCalledWith(hostModels, false, "remote-waiting");
+    expect(result.current.canGenerate).toBe(false);
   });
 });
 
