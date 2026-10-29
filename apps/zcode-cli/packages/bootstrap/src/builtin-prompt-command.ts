@@ -1,3 +1,5 @@
+// XCODE: 自有静态模板使用共享品牌，用户插值和兼容标识保持不变。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { join } from "node:path";
 import {
@@ -93,9 +95,9 @@ function buildInitAgentsPrompt(params: {
     : "";
 
   return [
-    "You are running XWork's built-in /init command.",
+    `You are running ${PRODUCT_NAME}'s built-in /init command.`,
     "",
-    "Your task is to create or update a concise workspace instruction file for future XWork agents.",
+    `Your task is to create or update a concise workspace instruction file for future ${PRODUCT_NAME} agents.`,
     "",
     "Target:",
     `- Workspace directory: ${params.workingDirectory}`,
@@ -111,7 +113,7 @@ function buildInitAgentsPrompt(params: {
     "3. If AGENTS.md already exists, read it first and update it with Edit instead of replacing it wholesale.",
     "4. If AGENTS.md does not exist, create it at the workspace root.",
     "5. Keep the file practical and short enough for future agents to read quickly.",
-    "6. Include only project-specific facts future XWork agents would otherwise miss.",
+    `6. Include only project-specific facts future ${PRODUCT_NAME} agents would otherwise miss.`,
     "7. Ask the user only if a repository-specific decision cannot be inferred and would materially change the file.",
     "",
     "Recommended AGENTS.md content:",

@@ -1,4 +1,6 @@
 import { normalizeRemoteConnectionError, sanitizeRemoteConnectionLog } from "@zcode/shared";
+// XCODE: 仅自有错误提示插入产品展示名，Host 路由、事件与日志标识继续兼容。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 /* eslint-disable max-lines -- Host 入口集中编排 local/remote service wiring，本次退出保护需要在同一处桥接 host 上报。 */
 /* eslint-disable max-lines -- host process 入口集中维护 local/remote 初始化和资源回收，realtime bridge 接入后先保持同文件收口。 */
 /**
@@ -659,7 +661,7 @@ async function dispatchOffPeakRun(request: OffPeakRunDispatchRequest): Promise<{
   const zcodeAgentService = activeServices?.getOptional(IZCodeAgentService);
   if (!zcodeTaskService || !zcodeAgentService) {
     // XCODE: 返回给 renderer 的服务错误显示统一产品名，内部服务标识不变。
-    throw new Error("XWork task service is not initialized.");
+    throw new Error(`${PRODUCT_NAME} task service is not initialized.`);
   }
   const runtime = await ensureOffPeakRuntime();
   if (!runtime) {
@@ -1093,7 +1095,7 @@ async function dispatchCronRun(request: CronRunDispatchRequest): Promise<{
   const targetServices = resolveAutomationTargetServices(request);
   const zcodeTaskService = targetServices.getOptional(IZCodeTaskService);
   if (!zcodeTaskService) {
-    throw new Error("XWork task service is not initialized.");
+    throw new Error(`${PRODUCT_NAME} task service is not initialized.`);
   }
   const modelSelectionService = targetServices.getOptional(IModelSelectionService);
   if (!modelSelectionService) {
@@ -1598,12 +1600,12 @@ function createReportingRemoteZCodeTaskService<T extends object>(
     const onDynamicTaskReady = Reflect.get(target, "onDynamicTaskReady");
     if (typeof onDynamicTaskReady !== "function") {
       workspaceTaskTracker.finish(taskId, meta);
-      throw new Error("remote XWork task service does not expose onDynamicTaskReady");
+      throw new Error(`remote ${PRODUCT_NAME} task service does not expose onDynamicTaskReady`);
     }
     const subscribe = onDynamicTaskReady.call(target, taskId);
     if (typeof subscribe !== "function") {
       workspaceTaskTracker.finish(taskId, meta);
-      throw new Error("remote XWork task ready event is not subscribable");
+      throw new Error(`remote ${PRODUCT_NAME} task ready event is not subscribable`);
     }
     workspaceProxyState.trackTaskReady(
       taskId,
@@ -3308,7 +3310,7 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
       parentPort.postMessage({
         type: HostResponseTypes.SessionMessageDeliverResult,
         result: {
-          error: "XWork task service is not initialized.",
+          error: `${PRODUCT_NAME} task service is not initialized.`,
           messageId: msg.request.messageId,
           requestId: msg.request.requestId,
           sessionId: msg.request.fromSessionId,

@@ -2,6 +2,8 @@
 import { SidebarNativeTooltip, ControlHintTooltip } from "@/ControlHintTooltip.js";
 /* oxlint-disable eslint(max-lines) -- footer 聚合账户、主题、模式和快捷键菜单。 */
 import type { Locale, UserInfo } from "@zcode/shared";
+// XCODE: 无资料账号的品牌回退来自同源名称，真实显示名与用户名不转换。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import { memo, useCallback, useEffect, useState, type ReactNode } from "react";
 import { DesktopCommandIds } from "@zcode/shared";
 import {
@@ -71,7 +73,7 @@ function getSidebarProfileName(user?: UserInfo | null): string {
     return username;
   }
 
-  return "XWork";
+  return PRODUCT_NAME;
 }
 
 function getSidebarProfileBadge(
@@ -86,8 +88,8 @@ function getSidebarProfileBadge(
 }
 
 function getAvatarFallbackText(user: UserInfo | null | undefined): string {
-  const source = user?.displayName?.trim() || user?.username?.trim() || "Z";
-  return source[0]?.toUpperCase() ?? "Z";
+  const source = user?.displayName?.trim() || user?.username?.trim() || PRODUCT_NAME;
+  return source[0]?.toUpperCase() ?? PRODUCT_NAME[0]!;
 }
 
 export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterComponent({

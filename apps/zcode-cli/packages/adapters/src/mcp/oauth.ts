@@ -1,3 +1,5 @@
+// XCODE: 自有静态展示模板读取共享品牌；用户内容与稳定标识保持原样。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import { createHash, randomBytes } from "node:crypto";
 import type {
   OAuthClientInformationMixed,
@@ -166,7 +168,7 @@ class ZCodeMcpAuthorizationCodeProvider implements OAuthClientProvider {
 
   get clientMetadata(): OAuthClientMetadata {
     return {
-      client_name: this.config.clientName ?? `ZCode ${this.serverName}`,
+      client_name: this.config.clientName ?? `${PRODUCT_NAME} ${this.serverName}`,
       grant_types: ["authorization_code", "refresh_token"],
       redirect_uris: [this.redirectUrl],
       response_types: ["code"],

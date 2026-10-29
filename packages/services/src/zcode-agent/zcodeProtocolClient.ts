@@ -1,6 +1,8 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { ZCodeStorageStartupGate } from "#src/zcode-agent/zcodeStorageStartupGate.js";
 import { Emitter } from "@zcode/rpc";
+// XCODE: 只投影自有诊断模板，协议方法和外部错误在其后插入。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 import type { IDisposable } from "@zcode/rpc";
 import type {
   ZCodeProtocolMethod,
@@ -69,7 +71,8 @@ export class ZCodeProtocolRequestTimeoutError extends Error {
     readonly requestId: ZCodeProtocolRequestId,
     readonly timeoutMs: number,
   ) {
-    super(`XWork Protocol request timed out: ${method}`);
+    // XCODE: 静态前缀先投影，方法与 typed timeout 身份保持原样。
+    super(`${brandProductText("XWork Protocol request timed out:")} ${method}`);
     this.name = "ZCodeProtocolRequestTimeoutError";
   }
 }
@@ -126,7 +129,8 @@ export class ZCodeProtocolClient implements IDisposable {
       transport.onClose((event) => {
         this.storageStartup.dispose();
         const suffix = event.reason ? `: ${event.reason}` : "";
-        this.rejectAll(new Error(`XWork agent transport closed${suffix}`));
+        // XCODE: 外部关闭原因在静态品牌前缀之后拼接，保持原始诊断内容。
+        this.rejectAll(new Error(`${brandProductText("XWork agent transport closed")}${suffix}`));
         this.closeEmitter.fire();
       }),
     );
@@ -371,7 +375,10 @@ export class ZCodeProtocolClient implements IDisposable {
       pending.reject(
         error instanceof Error
           ? error
-          : new Error(`XWork Protocol response parse failed: ${pending.method}`),
+          : // XCODE: 只投影静态诊断前缀，方法名继续作为协议事实。
+            new Error(
+              `${brandProductText("XWork Protocol response parse failed:")} ${pending.method}`,
+            ),
       );
     }
   }
@@ -417,7 +424,8 @@ export class ZCodeProtocolClient implements IDisposable {
   }
 
   private disposeLocalResources(): void {
-    this.rejectAll(new Error("XWork Protocol client disposed"));
+    // XCODE: 仅投影关闭诊断，client 生命周期不变。
+    this.rejectAll(new Error(brandProductText("XWork Protocol client disposed")));
     for (const disposable of this.disposables) {
       disposable.dispose();
     }
@@ -432,7 +440,8 @@ export class ZCodeProtocolClient implements IDisposable {
 
   private assertNotDisposed(): void {
     if (this.disposed) {
-      throw new Error("XWork Protocol client is disposed");
+      // XCODE: 仅投影关闭诊断，原 disposed 检查不变。
+      throw new Error(brandProductText("XWork Protocol client is disposed"));
     }
   }
 }

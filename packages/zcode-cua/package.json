@@ -58,5 +58,8 @@
   "scripts": {
     "build": "tsc --noEmit -p tsconfig.json"
   },
+  "dependencies": {
+    "@zcode/shared": "workspace:*"
+  },
   "zcodeCuaPlaceholder": true
 }

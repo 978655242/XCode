@@ -33,11 +33,13 @@ import { DesktopOverlayWindowControls } from "@/DesktopOverlayWindowControls.js"
 
 interface WelcomeScreenProps {
   onComplete: (reason: LoginCompleteReason) => void | Promise<void>;
+  // XCODE: 下游可装配纯展示头部，未提供时保留上游默认布局。
+  header?: ReactNode;
 }
 
 export type LoginCompleteReason = "oauth" | "apiKey" | "skip";
 
-export function WelcomeScreen({ onComplete }: WelcomeScreenProps) {
+export function WelcomeScreen({ onComplete, header }: WelcomeScreenProps) {
   return (
     <main className="relative flex h-full min-h-dvh items-center justify-center overflow-hidden bg-background px-4 py-6 text-foreground sm:px-6">
       <ThemeHeroVisual className="absolute inset-0" />
@@ -45,7 +47,7 @@ export function WelcomeScreen({ onComplete }: WelcomeScreenProps) {
       <div className="pointer-events-none absolute left-0 top-0 right-0 z-10 flex h-12 items-center [app-region:drag] platform-windows-desktop:right-[134px] platform-linux-desktop:right-[134px]" />
       <DesktopOverlayWindowControls />
       <section className="relative z-10 w-full flex flex-col gap-10 max-w-sm rounded-2xl border border-popover-border bg-background p-8 text-ui-base/relaxed shadow-md sm:p-10">
-        <LoginPanel active onComplete={onComplete} />
+        <LoginPanel active onComplete={onComplete} header={header} />
       </section>
     </main>
   );
@@ -54,6 +56,7 @@ export function WelcomeScreen({ onComplete }: WelcomeScreenProps) {
 interface LoginPanelProps {
   active: boolean;
   onComplete: (reason: LoginCompleteReason) => void | Promise<void>;
+  header?: ReactNode;
 }
 
 interface ActiveLoginEntryAttempt {
@@ -75,7 +78,7 @@ export function shouldCompleteLoginFromExistingUser(params: {
   return params.hasUser && !params.attempt;
 }
 
-export function LoginPanel({ active, onComplete }: LoginPanelProps) {
+export function LoginPanel({ active, onComplete, header }: LoginPanelProps) {
   const { intl } = useZCodeIntl();
   const {
     startLogin,
@@ -287,12 +290,17 @@ export function LoginPanel({ active, onComplete }: LoginPanelProps) {
 
   return (
     <>
-      <LoginPanelHeader
-        title={intl.formatMessage({ id: "login.title" })}
-        description={intl.formatMessage({ id: "login.description" })}
-      >
-        {null}
-      </LoginPanelHeader>
+      {/* XCODE: 仅在装配处覆盖头部，不改默认渲染与登录业务状态。 */}
+      {header !== undefined ? (
+        header
+      ) : (
+        <LoginPanelHeader
+          title={intl.formatMessage({ id: "login.title" })}
+          description={intl.formatMessage({ id: "login.description" })}
+        >
+          {null}
+        </LoginPanelHeader>
+      )}
 
       <div className="space-y-6">
         {/* Bugfix: Root 层写入 oauthError（轮询/回调失败）后 effect 会把 useOAuth reset 回 idle，

@@ -92,6 +92,9 @@ import {
   type BigModelTeamPlanBizContext,
 } from "#src/bigmodel/teamPlanApiKey.js";
 
+// XCODE: 客户端本地错误模板统一品牌，后端套餐名、文案与协议字段保留来源原值。
+import { brandProductText } from "@zcode/shared/xwork-brand";
+
 const BIGMODEL_CODING_PLAN_API_PREFIX = "/api/biz";
 const ZAI_CODING_PLAN_PAY_API_PREFIX = "/api/pay";
 const ZCODE_CLIENT_CONFIG_API_PREFIX = "/api/v1/client/configs";
@@ -1322,11 +1325,13 @@ function unwrapClientConfigProducts(
   payload: ZCodeClientConfigEnvelope,
 ): CodingPlanStaticProductsConfig {
   if (payload.code !== undefined && payload.code !== 0) {
-    throw new Error(payload.msg?.trim() || "XWork client config request failed");
+    // XCODE: 后端错误原样显示，只投影本地兜底模板。
+    throw new Error(payload.msg?.trim() || brandProductText("XWork client config request failed"));
   }
   const products = payload.data?.configs?.codingPlanStaticProducts;
   if (!products || typeof products !== "object") {
-    throw new Error("XWork client config missing Coding Plan products");
+    // XCODE: 仅本地缺失配置提示投影产品品牌。
+    throw new Error(brandProductText("XWork client config missing Coding Plan products"));
   }
   return normalizeStaticProductProviderIds(products);
 }
@@ -1335,11 +1340,13 @@ function unwrapClientConfigTeamProducts(
   payload: ZCodeClientConfigEnvelope,
 ): CodingPlanStaticTeamProductsConfig {
   if (payload.code !== undefined && payload.code !== 0) {
-    throw new Error(payload.msg?.trim() || "XWork client config request failed");
+    // XCODE: 后端错误原样显示，只投影本地兜底模板。
+    throw new Error(payload.msg?.trim() || brandProductText("XWork client config request failed"));
   }
   const products: unknown = payload.data?.configs?.codingPlanStaticTeamProducts;
   if (!products || typeof products !== "object") {
-    throw new Error("XWork client config missing Coding Plan team products");
+    // XCODE: 仅本地缺失团队套餐提示投影产品品牌。
+    throw new Error(brandProductText("XWork client config missing Coding Plan team products"));
   }
   for (const providerProducts of Object.values(products)) {
     if (
@@ -1348,7 +1355,10 @@ function unwrapClientConfigTeamProducts(
     ) {
       // 远端配置没有运行时类型保障；无效静态目录必须整体降级为读取失败，
       // 让 UI 继续使用实时 pricing 恢复团队订阅身份，不能在合并阶段抛错。
-      throw new Error("XWork client config has invalid Coding Plan team products");
+      // XCODE: 仅本地无效团队套餐提示投影产品品牌。
+      throw new Error(
+        brandProductText("XWork client config has invalid Coding Plan team products"),
+      );
     }
   }
   return normalizeStaticProductProviderIds(products as CodingPlanStaticTeamProductsConfig);
@@ -1399,7 +1409,8 @@ function unwrapClientConfigBillingDiscount(
   payload: ZCodeClientConfigEnvelope,
 ): CodingPlanBillingDiscountConfig | undefined {
   if (payload.code !== undefined && payload.code !== 0) {
-    throw new Error(payload.msg?.trim() || "ZCode client config request failed");
+    // XCODE: 后端错误原样显示，只投影本地兜底模板。
+    throw new Error(payload.msg?.trim() || brandProductText("ZCode client config request failed"));
   }
   const configs = payload.data?.configs;
   if (!configs || !("codingPlanBillingDiscount" in configs)) {
@@ -1412,7 +1423,8 @@ function unwrapClientConfigStartPlanPreview(
   payload: ZCodeClientConfigEnvelope,
 ): StartPlanPreviewConfig | null {
   if (payload.code !== undefined && payload.code !== 0) {
-    throw new Error(payload.msg?.trim() || "XWork client config request failed");
+    // XCODE: 后端错误原样显示，只投影本地兜底模板。
+    throw new Error(payload.msg?.trim() || brandProductText("XWork client config request failed"));
   }
   const preview = payload.data?.configs?.startPlanPreview;
   if (!preview) {
@@ -1423,7 +1435,8 @@ function unwrapClientConfigStartPlanPreview(
     typeof preview.name !== "string" ||
     !Array.isArray(preview.entitlements)
   ) {
-    throw new Error("XWork client config invalid Start Plan preview");
+    // XCODE: 仅本地无效预览提示投影品牌，套餐预览内容不改写。
+    throw new Error(brandProductText("XWork client config invalid Start Plan preview"));
   }
   return {
     planId: preview.planId,
@@ -1436,7 +1449,8 @@ function unwrapClientConfigForceUpdate(
   payload: ZCodeClientConfigEnvelope,
 ): ForceUpdateConfig | null {
   if (payload.code !== undefined && payload.code !== 0) {
-    throw new Error(payload.msg?.trim() || "XWork client config request failed");
+    // XCODE: 后端错误原样显示，只投影本地兜底模板。
+    throw new Error(payload.msg?.trim() || brandProductText("XWork client config request failed"));
   }
 
   const forceUpdate = payload.data?.configs?.forceUpdate;

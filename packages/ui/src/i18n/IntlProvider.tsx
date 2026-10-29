@@ -101,9 +101,11 @@ export function shouldApplyLocaleBroadcastMessage(
   return true;
 }
 
-function createIntl(locale: Locale): IntlInstance {
+function createIntl(locale: Locale, catalogTransform?: (messages: Record<string, string>) => Record<string, string>): IntlInstance {
   // noUncheckedIndexedAccess：用 ?? 回退到默认语言的翻译
-  const messages = MESSAGES[locale] ?? MESSAGES[DEFAULT_LOCALE]!;
+  // XCODE: 装配时可投影静态模板，原词典和用户插值路径保持上游默认。
+  const catalog = MESSAGES[locale] ?? MESSAGES[DEFAULT_LOCALE]!;
+  const messages = catalogTransform ? catalogTransform(catalog) : catalog;
   return {
     formatMessage({ id }, values) {
       let msg = messages[id] ?? id;
@@ -138,6 +140,7 @@ export function ZCodeIntlProvider({
   initialLocale,
   preferSettingServiceLocale = false,
   resolveSystemLocale: resolveHostSystemLocale,
+  catalogTransform,
 }: {
   children: ReactNode;
   settingService?: ISettingService;
@@ -145,6 +148,8 @@ export function ZCodeIntlProvider({
   initialLocale?: Locale;
   preferSettingServiceLocale?: boolean;
   resolveSystemLocale?: () => Locale | Promise<Locale>;
+  // XCODE: 品牌等下游静态词典扩展在用户值插入之前执行。
+  catalogTransform?: (messages: Record<string, string>) => Record<string, string>;
 }) {
   const applyingBroadcastRef = useRef(false);
   const ignoredLocalLocaleBroadcastPayloadRef = useRef<LocaleBroadcastPayload | null>(null);
@@ -344,7 +349,7 @@ export function ZCodeIntlProvider({
     [setLocalePreference],
   );
 
-  const intl = useMemo(() => createIntl(locale), [locale]);
+  const intl = useMemo(() => createIntl(locale, catalogTransform), [locale, catalogTransform]);
 
   const value = useMemo<IntlContextValue>(
     () => ({ intl, locale, localePreference, setLocale, setLocalePreference }),

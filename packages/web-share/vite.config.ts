@@ -41,6 +41,15 @@ export default defineConfig(({ mode }) => {
           find: /^@zcode\/shared$/,
           replacement: resolve(REPO_ROOT, "packages/shared/src/index.ts"),
         },
+        // XCODE: 共享品牌与纯展示资源显式准入，不引入完整 UI/services 依赖闭包。
+        {
+          find: "@zcode/shared/xwork-brand",
+          replacement: resolve(REPO_ROOT, "packages/shared/src/xwork-brand/index.js"),
+        },
+        {
+          find: "@zcode/ui/xwork-brand",
+          replacement: resolve(REPO_ROOT, "packages/ui/src/xwork/brand/index.ts"),
+        },
         // Share 镜像不安装 @zcode/ui（它会带入 services/rpc 闭包），子路径导入必须显式指向源码。
         {
           find: "@zcode/ui/useTheme",

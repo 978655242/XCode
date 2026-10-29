@@ -1,4 +1,6 @@
 import { LoaderCircleIcon } from "lucide-react";
+// XCODE: 连接过程页在组合处注入品牌，不修改设备名称。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import { DevicePlatformIcon } from "@zcode/ui/device-platform-icon";
 import { WebRemoteControlBrand } from "#src/web-remote-control/ui/webRemoteControlBrand.js";
 import type { WebRemoteControlScreenLocale } from "#src/web-remote-control/domain/webRemoteControlScreenCopy.js";
@@ -95,7 +97,7 @@ export function WebRemoteControlLoadingScreen({
   return (
     <div className="flex h-dvh min-h-dvh w-screen flex-col bg-background px-4 pt-[calc(env(safe-area-inset-top)+12px)] text-foreground">
       <div className="flex h-10 items-center">
-        <WebRemoteControlBrand />
+        <WebRemoteControlBrand productName={PRODUCT_NAME} />
       </div>
       <div
         role="status"

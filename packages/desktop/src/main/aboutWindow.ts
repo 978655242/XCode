@@ -1,3 +1,7 @@
+// XCODE: About 使用构建期内嵌的原稿 mark，独立窗口不读取 docs 或外部资源。
+import { PRODUCT_WORDMARK } from "@zcode/shared/xwork-brand";
+declare const __XWORK_ABOUT_MARK_DATA_URL__: string | undefined;
+
 interface CustomAboutDialogHtmlInput {
   applicationName: string;
   appVersion: string;
@@ -17,6 +21,10 @@ function escapeHtml(value: string): string {
 }
 
 export function createCustomAboutDialogHtml(input: CustomAboutDialogHtmlInput): string {
+  const markDataUrl =
+    typeof __XWORK_ABOUT_MARK_DATA_URL__ === "undefined"
+      ? undefined
+      : __XWORK_ABOUT_MARK_DATA_URL__;
   return `<!doctype html>
 <html>
   <head>
@@ -171,26 +179,11 @@ export function createCustomAboutDialogHtml(input: CustomAboutDialogHtmlInput): 
       <section class="about-card" role="dialog" aria-modal="true" aria-labelledby="about-title">
         <div class="content">
           <div class="app-icon" aria-hidden="true">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="118"
-              height="100"
-              fill="none"
-              viewBox="0 0 256 218"
-              class="app-logo"
-              focusable="false"
-            >
-              <!-- XCODE: About 独立窗口曾内嵌旧 Z，必须同步品牌路径，不能靠替换 PNG 修复。 -->
-              <path
-                fill="currentColor"
-                d="M0 0H82L111 41L70 99Z"
-              />
-              <path fill="currentColor" d="M256 0.130127L102.401 217.732H0L153.599 0.130127H256Z" />
-              <path
-                fill="currentColor"
-                d="M186 119L256 218H174L145 177Z"
-              />
-            </svg>
+            ${
+              markDataUrl
+                ? `<img class="app-logo" src="${escapeHtml(markDataUrl)}" alt="" />`
+                : `<span>${escapeHtml(PRODUCT_WORDMARK)}</span>`
+            }
           </div>
           <h1 id="about-title" class="title">
             ${escapeHtml(input.applicationName)}<br />

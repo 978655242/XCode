@@ -1,5 +1,7 @@
 // XCODE: 仅统一产品展示名称，保留内部标识与用户内容。
 import { SidebarTooltipProvider } from "@/ControlHintTooltip.js";
+// XCODE: 可访问名称使用同源产品名，图标点击和拖拽边界沿用上游。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import type { IPlatformService, UpdateStatePayload } from "@zcode/shared";
 import { cn } from "@/components/lib/utils.js";
 import {
@@ -149,7 +151,7 @@ export function DesktopTopOverlay({
                   data-desktop-logo-visual
                   className="flex size-5 items-center justify-center transition-opacity duration-150 group-hover:opacity-0 group-focus-visible:opacity-0"
                 >
-                  <img src={appLogoUrl} alt="XWork" className="size-5" draggable={false} />
+                  <img src={appLogoUrl} alt={PRODUCT_NAME} className="size-5" draggable={false} />
                 </span>
                 <SidebarToggleIcon className="absolute inset-0 m-auto size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100" />
               </DesktopTopOverlayActionButton>

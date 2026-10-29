@@ -3,7 +3,9 @@
 set -euo pipefail
 
 # XCODE: 默认路径跟随新的应用展示名；环境变量接口保持兼容。
-APP_PATH="${1:-${ZCODE_MACOS_RELEASE_APP_PATH:-/Applications/XWork.app}}"
+BRAND_JSON_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/packages/shared/src/xwork-brand/brand.json"
+PRODUCT_DISPLAY_NAME="$(node -e 'process.stdout.write(JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).productName)' "$BRAND_JSON_PATH")"
+APP_PATH="${1:-${ZCODE_MACOS_RELEASE_APP_PATH:-/Applications/$PRODUCT_DISPLAY_NAME.app}}"
 ZCODE_HOME_DIR="${ZCODE_HOME:-${HOME:+$HOME/.zcode}}"
 CUA_HELPER_INSTALL_VARIANT="${ZCODE_CUA_HELPER_INSTALL_VARIANT:-}"
 # 安装包身份与后端环境分轴：ZCODE_PREVIEW_IDENTITY=1 让生产后端的构建仍是 XWork Preview。
@@ -20,9 +22,10 @@ if [ -n "$CUA_HELPER_INSTALL_VARIANT" ] && [[ ! "$CUA_HELPER_INSTALL_VARIANT" =~
 fi
 CUA_HELPER_INSTALL_SUBDIR="${CUA_HELPER_INSTALL_VARIANT:+$CUA_HELPER_INSTALL_VARIANT/}"
 # XCODE: 与 Helper 实际打包名称保持一致；回归测试通过真实路径验证签名门禁。
-ZCODE_HOME_HELPER_APP_PATH="${ZCODE_HOME_DIR:+$ZCODE_HOME_DIR/computer-use/${CUA_HELPER_INSTALL_SUBDIR}XWork Computer Use.app}"
+ZCODE_HOME_HELPER_APP_PATH="${ZCODE_HOME_DIR:+$ZCODE_HOME_DIR/computer-use/${CUA_HELPER_INSTALL_SUBDIR}${PRODUCT_DISPLAY_NAME} Computer Use.app}"
 HELPER_APP_PATH="${ZCODE_CUA_HELPER_APP_PATH:-$ZCODE_HOME_HELPER_APP_PATH}"
-HELPER_EXECUTABLE_NAME="${ZCODE_CUA_HELPER_EXECUTABLE_NAME:-XWork Computer Use}"
+# XCODE: .app 是展示名称，Helper 的 Mach-O 可执行名保持既有 producer 合同。
+HELPER_EXECUTABLE_NAME="${ZCODE_CUA_HELPER_EXECUTABLE_NAME:-$(node --input-type=module -e 'const constants=await import(process.argv[1]);process.stdout.write(constants.HELPER_EXECUTABLE_NAME)' "$(dirname "$BRAND_JSON_PATH")/../../../zcode-cua/broker-helper-constants.js")}"
 REQUIRE_CUA_HELPER="${ZCODE_CUA_REQUIRE_HELPER:-0}"
 REQUIRE_CUA_HELPER_STAPLE=0
 if [[ "$REQUIRE_CUA_HELPER" =~ ^(1|true|on)$ ]]; then
@@ -32,10 +35,10 @@ fi
 if [ "${APP_PATH:-}" = "--help" ] || [ "${APP_PATH:-}" = "-h" ]; then
   cat <<'USAGE'
 Usage:
-  bash scripts/doctor-macos-release-app.sh /Applications/XWork.app
-  ZCODE_CUA_REQUIRE_HELPER=1 bash scripts/doctor-macos-release-app.sh /Applications/XWork.app
-  ZCODE_CUA_HELPER_APP_PATH=/path/to/XWork\ Computer\ Use.app ZCODE_CUA_REQUIRE_HELPER=1 bash scripts/doctor-macos-release-app.sh /Applications/XWork.app
-  ZCODE_MACOS_RELEASE_APP_PATH=/Applications/XWork.app pnpm run doctor:macos-release
+  bash scripts/doctor-macos-release-app.sh /Applications/Aiscoo.app
+  ZCODE_CUA_REQUIRE_HELPER=1 bash scripts/doctor-macos-release-app.sh /Applications/Aiscoo.app
+  ZCODE_CUA_HELPER_APP_PATH=/path/to/Aiscoo\ Computer\ Use.app ZCODE_CUA_REQUIRE_HELPER=1 bash scripts/doctor-macos-release-app.sh /Applications/Aiscoo.app
+  ZCODE_MACOS_RELEASE_APP_PATH=/Applications/Aiscoo.app pnpm run doctor:macos-release
 
 Always validates the installed macOS release app with:
   codesign --verify --deep --strict <app>
@@ -46,11 +49,11 @@ also validates the independently signed Helper bundle selected below with the
 same codesign/spctl checks and a local notarization staple check.
 
 Helper lookup order:
-  1. ZCODE_CUA_HELPER_APP_PATH (CI passes the Helper bundled inside XWork.app)
-  2. ${ZCODE_HOME:-$HOME/.zcode}/computer-use/<optional variant>/XWork Computer Use.app
+  1. ZCODE_CUA_HELPER_APP_PATH (CI passes the Helper bundled inside Aiscoo.app)
+  2. ${ZCODE_HOME:-$HOME/.zcode}/computer-use/<optional variant>/Aiscoo Computer Use.app
 
 CI release acceptance validates the copy actually shipped at
-XWork.app/Contents/Resources/cua-helper/XWork Computer Use.app. Post-install checks
+Aiscoo.app/Contents/Resources/cua-helper/Aiscoo Computer Use.app. Post-install checks
 may omit the override to validate the user-level installed copy. A missing selected
 Helper.app fails closed.
 USAGE

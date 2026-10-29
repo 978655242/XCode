@@ -17,14 +17,15 @@ import type { WebRemoteControlScreenLocale } from "#src/web-remote-control/domai
 const copyByLocale = {
   "zh-CN": {
     unnamed: "未命名设备",
-    sheetDescription: (count: number) => `这台电脑上有 ${count} 个 ZCode 在线，选择要连接的一个`,
+    sheetDescription: (count: number, productName: string) =>
+      `这台电脑上有 ${count} 个 ${productName} 在线，选择要连接的一个`,
     startedAgo: (relative: string) => `${relative}启动`,
     cancel: "取消",
   },
   "en-US": {
     unnamed: "Unnamed device",
-    sheetDescription: (count: number) =>
-      `${count} ZCode instances are online on this computer. Choose one.`,
+    sheetDescription: (count: number, productName: string) =>
+      `${count} ${productName} instances are online on this computer. Choose one.`,
     startedAgo: (relative: string) => `started ${relative}`,
     cancel: "Cancel",
   },
@@ -92,7 +93,10 @@ export function WebRemoteControlConnectionList({
   disabled,
   now,
   onSelect,
+  productName = "ZCode",
 }: {
+  /** XCODE: 版本旁品牌由入口注入，不改变设备版本数据。 */
+  productName?: string;
   device: WebRemoteControlDeviceGroup;
   locale: WebRemoteControlScreenLocale;
   disabled: boolean;
@@ -123,8 +127,8 @@ export function WebRemoteControlConnectionList({
           >
             <span className="block truncate text-ui-base font-medium">
               {connection.meta.version?.trim()
-                ? `ZCode ${connection.meta.version.trim()}`
-                : "ZCode"}
+                ? `${productName} ${connection.meta.version.trim()}`
+                : productName}
             </span>
             <span className="mt-0.5 block truncate text-ui-sm text-foreground-subtle">
               {copy.startedAgo(formatRelativeTime(connection.created_at, locale, now))}
@@ -145,7 +149,10 @@ export function WebRemoteControlConnectionSheet({
   now,
   onClose,
   onSelect,
+  productName = "ZCode",
 }: {
+  /** XCODE: 多连接说明沿用同一产品展示插槽。 */
+  productName?: string;
   device: WebRemoteControlDeviceGroup | undefined;
   locale: WebRemoteControlScreenLocale;
   disabled: boolean;
@@ -166,12 +173,13 @@ export function WebRemoteControlConnectionSheet({
           <BottomSheetHeader>
             <BottomSheetTitle>{device.name || copy.unnamed}</BottomSheetTitle>
             <BottomSheetDescription>
-              {copy.sheetDescription(device.onlineConnections.length)}
+              {copy.sheetDescription(device.onlineConnections.length, productName)}
             </BottomSheetDescription>
           </BottomSheetHeader>
           <div className="min-h-0 overflow-y-auto">
             <WebRemoteControlConnectionList
               device={device}
+              productName={productName}
               locale={locale}
               disabled={disabled}
               now={now()}

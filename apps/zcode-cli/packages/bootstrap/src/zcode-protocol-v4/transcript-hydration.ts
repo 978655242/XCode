@@ -241,7 +241,9 @@ function isPersistedAssistantCancellation(error: AssistantErrorInfo): boolean {
     error.name === "Error" &&
     (data?.message === LEGACY_PROTOCOL_SESSION_STOPPED_MESSAGE ||
       data?.message === "XWork Protocol session stopped" ||
-      data?.message === "XCode Protocol session stopped")
+      data?.message === "XCode Protocol session stopped" ||
+      // XCODE: 新品牌写入的普通 Error 仍视为用户取消，历史三种消息继续识别。
+      data?.message === "Aiscoo Protocol session stopped")
   ) {
     // 旧 session/stop 使用普通 Error 作为 AbortSignal.reason，transcript 又未持久化
     // cancelled result；冷恢复若只认 AbortError，会把用户停止重新合成为 TurnError 和错误 Banner。

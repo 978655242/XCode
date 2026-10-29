@@ -99,7 +99,7 @@ describe("ContextBuilder meta user context", () => {
       false,
       false,
     ]);
-    expect(result.systemMessages[0]?.content).toBe("You are XWork, an interactive coding agent");
+    expect(result.systemMessages[0]?.content).toBe("You are Aiscoo, an interactive coding agent");
 
     const stableBody = String(result.systemMessages[1]?.content ?? "");
     expect(stableBody).not.toContain("# Agent Identity");
@@ -340,7 +340,7 @@ describe("ContextBuilder meta user context", () => {
     expect(result.metaUserAttachments.map((attachment) => attachment.source)).toEqual([
       "context_prefix",
     ]);
-    expect(result.systemMessages[0]?.content).toBe("You are XWork, an interactive coding agent");
+    expect(result.systemMessages[0]?.content).toBe("You are Aiscoo, an interactive coding agent");
     expect(result.systemMessages[1]?.content).toBe("\nYou are concise for this task.");
     const meta = metaAttachment(result, "context_prefix");
     expect(meta).not.toContain("<system-reminder>");
@@ -775,7 +775,7 @@ describe("ContextBuilder meta user context", () => {
     const stableBody = result.systemMessages[1]?.content ?? "";
     const dynamicSystem = result.systemMessages[2]?.content ?? "";
     const meta = metaAttachment(result, "context_prefix");
-    expect(cliPrefix).toBe("You are XWork, an interactive coding agent");
+    expect(cliPrefix).toBe("You are Aiscoo, an interactive coding agent");
     expect(stableBody).not.toContain("# Agent Identity");
     expect(stableBody).toContain("# Harness");
     expect(stableBody).not.toContain("# Session-specific guidance");
@@ -1007,7 +1007,7 @@ describe("ContextBuilder meta user context", () => {
       "system",
     ]);
     expect(result.metaUserAttachments).toEqual([]);
-    expect(result.systemMessages[0]?.content).toBe("You are XWork, an interactive coding agent");
+    expect(result.systemMessages[0]?.content).toBe("You are Aiscoo, an interactive coding agent");
     expect(result.systemMessages[1]?.content).not.toContain("# Agent Identity");
     expect(result.systemMessages[1]?.content).toContain("# Harness");
     expect(result.systemMessages[1]?.content).not.toContain("# Session-specific guidance");

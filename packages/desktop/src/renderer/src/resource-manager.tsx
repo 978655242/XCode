@@ -5,9 +5,10 @@ import type {
   StorageManagementBridge,
 } from "@zcode/shared";
 import "@zcode/ui/styles.css";
+// XCODE: 独立资源窗口复用下游品牌词典，服务与存储行为沿用既有入口。
+import { AiscooIntlProvider as ZCodeIntlProvider } from "@zcode/ui/xwork-brand";
 import {
   ResourceManagerApp,
-  ZCodeIntlProvider,
   applyUiFontSizePx,
   loadUiFontSizePx,
   subscribeToUiFontSizeStorageChanges,

@@ -1,3 +1,5 @@
+// XCODE: 仅默认产品文案读取品牌，第三方 serverName 不替换。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import type { McpAppsResourcePermission } from "@zcode/shared/mcp-apps";
 import type { PluginSandboxRecord, PluginSandboxRegistryPort } from "./contract.js";
 import {
@@ -109,7 +111,7 @@ export function createPluginSandboxPermissionGate(deps: {
               allowed = allowed && valid();
               deps.logger?.info?.("[plugin-sandbox] permission prompt settled", {
                 sandboxId: record.sandboxId,
-                serverName: record.serverName ?? "ZCode Gen UI",
+                serverName: record.serverName ?? `${PRODUCT_NAME} Gen UI`,
                 permissions: pending,
                 allowed,
               });

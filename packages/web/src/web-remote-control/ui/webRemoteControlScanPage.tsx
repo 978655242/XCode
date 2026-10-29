@@ -1,11 +1,13 @@
 import { WebRemoteControlBrand } from "#src/web-remote-control/ui/webRemoteControlBrand.js";
+// XCODE: 连接前页面显式装配产品品牌，通用页头保留上游默认。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 
 export function WebRemoteControlScanPage({ locale }: { locale: "zh-CN" | "en-US" }) {
   const zh = locale === "zh-CN";
   return (
     <main className="flex min-h-dvh items-center justify-center bg-background px-4 py-8 text-foreground">
       <section className="w-full max-w-sm rounded-xl border border-card-border bg-card p-5 shadow-sm">
-        <WebRemoteControlBrand className="mb-2" />
+        <WebRemoteControlBrand className="mb-2" productName={PRODUCT_NAME} />
         <h1 className="text-ui-lg font-medium">
           {zh ? "请扫描桌面二维码" : "Scan the desktop QR code"}
         </h1>

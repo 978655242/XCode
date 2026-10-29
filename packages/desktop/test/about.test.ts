@@ -54,8 +54,8 @@ describe("about", () => {
 
     expect(options).toMatchObject({
       // XCODE: About 展示采用产品品牌，内部 ZCode 身份不随之迁移。
-      applicationName: "XWork Desktop App",
-      copyright: "Copyright © 2026 XWork.",
+      applicationName: "Aiscoo Desktop App",
+      copyright: "Copyright © 2026 Aiscoo.",
       applicationVersion: "version 0.1.7",
       credits: "Optimized for Apple Silicon.",
     });
@@ -65,8 +65,8 @@ describe("about", () => {
     const options = createSystemAboutPanelOptions(appleSiliconSnapshot, 2026, "zh-CN");
 
     expect(options).toMatchObject({
-      applicationName: "XWork Desktop App",
-      copyright: "版权所有 © 2026 XWork。",
+      applicationName: "Aiscoo Desktop App",
+      copyright: "版权所有 © 2026 Aiscoo。",
       applicationVersion: "版本 0.1.7",
       credits: "已针对 Apple Silicon 优化。",
     });
@@ -78,7 +78,7 @@ describe("about", () => {
   });
 
   it("版权年份可按调用方传入覆盖", () => {
-    expect(formatAboutCopyright(2027, "en-US")).toBe("Copyright © 2027 XWork.");
-    expect(formatAboutCopyright(2027, "zh-CN")).toBe("版权所有 © 2027 XWork。");
+    expect(formatAboutCopyright(2027, "en-US")).toBe("Copyright © 2027 Aiscoo.");
+    expect(formatAboutCopyright(2027, "zh-CN")).toBe("版权所有 © 2027 Aiscoo。");
   });
 });

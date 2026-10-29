@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { app, BrowserWindow, ipcMain, nativeImage, screen } from "electron";
 import { PlatformChannels, type CuaPermissionKind, type Locale } from "@zcode/shared";
+// XCODE: 仅替换权限引导的自有提示；系统设置 bundle ID 与事件判定保持原样。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import {
   cuaHelperBundleFingerprintUnchanged,
   openCuaPermissionOnboarding,
@@ -191,13 +193,15 @@ function waitForCuaApplicationReturn({
       maybeFinishReturn();
     };
     // XCODE: 权限引导错误显示产品名，不修改 IPC 或取消语义。
-    const onQuit = () => finish(new Error("XWork quit during CUA permission onboarding"));
+    const onQuit = () => finish(new Error(`${PRODUCT_NAME} quit during CUA permission onboarding`));
     const onAbort = () =>
       finish(signal.reason ?? new Error("CUA permission onboarding origin window closed"));
     observationTimer = setTimeout(
       () =>
         finish(
-          new Error(`System Settings did not return to XWork within ${Math.max(1, timeoutMs)}ms`),
+          new Error(
+            `System Settings did not return to ${PRODUCT_NAME} within ${Math.max(1, timeoutMs)}ms`,
+          ),
         ),
       Math.max(1, timeoutMs),
     );

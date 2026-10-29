@@ -1,7 +1,8 @@
 // XCODE: 仅统一产品展示名称，保留内部标识与用户内容。
 import { ArrowRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
-import { ZCodeAboutLogo } from "@/components/ui/ZCodeAboutLogo.js";
+// XCODE: 固定深色品牌容器选深色背景原稿，保留引导布局与交互。
+import { AiscooMark as ZCodeAboutLogo, PRODUCT_NAME } from "@/xwork/brand/index.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { OnboardingWelcomeAsciiVisual } from "@/onboarding/OnboardingWelcomeAsciiVisual.js";
 
@@ -20,10 +21,10 @@ export function OnboardingWelcomeView(props: { onStart: () => void; onOpenMigrat
             {/* 欢迎 logo 壳是固定深色底，边框不能跟随浅色主题 token，否则浅色主题下边框过重。*/}
             <div
               className="relative flex size-14 items-center justify-center rounded-xl bg-[linear-gradient(180deg,#000000_0%,#151718_100%)] text-[#ffffff] shadow-lg/20 before:pointer-events-none before:absolute before:inset-0 before:rounded-xl before:border before:border-[rgba(255,255,255,0.1)]"
-              aria-label="XWork"
+              aria-label={PRODUCT_NAME}
               role="img"
             >
-              <ZCodeAboutLogo className="h-auto w-8" />
+              <ZCodeAboutLogo className="h-auto w-8" tone="dark" />
             </div>
             <div className="text-4xl font-bold tracking-tight text-foreground">
               {intl.formatMessage({ id: "onboarding.welcome.title" })}

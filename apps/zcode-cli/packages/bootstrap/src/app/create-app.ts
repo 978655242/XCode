@@ -1,3 +1,5 @@
+// XCODE: 自有静态展示模板读取共享品牌；用户内容与稳定标识保持原样。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { subagentProfilesFromSnapshot } from "../runtime-subagents/index.js";
 import { CliDefaultSelection } from "./cli-default-selection.js";
@@ -359,7 +361,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
       ...(options.workspaceHookReviewHost
         ? {
             emitReviewEvent: async (event) => {
-              if (!runtime) throw new Error("XWork runtime is not initialized yet.");
+              if (!runtime) throw new Error(`${PRODUCT_NAME} runtime is not initialized yet.`);
               await runtime.appendEvent(
                 createSessionEvent(event.type, sessionId, event.payload, {
                   traceId: traceContext.traceId,
@@ -368,7 +370,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
               );
             },
             emitAdmissionEvent: async (event) => {
-              if (!runtime) throw new Error("XWork runtime is not initialized yet.");
+              if (!runtime) throw new Error(`${PRODUCT_NAME} runtime is not initialized yet.`);
               await runtime.appendEvent(
                 createSessionEvent(event.type, sessionId, event.payload, {
                   traceId: traceContext.traceId,
@@ -470,7 +472,7 @@ export async function createZCodeApp(options: ZCodeAppOptions): Promise<ZCodeApp
       runtimeConfig,
     });
     const getRuntime = (): AgentRuntime => {
-      if (!runtime) throw new Error("XWork runtime is not initialized yet.");
+      if (!runtime) throw new Error(`${PRODUCT_NAME} runtime is not initialized yet.`);
       return runtime;
     };
     let resumePrepared = false;

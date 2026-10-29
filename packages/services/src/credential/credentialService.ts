@@ -1,5 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { readFile } from "node:fs/promises";
+// XCODE: 凭据错误仅投影静态提示前缀，文件路径与凭据内容保持原样。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { atomicWritePrivateTextFile, backupCorruptFile, withFileLock } from "@zcode/shared/node";
@@ -53,7 +55,10 @@ async function readAll(credentialsFile = getCredentialsFile()): Promise<Record<s
     if (getErrorCode(error) === "ENOENT") {
       return {};
     }
-    throw new Error(`Unable to read XWork credentials: ${credentialsFile}`, { cause: error });
+    // XCODE: 用户文件路径在模板投影完成后拼接，避免改写路径中的旧品牌文字。
+    throw new Error(`${brandProductText("Unable to read XWork credentials:")} ${credentialsFile}`, {
+      cause: error,
+    });
   }
 
   try {
@@ -73,9 +78,13 @@ async function readAll(credentialsFile = getCredentialsFile()): Promise<Record<s
       backupPath,
       credentialsFile,
     });
-    throw Object.assign(new Error("XWork credentials require manual storage recovery"), {
-      code: CREDENTIAL_DECRYPT_ERROR_CODE,
-    });
+    // XCODE: 提示统一品牌，凭据恢复错误码继续用于原有分类。
+    throw Object.assign(
+      new Error(brandProductText("XWork credentials require manual storage recovery")),
+      {
+        code: CREDENTIAL_DECRYPT_ERROR_CODE,
+      },
+    );
   }
 }
 

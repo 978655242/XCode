@@ -1,14 +1,16 @@
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 import type { Locale } from "@zcode/shared";
+// XCODE: 仅更新自有菜单展示名，保留注册表和启动命令身份。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 
 const MENU_KEY_NAME = "ZCode.OpenInZCode";
 const DIRECTORY_MENU_KEY = `HKCU\\Software\\Classes\\Directory\\shell\\${MENU_KEY_NAME}`;
 const DRIVE_MENU_KEY = `HKCU\\Software\\Classes\\Drive\\shell\\${MENU_KEY_NAME}`;
 // XCODE: 仅替换资源管理器菜单文案，注册表键继续兼容已有安装。
 const MENU_LABELS: Record<Locale, string> = {
-  "zh-CN": "在XWork中打开",
-  "en-US": "Open in XWork",
+  "zh-CN": `在${PRODUCT_NAME}中打开`,
+  "en-US": `Open in ${PRODUCT_NAME}`,
 };
 
 type Logger = {

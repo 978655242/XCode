@@ -1,4 +1,6 @@
 import { createRoot } from "react-dom/client";
+// XCODE: 分享入口标题来自同源品牌模板，正文和分享代码保持原值。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 import "../../share-ui/src/styles.css";
 import { applyTheme, type Theme } from "../../ui/src/useTheme.js";
 import {
@@ -58,7 +60,10 @@ function renderCallback(): void {
 async function renderShare(): Promise<void> {
   const locale = resolveConversationShareRouteLocale(window.location.pathname);
   document.documentElement.lang = locale;
-  document.title = locale === "zh-CN" ? "ZCode 会话分享" : "ZCode Conversation Share";
+  document.title =
+    locale === "zh-CN"
+      ? brandProductText("ZCode 会话分享")
+      : brandProductText("ZCode Conversation Share");
 
   const shareCode = resolveConversationShareCodeFromPath(window.location.pathname);
   if (!shareCode) {

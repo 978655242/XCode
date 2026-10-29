@@ -1,5 +1,10 @@
 import type { ReactNode } from "react";
-import { cn } from "@/components/lib/utils.js";
+// XCODE: 保留启动页入口与阻塞态语义，图形及动效交给下游品牌模块。
+import { AiscooStartupLogoBadge } from "@/xwork/brand/index.js";
+export {
+  AiscooStartupLogo as ZCodeStartupLogo,
+  AiscooStartupLogoBadge as ZCodeStartupLogoBadge,
+} from "@/xwork/brand/index.js";
 
 interface RootStartupLoadingProps {
   label: string;
@@ -18,73 +23,8 @@ export function RootStartupLoading({ label, children, busy = true }: RootStartup
       aria-label={label}
       data-testid="root-startup-loading"
     >
-      <ZCodeStartupLogoBadge />
+      <AiscooStartupLogoBadge />
       {children}
     </div>
-  );
-}
-
-/** 初始化与引导共用品牌图标，保持底色、描边、圆角和标志比例一致。 */
-export function ZCodeStartupLogoBadge({
-  animated = true,
-  size = "default",
-}: {
-  animated?: boolean;
-  size?: "default" | "titlebar";
-}) {
-  return (
-    <div
-      data-desktop-logo-badge={size === "titlebar" ? "true" : undefined}
-      className={cn(
-        "relative flex items-center justify-center bg-[linear-gradient(180deg,#000000_0%,#151718_100%)] text-[#ffffff] before:pointer-events-none before:absolute before:inset-0 before:rounded-[inherit] before:border before:border-[rgba(255,255,255,0.1)] before:content-['']",
-        size === "titlebar"
-          ? "size-5 rounded shadow-sm/20 before:border-white/20"
-          : "size-24 rounded-3xl shadow-xl/20",
-      )}
-    >
-      {/* Button 会给 SVG 默认尺寸；紧凑 Logo 显式恢复自动高度，保持标志原始比例。 */}
-      <ZCodeStartupLogo
-        className={size === "titlebar" ? "size-auto w-3.25" : "h-auto w-14"}
-        animated={animated}
-      />
-    </div>
-  );
-}
-
-export function ZCodeStartupLogo({
-  className,
-  animated = true,
-}: {
-  className?: string;
-  animated?: boolean;
-}) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="118"
-      height="100"
-      fill="none"
-      viewBox="0 0 256 218"
-      className={cn("shrink-0 text-current", className)}
-      aria-hidden="true"
-      focusable="false"
-    >
-      {animated ? (
-        <animate
-          attributeName="opacity"
-          begin="3s"
-          dur="1.8s"
-          repeatCount="indefinite"
-          values="1;0.4;1"
-        />
-      ) : null}
-      <path
-        fill="currentColor"
-        // XCODE: 启动字标与应用 X 图标保持一致，动画不变。
-        d="M0 0H82L111 41L70 99Z"
-      />
-      <path fill="currentColor" d="M256 0.130127L102.401 217.732H0L153.599 0.130127H256Z" />
-      <path fill="currentColor" d="M186 119L256 218H174L145 177Z" />
-    </svg>
   );
 }

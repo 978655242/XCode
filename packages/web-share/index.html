@@ -5,10 +5,81 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#161616" />
     <meta name="color-scheme" content="dark" />
-    <title>ZCode Conversation Share</title>
+    <!-- XCODE: 分享入口与 Web 共用离线品牌资源，publicDir 保持单一来源。 -->
+    <link
+      rel="icon"
+      href="data:image/png;base64,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"
+      type="image/png"
+      sizes="32x32"
+    />
+    <link rel="icon" href="./favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <title>Aiscoo Conversation Share</title>
+    <style>
+      /* XCODE: 独立分享页在入口脚本加载前也展示同源 ai，透明原稿随背景主题切换。 */
+      .aiscoo-share-startup {
+        display: flex;
+        min-height: 100dvh;
+        align-items: center;
+        justify-content: center;
+      }
+      .aiscoo-share-startup img {
+        width: 96px;
+        height: 96px;
+        object-fit: contain;
+      }
+      .aiscoo-share-light,
+      .aiscoo-share-still {
+        display: none;
+      }
+      html:not(.dark) .aiscoo-share-motion.aiscoo-share-light {
+        display: block;
+      }
+      html:not(.dark) .aiscoo-share-motion.aiscoo-share-dark {
+        display: none;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .aiscoo-share-motion {
+          display: none !important;
+        }
+        html.dark .aiscoo-share-still.aiscoo-share-dark {
+          display: block;
+        }
+        html:not(.dark) .aiscoo-share-still.aiscoo-share-light {
+          display: block;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="aiscoo-share-startup" role="status" aria-busy="true" aria-label="Loading...">
+        <img
+          src="../ui/src/xwork/brand/assets/startup-light.svg"
+          class="aiscoo-share-motion aiscoo-share-light"
+          alt=""
+          aria-hidden="true"
+        />
+        <img
+          src="../ui/src/xwork/brand/assets/startup-dark.svg"
+          class="aiscoo-share-motion aiscoo-share-dark"
+          alt=""
+          aria-hidden="true"
+        />
+        <img
+          src="../ui/src/xwork/brand/assets/mark-light.svg"
+          class="aiscoo-share-still aiscoo-share-light"
+          alt=""
+          aria-hidden="true"
+        />
+        <img
+          src="../ui/src/xwork/brand/assets/mark-dark.svg"
+          class="aiscoo-share-still aiscoo-share-dark"
+          alt=""
+          aria-hidden="true"
+        />
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

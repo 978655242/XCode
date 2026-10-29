@@ -1,3 +1,5 @@
+// XCODE: 自有静态展示模板读取共享品牌；用户内容与稳定标识保持原样。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import {
   AccountProviderService,
@@ -58,7 +60,7 @@ export async function startProcessProviderRegistryRuntime(
 ) {
   const paths = resolveNodeProviderRuntimePaths(env);
   if (!paths) {
-    throw new Error("缺少进程 Provider Registry 的 XWork Built-in / Personal Config 路径");
+    throw new Error(`缺少进程 Provider Registry 的 ${PRODUCT_NAME} Built-in / Personal Config 路径`);
   }
 
   const accountSource = new MutableAccountProviderConfigSource();

@@ -41,7 +41,7 @@ describe("dev Electron app bundle", () => {
     const patched = patchDevElectronInfoPlist(source, rendererUrl);
 
     // XCODE: 展示品牌独立于持久化身份，开发 bundle 不改协议和应用标识。
-    expect(DEV_ELECTRON_APP_NAME).toBe("XWork Dev");
+    expect(DEV_ELECTRON_APP_NAME).toBe("Aiscoo Dev");
     expect(DEV_ELECTRON_APP_BUNDLE_ID).toBe("dev.zcode.app.development");
     expect(DEV_ELECTRON_PROTOCOL_SCHEME).toBe("zcode");
 

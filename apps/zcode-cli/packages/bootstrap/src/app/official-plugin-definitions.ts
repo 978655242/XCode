@@ -1,3 +1,5 @@
+// XCODE: 自有静态展示模板读取共享品牌；用户内容与稳定标识保持原样。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { ZCODE_OFFICIAL_PLUGIN_MARKETPLACE } from "@zcode/contracts";
 
@@ -193,7 +195,7 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
       displayName_i18n: { "zh-CN": "浏览器操作" },
       icon: `${OFFICIAL_PLUGIN_ASSETS_BASE_URL}/browser-use/icon.png`,
       description_i18n: {
-        "zh-CN": "操作 XWork 内置浏览器，检查网页并验证交互。",
+        "zh-CN": `操作 ${PRODUCT_NAME} 内置浏览器，检查网页并验证交互。`,
       },
     },
     name: OFFICIAL_BROWSER_USE_PLUGIN_NAME,
@@ -295,7 +297,7 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
       displayName_i18n: { "zh-CN": "恢复旧版会话" },
       icon: `${OFFICIAL_PLUGIN_ASSETS_BASE_URL}/restore-legacy-sessions/icon.png`,
       description_i18n: {
-        "zh-CN": "将旧版会话恢复为 XWork 任务与会话记录。",
+        "zh-CN": `将旧版会话恢复为 ${PRODUCT_NAME} 任务与会话记录。`,
       },
     },
     name: "restore-legacy-sessions",
@@ -318,7 +320,7 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
       // 创建器使用客户端自带图标，不再借用 skill-creator 的远端图片。
       displayName_i18n: { "zh-CN": "插件创建器" },
       description_i18n: {
-        "zh-CN": "开发、校验 XWork 插件，完成本地 dev 市场安装、试用与更新。",
+        "zh-CN": `开发、校验 ${PRODUCT_NAME} 插件，完成本地 dev 市场安装、试用与更新。`,
       },
     },
     rootCandidates: [
@@ -346,7 +348,7 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
       displayName: "Skill Creator",
       displayName_i18n: { "zh-CN": "技能创建器" },
       icon: `${OFFICIAL_PLUGIN_ASSETS_BASE_URL}/skill-creator/icon.png`,
-      description_i18n: { "zh-CN": "创建、编辑和验证可复用的 XWork 技能。" },
+      description_i18n: { "zh-CN": `创建、编辑和验证可复用的 ${PRODUCT_NAME} 技能。` },
     },
     name: "skill-creator",
     rootCandidates: [
@@ -364,18 +366,18 @@ export const OFFICIAL_PLUGIN_DEFINITIONS: readonly OfficialPluginDefinition[] = 
     listing: {
       author: ZAI_AUTHOR,
       category: "utilities",
-      displayName: "XWork Guide",
-      displayName_i18n: { "zh-CN": "XWork 使用指南" },
+      displayName: `${PRODUCT_NAME} Guide`,
+      displayName_i18n: { "zh-CN": `${PRODUCT_NAME} 使用指南` },
       icon: `${OFFICIAL_PLUGIN_ASSETS_BASE_URL}/zcode-guide/icon.png`,
       description_i18n: {
-        "zh-CN": "提供 XWork 配置指南与插件、技能、MCP、命令和钩子诊断。",
+        "zh-CN": `提供 ${PRODUCT_NAME} 配置指南与插件、技能、MCP、命令和钩子诊断。`,
       },
       examplePrompts: [
-        "How do I configure MCP servers in XWork?",
-        "Diagnose my current XWork setup",
+        `How do I configure MCP servers in ${PRODUCT_NAME}?`,
+        `Diagnose my current ${PRODUCT_NAME} setup`,
       ],
       examplePrompts_i18n: {
-        "zh-CN": ["XWork 里怎么配置 MCP 服务器？", "帮我诊断当前的 XWork 配置"],
+        "zh-CN": [`${PRODUCT_NAME} 里怎么配置 MCP 服务器？`, `帮我诊断当前的 ${PRODUCT_NAME} 配置`],
       },
     },
     name: "zcode-guide",

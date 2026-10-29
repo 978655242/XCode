@@ -15,6 +15,9 @@ import { installScriptSource } from "./zcode-distribution/installer.mjs";
 const root = resolve(import.meta.dirname, "..");
 const defaultOutDir = resolve(root, "dist", "zcode");
 const defaultBaseUrl = (await loadEndpointEnv()).ZCODE_DIST_BASE_URL?.trim() || "";
+const productBrand = JSON.parse(
+  await readFile(resolve(root, "packages/shared/src/xwork-brand/brand.json"), "utf8"),
+);
 const packageDirName = "zcode";
 const usage = `Usage:
   pnpm build:zcode
@@ -208,6 +211,8 @@ async function stageZCodePackage({ packageRoot, version }) {
     JSON.stringify(
       {
         name: "zcode-runtime",
+        // XCODE: 独立 runner 使用随包品牌 JSON，运行时不访问源码仓库。
+        productName: productBrand.productName,
         private: true,
         type: "module",
         version,
@@ -243,7 +248,7 @@ async function main() {
   const version = options.version ?? rootPackageJson.version;
   if (!version || typeof version !== "string") {
     // XCODE: 仅迁移产品显示名，发行包命令与内部身份保持兼容。
-    throw new Error("Unable to resolve XWork version.");
+    throw new Error(`Unable to resolve ${productBrand.productName} version.`);
   }
 
   await buildOutputs(options.skipBuild);

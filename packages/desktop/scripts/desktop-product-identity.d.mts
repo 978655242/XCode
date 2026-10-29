@@ -12,12 +12,15 @@ export interface DesktopProductIdentity {
   readonly flavor: DesktopProductFlavor;
   readonly appId: string;
   readonly productName: string;
+  readonly macKeychainName: string;
+  readonly windowsExecutableName: string;
   readonly linuxExecutableName: string;
   readonly linuxPackageName: string;
   readonly cuaHelperInstallVariant: "preview" | null;
 }
 
 export const ZCODE_PREVIEW_IDENTITY_ENV: "ZCODE_PREVIEW_IDENTITY";
+export const desktopDevelopmentKeychainName: "XWork Dev";
 
 export function isPreviewIdentityRequested(env?: Record<string, string | undefined>): boolean;
 export function resolveDesktopProductFlavor(

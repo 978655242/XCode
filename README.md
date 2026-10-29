@@ -1,7 +1,7 @@
-# XWork
+# Aiscoo
 
 <div align="center">
-  <img src="public/logo/icons/1024x1024.png" alt="XWork" width="128" height="128" />
+  <img src="public/logo/icons/1024x1024.png" alt="Aiscoo" width="128" height="128" />
 </div>
 <p align="center">
   <a href="https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=47ag983c-8fcb-4d6d-814b-5395193a712c&amp;qr_code=true">飞书社群</a> ·
@@ -11,9 +11,9 @@
   简体中文 | <a href="README.en.md">English</a>
 </p>
 
-<!-- XCODE: 展示名统一为 XWork，保留上游来源及兼容命令。 -->
+<!-- XCODE: 展示名统一为 Aiscoo，保留上游来源及兼容命令。 -->
 
-XWork 是基于上游 ZCode 的 AI 编程工作台，提供桌面应用、浏览器界面和终端 Agent。本仓库包含客户端、后端服务、共享 UI，以及 Agent CLI 与运行时源码。
+Aiscoo 是基于上游 ZCode 的 AI 编程工作台，提供桌面应用、浏览器界面和终端 Agent。本仓库包含客户端、后端服务、共享 UI，以及 Agent CLI 与运行时源码。
 
 ## 更新
 
@@ -21,6 +21,12 @@ XWork 是基于上游 ZCode 的 AI 编程工作台，提供桌面应用、浏览
 - **2026-10-19**：同步上游 ZCode v3.16.1 版本（上游更新日期：2026-10-16）。
 - 2026-10-18：同步上游 ZCode v3.15.1 版本（上游更新日期：2026-10-10）。
 - 2026-9-23：同步上游 ZCode v3.14.3 版本。
+
+## 品牌与 Logo
+
+产品显示名为 **Aiscoo**，完整几何字标为小写 **aiscoo**。用户设计原稿位于 [docs/brand/aiscoo](docs/brand/aiscoo/README.md)，运行时 SVG、PNG、ICO、ICNS 均包含在代码库和应用构建资源中。品牌入口、兼容范围与验收清单见 [Aiscoo 品牌迁移](docs/xcode/branding/aiscoo-migration.md)。
+
+重新生成运行时图标：`python3 scripts/xcode/generate-icons.py`。CLI 的 `zcode` 命令和已有用户数据目录保持兼容。
 
 ## 初始化
 
@@ -82,9 +88,9 @@ ZCODE_SERVER_WORKSPACE=/path/to/project pnpm dev:web
 
 该命令同时启动 Web 开发服务器（默认 `http://localhost:5173`）和后端（默认 `http://localhost:3030`）；浏览器访问前者。`/ws` 和一般 `/api` 请求代理到本地后端，`/api/v1/oauth/token` 单独代理到当前配置的产品服务。
 
-Agent 源码修改后，执行 `pnpm --filter @zcode/cli... build` 并重启服务。需要验证完整发行包时，按下方“XWork 命令行版”打包章节解压运行。
+Agent 源码修改后，执行 `pnpm --filter @zcode/cli... build` 并重启服务。需要验证完整发行包时，按下方“Aiscoo 命令行版”打包章节解压运行。
 
-### XWork 命令行版
+### Aiscoo 命令行版
 
 命令行发行包包含 TUI、Web 和 Agent，统一使用 `zcode` 启动：无参数进入 TUI；第一个参数为 `--web` 时启动 Web；其他参数交给现有 Agent CLI 处理。两种模式都在本机运行，无需 Electron。
 
@@ -162,13 +168,13 @@ pnpm bundle:desktop -- --help
 
 默认目标为 macOS arm64，默认输出目录为 `packages/desktop/dist/`。`--os` 支持 `mac`、`win`、`linux`，`--arch` 支持 `x64`、`arm64`；实际打包与签名需要目标平台对应的工具和配置。
 
-安装：双击打开产物 DMG，将 XWork 拖入"应用程序"。本地构建未签名，首次打开若被 macOS 拦截，执行：
+安装：双击打开产物 DMG，将 Aiscoo 拖入"应用程序"。本地构建未签名，首次打开若被 macOS 拦截，执行：
 
 ```bash
-sudo xattr -rd com.apple.quarantine /Applications/XWork.app
+sudo xattr -rd com.apple.quarantine /Applications/Aiscoo.app
 ```
 
-### XWork 命令行版
+### Aiscoo 命令行版
 
 构建入口为 `pnpm build:zcode`。脚本会依次构建 CLI/TUI、后端和 Web，收集 TUI 的原生库、worker 与运行时依赖，再组装发行包；运行发行包仍需要 Node.js，版本以 `mise.toml` 为准。
 

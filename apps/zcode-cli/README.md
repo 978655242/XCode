@@ -1,8 +1,8 @@
-# XWork CLI
+# Aiscoo CLI
 
 <!-- XCODE: 产品说明统一展示名，CLI 命令、包名和已有配置路径保持不变。 -->
 
-XWork's Agent CLI provides an interactive terminal and non-interactive task execution. It is part of this pnpm workspace; build it from the repository root with the Node and pnpm versions in [mise.toml](../../mise.toml).
+Aiscoo's Agent CLI provides an interactive terminal and non-interactive task execution. It is part of this pnpm workspace; build it from the repository root with the Node and pnpm versions in [mise.toml](../../mise.toml).
 
 ```sh
 pnpm install --frozen-lockfile

@@ -303,7 +303,8 @@ modules:
       - packages/desktop/src/preload/pluginSandbox
       - packages/desktop/src/renderer/src/plugin-sandbox
     managed: true
-    requires: [desktop, shared, mcp-apps-protocol, gen-ui-protocol]
+    # XCODE: 原生插件授权文案消费独立品牌契约，不改变沙箱或审批状态所有者。
+    requires: [desktop, shared, mcp-apps-protocol, gen-ui-protocol, xwork-brand]
     publicEntrypoints:
       [
         packages/desktop/src/host/pluginSandbox/index.ts,
@@ -460,6 +461,8 @@ modules:
     managed: true
     requires:
       - ui
+      # XCODE: 下游产品标志通过独立品牌模块提供，保留原有 mobile-ui 边界。
+      - xwork-brand-ui
     publicEntrypoints:
       - packages/ui/src/components/mobile-ui/index.ts
       - packages/ui/src/components/mobile-ui/contract.ts
@@ -515,6 +518,9 @@ modules:
       - ui
       - web
       - web-remote-relay
+      # XCODE: 产品自有静态文案与图片统一使用只读品牌契约。
+      - xwork-brand
+      - xwork-brand-ui
     publicEntrypoints:
       - packages/web/src/web-remote-control/index.ts
       - packages/web/src/web-remote-control/contract.ts
@@ -886,3 +892,12 @@ exceptions:
       - packages/ui/src/settings/DynamicWorkflowModeSetting.tsx
       - packages/ui/src/store/dynamicWorkflowAvailabilityStore.ts
     reason: Admitted upstream files edited only to let the user's dynamic workflow mode choice always win and keep the settings row visible; adopting packages/shared/src and packages/ui/src needs a separate module boundary refactor.
+  - id: aiscoo-brand-existing-display-templates
+    rule: unmanaged-new-file
+    paths:
+      - packages/desktop/src/main/windowsCuaOperationIndicatorContent.ts
+      - packages/services/src/feedback/feedbackLogArchive.ts
+      - packages/services/src/file/workspaceFileIgnore.ts
+      - apps/zcode-cli/packages/cli/src/tui-prompt-handler-runtime.ts
+      - apps/zcode-cli/packages/bootstrap/src/zcode-protocol/runtime-resources.ts
+    reason: 已存在的上游文件只将产品静态展示模板接入独立品牌契约；不增加源码文件或业务状态，日志正文、用户规则与持久化标记保持原样。接管整个 desktop/main、feedback 和 file 模块不属于品牌迁移范围。

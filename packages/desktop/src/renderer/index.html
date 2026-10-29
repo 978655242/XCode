@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- XCODE: 桌面页面标题与应用展示名保持一致。 -->
-    <title>XWork</title>
+    <title>Aiscoo</title>
     <style>
       html,
       body,
@@ -45,31 +45,26 @@
         height: 96px;
         align-items: center;
         justify-content: center;
-        border-radius: 24px;
-        background: linear-gradient(180deg, #000000 0%, #151718 100%);
-        box-shadow:
-          0 20px 25px -5px rgb(0 0 0 / 0.2),
-          0 8px 10px -6px rgb(0 0 0 / 0.2);
+        /* XCODE: ai 原稿保持透明，不叠加固定黑色底板。 */
         transform: scale(0.72);
         opacity: 0;
         animation: startup-logo-pop 0.72s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         transform-origin: center;
       }
 
-      .startup-logo-shell::before {
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        content: "";
-        /* 修复原因：启动 logo 壳是固定深色底，边框不能跟随浅色主题 token，否则首屏边框过重。 */
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: inherit;
+      .startup-logo { width: 96px; height: 96px; object-fit: contain; }
+      .aiscoo-startup-dark, .aiscoo-startup-still { display: none; }
+      @media (prefers-color-scheme: dark) {
+        .aiscoo-startup-motion.aiscoo-startup-light { display: none; }
+        .aiscoo-startup-motion.aiscoo-startup-dark { display: block; }
       }
-
-      .startup-logo {
-        width: 56px;
-        height: auto;
-        color: #ffffff;
+      @media (prefers-reduced-motion: reduce) {
+        .aiscoo-startup-motion { display: none !important; }
+        .aiscoo-startup-still.aiscoo-startup-light { display: block; }
+      }
+      @media (prefers-reduced-motion: reduce) and (prefers-color-scheme: dark) {
+        .aiscoo-startup-still.aiscoo-startup-light { display: none; }
+        .aiscoo-startup-still.aiscoo-startup-dark { display: block; }
       }
 
       @keyframes startup-logo-pop {
@@ -110,20 +105,11 @@
     <div id="root"></div>
     <div id="loading" class="[app-region:drag]" role="status" aria-busy="true" aria-label="Loading...">
       <div class="startup-logo-shell">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="118"
-          height="100"
-          fill="none"
-          viewBox="0 0 256 218"
-          class="startup-logo"
-          aria-hidden="true"
-        >
-          <!-- XCODE: 桌面启动壳与应用 X 图标一致。 -->
-          <path fill="currentColor" d="M0 0H82L111 41L70 99Z" />
-          <path fill="currentColor" d="M256 0.130127L102.401 217.732H0L153.599 0.130127H256Z" />
-          <path fill="currentColor" d="M186 119L256 218H174L145 177Z" />
-        </svg>
+        <!-- XCODE: 桌面启动壳使用随包 ai 动画原稿与减弱动效静态稿。 -->
+        <img src="../../../ui/src/xwork/brand/assets/startup-light.svg" class="startup-logo aiscoo-startup-motion aiscoo-startup-light" alt="" aria-hidden="true" />
+        <img src="../../../ui/src/xwork/brand/assets/startup-dark.svg" class="startup-logo aiscoo-startup-motion aiscoo-startup-dark" alt="" aria-hidden="true" />
+        <img src="../../../ui/src/xwork/brand/assets/mark-light.svg" class="startup-logo aiscoo-startup-still aiscoo-startup-light" alt="" aria-hidden="true" />
+        <img src="../../../ui/src/xwork/brand/assets/mark-dark.svg" class="startup-logo aiscoo-startup-still aiscoo-startup-dark" alt="" aria-hidden="true" />
       </div>
     </div>
     <script type="module">

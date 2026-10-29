@@ -8,7 +8,6 @@ import {
   Root as UpstreamRoot,
   GlobalDatabaseStartupLoading,
   UpdateStatusWindowRoot,
-  ZCodeIntlProvider,
   registerBaseWorkspaceServices,
   registerRemoteWorkspaceSession,
   createRemoteWorkspaceDisconnectedError,
@@ -19,6 +18,8 @@ import {
 } from "@zcode/ui";
 // XCODE: 独立公开子路径组合归属水合，保留原 UI 根导出边界。
 import { createXWorkRoot } from "@zcode/ui/xwork-startup-context";
+// XCODE: 应用装配点使用下游品牌词典；上游 Provider 默认资源不改写。
+import { AiscooIntlProvider as ZCodeIntlProvider } from "@zcode/ui/xwork-brand";
 import "@zcode/ui/styles.css";
 import { connectViaMessagePort, createMessagePortServiceConnection } from "@zcode/client";
 import {

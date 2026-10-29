@@ -283,7 +283,7 @@
   gap: 12px;
 }
 
-/* 标题行改为品牌组：Z logo 方块 + 权益文案 + HighSpeed 胶囊（Figma 6403:11193）。 */
+/* XCODE: 权益抬头使用透明 ai 标志，保持原有行布局。 */
 .highspeed-share-dialog__brand {
   display: inline-flex;
   min-width: 0;
@@ -301,12 +301,12 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border: 0.53px solid var(--color-highspeed-share-dialog-logo-border);
+  border: 0;
   border-radius: 3.2px;
-  background: var(--color-highspeed-share-dialog-logo-surface);
+  background: transparent;
 }
 
-.highspeed-share-dialog__logo img {
+.highspeed-share-dialog__logo svg {
   width: 12.8px;
   height: 12.8px;
   object-fit: cover;

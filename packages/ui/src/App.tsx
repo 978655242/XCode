@@ -50,8 +50,8 @@ import {
 } from "@/lib/settingsNavigation.js";
 import { runWorkspaceVisibleCommand } from "@/lib/workspaceVisibleCommand.js";
 import { ZCODE_PRODUCT_DOCS_URL } from "@/lib/productDocs.js";
-// XCODE: 应用品牌与供应商标志分离。
-import appLogoUrl from "@/assets/xcode-mark.svg";
+// XCODE: 应用图标从下游品牌入口选择，供应商标志与身份保持独立。
+import { AISCOO_ASSET_URLS } from "@/xwork/brand/index.js";
 import { resolveTheme } from "@/useTheme.js";
 import { WorkspaceShellLayout } from "@/app-shell/WorkspaceShellLayout.js";
 import { useAppChromeState } from "@/app-shell/useAppChromeState.js";
@@ -1280,7 +1280,7 @@ export function App({
           fileChangeFindNavigationRequestId={fileChangeFindState.navigationRequestId}
           fileChangeFindQuery={fileChangeFindState.query}
           onFileChangeFindMatchCountChange={setFileChangeFindMatchCount}
-          appLogoUrl={appLogoUrl}
+          appLogoUrl={AISCOO_ASSET_URLS.app[resolveTheme(theme)]}
           platform={platform}
           reloadSessionDisabled={reloadSessionDisabled}
           reloadSessionPending={reloadSessionPending}

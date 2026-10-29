@@ -1,4 +1,4 @@
-<!-- XCODE: 页面标题统一产品展示名称，保留启动图形与内部配置。 -->
+<!-- XCODE: 页面标题与静态启动图接入 Aiscoo 资源，内部配置和主题协议不变。 -->
 <!doctype html>
 <html lang="en">
   <head>
@@ -10,10 +10,12 @@
     <link
       rel="icon"
       type="image/png"
-      href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABdWlDQ1BrQ0dDb2xvclNwYWNlRGlzcGxheVAzAAAokXWQvUvDUBTFT6tS0DqIDh0cMolD1NIKdnFoKxRFMFQFq1OafgltfCQpUnETVyn4H1jBWXCwiFRwcXAQRAcR3Zw6KbhoeN6XVNoi3sfl/Ticc7lcwBtQGSv2AijplpFMxKS11Lrke4OHnlOqZrKooiwK/v276/PR9d5PiFlNu3YQ2U9cl84ul3aeAlN//V3Vn8maGv3f1EGNGRbgkYmVbYsJ3iUeMWgp4qrgvMvHgtMunzuelWSc+JZY0gpqhrhJLKc79HwHl4plrbWD2N6f1VeXxRzqUcxhEyYYilBRgQQF4X/8044/ji1yV2BQLo8CLMpESRETssTz0KFhEjJxCEHqkLhz634PrfvJbW3vFZhtcM4v2tpCAzidoZPV29p4BBgaAG7qTDVUR+qh9uZywPsJMJgChu8os2HmwiF3e38M6Hvh/GMM8B0CdpXzryPO7RqFn4Er/QcXKWq8UwZBywAAAARjSUNQDA0AAW4D4+8AAAB+ZVhJZk1NACoAAAAIAAUBGgAFAAAAAQAAAEoBGwAFAAAAAQAAAFIBKAADAAAAAQACAAABMQACAAAABgAAAFqHaQAEAAAAAQAAAGAAAAAAAAAASAAAAAEAAABIAAAAAUZpZ21hAAACoAIABAAAAAEAAAAgoAMABAAAAAEAAAAgAAAAAIWMP68AAAAJcEhZcwAACxMAAAsTAQCanBgAAAFZaVRYdFhNTDpjb20uYWRvYmUueG1wAAAAAAA8eDp4bXBtZXRhIHhtbG5zOng9ImFkb2JlOm5zOm1ldGEvIiB4OnhtcHRrPSJYTVAgQ29yZSA2LjAuMCI+CiAgIDxyZGY6UkRGIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+CiAgICAgIDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiCiAgICAgICAgICAgIHhtbG5zOnhtcD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wLyI+CiAgICAgICAgIDx4bXA6Q3JlYXRvclRvb2w+RmlnbWE8L3htcDpDcmVhdG9yVG9vbD4KICAgICAgPC9yZGY6RGVzY3JpcHRpb24+CiAgIDwvcmRmOlJERj4KPC94OnhtcG1ldGE+CgT/XMgAAAUVSURBVFgJvVdNUBxFFH49M/vHLtkUgiQH4i3AyVAFItwDCerBlAcRIxU8yQIupyRlqkAPkgQrohxiibFUOEpVULGiFeFAFejBC4dYFQ5UQMrwc8CSn7CzO+17PdNMzzC7iVXBruqd7tdff9/r19OvZxkopby8vJ4z9hrn0ItmXRl6Gs0cYzDEOP92dXX1V0nIqFFaWlrMNGMYgL8JjOkcPXjaRQihB1hywGGMW9nujY2Nfww0MK5pwzjWLnQPQZxUxZJsbp0x1o6aZL7AcPW1nGm/YUdYyPo/FYtxq96wQHsDA6MdRtgLLQSjoKF2Kyt5ptRCoNgcOYHClctm7a46QgPUV56aroOG+5fN5dAuAu3Okzi0aEwDTccgKxA0WwYH7kjYD4pEJByG4ydO7IvJOVLbVkBS3Me/NzdhfWMDnkO8YRg+fmdl6ODuzg7g2w/M3nukEN5phuu0LWOaJlRXV8HPd+4IASkW9Nza2oLms2fh1Knn4ctbtyAUCgXBIIfRudDxNiz/uQzhcETBcECX5fpsO0XA0A1IJBIKMLjZ198P6+vr8N3t25BMJoNBaP18ZAQmf5yEaCTq3SYcwwh4HaD9JNKRkS8wAs7u+KhpxsL9Bbh58zMY/eZrqKio8CHc7vz8PPT19dvbQ1rqPmKbHTl61OMBQ4RlWbD76JHDQsNylu0Q/ZqZPejueRc+/WTIVfO1dnDfX3r5FZibm4NoNIq77pES6ANvDYHwiEBRLOajc7t7e3tQW/cCfPB+v2sMaA1cvQozMzMQj8dxpw+K0xRWfCQZPBJASCaKDr1skz98D42NjXlQAHfv/gKvnjuH47Sg/DmOjqFzIgTWjjbR+t2yow+7u7tw5cp7BcXX1tYg3ZsG08xACI/0gdAr3O4pkEb5JCfUgumCxJtOn4beNF2W+culy5fh3r0/ROj9p8w/i8UTCZR0lidGyQPZl95gpsPMWFJSAtPTU1B58qSfZ78/OjYGHR0dEInQeZc8clhyu7xOIpIGFSjb9LTQARMGBj4sKH5/YQEuXrwEOqZn+53z8xKXauN0A6KB0LIKAIHcurO9A21tbfDW+fPEEFgymQz09PTAw4d/CQdsDxRe4ZHLKccPJCKPgyhlZkyorKqE69euieMZqI7GGzc+hp8wfceKipCbhLA4D7sT3GfRWMwPc/EO0cTEBDQ3Ne3b/Y3Z2VloPnMGKAp0Qf2XoimRVqMu2nuYDdPpdEHxTbwNU11dsL29La7cQnyBY5FolAdVjDdvaGjkeONhRPOXzlRK2dhACTGO+SBQh4UjkQNbYOUsiCfiMD01BTU1NXkjOj4+Dq+3tkIqlYLqqqq8OMviMDh4HZaWlkE3fB/bYfRMreQpMvHh4eH8y8aRBw+WeFlZGe/q6i6Ik4O1dXXIyzxapOucAjdh0HlvaWmB9vZ2oNssqNBHS2fnOyIxUVqmDIlCQVBhy+H9kTXpEw+Tsg/GjFDIYyKi48eOiTRq+dFIQa6amBUXFxfh2bIy4QQJPK6srKxABm9RfLc8UIbfcfg16f0kz+E7wHlhUp2+/1CYbscnKZQd6Zqn1SouWDqe2ySuukElISCd50KV8E+Ckxwqv2zj/CFyphZBzh8T6np2RGLzPB+HV8fVtqDD4Fn1lLZ+xzpKJvXeJjdkpTEqftcIL20qVra94xJpc+EvaZK2KMUYha8wJFms+Af5UGuWtFC12Jb2/r6I3Y8OyRE6h4NY61XJfwGpM7IkXMg8awAAAABJRU5ErkJggg=="
+      href="data:image/png;base64,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"
       sizes="32x32"
     />
-    <title>XWork</title>
+    <link rel="icon" href="./favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <title>Aiscoo</title>
     <script>
       (() => {
         // Bugfix: Web 远控跨 workspace 跳转时，JS bundle 还没执行前就会先渲染启动壳。
@@ -170,27 +172,38 @@
         height: 96px;
         align-items: center;
         justify-content: center;
-        border-radius: 24px;
-        background: linear-gradient(180deg, #000000 0%, #151718 100%);
-        box-shadow:
-          0 20px 25px -5px rgb(0 0 0 / 0.2),
-          0 8px 10px -6px rgb(0 0 0 / 0.2);
-      }
-
-      .zcode-boot-loading__logo-shell::before {
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        content: "";
-        /* 修复原因：启动 logo 壳是固定深色底，边框不能跟随浅色主题 token，否则首屏边框过重。 */
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: inherit;
+        /* XCODE: 用户原稿是透明画布，避免额外固色矩形覆盖主题。 */
       }
 
       .zcode-boot-loading__logo {
-        width: 56px;
-        height: auto;
-        color: #ffffff;
+        width: 96px;
+        height: 96px;
+        object-fit: contain;
+      }
+
+      .aiscoo-boot-light,
+      .aiscoo-boot-still {
+        display: none;
+      }
+      html[data-zcode-bootstrap-theme="light"] .aiscoo-boot-motion.aiscoo-boot-light {
+        display: block;
+      }
+      html[data-zcode-bootstrap-theme="light"] .aiscoo-boot-motion.aiscoo-boot-dark {
+        display: none;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .aiscoo-boot-motion {
+          display: none !important;
+        }
+        .aiscoo-boot-still.aiscoo-boot-dark {
+          display: block;
+        }
+        html[data-zcode-bootstrap-theme="light"] .aiscoo-boot-still.aiscoo-boot-light {
+          display: block;
+        }
+        html[data-zcode-bootstrap-theme="light"] .aiscoo-boot-still.aiscoo-boot-dark {
+          display: none;
+        }
       }
     </style>
   </head>
@@ -205,42 +218,31 @@
         aria-label="Loading..."
       >
         <div class="zcode-boot-loading__logo-shell">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="118px"
-            height="100px"
-            fill="none"
-            viewBox="0 0 256 218"
-            class="zcode-boot-loading__logo"
+          <!-- XCODE: 启动前直接加载随包原稿，减少动态效果时显示静态 ai。 -->
+          <img
+            src="../ui/src/xwork/brand/assets/startup-light.svg"
+            class="zcode-boot-loading__logo aiscoo-boot-motion aiscoo-boot-light"
+            alt=""
             aria-hidden="true"
-          >
-            <!-- XCODE: 启动壳使用断笔 X，保留既有动画。 -->
-            <path fill="currentColor" d="M0 0H82L111 41L70 99Z">
-              <animate
-                attributeName="opacity"
-                dur="1.5s"
-                repeatCount="indefinite"
-                values="1;0.3;1"
-              />
-            </path>
-            <path fill="currentColor" d="M256 0.130127L102.401 217.732H0L153.599 0.130127H256Z">
-              <animate
-                attributeName="opacity"
-                begin="0.75s"
-                dur="1.5s"
-                repeatCount="indefinite"
-                values="1;0.3;1"
-              />
-            </path>
-            <path fill="currentColor" d="M186 119L256 218H174L145 177Z">
-              <animate
-                attributeName="opacity"
-                dur="1.5s"
-                repeatCount="indefinite"
-                values="1;0.3;1"
-              />
-            </path>
-          </svg>
+          />
+          <img
+            src="../ui/src/xwork/brand/assets/startup-dark.svg"
+            class="zcode-boot-loading__logo aiscoo-boot-motion aiscoo-boot-dark"
+            alt=""
+            aria-hidden="true"
+          />
+          <img
+            src="../ui/src/xwork/brand/assets/mark-light.svg"
+            class="zcode-boot-loading__logo aiscoo-boot-still aiscoo-boot-light"
+            alt=""
+            aria-hidden="true"
+          />
+          <img
+            src="../ui/src/xwork/brand/assets/mark-dark.svg"
+            class="zcode-boot-loading__logo aiscoo-boot-still aiscoo-boot-dark"
+            alt=""
+            aria-hidden="true"
+          />
         </div>
       </div>
     </div>

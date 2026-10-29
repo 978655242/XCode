@@ -7,6 +7,8 @@ import {
   type ForceUpdateRequirement,
   type Locale,
 } from "@zcode/shared";
+// XCODE: 更新提示只使用共享产品展示名，版本和更新服务身份保持不变。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import { requestForceAutoUpdate, type ForceAutoUpdateState } from "./autoUpdater.js";
 import { showForceUpdatePrompt } from "./forceUpdatePrompt.js";
 
@@ -38,7 +40,9 @@ export interface ForceUpdateGuardOptions {
   logger: ForceUpdateGuardLogger;
   endpointOrigin?: string;
   fetchRemoteConfig?: () => Promise<unknown>;
-  requestAutoUpdate?: (onStateChange?: (state: ForceAutoUpdateState) => void) => (() => void) | void;
+  requestAutoUpdate?: (
+    onStateChange?: (state: ForceAutoUpdateState) => void,
+  ) => (() => void) | void;
   onBlocked?: (requirement: ForceUpdateRequirement) => void;
 }
 
@@ -67,7 +71,7 @@ function getForceUpdateMinimalVersionFromClientConfig(config: unknown): string |
   if (typeof envelope.code === "number" && envelope.code !== 0) {
     // /client/configs 与服务层一样只有 code=0 才可信，避免错误 envelope 携带旧 data 时误触发启动强更。
     // XCODE: 更新错误提示与产品展示名一致。
-    throw new Error(`XWork client config failed: ${envelope.code}`);
+    throw new Error(`${PRODUCT_NAME} client config failed: ${envelope.code}`);
   }
   return getForceUpdateMinimalVersionFromConfig(envelope.data?.configs);
 }
@@ -196,7 +200,7 @@ export function formatForceUpdateDialogText(
 ): ForceUpdateDialogText {
   if (locale === "zh-CN") {
     return {
-      title: "需要升级 XWork",
+      title: `需要升级 ${PRODUCT_NAME}`,
       message: "当前版本无法继续使用",
       detail: `当前版本：v${requirement.currentVersion}\n最低可用版本：v${requirement.minimalVersion}`,
       autoUpdateButton: "自动升级",
@@ -206,7 +210,7 @@ export function formatForceUpdateDialogText(
   }
 
   return {
-    title: "Update XWork",
+    title: `Update ${PRODUCT_NAME}`,
     message: "The current version can no longer be used",
     detail: `Current version: v${requirement.currentVersion}\nMinimum supported version: v${requirement.minimalVersion}`,
     autoUpdateButton: "Auto update",

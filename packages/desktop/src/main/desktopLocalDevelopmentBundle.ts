@@ -1,7 +1,11 @@
 import { normalize } from "node:path";
 
+// XCODE: 新 Dev bundle 展示名来自品牌配置，同时继续识别历史生成副本。
+import { PRODUCT_BRAND } from "@zcode/shared/xwork-brand";
+
 const LOCAL_DEV_BUNDLE_PATH = "/.zcode-runtime/desktop-dev/";
-const LOCAL_DEV_BUNDLE_EXECUTABLE_SUFFIX = "/XWork Dev.app/Contents/MacOS/Electron";
+const LOCAL_DEV_BUNDLE_EXECUTABLE_SUFFIX = `/${PRODUCT_BRAND.developmentName}.app/Contents/MacOS/Electron`;
+const LEGACY_XWORK_LOCAL_DEV_BUNDLE_EXECUTABLE_SUFFIX = "/XWork Dev.app/Contents/MacOS/Electron";
 const LEGACY_LOCAL_DEV_BUNDLE_EXECUTABLE_SUFFIX = "/XCode Dev.app/Contents/MacOS/Electron";
 
 export function isLocalDevelopmentBundleLaunch(
@@ -18,6 +22,7 @@ export function isLocalDevelopmentBundleLaunch(
   return (
     executablePath.includes(LOCAL_DEV_BUNDLE_PATH) &&
     (executablePath.endsWith(LOCAL_DEV_BUNDLE_EXECUTABLE_SUFFIX) ||
+      executablePath.endsWith(LEGACY_XWORK_LOCAL_DEV_BUNDLE_EXECUTABLE_SUFFIX) ||
       executablePath.endsWith(LEGACY_LOCAL_DEV_BUNDLE_EXECUTABLE_SUFFIX))
   );
 }

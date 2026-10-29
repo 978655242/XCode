@@ -1,3 +1,5 @@
+// XCODE: 自有静态模板使用共享品牌，用户插值和兼容标识保持不变。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import type { NewApiSessionBundle } from "@zcode/shared";
@@ -11,7 +13,7 @@ export async function createZenDefaultDependencies(
   env: Readonly<Record<string, string | undefined>>,
 ) {
   const origin = env.NEW_API_BASE_URL?.trim();
-  if (!origin) throw new Error("Set NEW_API_BASE_URL to use XWork Zen Plan.");
+  if (!origin) throw new Error(`Set NEW_API_BASE_URL to use ${PRODUCT_NAME} Zen Plan.`);
   const root = env.ZCODE_DATA_BASE_DIR?.trim()
     ? resolve(env.ZCODE_DATA_BASE_DIR.trim())
     : homedir();

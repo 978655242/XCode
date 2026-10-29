@@ -1,6 +1,6 @@
 // XCODE: XWork 顶层命令组合层：`login zen` / `logout zen` / 帮助追加在此处理，其余参数原样委托上游 run。
 import { formatJson } from "@zcode/core";
-import { resolveLocale } from "@zcode/i18n";
+import { PRODUCT_NAME, brandProductText, resolveLocale } from "@zcode/i18n";
 import type { RunContext } from "@zcode/shared-types";
 import { parseGlobalArgs } from "../arguments.js";
 import { loadBootstrapModule } from "../bootstrap-loader.js";
@@ -66,7 +66,7 @@ export async function runXwork(ctx: RunContext, deps: XworkRunDependencies = {})
     // 与上游帮助相同的语言判定：--locale 优先，缺省或 auto 时按环境检测。
     const requested = invocation.values.locale as string | undefined;
     const locale = resolveLocale(requested ?? "auto", detectCliLocale(env));
-    return run(withHelpAppended(ctx, zenHelp[locale]), deps);
+    return run(withHelpAppended(ctx, brandProductText(zenHelp[locale])), deps);
   }
   const json = invocation.values.json === true;
   try {
@@ -98,7 +98,7 @@ export async function runXwork(ctx: RunContext, deps: XworkRunDependencies = {})
         onAuthorizeUrl: (url) => {
           if (json)
             ctx.stderr.write(`${JSON.stringify({ event: "authorize", provider: "zen", url })}\n`);
-          else ctx.stdout.write(`Open on this computer to sign in to XWork Zen Plan:\n${url}\n`);
+          else ctx.stdout.write(`Open on this computer to sign in to ${PRODUCT_NAME} Zen Plan:\n${url}\n`);
         },
       });
       loginSettled = loginPromise.then(
@@ -114,7 +114,7 @@ export async function runXwork(ctx: RunContext, deps: XworkRunDependencies = {})
       ctx.stdout.write(
         json
           ? formatJson({ status: "ready", provider: "zen", user: result.user })
-          : `Signed in to XWork Zen Plan as ${result.user.display_name || result.user.username}.\nSelect a Zen model with /model.\n`,
+          : `Signed in to ${PRODUCT_NAME} Zen Plan as ${result.user.display_name || result.user.username}.\nSelect a Zen model with /model.\n`,
       );
       return 0;
     }
@@ -124,7 +124,7 @@ export async function runXwork(ctx: RunContext, deps: XworkRunDependencies = {})
       json
         ? formatJson({ provider: "zen", ...result })
         : result.serverRevoked
-          ? "Signed out of XWork Zen Plan.\n"
+          ? `Signed out of ${PRODUCT_NAME} Zen Plan.\n`
           : "Local Zen credentials cleared; server revocation could not be confirmed.\n",
     );
     return 0;

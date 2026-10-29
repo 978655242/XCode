@@ -5,8 +5,8 @@
  * 手机远控复用同一组件，但继续保留 20px 紧凑标题；桌面草稿首页才按标题自身宽度适配。
  */
 import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
-// XCODE: 首页深色装饰图独立于应用图标，必须使用 X 资源。
-import darkEmptyStateLogoUrl from "@/assets/xcode-hero-dark.svg";
+// XCODE: 初始对话展示独立完整动态字标，避免背景水印被问候语遮挡。
+import { AiscooEmptyStateLogo as ZCodeEmptyStateLogo } from "@/xwork/brand/index.js";
 import { cn } from "@/components/lib/utils.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useIsOfficeMode } from "@/hooks/useInterfaceMode.js";
@@ -190,14 +190,15 @@ export function ConversationDraftEmptyState({
         className,
       )}
     >
+      {/* XCODE: 字标独立参与布局，不能作为水印叠到问候语背后。 */}
       <div
         aria-hidden="true"
-        className={cn(
-          "pointer-events-none absolute left-1/2 top-1/2 aspect-[5/4] w-[min(72vw,25rem)] -mt-10",
-          "-translate-x-1/2 -translate-y-1/2 text-foreground-subtlest",
-        )}
+        data-v4-draft-brand="true"
+        className="pointer-events-none flex w-full shrink-0 justify-center px-4"
       >
-        <ZCodeEmptyStateLogo className="h-full w-full" />
+        <ZCodeEmptyStateLogo
+          className={cn("h-auto max-w-full", compactForRemoteControl ? "w-56" : "w-80")}
+        />
       </div>
       <p
         ref={greetingContainerRef}
@@ -224,45 +225,5 @@ export function ConversationDraftEmptyState({
         <span>{greeting}</span>
       </p>
     </div>
-  );
-}
-
-function ZCodeEmptyStateLogo({ className }: { className?: string }) {
-  return (
-    <>
-      {/* 修复原因：夜间资源已自带渐变和透明度，公共容器叠加遮罩会让它重复变淡；渐隐效果只属于浅色线框。 */}
-      <svg
-        aria-hidden="true"
-        className={cn(
-          className,
-          "opacity-70 dark:hidden",
-          "[-webkit-mask-image:linear-gradient(to_bottom,black_0%,transparent_70%,transparent_100%)]",
-          "[-webkit-mask-repeat:no-repeat] [-webkit-mask-size:100%_100%]",
-          "[mask-image:linear-gradient(to_bottom,black_0%,transparent_70%,transparent_100%)]",
-          "[mask-repeat:no-repeat] [mask-size:100%_100%]",
-        )}
-        width="400"
-        height="320"
-        viewBox="0 0 400 320"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          // XCODE: 保留浅色线框和渐隐效果，仅将独立 Z 路径替换成断笔 X。
-          transform="translate(1 0.5) scale(1.5546875 1.4633028)"
-          d="M154 0H256L102 218H0Z M0 0H82L111 41L70 99Z M186 119L256 218H174L145 177Z"
-          vectorEffect="non-scaling-stroke"
-          stroke="currentColor"
-        />
-      </svg>
-      {/* 深色资源包含专用渐变与模糊效果，不能通过 currentColor 复刻；主题类保证两套 Logo 互斥显示。 */}
-      <img
-        aria-hidden="true"
-        className={cn(className, "hidden dark:block")}
-        data-v4-draft-logo="dark"
-        src={darkEmptyStateLogoUrl}
-        alt=""
-      />
-    </>
   );
 }

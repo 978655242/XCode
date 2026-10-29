@@ -1,5 +1,5 @@
-# XWork PR 必过检查。job 名 policy / verify 被 release 规则集设为 required status checks，改名需同步更新规则集。
-name: XWork PR
+# Aiscoo PR 必过检查。job 名 policy / verify 被 release 规则集设为 required status checks，改名需同步更新规则集。
+name: Aiscoo PR
 
 on:
   pull_request:
@@ -50,7 +50,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm architecture:check
-      # XWork 原生单测（node --test）；部分用例导入 zcode-cli 工作区包的 dist，需先构建。
+      # Aiscoo 原生单测（node --test）；部分用例导入 zcode-cli 工作区包的 dist，需先构建。
       # zcode-cli 自己不装 turbo；与 build:sea 相同，用根依赖的 turbo 在其目录下构建。
       - run: pnpm exec turbo --skip-infer --cwd apps/zcode-cli run build
       - run: pnpm test:unit:node

@@ -6,6 +6,8 @@ import {
   type FeedbackTicketType,
 } from "@zcode/shared";
 import type { IFeedbackService } from "@zcode/services";
+// XCODE: 反馈产品标签使用共享模板，提交协议及用户正文不变。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 import { persistFeedbackContactPreference } from "@/feedback/feedbackContactPreference.js";
 import type { FeedbackSubmitDraft } from "@/feedback/feedbackStore.js";
 import type { ScreenshotAttachmentDraft } from "@/feedback/FeedbackScreenshotPicker.js";
@@ -20,7 +22,7 @@ import {
   type FeedbackSubmissionJob,
 } from "@/feedback/feedbackSubmissionJob.js";
 
-const FEEDBACK_ZCODE_AGENT_LABEL = "XWork Agent";
+const FEEDBACK_ZCODE_AGENT_LABEL = brandProductText("XWork Agent");
 
 export const DEFAULT_FEEDBACK_TYPE: FeedbackTicketType = "bug";
 export const DEFAULT_FEEDBACK_SEVERITY: FeedbackTicketSeverity = "P2-中";

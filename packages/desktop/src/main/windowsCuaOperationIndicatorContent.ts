@@ -1,4 +1,5 @@
 import type { Locale } from "@zcode/shared";
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 
 /**
  * Windows CUA 操作提示条的呈现层：文案、尺寸与 HTML。
@@ -14,8 +15,8 @@ export const INDICATOR_SHADOW_INSET = { top: 6, right: 8, bottom: 12, left: 8 } 
 export function indicatorCopy(locale: Locale): { text: string; width: number } {
   // XCODE: 系统操作浮层显示统一产品名。
   return locale === "zh-CN"
-    ? { text: "XWork 正在操作电脑", width: 234 }
-    : { text: "XWork is controlling your computer", width: 308 };
+    ? { text: `${PRODUCT_NAME} 正在操作电脑`, width: 244 }
+    : { text: `${PRODUCT_NAME} is controlling your computer`, width: 318 };
 }
 
 export function indicatorWindowSize(locale: Locale): { width: number; height: number } {

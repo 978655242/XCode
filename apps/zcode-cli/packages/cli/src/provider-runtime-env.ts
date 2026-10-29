@@ -1,3 +1,5 @@
+// XCODE: 自有静态模板使用共享品牌，用户插值和兼容标识保持不变。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
@@ -24,14 +26,14 @@ export function createCliProviderRefreshReporter(
   return {
     onBuiltinRefreshError(error: unknown) {
       stderr.write(
-        `XWork Built-in 刷新失败: ${error instanceof Error ? error.message : "unknown error"}\n`,
+        `${PRODUCT_NAME} Built-in 刷新失败: ${error instanceof Error ? error.message : "unknown error"}\n`,
       );
     },
     onBuiltinRefreshResult(event: ZCodeBuiltinRefreshEvent) {
       // TTL 检查不是生产事件；成功更新才默认留痕，不能输出 CDN URL 查询参数或内容。
       if (event.result === "updated" || process.env.NODE_ENV !== "production") {
         stderr.write(
-          `XWork Built-in ${event.result}${event.reason ? ` (${event.reason})` : ""}${event.revision === undefined ? "" : ` revision=${event.revision} source=CDN`}\n`,
+          `${PRODUCT_NAME} Built-in ${event.result}${event.reason ? ` (${event.reason})` : ""}${event.revision === undefined ? "" : ` revision=${event.revision} source=CDN`}\n`,
         );
       }
     },
@@ -144,7 +146,7 @@ async function resolveBundledZCodeBuiltinProviderConfig(input: {
   }
 
   const entrypoint = input.entrypoint?.trim();
-  if (!entrypoint) throw new Error("无法定位 CLI XWork Built-in Provider Config：缺少入口路径");
+  if (!entrypoint) throw new Error(`无法定位 CLI ${PRODUCT_NAME} Built-in Provider Config：缺少入口路径`);
   // 全局 bin 可以是软链接，随包配置必须相对真实入口定位。
   const entryDirectory = dirname(realpathSync(resolve(entrypoint)));
   const candidates = [
@@ -153,7 +155,7 @@ async function resolveBundledZCodeBuiltinProviderConfig(input: {
   ];
   const candidate = candidates.find((filePath) => existsSync(filePath));
   if (candidate) return candidate;
-  throw new Error(`无法定位 CLI XWork Built-in Provider Config：${candidates.join(", ")}`);
+  throw new Error(`无法定位 CLI ${PRODUCT_NAME} Built-in Provider Config：${candidates.join(", ")}`);
 }
 
 function getSeaProviderConfigAssets(): SeaProviderConfigAssets | undefined {

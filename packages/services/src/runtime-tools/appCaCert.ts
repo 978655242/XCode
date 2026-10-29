@@ -1,5 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { randomBytes } from "node:crypto";
+// XCODE: 品牌只影响首次生成的证书展示主体，已有证书与文件路径继续复用。
+import { brandProductText, PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import forge from "node-forge";
@@ -61,8 +63,9 @@ function generateSelfSignedCa(): { certPem: string; keyPem: string } {
   cert.validity.notAfter = notAfter;
 
   const attrs = [
-    { name: "commonName", value: "XWork Network CA" },
-    { name: "organizationName", value: "XWork" },
+    // XCODE: 只改新证书的可见主体，不触发已有证书重置或信任安装。
+    { name: "commonName", value: brandProductText("XWork Network CA") },
+    { name: "organizationName", value: PRODUCT_NAME },
   ];
   cert.setSubject(attrs);
   cert.setIssuer(attrs); // 自签：issuer == subject

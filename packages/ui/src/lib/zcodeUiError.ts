@@ -25,6 +25,8 @@ const GENERIC_ZCODE_UI_ERROR_MESSAGES = new Set([
   // XCODE: 生成 XWork 文案，同时识别 XCode/ZCode 历史会话错误。
   "XWork session failed",
   "XCode session failed",
+  // XCODE: 新品牌错误仍按通用包装处理，保留模型或网络返回的实际根因。
+  "Aiscoo session failed",
 ]);
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {

@@ -1,3 +1,5 @@
+// XCODE: 自有静态模板使用共享品牌，用户插值和兼容标识保持不变。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -101,7 +103,7 @@ function assertCapturedBrokerLaunchIsAuthorized(credentials: CapturedBrokerCrede
     process.env[ZCODE_CUA_NODE_REPL_HOST_ENV_KEY] !== "1"
   ) {
     throw new Error(
-      "Captured XWork CUA broker credentials may only launch the trusted shared node_repl host",
+      `Captured ${PRODUCT_NAME} CUA broker credentials may only launch the trusted shared node_repl host`,
     );
   }
 }

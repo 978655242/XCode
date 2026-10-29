@@ -4,6 +4,8 @@ import type {
   BotProviderCallbackResult,
   BotsConfigFile,
 } from "@zcode/shared";
+// XCODE: 静态运行状态提示使用共享品牌，微信外部消息不投影。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 import type { ICredentialService } from "../credential/credential.js";
 import { getWeixinUpdates } from "./providers/weixinProvider.js";
 import {
@@ -93,7 +95,8 @@ export function createWeixinChannelRuntime(deps: WeixinChannelRuntimeDeps) {
           botId: bot.id,
           provider: "weixin",
           status: "idle",
-          message: "Weixin long polling is handled by another XWork window.",
+          // XCODE: 仅产品窗口提示使用共享品牌。
+          message: brandProductText("Weixin long polling is handled by another XWork window."),
         });
         await waitFor(BOT_RUNTIME_LOCK_RETRY_MS, signal);
         continue;

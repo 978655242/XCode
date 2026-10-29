@@ -1,11 +1,10 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { CopyIcon, EyeIcon, XIcon, ZapIcon } from "lucide-react";
 import { animate, motion, useReducedMotion } from "motion/react";
-import shareCardDarkBackgroundUrl from "@/assets/highspeed/share-card.svg";
-import shareCardLightBackgroundUrl from "@/assets/highspeed/share-card-light.svg";
+// XCODE: 高速分享卡的产品装饰使用自有原稿，原 Z 背景不再充当产品标识。
+import { AiscooMark, PRODUCT_NAME } from "@/xwork/brand/index.js";
 import shareDialogNoiseUrl from "@/assets/highspeed/share-dialog-noise.png";
 import shareDialogNoiseLightUrl from "@/assets/highspeed/share-dialog-noise-light.png";
-import zaiLogoUrl from "@/assets/highspeed/zai-logo.png";
 import { Button } from "@/components/ui/button.js";
 import { ZCodeWordmarkLogo } from "@/components/ui/ZCodeAboutLogo.js";
 import {
@@ -55,26 +54,14 @@ export function HighspeedShareNoticeCard({
           data-global-notice-type="highspeed-share"
           role="group"
         >
-          {/* Bug 原因：旧实现把设计稿背景拆成多个近似图层，主题切换时容易重复叠加或丢失描边。
-           * 直接使用设计交付的完整主题底图，前景元素仍按 Figma 坐标独立渲染。 */}
-          <img
-            src={shareCardLightBackgroundUrl}
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-            className="highspeed-sidebar-share-card__background highspeed-sidebar-share-card__background--light"
-            data-highspeed-card-background="light"
-          />
-          <img
-            src={shareCardDarkBackgroundUrl}
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-            className="highspeed-sidebar-share-card__background highspeed-sidebar-share-card__background--dark"
-            data-highspeed-card-background="dark"
-          />
+          {/* XCODE: 保留卡片背景层位置，淡化的 ai 原稿替换含旧 Z 的整张底图。 */}
+          <AiscooMark className="pointer-events-none absolute -right-3 top-0 h-24 w-28 opacity-[0.06]" />
           <div className="highspeed-sidebar-share-card__content">
-            <div className="highspeed-sidebar-share-card__title" role="img" aria-label="ZCode">
+            <div
+              className="highspeed-sidebar-share-card__title"
+              role="img"
+              aria-label={PRODUCT_NAME}
+            >
               <ZCodeWordmarkLogo className="highspeed-sidebar-share-card__wordmark" />
             </div>
             <Button
@@ -234,7 +221,7 @@ export function HighspeedShareDialog({
           <div className="highspeed-share-dialog__header">
             <div className="highspeed-share-dialog__brand">
               <span className="highspeed-share-dialog__logo" aria-hidden="true">
-                <img src={zaiLogoUrl} alt="" draggable={false} />
+                <AiscooMark className="size-full" />
               </span>
               <span className="highspeed-share-dialog__benefit">
                 {intl.formatMessage({ id: "globalNotice.highspeed.badge" })}

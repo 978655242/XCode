@@ -1,10 +1,13 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { z } from "zod";
+// XCODE: 产品展示名由共享品牌契约提供。
+import { brandProductText } from "./xwork-brand/runtime.js";
 import type { CommandAgentSource } from "./command-types.js";
 import type { ZCodeProvider } from "./zcode-task-types-core.js";
 
 export const ZCODE_AGENT_PROVIDER = "glm" satisfies ZCodeProvider;
-export const ZCODE_AGENT_PROVIDER_LABEL = "XWork Agent";
+// XCODE: 仅 Agent 展示标签使用产品品牌，provider/source 标识继续兼容。
+export const ZCODE_AGENT_PROVIDER_LABEL = brandProductText("XWork Agent");
 export const ZCODE_COMMAND_AGENT_SOURCE = "zcodeAgent" satisfies CommandAgentSource;
 
 /**

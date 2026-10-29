@@ -1,3 +1,5 @@
+// XCODE: 自有静态模板使用共享品牌，用户插值和兼容标识保持不变。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { parseZenAuthorizationCallback } from "@zcode/shared";
@@ -51,7 +53,7 @@ export async function createZenAuthorizationListener(
       return;
     }
     settled = true;
-    response.writeHead(200).end("Authorization received. Return to XWork CLI.");
+    response.writeHead(200).end(`Authorization received. Return to ${PRODUCT_NAME} CLI.`);
     resolveResult(callback);
   });
   server.requestTimeout = 5000;

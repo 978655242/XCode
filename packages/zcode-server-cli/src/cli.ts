@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { isPublicZCodeErrorCode, ZCODE_VERSION } from "@zcode/shared";
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import { SourceServerWorkspaceAliasRepo } from "@zcode/services/node";
 import {
   CORE_KILL_TIMEOUT_MS,
@@ -172,7 +173,7 @@ export async function runServerCli(
       case "update": {
         const updateLock = await acquireLifecycleCommandLock(
           layout,
-          "Another ZCode Server update is already running",
+          `Another ${PRODUCT_NAME} Server update is already running`,
         );
         const updateDaemonHandoff =
           runtimeOptions.updateDaemonHandoff ?? createUpdateDaemonHandoff();
@@ -202,7 +203,7 @@ export async function runServerCli(
       case "uninstall": {
         const uninstallLock = await acquireLifecycleCommandLock(
           layout,
-          "A ZCode Server update is already running",
+          `A ${PRODUCT_NAME} Server update is already running`,
         );
         try {
           return await runUninstall(io, json, layout);
@@ -284,7 +285,7 @@ async function runServe(
         else
           stdout(
             io,
-            `XWork Server ${existing.state} at ${existing.host ?? ""}:${existing.port ?? ""}`,
+            `${PRODUCT_NAME} Server ${existing.state} at ${existing.host ?? ""}:${existing.port ?? ""}`,
           );
         return 0;
       }
@@ -359,14 +360,18 @@ async function runServe(
       () => {
         if (childEarlyExit) {
           throw new Error(
-            `XWork Server daemon exited before ready (code=${childEarlyExit.code ?? "null"} signal=${childEarlyExit.signal ?? "none"}); check ${layout.statusFile} for details`,
+            `${PRODUCT_NAME} Server daemon exited before ready (code=${childEarlyExit.code ?? "null"} signal=${childEarlyExit.signal ?? "none"}); check ${layout.statusFile} for details`,
           );
         }
       },
       serviceStarted,
     );
     if (json) stdout(io, started);
-    else stdout(io, `XWork Server ${started.state} at ${started.host ?? ""}:${started.port ?? ""}`);
+    else
+      stdout(
+        io,
+        `${PRODUCT_NAME} Server ${started.state} at ${started.host ?? ""}:${started.port ?? ""}`,
+      );
     process.stdin.pause();
     process.stdin.destroy();
     return 0;
@@ -436,7 +441,11 @@ async function runServe(
     throw error;
   }
   if (json) stdout(io, status);
-  else stdout(io, `XWork Server ${status.state} at ${status.host ?? ""}:${status.port ?? ""}`);
+  else
+    stdout(
+      io,
+      `${PRODUCT_NAME} Server ${status.state} at ${status.host ?? ""}:${status.port ?? ""}`,
+    );
   await new Promise<void>((resolve) => {
     foregroundStopped = resolve;
     if (!daemon) {
@@ -534,7 +543,7 @@ async function runUninstall(
   json: boolean,
   layout: ReturnType<typeof resolveServerLayout>,
 ): Promise<number> {
-  const first = await (io.confirm?.("Type DELETE to uninstall XWork Server: ") ??
+  const first = await (io.confirm?.(`Type DELETE to uninstall ${PRODUCT_NAME} Server: `) ??
     Promise.resolve(""));
   if (first !== "DELETE") throw new Error("Uninstall cancelled");
   const second = await (io.confirm?.("Type DELETE again to confirm: ") ?? Promise.resolve(""));
@@ -684,7 +693,7 @@ async function delegateLegacyCli(argv: readonly string[], io: CliIO): Promise<nu
   try {
     await access(candidate);
   } catch {
-    stdout(io, argv.length ? `Unknown command: ${argv[0]}` : "XWork TUI");
+    stdout(io, argv.length ? `Unknown command: ${argv[0]}` : `${PRODUCT_NAME} TUI`);
     return argv.length ? 1 : 0;
   }
   const child = fork(candidate, [...argv], { stdio: "inherit" });

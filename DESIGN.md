@@ -1,4 +1,4 @@
-# XWork Design System
+# Aiscoo Design System
 
 Portable design system for AI-assisted UI work in this repository.
 
@@ -25,9 +25,9 @@ Treat violations of this section as design-system defects, not stylistic prefere
 
 ## Product Character
 
-<!-- XCODE: 产品显示名统一为 XWork，设计规则与组件身份不变。 -->
+<!-- XCODE: 产品显示名统一为 Aiscoo，设计规则与组件身份不变。 -->
 
-XWork is a desktop-first and web-compatible AI workspace. The interface should feel calm, dense, and operational rather than decorative.
+Aiscoo is a desktop-first and web-compatible AI workspace. The interface should feel calm, dense, and operational rather than decorative.
 
 Design for:
 
@@ -555,7 +555,7 @@ Overlay rules:
 
 ## Elevation and Depth
 
-XWork should use restrained depth. Layer primarily through background contrast, borders, and radius before relying on heavy shadows.
+Aiscoo should use restrained depth. Layer primarily through background contrast, borders, and radius before relying on heavy shadows.
 
 Recommended elevation levels:
 

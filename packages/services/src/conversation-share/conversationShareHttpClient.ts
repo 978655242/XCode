@@ -33,6 +33,8 @@ import {
   type ConversationShareRecord,
 } from "@zcode/shared";
 import { z } from "zod";
+// XCODE: 仅本地分享兼容提示投影品牌，不改分享内容或服务端响应。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 import { createServiceLogger } from "../logger/serviceLogger.js";
 import { REQUEST_ID_HEADER_NAME, withRequestIdHeader } from "../providers/api/requestIdHeaders.js";
 import { verifyConversationShareIntegrity } from "./conversationShareIntegrity.js";
@@ -415,7 +417,8 @@ export class ConversationShareHttpClient {
     });
     throw new ConversationShareClientError({
       kind: "unsupported_schema_version",
-      message: "Conversation share payload requires a newer XWork version",
+      // XCODE: 只投影客户端升级提示，unsupported_schema_version 分类保持不变。
+      message: brandProductText("Conversation share payload requires a newer XWork version"),
     });
   }
 

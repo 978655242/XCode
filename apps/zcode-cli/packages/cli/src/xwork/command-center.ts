@@ -1,6 +1,6 @@
 // XCODE: XWork Zen Plan 的 slash 命令组合层；上游 createCommandCenter 保持原样，其余输入原样委托。
 import type { TuiSelection, TuiSelectionItem, TuiSubmitPrompt } from "@zcode/tui";
-import { getZCodeCopy } from "@zcode/i18n";
+import { PRODUCT_NAME, brandProductText, getZCodeCopy } from "@zcode/i18n";
 import { normalizeTuiPromptInput } from "../command-center/metadata.js";
 import { createCommandCenter } from "../command-center/create.js";
 import { recordSlashCommandInHistory } from "../command-center/history.js";
@@ -16,18 +16,18 @@ export function buildZenLoginItem(locale?: string): TuiSelectionItem {
   return {
     command: "/login zen",
     id: "zen",
-    keywords: ["zen", "xwork", "plan"],
+    keywords: ["zen", "xwork", PRODUCT_NAME.toLowerCase(), "plan"],
     // 带 pending 才会进入可 Esc 取消的等待态，并把 abortSignal 传给 Zen 登录。
     pending: {
       cancelStatus: copy.pending.cancelStatus,
       help: copy.pending.help,
-      primary: zh ? "等待 XWork Zen Plan 授权" : "Waiting for XWork Zen Plan authorization",
+      primary: zh ? `等待 ${PRODUCT_NAME} Zen Plan 授权` : `Waiting for ${PRODUCT_NAME} Zen Plan authorization`,
       secondary: zh
         ? "请在本机浏览器完成登录和授权，完成后会自动刷新模型。"
         : "Finish sign-in and authorization in a browser on this computer; models refresh automatically.",
       status: copy.pending.status,
     },
-    primary: "XWork Zen Plan",
+    primary: `${PRODUCT_NAME} Zen Plan`,
     secondary: zh ? "在本机浏览器登录套餐账号" : "Sign in through a browser on this computer",
   };
 }
@@ -55,7 +55,7 @@ export function createXworkCommandCenter(
       const result = await upstream(input, options);
       return {
         ...result,
-        response: `${result.response}\n\n${zh ? "XWork Zen Plan：/login zen 登录，/logout zen 退出。" : "XWork Zen Plan: /login zen to sign in, /logout zen to sign out."}`,
+        response: `${result.response}\n\n${brandProductText(zh ? "XWork Zen Plan：/login zen 登录，/logout zen 退出。" : "XWork Zen Plan: /login zen to sign in, /logout zen to sign out.")}`,
       };
     }
     if (command.name === "login" && command.args.length === 0) {
@@ -70,7 +70,7 @@ export function createXworkCommandCenter(
       const result = await zen.loginZen({
         signal: options.abortSignal,
         onAuthorizeUrl: async (url) =>
-          emitLoginAuthorizeMessage(options, url, "XWork Zen Plan", await deps.getApp()),
+          emitLoginAuthorizeMessage(options, url, `${PRODUCT_NAME} Zen Plan`, await deps.getApp()),
       });
       const accountName = result.user.display_name || result.user.username;
       await recordSlashCommandInHistory(deps, promptInput.text, command);
@@ -78,8 +78,8 @@ export function createXworkCommandCenter(
         loginRequired: false,
         mode,
         response: zh
-          ? `已登录 XWork Zen Plan：${accountName}。${result.modelStatus.available ? "使用 /model 选择 Zen 模型。" : "当前没有可用的 Zen 套餐模型，请检查指定套餐和模型权限。"}`
-          : `Signed in to XWork Zen Plan as ${accountName}. ${result.modelStatus.available ? "Select a Zen model with /model." : result.modelStatus.reason}`,
+          ? `已登录 ${PRODUCT_NAME} Zen Plan：${accountName}。${result.modelStatus.available ? "使用 /model 选择 Zen 模型。" : "当前没有可用的 Zen 套餐模型，请检查指定套餐和模型权限。"}`
+          : `Signed in to ${PRODUCT_NAME} Zen Plan as ${accountName}. ${result.modelStatus.available ? "Select a Zen model with /model." : result.modelStatus.reason}`,
       };
     }
     if (command.name === "logout" && command.args === "zen") {
@@ -88,7 +88,7 @@ export function createXworkCommandCenter(
       return {
         mode,
         response: result.serverRevoked
-          ? "Signed out of XWork Zen Plan."
+          ? `Signed out of ${PRODUCT_NAME} Zen Plan.`
           : "Local Zen credentials cleared; server revocation could not be confirmed.",
       };
     }

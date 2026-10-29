@@ -4,7 +4,7 @@
 
 用户取得声明的入口：
 
-- Desktop：安装目录的 `resources/THIRD-PARTY-NOTICES.md`；macOS 为 `ZCode.app/Contents/Resources/THIRD-PARTY-NOTICES.md`。`Resources/licenses/electron/` 另外保存目标平台 Electron 原文、Chromium 汇总及校验清单。
+- Desktop：安装目录的 `resources/THIRD-PARTY-NOTICES.md`；macOS 为 `Aiscoo.app/Contents/Resources/THIRD-PARTY-NOTICES.md`。`Resources/licenses/electron/` 另外保存目标平台 Electron 原文、Chromium 汇总及校验清单。
 - Web：部署根目录的 `THIRD-PARTY-NOTICES.md`；构建后的 HTML 带 `rel="license"` 链接。
 - 发行 CLI：`dist/THIRD-PARTY-NOTICES.md` 作为伴随文件随构建产出，`pnpm build:zcode` 的统一分发包复制到 `agent/THIRD-PARTY-NOTICES.md`。`zcode --licenses` 入口与 SEA 内嵌 Node 精确版本许可尚未接入：SEA 基底取构建机 Node 版本，而 `runtime/sources.json` 只登记 22.16.0 与 24.14.0，CI 浮动 Node 24 时会因缺少对应原文而无法构建。开发态 `tsx src/main.ts` 不经过发行入口。
 - 搜索工具：准备后的每个工具目录包含 `THIRD-PARTY-NOTICES.txt` 和 `SOURCES.json`（内网镜像下载与仓库归档两条准备路径都写入，缓存命中也刷新）。SEA 同时嵌入这些材料。producer 打出的 tar/zip 仍只含二进制，保持与已固定 SHA-256 的归档逐字节一致。

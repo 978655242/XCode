@@ -1,6 +1,6 @@
 import { cn } from "@/components/lib/utils.js";
-// XCODE: 窗口品牌使用 X 图标，不修改 ZAI 供应商资源。
-import xcodeLogoUrl from "@/assets/xcode-mark.svg";
+// XCODE: 窗口品牌使用自有 ai 原稿，不修改 ZAI 供应商资源。
+import { AiscooMark, PRODUCT_NAME } from "@/xwork/brand/index.js";
 
 export function WindowsTopLeftLogo({
   className,
@@ -19,14 +19,14 @@ export function WindowsTopLeftLogo({
     >
       <span
         role="img"
-        aria-label="XWork"
+        aria-label={PRODUCT_NAME}
         data-testid="settings-logo"
         className={cn(
           "pointer-events-none flex size-5 items-center justify-center select-none",
           imageClassName,
         )}
       >
-        <img src={xcodeLogoUrl} alt="" className="size-5" draggable={false} />
+        <AiscooMark className="size-5" />
       </span>
     </div>
   );

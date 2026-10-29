@@ -1,7 +1,7 @@
-# XWork
+# Aiscoo
 
 <div align="center">
-  <img src="public/logo/icons/1024x1024.png" alt="XWork" width="128" height="128" />
+  <img src="public/logo/icons/1024x1024.png" alt="Aiscoo" width="128" height="128" />
 </div>
 <p align="center">
   <a href="https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=47ag983c-8fcb-4d6d-814b-5395193a712c&amp;qr_code=true">Feishu community</a> ·
@@ -11,9 +11,9 @@
   <a href="README.md">简体中文</a> | English
 </p>
 
-<!-- XCODE: Use XWork for product presentation while retaining upstream provenance and compatible commands. -->
+<!-- XCODE: Use Aiscoo for product presentation while retaining upstream provenance and compatible commands. -->
 
-XWork is an AI coding workspace based on upstream ZCode, with desktop, browser, and terminal interfaces. This repository contains the clients, backend services, shared UI, and Agent CLI and runtime source code.
+Aiscoo is an AI coding workspace based on upstream ZCode, with desktop, browser, and terminal interfaces. This repository contains the clients, backend services, shared UI, and Agent CLI and runtime source code.
 
 ## Updates
 
@@ -21,6 +21,12 @@ XWork is an AI coding workspace based on upstream ZCode, with desktop, browser, 
 - **2026-10-19**: Synced upstream ZCode v3.16.1 (upstream update: 2026-10-16).
 - 2026-10-18: Synced upstream ZCode v3.15.1 (upstream update: 2026-10-10).
 - 2026-9-23: Synced upstream ZCode v3.14.3.
+
+## Brand and Logo
+
+The product name is **Aiscoo**, with the lowercase **aiscoo** geometric wordmark. The [original design package](docs/brand/aiscoo/README.md) and all runtime SVG, PNG, ICO and ICNS assets are included in the repository. See the [branding inventory and acceptance checklist](docs/xcode/branding/aiscoo-migration.md) for integration and compatibility details.
+
+Run `python3 scripts/xcode/generate-icons.py` to regenerate runtime icons. The `zcode` command and existing user data locations remain compatible.
 
 ## Setup
 
@@ -78,9 +84,9 @@ ZCODE_SERVER_WORKSPACE=/path/to/project pnpm dev:web
 
 This starts both the Web development server (default: `http://localhost:5173`) and the backend (default: `http://localhost:3030`). Open the Web development server in your browser. `/ws` and general `/api` requests are proxied to the local backend; `/api/v1/oauth/token` is proxied separately to the configured product service.
 
-After changing Agent source code, run `pnpm --filter @zcode/cli... build` and restart the service. To validate the complete distribution, extract and run it as described under Packaging → XWork CLI distribution below.
+After changing Agent source code, run `pnpm --filter @zcode/cli... build` and restart the service. To validate the complete distribution, extract and run it as described under Packaging → Aiscoo CLI distribution below.
 
-### XWork CLI distribution
+### Aiscoo CLI distribution
 
 The command-line distribution includes the TUI, Web client, and Agent behind one `zcode` command. With no arguments it starts the TUI; a leading `--web` starts Web mode; all other arguments go to the existing Agent CLI. Both modes run locally without Electron.
 
@@ -158,7 +164,7 @@ pnpm bundle:desktop -- --help
 
 The default target is macOS arm64, and the default output directory is `packages/desktop/dist/`. `--os` accepts `mac`, `win`, or `linux`; `--arch` accepts `x64` or `arm64`. Packaging and signing require the tools and configuration for the target platform.
 
-### XWork CLI distribution
+### Aiscoo CLI distribution
 
 Run `pnpm build:zcode` to build the CLI/TUI, backend, and Web client, collect the TUI native libraries, workers, and runtime dependencies, then assemble the distribution. Running the distribution still requires Node.js; use the version specified in `mise.toml`.
 

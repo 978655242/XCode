@@ -10,6 +10,8 @@ import {
   type OffPeakCodingPlanUnsupportedReason,
   type ZCodeAccountAccess,
 } from "@zcode/shared";
+// XCODE: 仅缺失产品登录态提示投影品牌，凭据 key 与分类保持兼容。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 import { isOffPeakMockEnabled, startOffPeakMockGateway } from "./offPeakMockGateway.js";
 import type { ServiceLogger } from "../logger/serviceLogger.js";
 import { AccountRequestCredentialUnavailableError } from "../model-provider/accountProviderRequestAuthService.js";
@@ -34,7 +36,8 @@ export class OffPeakCredentialsUnavailableError extends OffPeakPermanentDispatch
   constructor(readonly missing: "jwt" | "codingPlanApiKey") {
     super(
       missing === "jwt"
-        ? "off-peak requires XWork login (jwt missing)"
+        ? // XCODE: 缺失 JWT 的产品提示投影品牌，missing 字段继续用于分类。
+          brandProductText("off-peak requires XWork login (jwt missing)")
         : "off-peak requires a coding plan provider api key",
     );
     this.name = "OffPeakCredentialsUnavailableError";

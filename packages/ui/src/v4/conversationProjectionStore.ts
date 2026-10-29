@@ -22,6 +22,8 @@ import {
   type TopicFrameDeliveryKind,
 } from "@zcode/shared/zcode-protocol-v4";
 import { logger } from "@/logger.js";
+// XCODE: 只转换自有静态提示，历史运行时错误继续兼容识别。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 import type { ConversationTurnNavigatorHydrationResult } from "@/v4/conversationTurnNavigatorHelpers.js";
 import type { ConversationTransport } from "@/v4/transport.js";
 import { ConversationRowPool } from "@/v4/conversationRowSharing.js";
@@ -53,7 +55,7 @@ export function requiresAcceptedInputProjection(type: string): boolean {
 }
 
 /** 退避耗尽时展示给用户的 lastError（无底层 error 对象可引用的换代路径）。 */
-const RUNTIME_RECYCLED_ERROR = "XWork agent runtime 已被回收，重连未成功";
+const RUNTIME_RECYCLED_ERROR = brandProductText("XWork agent runtime 已被回收，重连未成功");
 
 function monotonicNow(): number {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -87,7 +89,12 @@ function isRuntimeRecycleError(error: unknown): boolean {
     message.includes("ZCode Protocol client is disposed") ||
     message.includes("ZCode Agent runtime is not running") ||
     message.includes("XCode Agent runtime is not running") ||
-    message.includes("XWork Agent runtime is not running")
+    message.includes("XWork Agent runtime is not running") ||
+    // XCODE: 新品牌运行时产生同类瞬态错误，必须继续走原有有界恢复路径。
+    message.includes("Aiscoo agent transport closed") ||
+    message.includes("Aiscoo Protocol client disposed") ||
+    message.includes("Aiscoo Protocol client is disposed") ||
+    message.includes("Aiscoo Agent runtime is not running")
   );
 }
 

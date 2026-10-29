@@ -8,7 +8,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const { version } = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+const { version, productName } = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
 const serverEntry = join(root, "server", "entry-http.js");
 const webRoot = join(root, "web");
 const agentEntry = join(root, "agent", "zcode.cjs");
@@ -210,7 +210,7 @@ async function serve(options) {
 
   console.log("");
   // XCODE: Web 启动提示使用产品显示名，命令和路由保持兼容。
-  console.log("XWork Web is running");
+  console.log(`${productName} Web is running`);
   console.log(`Local:   ${localUrl}`);
   if (options.host === "0.0.0.0" || options.host === "::") {
     for (const url of networkUrls(port, token)) {

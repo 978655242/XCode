@@ -1,3 +1,6 @@
+// XCODE: 此模块也被 main 内联，必须静态导入品牌，不能在产物中读取源码相对路径。
+import { PRODUCT_BRAND as productBrand } from "@zcode/shared/xwork-brand";
+
 /**
  * 构建期开关：为真时安装包使用 Preview 身份，而后端环境仍由 `ZCODE_ENV` 单独决定。
  * 典型用法是 `ZCODE_ENV=production ZCODE_PREVIEW_IDENTITY=1`，得到一个连接生产后端、
@@ -5,11 +8,16 @@
  */
 export const ZCODE_PREVIEW_IDENTITY_ENV = "ZCODE_PREVIEW_IDENTITY";
 
+// XCODE: Electron macOS 钥匙串身份是持久化协议，不能随展示品牌迁移。
+export const desktopDevelopmentKeychainName = "XWork Dev";
+
 // XCODE: 只替换包装展示名，应用 ID、Linux 命令和包名保持历史兼容。
 const PRODUCTION_IDENTITY = Object.freeze({
   flavor: "production",
   appId: "dev.zcode.app",
-  productName: "XWork",
+  productName: productBrand.productName,
+  macKeychainName: "XWork",
+  windowsExecutableName: "XWork",
   linuxExecutableName: "zcode",
   linuxPackageName: "zcode",
   cuaHelperInstallVariant: null,
@@ -18,7 +26,9 @@ const PRODUCTION_IDENTITY = Object.freeze({
 const PREVIEW_IDENTITY = Object.freeze({
   flavor: "preview",
   appId: "dev.zcode.app.preview",
-  productName: "XWork Preview",
+  productName: productBrand.previewName,
+  macKeychainName: "XWork Preview",
+  windowsExecutableName: "XWork Preview",
   linuxExecutableName: "zcode-preview",
   linuxPackageName: "zcode-preview",
   cuaHelperInstallVariant: "preview",

@@ -1,3 +1,5 @@
+// XCODE: 自有静态模板使用共享品牌，用户插值和兼容标识保持不变。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import type { ToolSearchMode } from "@zcode/contracts";
 import { createCliProviderRefreshReporter } from "./provider-runtime-env.js";
@@ -189,7 +191,7 @@ export const runPrompt = async (
     const sessionId = await resolveResumeSession(resumeRequest, workingDirectory, env, deps);
     const bootstrapModule = deps.createZCodeApp ? undefined : await loadBootstrapModule();
     const createApp = deps.createZCodeApp ?? bootstrapModule?.createZCodeApp;
-    if (!createApp) throw new Error("XWork app factory is unavailable.");
+    if (!createApp) throw new Error(`${PRODUCT_NAME} app factory is unavailable.`);
     const streamsEvents = wantsEventStream(options);
     let mapSessionEvent: NonNullable<RunDependencies["mapSessionEvent"]> | undefined;
     if (streamsEvents) {

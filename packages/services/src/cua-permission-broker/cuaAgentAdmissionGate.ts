@@ -1,4 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
+// XCODE: 仅自有取消提示消费共享品牌，外部 AbortSignal reason 原样传递。
+import { brandProductText } from "@zcode/shared/xwork-brand";
+
 export interface CuaAgentSpawnAdmissionContext {
   workspaceKey: string;
   workspacePath?: string;
@@ -38,7 +41,9 @@ export class CuaAgentAdmissionGate {
   waitForSpawnAdmission(context: CuaAgentSpawnAdmissionContext): Promise<void> {
     const signal = context.signal;
     if (signal?.aborted) {
-      return Promise.reject(signal.reason ?? new Error("XWork agent process start was cancelled."));
+      return Promise.reject(
+        signal.reason ?? new Error(brandProductText("XWork agent process start was cancelled.")),
+      );
     }
     if (this.activeEpoch === undefined) {
       return Promise.resolve();
@@ -47,7 +52,9 @@ export class CuaAgentAdmissionGate {
       let waiter!: AdmissionWaiter;
       const onAbort = (): void => {
         this.waiters.delete(waiter);
-        reject(signal?.reason ?? new Error("XWork agent process start was cancelled."));
+        reject(
+          signal?.reason ?? new Error(brandProductText("XWork agent process start was cancelled.")),
+        );
       };
       waiter = {
         resolve: () => {
