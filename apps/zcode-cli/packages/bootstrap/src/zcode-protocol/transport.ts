@@ -1,3 +1,5 @@
+// XCODE: 自有静态展示模板读取共享品牌；用户内容与稳定标识保持原样。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import type {
   ZCodeProtocolError,
@@ -150,7 +152,7 @@ export class ZCodeProtocolNdjsonConnection {
       this.buffer = "";
     }
     this.draining = true;
-    this.notifyTransportClosed(new Error("XWork Protocol client connection closed"));
+    this.notifyTransportClosed(new Error(`${PRODUCT_NAME} Protocol client connection closed`));
     // EOF 保留短请求半关闭响应，但挂起 handler 不能让进程永久保活。
     this.drainTimer = setTimeout(() => this.finish(), PROTOCOL_EOF_DRAIN_MS);
     void this.processing.then(
@@ -160,7 +162,7 @@ export class ZCodeProtocolNdjsonConnection {
   };
 
   private readonly onAbort = (): void => {
-    this.notifyTransportClosed(new Error("XWork Protocol runtime stopping"));
+    this.notifyTransportClosed(new Error(`${PRODUCT_NAME} Protocol runtime stopping`));
     this.finish();
   };
 
@@ -287,7 +289,7 @@ export class ZCodeProtocolNdjsonConnection {
 
     const parsed = zcodeProtocolMessageSchema.safeParse(decoded);
     if (!parsed.success) {
-      this.sendError("invalid-message", -32600, "Invalid XWork Protocol message", {
+      this.sendError("invalid-message", -32600, `Invalid ${PRODUCT_NAME} Protocol message`, {
         issues: parsed.error.issues,
       });
       return null;

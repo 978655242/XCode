@@ -6,6 +6,8 @@ import {
   type BotProviderCallbackResult,
   type BotsConfigFile,
 } from "@zcode/shared";
+// XCODE: 静态运行状态提示使用共享品牌，飞书外部消息不投影。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 import type { ICredentialService } from "../credential/credential.js";
 import { startFeishuBotWebSocket, type FeishuWebSocketClient } from "./providers/feishuProvider.js";
 import {
@@ -89,7 +91,8 @@ export function createFeishuChannelRuntime(deps: FeishuChannelRuntimeDeps) {
           botId: bot.id,
           provider: bot.provider,
           status: "idle",
-          message: "Feishu WebSocket is handled by another XWork window.",
+          // XCODE: 仅产品窗口提示使用共享品牌。
+          message: brandProductText("Feishu WebSocket is handled by another XWork window."),
         });
         await waitFor(BOT_RUNTIME_LOCK_RETRY_MS, signal);
         continue;

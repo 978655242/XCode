@@ -1,3 +1,5 @@
+// XCODE: 自有静态展示模板读取共享品牌；用户内容与稳定标识保持原样。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { existsSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -298,7 +300,7 @@ async function readRawCredentialRecord(filePath: string): Promise<Record<string,
     if (getErrorCode(error) === "ENOENT") {
       return {};
     }
-    throw new Error(`Unable to read shared XWork credentials: ${filePath}`, { cause: error });
+    throw new Error(`Unable to read shared ${PRODUCT_NAME} credentials: ${filePath}`, { cause: error });
   }
 
   try {
@@ -308,7 +310,7 @@ async function readRawCredentialRecord(filePath: string): Promise<Record<string,
     // 先保留现场再失败，调用方必须显式处理恢复，不能静默覆盖。
     const backupPath = await backupCorruptFile(filePath).catch(() => undefined);
     const evidence = backupPath ? ` Backup: ${backupPath}` : "";
-    throw new Error(`Shared XWork credentials are corrupt: ${filePath}.${evidence}`, {
+    throw new Error(`Shared ${PRODUCT_NAME} credentials are corrupt: ${filePath}.${evidence}`, {
       cause: error,
     });
   }

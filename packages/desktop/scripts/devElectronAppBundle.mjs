@@ -10,10 +10,11 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { dirname, posix } from "node:path";
+import { PRODUCT_BRAND } from "@zcode/shared/xwork-brand";
 
 export const DEV_ELECTRON_PROTOCOL_SCHEME = "zcode";
 // XCODE: 仅迁移开发应用展示名，协议、bundle ID 与缓存根目录保持不变。
-export const DEV_ELECTRON_APP_NAME = "XWork Dev";
+export const DEV_ELECTRON_APP_NAME = PRODUCT_BRAND.developmentName;
 export const DEV_ELECTRON_APP_BUNDLE_ID = "dev.zcode.app.development";
 // 副本布局版本，见 prepareDevElectronAppBundle 中的指纹说明。
 export const DEV_ELECTRON_BUNDLE_FORMAT = 3;

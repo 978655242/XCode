@@ -1,11 +1,15 @@
 /* eslint-disable max-lines -- Electron Builder config keeps related packaging hooks together so build order stays explicit. */
 import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
-import { readdir, writeFile } from "node:fs/promises";
+import { readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { createRequire } from "node:module";
 import { HELPER_APP_NAME } from "@zcode/zcode-cua/broker/helperConstants";
 import { runCommand, runCommandAndReadStdout } from "../../scripts/spawn-command.mjs";
+// XCODE: 打包脚本读取唯一品牌 JSON；可执行名等兼容身份由 product identity 单独维护。
+const productBrand = JSON.parse(
+  await readFile(new URL("../shared/src/xwork-brand/brand.json", import.meta.url), "utf8"),
+);
 import { loadBuiltinProviderConfig } from "../../scripts/builtin-provider-config.mjs";
 import { noticesFileName, stageElectronNotices } from "../../scripts/third-party-notices.mjs";
 import { resolveNativeSearchReleasePlan } from "../../scripts/native-search-tools-config.mjs";
@@ -22,7 +26,10 @@ import {
   resolveDesktopProductIdentity,
 } from "./scripts/desktop-product-identity.mjs";
 import { createWindowsPowerShellSecurityArgs } from "./scripts/powershell-command.mjs";
-import { isSharpRequiredByComputerUse, verifyStagedSharp } from "./scripts/sharp-package-assets.mjs";
+import {
+  isSharpRequiredByComputerUse,
+  verifyStagedSharp,
+} from "./scripts/sharp-package-assets.mjs";
 import { isRealComputerUseProducerInstalled } from "./scripts/computer-use-producer.mjs";
 import { verifyStagedKoffi } from "./scripts/koffi-package-assets.mjs";
 import {
@@ -208,7 +215,9 @@ function assertPackagedCuaHelper(context) {
     HELPER_APP_NAME,
   );
   if (!existsSync(appPath)) {
-    throw new Error(`Packaged ZCode is missing bundled Computer Use Helper: ${appPath}`);
+    throw new Error(
+      `Packaged ${productBrand.productName} is missing bundled Computer Use Helper: ${appPath}`,
+    );
   }
 }
 const shouldEnableWindowsVsign =
@@ -226,7 +235,7 @@ if (
 ) {
   throw new Error(
     // XCODE: 构建错误使用包装展示名，签名环境变量保持兼容。
-    "XWork Preview macOS packaging requires APPLE_SIGNING_IDENTITY or CSC_NAME when ZCODE_ENABLE_MAC_SIGN=1",
+    `${productBrand.previewName} macOS packaging requires APPLE_SIGNING_IDENTITY or CSC_NAME when ZCODE_ENABLE_MAC_SIGN=1`,
   );
 }
 
@@ -290,7 +299,7 @@ async function runTimedAsync(label, fn) {
 
 function resolveAppAsarPath(context) {
   if (context.electronPlatformName === "darwin") {
-    const appName = `${context.packager?.appInfo?.productFilename ?? "XWork"}.app`;
+    const appName = `${context.packager?.appInfo?.productFilename ?? desktopProductIdentity.productName}.app`;
     return resolve(context.appOutDir, appName, "Contents", "Resources", "app.asar");
   }
 
@@ -299,7 +308,7 @@ function resolveAppAsarPath(context) {
 
 function resolvePackagedResourcesDir(context) {
   if (context.electronPlatformName === "darwin") {
-    const appName = `${context.packager?.appInfo?.productFilename ?? "XWork"}.app`;
+    const appName = `${context.packager?.appInfo?.productFilename ?? desktopProductIdentity.productName}.app`;
     return resolve(context.appOutDir, appName, "Contents", "Resources");
   }
 
@@ -511,7 +520,8 @@ function assertSignedWindowsBrowserImportHelper(context) {
   const helperPath = resolve(context.appOutDir, "resources", "browser-import", HELPER_FILENAME);
   const appExecutablePath = resolve(
     context.appOutDir,
-    `${context.packager.appInfo.productFilename}.exe`,
+    // XCODE: 主 EXE 兼容名不随 productName 改变，签名检查必须定位实际产物。
+    `${desktopProductIdentity.windowsExecutableName}.exe`,
   );
   const script = [
     "$helper=Microsoft.PowerShell.Security\\Get-AuthenticodeSignature -LiteralPath $zcodeArg0;",
@@ -564,10 +574,13 @@ export default {
   extraMetadata: {
     version: buildMetadata.appVersion,
     zcodeProductFlavor: desktopProductIdentity.flavor,
+    // XCODE: 运行包 metadata 展示同源品牌，源码 package.json 的上游默认项保持原样。
+    productName: desktopProductIdentity.productName,
+    description: productBrand.desktopName,
     homepage: "https://zcode.z.ai",
     // XCODE: 包装中的通用产品作者显示名迁移，来源地址和签名身份保持不变。
     author: {
-      name: "XWork",
+      name: productBrand.productName,
       email: "dev@zcode.z.ai",
     },
   },
@@ -854,6 +867,8 @@ export default {
     ],
   },
   win: {
+    // XCODE: 主 EXE 保留历史名；安装器和快捷方式可以展示新品牌。
+    executableName: desktopProductIdentity.windowsExecutableName,
     target: ["nsis"],
     artifactName: buildDesktopArtifactName("win"),
     signExts: [".node", ".dll"],
@@ -878,7 +893,7 @@ export default {
     // 与 /usr/share/icons/hicolor/*/apps/zcode.png 保持一致。
     executableName: desktopProductIdentity.linuxExecutableName,
     category: "Development",
-    maintainer: "XWork <dev@zcode.z.ai>",
+    maintainer: `${productBrand.productName} <dev@zcode.z.ai>`,
   },
   deb: {
     // 生产版与 Preview 必须是两个 dpkg package；只改可执行名仍会让安装器把另一版本当成升级替换。

@@ -178,6 +178,7 @@ import {
   resolveZCodeEndpointEnvBaseOrigin,
   desktopRuntimeEnv,
   runtimeApplicationName,
+  runtimeKeychainApplicationName,
   runtimeHomePath,
   runtimeSessionDataPath,
   runtimeUserDataPath,
@@ -292,7 +293,8 @@ if (!app.isPackaged && process.env.ZCODE_DISABLE_FIXED_REMOTE_DEBUGGING_PORT !==
   app.commandLine.appendSwitch("remote-debugging-port", "9229");
 }
 
-app.setName(runtimeApplicationName);
+// XCODE: Electron macOS 在 ready 前选择加密钥匙串，必须沿用历史应用名称。
+app.setName(process.platform === "darwin" ? runtimeKeychainApplicationName : runtimeApplicationName);
 if (runtimeHomePath) {
   app.setPath("home", runtimeHomePath);
 }
@@ -1527,7 +1529,7 @@ function confirmAppQuit(originWindow?: BrowserWindow | null) {
     cancelId: 1,
     title: isZh ? "退出确认" : "Confirm Quit",
     // XCODE: 退出确认采用统一产品展示名。
-    message: isZh ? "确认退出 XWork?" : "Quit XWork?",
+    message: isZh ? `确认退出 ${runtimeApplicationName}?` : `Quit ${runtimeApplicationName}?`,
     detail: detailLines.join("\n"),
     icon: nativeImage.createFromPath(iconPath),
   };
@@ -2078,6 +2080,8 @@ app.on("second-instance", (_event, argv, _workingDirectory, additionalData) => {
 });
 
 app.whenReady().then(async () => {
+  // XCODE: ready 后钥匙串名称已固定，此时恢复用户可见品牌不会改变旧密文的加密身份。
+  app.setName(runtimeApplicationName);
   markMainLaunchAppReady();
   installRequestSecurityDiagnostics(session.defaultSession.webRequest, logger);
   installLocalMediaPreviewProtocol(session.defaultSession.protocol, {

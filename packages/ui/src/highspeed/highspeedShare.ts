@@ -1,6 +1,9 @@
 import type { GlobalNoticeEnvelope } from "@/global-notice/globalNoticeStore.js";
 import type { HighspeedShareMetrics } from "@/highspeed/highspeedTurnStore.js";
 import { calculateHighspeedSavedDurationMs } from "@/highspeed/highspeedSavedTime.js";
+// XCODE: 导出图片复用用户原稿，内嵌后光栅化仍保留几何与眼睛。
+import { aiscooMarkSvgDataUri } from "@/xwork/brand/index.js";
+import { brandProductText } from "@zcode/shared/xwork-brand";
 
 export const HIGHSPEED_NOTICE_DISMISS_COOLDOWN_MS = 24 * 60 * 60_000;
 export const HIGHSPEED_NOTICE_AUTO_CLOSE_MS = 24 * 60 * 60_000;
@@ -131,7 +134,7 @@ export async function copyHighspeedCardImage(
   const speedup = highspeedSpeedup(metrics);
   const savedPercent = highspeedSavedPercent(metrics);
   const imageLabels: HighspeedShareImageLabels = labels ?? {
-    benefit: "ZCode & Coding Plan Exclusive Benefits",
+    benefit: brandProductText("ZCode & Coding Plan Exclusive Benefits"),
     standardSpeed: "standard generation speed",
     speedSummary: `HighSpeed · ${formatHighspeedDurationShort(metrics.durationMs)}`,
     lessWaiting: `${savedPercent}% less waiting`,
@@ -176,8 +179,8 @@ export async function copyHighspeedCardImage(
   const fillW = Math.max(0, meterW * Math.max(0, Math.min(1, (100 - savedPercent) / 100)));
   const markerX = meterX + fillW;
   const meter = `<rect x="${meterX}" y="${meterY}" width="${meterW}" height="${meterH}" rx="1" fill="${palette.track}"/><rect x="${meterX}" y="${meterY}" width="${fillW.toFixed(2)}" height="${meterH}" rx="1" fill="url(#hs-meter)"/><rect x="${(markerX - 1).toFixed(2)}" y="${meterY - 6}" width="2" height="20" rx="1" fill="#01c34b"/>`;
-  // Title 行与弹窗一致（Figma 6403:11193）：Z logo 方块 + 权益文案 + HighSpeed 胶囊；logo 用矢量近似。
-  const titleRow = `<rect x="24" y="27" width="16" height="16" rx="3.2" fill="#2d2d2d" stroke="rgba(255,255,255,0.12)" stroke-width="0.53"/><text x="32" y="39" text-anchor="middle" fill="#ffffff" font-family="${fontStack}" font-size="11" font-weight="700">Z</text><text x="48" y="39" fill="${palette.titleText}" font-family="${fontStack}" font-size="12">${escapeXml(imageLabels.benefit)}</text><rect x="286" y="25.5" width="69" height="19" rx="9.5" fill="url(#hs-tag)" stroke="${palette.tagStroke}" stroke-width="0.4"/><text x="320.5" y="38" text-anchor="middle" fill="${palette.titleText}" font-family="${fontStack}" font-size="11">HighSpeed</text>`;
+  // XCODE: 导出图内嵌同源 ai SVG，不用文字近似或借用供应商 Z 标志。
+  const titleRow = `<image x="24" y="27" width="16" height="16" href="${aiscooMarkSvgDataUri(dark ? "dark" : "light")}"/><text x="48" y="39" fill="${palette.titleText}" font-family="${fontStack}" font-size="12">${escapeXml(imageLabels.benefit)}</text><rect x="286" y="25.5" width="69" height="19" rx="9.5" fill="url(#hs-tag)" stroke="${palette.tagStroke}" stroke-width="0.4"/><text x="320.5" y="38" text-anchor="middle" fill="${palette.titleText}" font-family="${fontStack}" font-size="11">HighSpeed</text>`;
   const defs = `<defs><linearGradient id="hs-tag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${palette.tagFillTop}"/><stop offset="1" stop-color="${palette.tagFillBottom}"/></linearGradient><linearGradient id="hs-meter" x1="${meterX}" y1="0" x2="${markerX.toFixed(2)}" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#e05048"/><stop offset="0.52" stop-color="#e8b348"/><stop offset="1" stop-color="#34b769"/></linearGradient></defs>`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${defs}<rect width="${width}" height="${height}" fill="${palette.bg}"${palette.cardStroke}/>${titleRow}<text x="32" y="118" fill="${palette.title}" font-family="${fontStack}"><tspan font-size="52" font-weight="500" letter-spacing="-1">${speedup}</tspan><tspan font-size="24" font-weight="500">x</tspan><tspan dx="8" font-size="12" font-weight="300" fill="${palette.subtitle}">${escapeXml(imageLabels.standardSpeed)}</tspan></text><line x1="24" y1="140" x2="412" y2="140" stroke="${palette.divider}" stroke-opacity="0.1"/><path d="M28.7 154 24.6 160.5h3l-1.5 6.5 8-8h-4l1.5-5z" fill="#00a640"/><text x="44" y="165" fill="#00a640" font-family="${fontStack}" font-size="13" font-weight="500">${escapeXml(imageLabels.speedSummary)}</text><text x="412" y="164" text-anchor="end" fill="#00a640" font-family="${fontStack}" font-size="11" font-weight="500">${escapeXml(imageLabels.lessWaiting)}</text>${meter}<text x="24" y="270" fill="${palette.summary}" font-family="${fontStack}" font-size="12">${escapeXml(imageLabels.imageSummary)}</text></svg>`;
   const svgBlob = new Blob([svg], { type: "image/svg+xml" });

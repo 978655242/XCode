@@ -1,4 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
+// XCODE: 产品标签消费共享品牌，反馈协议枚举保持不变。
+import { brandProductText } from "./xwork-brand/runtime.js";
+
 export type FeedbackTicketType = "bug" | "usage" | "feature" | "performance";
 
 export type FeedbackTicketStatus =
@@ -210,10 +213,14 @@ export const FEEDBACK_TICKET_SEVERITIES: FeedbackTicketSeverity[] = ["P1-高", "
 
 export const DEFAULT_FEEDBACK_TICKET_FRAMEWORK: FeedbackTicketFramework = "zcode-agent";
 
+// XCODE: 仅映射自有标签，反馈框架持久化值与清单条目保持兼容。
 export const FEEDBACK_TICKET_FRAMEWORK_OPTIONS: {
   value: FeedbackTicketFramework;
   label: string;
-}[] = [{ value: "zcode-agent", label: "XWork Agent" }];
+}[] = ([{ value: "zcode-agent", label: "XWork Agent" }] as const).map((option) => ({
+  ...option,
+  label: brandProductText(option.label),
+}));
 
 /** 含「未指定」的完整列表，供管理端等场景使用。 */
 export const FEEDBACK_TICKET_FRAMEWORKS: {

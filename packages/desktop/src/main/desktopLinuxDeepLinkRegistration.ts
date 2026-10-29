@@ -1,5 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+// XCODE: 新 desktop 展示读取品牌配置；旧 marker 继续参与归属验证。
+import { PRODUCT_BRAND, PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import { installLinuxAppImageDesktopIconBestEffort } from "./desktopLinuxAppImageIcon.js";
 import {
   runXdgCommand,
@@ -10,8 +12,9 @@ import {
 
 const LINUX_DEEP_LINK_DESKTOP_FILE = "zcode.desktop";
 const LINUX_DEEP_LINK_MIME_TYPE = "x-scheme-handler/zcode";
-// XCODE: 新桌面条目显示 XWork；仍识别 XCode/ZCode 旧归属标记以安全清理历史协议注册。
-const LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER = "Comment=XWork Desktop App";
+// XCODE: 新桌面条目展示新品牌；旧 XWork/XCode/ZCode 归属标记继续用于安全清理。
+const LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER = `Comment=${PRODUCT_BRAND.desktopName}`;
+const LEGACY_XWORK_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER = "Comment=XWork Desktop App";
 const LEGACY_XCODE_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER = "Comment=XCode Desktop App";
 const LEGACY_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER = "Comment=ZCode Desktop App";
 
@@ -111,7 +114,7 @@ export function createLinuxDeepLinkDesktopEntry(params: {
   productName?: string;
   iconName?: string;
 }): string {
-  const productName = params.productName ?? "XWork";
+  const productName = params.productName ?? PRODUCT_NAME;
   const iconName = params.iconName ?? "zcode";
   const command = {
     executablePath: params.executablePath,
@@ -178,6 +181,7 @@ function isOwnedDesktopEntry(path: string): boolean {
       const marker = line.replaceAll("\r", "").trim();
       return (
         marker === LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER ||
+        marker === LEGACY_XWORK_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER ||
         marker === LEGACY_XCODE_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER ||
         marker === LEGACY_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER
       );

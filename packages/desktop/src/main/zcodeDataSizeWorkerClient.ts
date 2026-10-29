@@ -1,3 +1,5 @@
+// XCODE: 自有静态模板使用共享品牌，用户插值和兼容标识保持不变。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import { Worker } from "node:worker_threads";
 
 import {
@@ -27,7 +29,9 @@ export function scanZCodeDataDirectoryInWorker(
     const abort = () => {
       void worker.terminate();
       // XCODE: Worker 错误使用产品展示名，消息协议保持不变。
-      finish(() => reject(new DOMException("XWork data size scan aborted", "AbortError")));
+      finish(() =>
+        reject(new DOMException(`${PRODUCT_NAME} data size scan aborted`, "AbortError")),
+      );
     };
 
     worker.once("message", (message: unknown) => {
@@ -41,7 +45,7 @@ export function scanZCodeDataDirectoryInWorker(
           new Error(
             response.ok === false && typeof response.error === "string"
               ? response.error
-              : "Invalid XWork data size worker response",
+              : `Invalid ${PRODUCT_NAME} data size worker response`,
           ),
         ),
       );
@@ -49,7 +53,9 @@ export function scanZCodeDataDirectoryInWorker(
     worker.once("error", (error) => finish(() => reject(error)));
     worker.once("exit", (code) => {
       if (code !== 0) {
-        finish(() => reject(new Error(`XWork data size worker exited with code ${code}`)));
+        finish(() =>
+          reject(new Error(`${PRODUCT_NAME} data size worker exited with code ${code}`)),
+        );
       }
     });
     signal.addEventListener("abort", abort, { once: true });

@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { HELPER_APP_NAME, HELPER_DISPLAY_NAME } from "@zcode/zcode-cua/broker/helperConstants";
+import { HELPER_APP_NAME, HELPER_EXECUTABLE_NAME } from "@zcode/zcode-cua/broker/helperConstants";
 import { afterEach, describe, expect, it } from "vitest";
 
 const isWindows = process.platform === "win32";
@@ -66,7 +66,7 @@ function createZcodeHomeHelper(zcodeHome: string, variant?: string) {
     ...(variant ? [variant] : []),
     HELPER_APP_NAME,
   );
-  writeFakeMachOExecutable(join(helperAppPath, "Contents", "MacOS", HELPER_DISPLAY_NAME));
+  writeFakeMachOExecutable(join(helperAppPath, "Contents", "MacOS", HELPER_EXECUTABLE_NAME));
   return helperAppPath;
 }
 
@@ -258,7 +258,10 @@ describe.skipIf(isWindows)("doctor-macos-release-app.sh", () => {
     const { appPath } = createReleaseApp(workspaceDir);
     const zcodeHome = join(workspaceDir, ".zcode");
     const helperAppPath = createZcodeHomeHelper(zcodeHome);
-    writeExecutable(join(helperAppPath, "Contents", "MacOS", HELPER_DISPLAY_NAME), "#!/bin/bash\n");
+    writeExecutable(
+      join(helperAppPath, "Contents", "MacOS", HELPER_EXECUTABLE_NAME),
+      "#!/bin/bash\n",
+    );
 
     mkdirSync(binDir, { recursive: true });
     writeFakeTool(binDir, "codesign", toolLog);

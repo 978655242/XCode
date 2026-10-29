@@ -1,8 +1,4 @@
-import type {
-  AboutPanelOptionsOptions,
-  BrowserWindow,
-  MessageBoxReturnValue,
-} from "electron";
+import type { AboutPanelOptionsOptions, BrowserWindow, MessageBoxReturnValue } from "electron";
 import { existsSync, readFileSync } from "node:fs";
 import { arch, hostname, platform, release, type, version as osVersion } from "node:os";
 import { join } from "node:path";
@@ -14,6 +10,8 @@ import {
   ZCODE_ENV,
   ZCODE_VERSION,
 } from "@zcode/shared";
+// XCODE: About 展示读取共享品牌；LICENSE / NOTICE 保留真实上游归属。
+import { PRODUCT_BRAND, PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import { createCustomAboutDialogHtml } from "./aboutWindow.js";
 
 interface DesktopBuildMetadata {
@@ -57,7 +55,7 @@ interface AboutSnapshotOptions {
 }
 
 // XCODE: 原生关于窗口及产品版权页脚采用展示名；上游 LICENSE/NOTICE 归属不改写。
-const ABOUT_APPLICATION_NAME = "XWork Desktop App";
+const ABOUT_APPLICATION_NAME = PRODUCT_BRAND.desktopName;
 // 自定义 About 内容本体是 256x280；原生窗口如果同尺寸会让内容贴满透明窗口边界。
 // 这里给 BrowserWindow 额外留出背景呼吸空间，避免正式 About 看起来比 demo 更局促。
 const ABOUT_WINDOW_WIDTH = 256;
@@ -73,18 +71,18 @@ const ABOUT_MESSAGES: Record<
   }
 > = {
   "zh-CN": {
-    aboutTitle: "关于 XWork",
+    aboutTitle: `关于 ${PRODUCT_NAME}`,
     versionLabel: "版本",
     okButtonLabel: "确定",
     optimizedForAppleSilicon: "已针对 Apple Silicon 优化。",
-    copyright: (year) => `版权所有 © ${year} XWork。`,
+    copyright: (year) => `版权所有 © ${year} ${PRODUCT_NAME}。`,
   },
   "en-US": {
-    aboutTitle: "About XWork",
+    aboutTitle: `About ${PRODUCT_NAME}`,
     versionLabel: "version",
     okButtonLabel: "OK",
     optimizedForAppleSilicon: "Optimized for Apple Silicon.",
-    copyright: (year) => `Copyright © ${year} XWork.`,
+    copyright: (year) => `Copyright © ${year} ${PRODUCT_NAME}.`,
   },
 };
 

@@ -1,3 +1,5 @@
+// XCODE: 自有静态文案只插入共享产品名，内部协议和存储身份保留。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { hostname } from "node:os";
 import {
@@ -44,7 +46,7 @@ export async function runServerCore(generation: number): Promise<void> {
       : undefined;
   if (!zcodeBuiltinProviderConfigFilePath) {
     throw new Error(
-      `当前构建未嵌入 XWork Built-in Provider Config，且未设置 ${ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV}`,
+      `当前构建未嵌入 ${PRODUCT_NAME} Built-in Provider Config，且未设置 ${ZCODE_BUILTIN_PROVIDER_CONFIG_FILE_ENV}`,
     );
   }
   const sourceServerId = (await resolveCoreServerId()) ?? hostname() ?? "zcode-server";

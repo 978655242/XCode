@@ -1,4 +1,6 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
+// XCODE: 仅本地安装预检提示消费共享品牌，命令和外部输出原样保留。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 import type { IRemoteBackend, StdioStream } from "@zcode/server/remote/backend.js";
 import { waitForClose } from "@zcode/server/remote/deployShared.js";
 
@@ -16,8 +18,10 @@ interface RemoteAssetPreflightLoggers {
   log: (...args: unknown[]) => void;
 }
 
-const REMOTE_TAR_MISSING_ERROR =
-  "远端服务器缺少 tar，无法解压 XWork Source Server。请安装 tar 后重试。";
+// XCODE: 静态预检提示统一品牌，工具探测行为保持不变。
+const REMOTE_TAR_MISSING_ERROR = brandProductText(
+  "远端服务器缺少 tar，无法解压 XWork Source Server。请安装 tar 后重试。",
+);
 
 export async function detectRemoteTarTool(
   backend: IRemoteBackend,
@@ -53,7 +57,10 @@ export async function detectRemoteAssetTools(
 
   if (!download) {
     throw new Error(
-      "远端服务器缺少 curl 或 wget，无法直接下载 XWork 远程资源。请安装 curl/wget，或切回“本地下载后上传”。",
+      // XCODE: 投影产品提示，不改变真实下载工具名。
+      brandProductText(
+        "远端服务器缺少 curl 或 wget，无法直接下载 XWork 远程资源。请安装 curl/wget，或切回“本地下载后上传”。",
+      ),
     );
   }
   if (!tar) {
@@ -61,7 +68,10 @@ export async function detectRemoteAssetTools(
   }
   if (!sha256) {
     throw new Error(
-      "远端服务器缺少 sha256sum、shasum 或 openssl，无法校验 XWork 远程资源。请安装其中一个校验工具，或切回“本地下载后上传”。",
+      // XCODE: 投影产品提示，不改变真实校验工具名。
+      brandProductText(
+        "远端服务器缺少 sha256sum、shasum 或 openssl，无法校验 XWork 远程资源。请安装其中一个校验工具，或切回“本地下载后上传”。",
+      ),
     );
   }
 

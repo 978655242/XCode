@@ -1,3 +1,5 @@
+// XCODE: 自有静态模板使用共享品牌，用户插值和兼容标识保持不变。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
@@ -13,13 +15,13 @@ export async function readZCodeDataSizeTelemetryState(
     const parsed: unknown = JSON.parse(await readFile(stateFile, "utf8"));
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
       // XCODE: 解析错误仅迁移展示名，不改变历史统计状态格式。
-      throw new TypeError("Invalid XWork data size telemetry state");
+      throw new TypeError(`Invalid ${PRODUCT_NAME} data size telemetry state`);
     }
     const record = parsed as Record<string, unknown>;
     const state: ZCodeDataSizeTelemetryState = {};
     if (record.lastReportedAt !== undefined) {
       if (typeof record.lastReportedAt !== "number" || !Number.isFinite(record.lastReportedAt)) {
-        throw new TypeError("Invalid lastReportedAt in XWork data size telemetry state");
+        throw new TypeError(`Invalid lastReportedAt in ${PRODUCT_NAME} data size telemetry state`);
       }
       state.lastReportedAt = record.lastReportedAt;
     }
@@ -28,7 +30,9 @@ export async function readZCodeDataSizeTelemetryState(
         typeof record.reportReservedAt !== "number" ||
         !Number.isFinite(record.reportReservedAt)
       ) {
-        throw new TypeError("Invalid reportReservedAt in XWork data size telemetry state");
+        throw new TypeError(
+          `Invalid reportReservedAt in ${PRODUCT_NAME} data size telemetry state`,
+        );
       }
       state.reportReservedAt = record.reportReservedAt;
     }

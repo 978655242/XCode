@@ -2,7 +2,8 @@ import type { PostUpdateReleaseNotesPayload } from "@zcode/shared";
 import { MessageResponse } from "@/components/ai-elements/message.js";
 import { Button } from "@/components/ui/button.js";
 import { cn } from "@/components/lib/utils.js";
-import { GlmMonochromeIcon } from "@/components/ui/GlmMonochromeIcon.js";
+// XCODE: 产品更新提示使用 Aiscoo 原稿，不借用供应商图标。
+import { AiscooMark } from "@/xwork/brand/index.js";
 import {
   Dialog,
   DialogContent,
@@ -49,7 +50,7 @@ export function PostUpdateReleaseNotesDialog({
       >
         <div className="flex flex-col px-8 py-6">
           <div className="flex min-w-0 shrink-0 items-center gap-2.5">
-            <GlmMonochromeIcon className="size-5 shrink-0" alt="ZCode" />
+            <AiscooMark className="size-5 shrink-0" />
             <div className="min-w-0 flex-1">
               <DialogTitle className="text-lg leading-snug tracking-tight text-foreground">
                 {dialogHeading}

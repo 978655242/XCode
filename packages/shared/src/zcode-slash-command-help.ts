@@ -1,4 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
+// XCODE: 静态帮助装配时使用共享品牌投影。
+import { brandProductText } from "./xwork-brand/runtime.js";
+
 export type BuiltinZCodeSlashCommandHelpEntry = {
   aliases?: readonly string[];
   details: readonly string[];
@@ -198,4 +201,5 @@ export const BUILTIN_ZCODE_SLASH_COMMAND_HELP_ENTRIES: readonly BuiltinZCodeSlas
       summary: "Design and launch a dynamic workflow for a task.",
       usage: "/workflow [what the workflow should accomplish]",
     },
-  ] as const;
+    // XCODE: 只在装配自有帮助条目时投影文案，命令名、用法与第三方材料不改写。
+  ].map((entry) => ({ ...entry, details: entry.details.map(brandProductText) }));

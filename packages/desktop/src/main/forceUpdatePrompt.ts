@@ -1,6 +1,9 @@
 /* eslint-disable max-lines -- 强制升级提示窗口包含内联 HTML/CSS 和状态脚本，启动前不能依赖 renderer 包 */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+// XCODE: 只投影自有更新文案；图标读取现有打包路径，失败时显示共享字标。
+import { PRODUCT_NAME, PRODUCT_WORDMARK, brandMessageCatalog } from "@zcode/shared/xwork-brand";
+import { isElectronAppPackaged } from "./desktopElectronApp.js";
 import { type Locale } from "@zcode/shared";
 import type { ForceUpdateDialogText, ForceUpdateGuardLogger } from "./forceUpdateGuard.js";
 import type { ForceAutoUpdateState } from "./autoUpdater.js";
@@ -30,7 +33,9 @@ function escapeHtml(value: string): string {
 
 function readForceUpdatePromptIcon(): string | null {
   try {
-    const iconPath = resolve(process.cwd(), "build/icon.png");
+    const iconPath = isElectronAppPackaged()
+      ? resolve(process.resourcesPath, "icon.png")
+      : resolve(import.meta.dirname, "../../build/icon.png");
     const icon = readFileSync(iconPath).toString("base64");
     return `data:image/png;base64,${icon}`;
   } catch {
@@ -40,8 +45,8 @@ function readForceUpdatePromptIcon(): string | null {
 
 function buildForceUpdatePromptMessages(locale: Locale) {
   if (locale === "zh-CN") {
-    return {
-      // XCODE: 更新窗口复用现有语言资源，仅替换产品展示名。
+    return brandMessageCatalog({
+      // XCODE: 更新窗口复用现有语言资源，仅投影自有模板后再插入动态值。
       checkingTitle: "正在检查更新",
       checkingMessage: "请保持此窗口打开，XWork 正在查找可用更新。",
       downloadingTitle: "正在下载更新",
@@ -63,10 +68,10 @@ function buildForceUpdatePromptMessages(locale: Locale) {
       checkingButton: "检查中...",
       downloadingButton: "下载中...",
       installingButton: "安装中...",
-    };
+    });
   }
 
-  return {
+  return brandMessageCatalog({
     checkingTitle: "Checking for updates",
     checkingMessage: "Keep this window open while XWork checks for updates.",
     downloadingTitle: "Downloading update",
@@ -88,7 +93,7 @@ function buildForceUpdatePromptMessages(locale: Locale) {
     checkingButton: "Checking...",
     downloadingButton: "Downloading...",
     installingButton: "Installing...",
-  };
+  });
 }
 
 function renderForceUpdatePromptHtml(text: ForceUpdateDialogText, locale: Locale): string {
@@ -304,8 +309,8 @@ function renderForceUpdatePromptHtml(text: ForceUpdateDialogText, locale: Locale
     <main class="panel" role="dialog" aria-modal="true" aria-labelledby="title">
       <header class="titlebar">
         <div class="brand">
-          <div class="brand-icon">${icon ? `<img src="${icon}" alt="" />` : "X"}</div>
-          <div class="brand-title">XWork</div>
+          <div class="brand-icon">${icon ? `<img src="${icon}" alt="" />` : escapeHtml(PRODUCT_WORDMARK)}</div>
+          <div class="brand-title">${escapeHtml(PRODUCT_NAME)}</div>
         </div>
         <button class="close" type="button" data-action="quit" aria-label="${escapeHtml(text.quitButton)}">×</button>
       </header>
@@ -630,6 +635,8 @@ export async function showForceUpdatePrompt(
       showPromptWindow("did-fail-load");
     });
     fallbackTimer = setTimeout(() => showPromptWindow("timeout"), 1000);
-    win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(renderForceUpdatePromptHtml(text, locale))}`);
+    win.loadURL(
+      `data:text/html;charset=utf-8,${encodeURIComponent(renderForceUpdatePromptHtml(text, locale))}`,
+    );
   });
 }

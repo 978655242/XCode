@@ -1,3 +1,5 @@
+// XCODE: 自有静态文案只插入共享产品名，内部协议和存储身份保留。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { access, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -62,7 +64,7 @@ export async function prepareOnlineUpdate(layout: ServerLayout): Promise<UpdateP
     const pending = await new ReleaseManager(layout).readPending();
     if (!pending) {
       throw new Error(
-        "XWork Server release source is not configured and no offline pending release is available",
+        `${PRODUCT_NAME} Server release source is not configured and no offline pending release is available`,
       );
     }
     return { status: "prepared-offline", version: pending.version };

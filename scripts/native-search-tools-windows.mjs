@@ -1,3 +1,8 @@
+import { readFile } from "node:fs/promises";
+// XCODE: 构建标题只读取同源品牌 JSON，不改工具名与发布身份。
+const productBrand = JSON.parse(
+  await readFile(new URL("../packages/shared/src/xwork-brand/brand.json", import.meta.url), "utf8"),
+);
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { cpus, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -80,7 +85,7 @@ export function buildNativeSearchToolsWindows({
   };
 
   // XCODE: 构建输出使用产品显示名，不修改工具身份。
-  console.log("==> XWork native search build");
+  console.log(`==> ${productBrand.productName} native search build`);
   console.log(`    target:  ${plan.platformKey}`);
   console.log(`    output:  ${plan.outputDir}`);
   console.log(`    workdir: ${workDir}`);

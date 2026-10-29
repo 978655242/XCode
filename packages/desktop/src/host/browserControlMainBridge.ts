@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { HostResponseTypes } from "@zcode/shared";
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import type {
   BrowserBackendDescriptor,
   BrowserClientMode,
@@ -139,7 +140,7 @@ export function createBrowserControlMainBridge(deps: {
     generation: browserGeneration,
     type: "iab",
     // XCODE: 浏览器控制能力描述采用产品展示名，不修改控制协议。
-    name: "XWork In-app Browser",
+    name: `${PRODUCT_NAME} In-app Browser`,
     capabilities: {
       // capability collection 只列 optional capability；tabs/cua/screenshot/dialog 是 core API，
       // 不能伪装成 capability。viewport 是 Playwright-like Tab 核心 API；browser capability

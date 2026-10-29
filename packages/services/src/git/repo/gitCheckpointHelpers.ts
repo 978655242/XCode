@@ -1,5 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { rm } from "node:fs/promises";
+// XCODE: checkpoint 仅作者展示名消费共享品牌，邮箱与引用身份保留兼容值。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 import { isAbsolute, resolve, sep } from "node:path";
 import type { GitCheckpointDiff, GitCheckpointFileDiff } from "@zcode/shared";
 import { normalizeGitPath, toWorkspaceRelativeGitPath } from "../config.js";
@@ -185,9 +187,11 @@ export function buildAffectedRepoPaths(files: GitCheckpointFileDiff[]): string[]
 export function buildCheckpointEnv(tempIndexPath: string): NodeJS.ProcessEnv {
   return {
     GIT_INDEX_FILE: tempIndexPath,
-    GIT_AUTHOR_NAME: "XWork Checkpoint",
+    // XCODE: 只更改新 checkpoint 作者的展示名，邮箱和引用命名不变。
+    GIT_AUTHOR_NAME: brandProductText("XWork Checkpoint"),
     GIT_AUTHOR_EMAIL: "checkpoint@zcode.local",
-    GIT_COMMITTER_NAME: "XWork Checkpoint",
+    // XCODE: 提交者和作者使用同一展示品牌。
+    GIT_COMMITTER_NAME: brandProductText("XWork Checkpoint"),
     GIT_COMMITTER_EMAIL: "checkpoint@zcode.local",
   };
 }

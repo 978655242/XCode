@@ -1,3 +1,5 @@
+// XCODE: 自有静态模板使用共享品牌，用户插值和兼容标识保持不变。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { formatJson } from "@zcode/core";
 import type { GlobalOptions, RunContext } from "@zcode/shared-types";
@@ -205,7 +207,7 @@ async function runPluginsUpdateCommand(
   ctx.stdout.write(
     version && version === result.previousVersion
       ? `Plugin ${pluginId} is already up to date (${version}).\n`
-      : `Updated plugin ${pluginId} from ${result.previousVersion || "unknown"} to ${version || "unknown"}. Restart XWork to apply.\n`,
+      : `Updated plugin ${pluginId} from ${result.previousVersion || "unknown"} to ${version || "unknown"}. Restart ${PRODUCT_NAME} to apply.\n`,
   );
   writeWarnings(ctx, result.diagnostics);
   return 0;

@@ -1,5 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { DEFAULT_LOCALE, type Locale } from "./protocol.js";
+// XCODE: 菜单静态词典消费唯一品牌配置，原消息键与调用方插值保持兼容。
+import { brandMessageCatalog } from "./xwork-brand/runtime.js";
 
 export const desktopMenuMessageIds = {
   file: "titleBar.menu.file",
@@ -59,7 +61,8 @@ export type DesktopMenuMessageId =
 
 type DesktopMenuLocaleMessages = Record<DesktopMenuMessageId, string>;
 
-export const desktopMenuMessages: Record<Locale, DesktopMenuLocaleMessages> = {
+// XCODE: 保留上游默认词典，公开出口再投影下游品牌。
+const baseDesktopMenuMessages: Record<Locale, DesktopMenuLocaleMessages> = {
   "zh-CN": {
     "titleBar.menu.file": "文件",
     "titleBar.menu.edit": "编辑",
@@ -164,6 +167,12 @@ export const desktopMenuMessages: Record<Locale, DesktopMenuLocaleMessages> = {
     "tray.menu.openZCode": "Open XWork",
     "tray.menu.quit": "Quit",
   },
+};
+
+// XCODE: 只投影静态模板，调用方 appName/version 等插值不会被重命名。
+export const desktopMenuMessages: Record<Locale, DesktopMenuLocaleMessages> = {
+  "zh-CN": brandMessageCatalog(baseDesktopMenuMessages["zh-CN"]),
+  "en-US": brandMessageCatalog(baseDesktopMenuMessages["en-US"]),
 };
 
 export function getDesktopMenuMessage(locale: Locale, id: DesktopMenuMessageId): string {

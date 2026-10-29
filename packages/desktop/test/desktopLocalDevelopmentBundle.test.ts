@@ -8,6 +8,15 @@ test("recognizes current and legacy generated macOS development bundles", () => 
     isLocalDevelopmentBundleLaunch({
       env: { ZCODE_LOCAL_DEV_BUNDLE: "1" },
       execPath:
+        "/Users/example/ai/XCode/.zcode-runtime/desktop-dev/41.0.3-arm64/Aiscoo Dev.app/Contents/MacOS/Electron",
+      platform: "darwin",
+    }),
+    true,
+  );
+  assert.equal(
+    isLocalDevelopmentBundleLaunch({
+      env: { ZCODE_LOCAL_DEV_BUNDLE: "1" },
+      execPath:
         "/Users/example/ai/XCode/.zcode-runtime/desktop-dev/41.0.3-arm64/XWork Dev.app/Contents/MacOS/Electron",
       platform: "darwin",
     }),

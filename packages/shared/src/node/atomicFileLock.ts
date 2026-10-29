@@ -1,5 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { ZCODE_FILE_LOCK_TIMEOUT_ERROR_CODE } from "../errors.js";
+// XCODE: 只投影自有锁错误模板，路径与稳定错误码保持兼容。
+import { brandProductText } from "../xwork-brand/runtime.js";
 import { mkdir, readFile, readdir, rmdir, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -164,7 +166,8 @@ function createFileLockTimeoutError(
   cause?: unknown,
 ): NodeJS.ErrnoException {
   const error = new Error(
-    `Timed out after ${waitedMs}ms waiting for the XWork file lock: ${lockFile}`,
+    // XCODE: 锁路径在静态片段投影后插入，保留用户目录中的历史名称。
+    `Timed out after ${waitedMs}ms ${brandProductText("waiting for the XWork file lock:")} ${lockFile}`,
   ) as NodeJS.ErrnoException & { cause?: unknown };
   error.code = ZCODE_FILE_LOCK_TIMEOUT_ERROR_CODE;
   error.path = filePath;
@@ -212,9 +215,13 @@ export async function acquireFileLock(
         currentOwners.length !== 1 ||
         currentOwners[0] !== `owner-${token}.json`
       ) {
-        throw Object.assign(new Error("XWork file lock ownership changed during acquire"), {
-          code: "EEXIST",
-        });
+        // XCODE: 只投影锁提示，EEXIST 仍用于相同的竞争重试分类。
+        throw Object.assign(
+          new Error(brandProductText("XWork file lock ownership changed during acquire")),
+          {
+            code: "EEXIST",
+          },
+        );
       }
       return async () => {
         // 只删除本 writer 的唯一 owner 文件；锁已被接管时不会碰到后来 writer 的 token。

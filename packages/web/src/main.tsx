@@ -1,5 +1,7 @@
 // XCODE: 仅统一产品展示名称，保留内部标识与用户内容。
 import { mobilePluginDiscoveryTelemetrySchema } from "@zcode/shared";
+// XCODE: 自有页面标题在装配时投影品牌，不改协议、URL 或用户内容。
+import { brandProductText, PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import {
   sessionCreateTelemetrySchema,
   type RendererTelemetryEventPayload,
@@ -17,7 +19,6 @@ import {
   AppErrorBoundary,
   ensurePendingTaskDraft,
   Root as UpstreamRoot,
-  ZCodeIntlProvider,
   generateMobileDeviceFingerprint,
   installDocumentHiddenMotionPause,
   playTaskNotificationSound,
@@ -28,6 +29,8 @@ import {
 } from "@zcode/ui";
 // XCODE: 独立公开子路径组合归属水合，保留原 UI 根导出边界。
 import { createXWorkRoot } from "@zcode/ui/xwork-startup-context";
+// XCODE: 产品入口显式投影词典，原 Provider 默认不变。
+import { AiscooIntlProvider as ZCodeIntlProvider } from "@zcode/ui/xwork-brand";
 import "./styles.css";
 import {
   connectViaProtocol,
@@ -308,7 +311,7 @@ function isWebOAuthCallback(params: URLSearchParams): boolean {
 }
 
 function renderWebAuthCallbackPage(): void {
-  document.title = "XWork - Web Remote Control Sign In";
+  document.title = brandProductText("XWork - Web Remote Control Sign In");
   const callbackState = parseOAuthState(
     new URLSearchParams(window.location.search).get("state") ?? "",
   );
@@ -333,7 +336,10 @@ async function renderConversationSharePage(): Promise<void> {
   document.documentElement.lang = routeLocale;
   // 分享页必须设置 title：否则浏览器标签只显示 index.html 的通用标题。
   // 会话标题要等 preview 加载完，先给一个语言正确的兜底。
-  document.title = routeLocale === "zh-CN" ? "XWork 会话分享" : "XWork Conversation Share";
+  document.title =
+    routeLocale === "zh-CN"
+      ? brandProductText("XWork 会话分享")
+      : brandProductText("XWork Conversation Share");
   const shareCode = resolveConversationShareCodeFromPath(window.location.pathname);
   if (!shareCode) {
     root.render(
@@ -400,7 +406,7 @@ async function renderConversationSharePage(): Promise<void> {
 }
 
 function renderWebLoginPage(): void {
-  document.title = "XWork - Web Remote Control Sign In";
+  document.title = brandProductText("XWork - Web Remote Control Sign In");
   root.render(<WebLoginPage onLogin={(provider) => remoteEntry.startLogin(provider)} />);
 }
 
@@ -433,9 +439,10 @@ const remoteEntry = new WebRemoteControlEntry({
     if (view.kind === "callback") renderWebAuthCallbackPage();
     else if (view.kind === "login") renderWebLoginPage();
     else if (view.kind === "devices") {
-      document.title = "XWork - Web Remote Control";
+      document.title = brandProductText("XWork - Web Remote Control");
       root.render(
         <WebRemoteControlDeviceListPage
+          productName={PRODUCT_NAME}
           view={view}
           onSelect={(sid) => remoteEntry.selectDevice(sid)}
           onRefresh={() => {
@@ -913,7 +920,9 @@ export function createHomeOnlyWebRemoteControlServices(): RootServices {
       initialize: async (params: { workspacePath: string; workspaceIdentity?: string }) => ({
         available: false,
         workspaceKey: params.workspaceIdentity?.trim() || params.workspacePath,
-        reason: "ZCode agent service is not available before workspace bridge is connected.",
+        reason: brandProductText(
+          "ZCode agent service is not available before workspace bridge is connected.",
+        ),
       }),
       disposeAll: () => {},
     }),
@@ -924,7 +933,9 @@ export function createHomeOnlyWebRemoteControlServices(): RootServices {
       }) => ({
         available: false,
         workspaceKey: params.workspaceIdentity?.trim() || params.workspacePath,
-        reason: "ZCode session service is not available before workspace bridge is connected.",
+        reason: brandProductText(
+          "ZCode session service is not available before workspace bridge is connected.",
+        ),
       }),
     }),
     // 分享发布首期只属于 desktop local host；Web 首页和 /remote 不建立独立发布权威。
@@ -1058,7 +1069,7 @@ function renderWebRemoteControlLoading(
   state: WebRemoteControlTerminalTransportState,
   device: WebRemoteControlConnectingDevice,
 ): void {
-  document.title = "XWork - Web Remote Control";
+  document.title = brandProductText("XWork - Web Remote Control");
   root.render(
     <WebRemoteControlLoadingScreen
       state={state}
@@ -1769,7 +1780,7 @@ async function bootstrapExternalRelayWebRemoteControl(
   ) => {
     if (terminated || versionGuard.isBlocked()) return;
     ready = true;
-    document.title = "XWork - Web Remote Control";
+    document.title = brandProductText("XWork - Web Remote Control");
     root.render(
       <AppErrorBoundary key={bridge.bridgeSessionId}>
         <ZCodeIntlProvider
@@ -1893,7 +1904,7 @@ async function bootstrapExternalRelayWebRemoteControl(
     currentWorkspaceKey = workspaceKey;
     currentTaskId = taskId;
     await updateMobileViewState(workspaceKey, taskId);
-    document.title = "XWork - Web Remote Control";
+    document.title = brandProductText("XWork - Web Remote Control");
     if (terminated || versionGuard.isBlocked()) return;
     // Bug 原因：staging 合并 a861a83cbc 丢了这里的 ready 标记，home-only 挂载后每次配对状态抖动
     // 都会被 onStateChange 当成首屏重渲染加载页，配对恢复后再整页重挂，引导与本地状态全部丢失。
@@ -2074,7 +2085,7 @@ async function bootstrapWebApp() {
       onClose: () => {},
     });
     const platform = createWebPlatform();
-    document.title = "XWork - Web + Server";
+    document.title = brandProductText("XWork - Web + Server");
 
     root.render(
       <AppErrorBoundary>

@@ -1,3 +1,5 @@
+// XCODE: 自有静态模板使用共享品牌，用户插值和兼容标识保持不变。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import { lstat, opendir } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -28,7 +30,7 @@ export interface ZCodeDataSizeScanOptions extends ZCodeDataSizeScanRequest {
 
 function createAbortError(): DOMException {
   // XCODE: 取消扫描错误采用统一产品展示名。
-  return new DOMException("XWork data size scan aborted", "AbortError");
+  return new DOMException(`${PRODUCT_NAME} data size scan aborted`, "AbortError");
 }
 
 function isMissingPathError(error: unknown): boolean {

@@ -1,5 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { isAuxiliarySessionKind } from "@zcode/shared";
+// XCODE: 只投影本地错误模板，不替换 session、用户内容或模型输出。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 import { createBotTopicAdmission } from "#src/zcode-agent/botTopicAdmission.js";
 import {
   readBotGroupRuntimeSnapshot,
@@ -300,7 +302,10 @@ export function createZCodeTaskServiceAdapter(
 
   function unsupported(name: string): never {
     throw Object.assign(
-      new Error(`XWork task service adapter does not support IZCodeTaskService.${name} yet.`),
+      // XCODE: 静态前缀先投影，接口名与稳定错误码保持兼容。
+      new Error(
+        `${brandProductText("XWork task service adapter does not support")} IZCodeTaskService.${name} yet.`,
+      ),
       {
         code: "ZCODE_AGENT_UNSUPPORTED_LEGACY_TASK_METHOD",
       },
@@ -995,9 +1000,13 @@ export function createZCodeTaskServiceAdapter(
   function getTaskTarget(taskId: string): TaskTarget {
     const target = taskTargets.get(taskId);
     if (!target) {
-      throw Object.assign(new Error(`XWork session target is not loaded: ${taskId}`), {
-        code: "ZCODE_SESSION_TARGET_NOT_FOUND",
-      });
+      // XCODE: 静态错误先投影，用户 task id 与稳定 code 不改写。
+      throw Object.assign(
+        new Error(`${brandProductText("XWork session target is not loaded:")} ${taskId}`),
+        {
+          code: "ZCODE_SESSION_TARGET_NOT_FOUND",
+        },
+      );
     }
     return target;
   }
@@ -4189,7 +4198,8 @@ function mapSessionEvent(
           params.taskId,
           traceId,
           eventInputId,
-          stringValue(errorPayload.message) ?? "XWork compact failed",
+          // XCODE: Agent 错误原样透传，仅缺失时的本地提示投影品牌。
+          stringValue(errorPayload.message) ?? brandProductText("XWork compact failed"),
         ),
       ];
     }
@@ -4201,7 +4211,8 @@ function mapSessionEvent(
         taskId: params.taskId,
         traceId,
         ...(eventInputId ? { inputId: eventInputId } : {}),
-        error: stringValue(errorPayload.message) ?? "XWork session failed",
+        // XCODE: 只投影自有兜底提示，Agent 与用户错误内容保持原样。
+        error: stringValue(errorPayload.message) ?? brandProductText("XWork session failed"),
         // type 是外层错误分类，code 才是 provider/subagent 要展示的真实错误码。
         code: stringValue(errorPayload.code) ?? stringValue(errorPayload.type),
         detail: stringValue(errorPayload.detail),

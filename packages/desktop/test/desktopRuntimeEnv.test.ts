@@ -955,6 +955,38 @@ describe("desktopRuntimeEnv runtime identity", () => {
     }
   });
 
+  it.each([
+    {
+      packaged: false,
+      flavor: "production",
+      name: "Aiscoo Dev",
+      data: "ZCode Dev",
+      keychain: "XWork Dev",
+    },
+    {
+      packaged: true,
+      flavor: "preview",
+      name: "Aiscoo Preview",
+      data: "ZCode Preview",
+      keychain: "XWork Preview",
+    },
+    { packaged: true, flavor: "production", name: "Aiscoo", data: "ZCode", keychain: "XWork" },
+  ])("品牌显示 $name 保持旧数据名 $data", async ({ packaged, flavor, name, data, keychain }) => {
+    appMock.isPackaged = packaged;
+    productFlavorMock.value = flavor;
+    const {
+      runtimeApplicationName,
+      runtimeKeychainApplicationName,
+      runtimeUserDataPath,
+      runtimeSessionDataPath,
+    } = await import("../src/main/desktopRuntimeEnv.js");
+    expect(runtimeApplicationName).toBe(name);
+    expect(runtimeKeychainApplicationName).toBe(keychain);
+    expect(runtimeUserDataPath).toBe(join("/mock/appData", data));
+    expect(runtimeSessionDataPath).toBe(join("/mock/appData", data, "session"));
+    productFlavorMock.value = "preview";
+  });
+
   it("e2e 可通过环境变量隔离应用名和 Electron 数据目录", async () => {
     process.env["ZCODE_DESKTOP_APPLICATION_NAME"] = "ZCode E2E";
     process.env["ZCODE_DESKTOP_HOME_DIR"] = "/tmp/zcode-e2e/home";

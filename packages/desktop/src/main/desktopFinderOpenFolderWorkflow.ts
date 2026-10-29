@@ -3,15 +3,20 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import type { Locale } from "@zcode/shared";
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 
 // XCODE: Finder 服务目录也是用户可见品牌；bundle ID 保持稳定用于安全识别并迁移旧目录。
-const WORKFLOW_NAME = "Open in XWork.workflow";
-const LEGACY_WORKFLOW_NAME = "Open in ZCode.workflow";
+const WORKFLOW_NAME = `Open in ${PRODUCT_NAME}.workflow`;
+const LEGACY_WORKFLOW_NAMES = [
+  "Open in ZCode.workflow",
+  "Open in XWork.workflow",
+  "Open in XCode.workflow",
+];
 const WORKFLOW_BUNDLE_ID = "dev.zcode.app.finder-open-workflow";
 const WORKFLOW_VERSION = "5";
 const SERVICES_MENU_LABELS: Record<Locale, string> = {
-  "zh-CN": "在XWork中打开",
-  "en-US": "Open in XWork",
+  "zh-CN": `在${PRODUCT_NAME}中打开`,
+  "en-US": `Open in ${PRODUCT_NAME}`,
 };
 
 const workflowScript = `first=""
@@ -247,8 +252,8 @@ function refreshMacServicesIndex(): void {
   child.unref();
 }
 
-function removeLegacyWorkflowIfOwned(servicesDir: string): boolean {
-  const legacyWorkflowDir = join(servicesDir, LEGACY_WORKFLOW_NAME);
+function removeLegacyWorkflowIfOwned(servicesDir: string, workflowName: string): boolean {
+  const legacyWorkflowDir = join(servicesDir, workflowName);
   const legacyInfoPlistPath = join(legacyWorkflowDir, "Contents", "Info.plist");
   if (!existsSync(legacyInfoPlistPath)) {
     return false;
@@ -298,7 +303,10 @@ export function installFinderOpenFolderWorkflow(options: {
       resourcesDocumentWorkflowPath,
       workflowContent,
     );
-    const legacyWorkflowRemoved = removeLegacyWorkflowIfOwned(servicesDir);
+    // XCODE: 只迁移同 bundle ID 的历史品牌 workflow，保留用户自建的同名服务。
+    const legacyWorkflowRemoved = LEGACY_WORKFLOW_NAMES.map((name) =>
+      removeLegacyWorkflowIfOwned(servicesDir, name),
+    ).some(Boolean);
 
     if (infoChanged || workflowChanged || resourcesWorkflowChanged || legacyWorkflowRemoved) {
       // Finder 系统服务展示名来自 workflow 的 Info.plist。

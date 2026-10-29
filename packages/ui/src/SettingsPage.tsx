@@ -1,4 +1,6 @@
 import { SettingsMachinesProvider } from "@/settings/SettingsMachine.js";
+// XCODE: Native 产品套餐名通过共享品牌模板显示。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 import { getWorkspaceSourceServerId } from "@/conversation-workspace-target/sourceIdentity.js";
 import { RemoteConnectionNavigationDot } from "@/remote-connection/RemoteConnectionNavigationDot.js";
 import { resolveRemoteConnectionNavigationPresentation } from "@/lib/remoteConnectionPresentation.js";
@@ -231,7 +233,7 @@ function resolveSettingsUsageCodingPlanTabLabel({
   source: CodingPlanUsageSource;
 }): string {
   // XCODE: 用量统计的 Native 来源使用产品展示名。
-  if (source.accountAccess.type === "new-api-account") return "XWork Zen";
+  if (source.accountAccess.type === "new-api-account") return brandProductText("XWork Zen");
   if (isTeamCodingPlanUsageSource(source)) {
     return source.label.replace(/^BigModel\s*-\s*/i, "").trim() || source.label;
   }

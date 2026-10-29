@@ -8,6 +8,8 @@ import {
   type OAuthTokenSet,
   type OAuthUserProfile,
 } from "@zcode/shared";
+// XCODE: 仅本地错误模板投影品牌，BigModel 响应、供应商名与 OAuth 协议原样保留。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 import { readApiJson } from "../../providers/api/apiJson.js";
 import { createServiceLogger } from "../../logger/serviceLogger.js";
 import { parseOAuthLoginAttribution } from "../callbackAttribution.js";
@@ -171,7 +173,9 @@ export class BigModelProviderAdapter implements OAuthProviderAdapter {
           msg: payload.msg,
         });
         throw new Error(
-          payload.msg?.trim() || `BigModel XWork token 交换失败（code: ${payload.code}）`,
+          // XCODE: 外部响应不投影，静态前缀在插入服务端错误码前统一品牌。
+          payload.msg?.trim() ||
+            `${brandProductText("BigModel XWork token 交换失败")}（code: ${payload.code}）`,
         );
       }
       const zcodeJwtToken = payload.data?.token?.trim() || "";
@@ -180,7 +184,8 @@ export class BigModelProviderAdapter implements OAuthProviderAdapter {
           code: payload.code,
           msg: payload.msg,
         });
-        throw new Error("BigModel XWork token 交换失败：响应缺少 data.token");
+        // XCODE: 本地缺失字段提示投影品牌，字段名称保持协议原值。
+        throw new Error(brandProductText("BigModel XWork token 交换失败：响应缺少 data.token"));
       }
       const accessToken = resolveBigModelBusinessAccessToken(payload);
       if (!accessToken) {
@@ -191,7 +196,10 @@ export class BigModelProviderAdapter implements OAuthProviderAdapter {
           code: payload.code,
           msg: payload.msg,
         });
-        throw new Error("BigModel XWork token 交换失败：响应缺少 data.bigmodel.access_token");
+        // XCODE: 仅本地提示投影品牌，缺失字段仍指向同一 BigModel access token。
+        throw new Error(
+          brandProductText("BigModel XWork token 交换失败：响应缺少 data.bigmodel.access_token"),
+        );
       }
 
       const refreshToken =

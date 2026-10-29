@@ -19,6 +19,7 @@ import {
   isWorkspaceOpenUrl,
   isShareImportUrl,
 } from "./desktopDeepLinkUrl.js";
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import { registerLinuxDeepLinkProtocol } from "./desktopLinuxDeepLinkRegistration.js";
 
 interface DeepLinkWorkspaceGateOptions {
@@ -148,6 +149,7 @@ export function isNetworkWorkspacePath(path: string): boolean {
   return normalized.startsWith("\\\\") || /^\\\\\?\\UNC\\/iu.test(normalized);
 }
 
+// XCODE: 投影自有静态文案，文件夹路径留给 detail 原样插入。
 export function resolveExternalWorkspaceOpenDialogCopy(
   locale: Locale,
 ): ExternalWorkspaceOpenDialogCopy {
@@ -157,16 +159,16 @@ export function resolveExternalWorkspaceOpenDialogCopy(
     return {
       buttons: ["打开文件夹", "取消"],
       // XCODE: 外部链接确认显示产品名，URL scheme 保持兼容。
-      title: "打开外部 XWork 链接？",
-      message: "是否在 XWork 中打开此文件夹？",
+      title: `打开外部 ${PRODUCT_NAME} 链接？`,
+      message: `是否在 ${PRODUCT_NAME} 中打开此文件夹？`,
       detail: (path) => `${path}\n\n只打开你信任来源的文件夹。项目设置可能影响 agent runtime。`,
     };
   }
 
   return {
     buttons: ["Open folder", "Cancel"],
-    title: "Open external XWork link?",
-    message: "Open this folder in XWork?",
+    title: `Open external ${PRODUCT_NAME} link?`,
+    message: `Open this folder in ${PRODUCT_NAME}?`,
     detail: (path) =>
       `${path}\n\nOnly open folders from sources you trust. Project settings may affect the agent runtime.`,
   };

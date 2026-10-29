@@ -1,3 +1,13 @@
+import { readFile } from "node:fs/promises";
+
+// XCODE: 发布安装提示读取共享品牌；命令、包名与目录继续兼容。
+const productBrand = JSON.parse(
+  await readFile(
+    new URL("../../packages/shared/src/xwork-brand/brand.json", import.meta.url),
+    "utf8",
+  ),
+);
+
 const packageDirName = "zcode";
 
 export function installScriptSource(baseUrl) {
@@ -49,7 +59,7 @@ SH
 chmod +x "$BIN_DIR/zcode"
 
 # XCODE: 安装提示显示 XWork，保留 zcode 命令与安装目录。
-echo "XWork $VERSION installed."
+echo "${productBrand.productName} $VERSION installed."
 echo "Run: zcode (TUI) or zcode --web (Web)"
 case ":$PATH:" in
   *":$BIN_DIR:"*) ;;

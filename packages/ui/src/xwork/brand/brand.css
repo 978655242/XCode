@@ -1,0 +1,20 @@
+.aiscoo-brand-tone-light {
+  display: block;
+}
+
+.aiscoo-brand-tone-dark {
+  display: none;
+}
+
+:where(.dark, .theme-zai-dark) .aiscoo-brand-tone-light {
+  display: none;
+}
+
+:where(.dark, .theme-zai-dark) .aiscoo-brand-tone-dark {
+  display: block;
+}
+
+/* 完整字标和错误横幅占据文档流，以实际输入框中心补偿顶部留白。 */
+[data-v4-timeline-scroll="true"] > div:has([data-aiscoo-brand="empty-state"])::before {
+  flex-basis: var(--aiscoo-draft-top-space, max(52px, calc(50dvh - 19rem)));
+}

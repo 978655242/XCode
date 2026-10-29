@@ -4,6 +4,8 @@ import type {
   BotProviderCallbackResult,
   BotsConfigFile,
 } from "@zcode/shared";
+// XCODE: 静态运行状态提示使用共享品牌，Telegram 外部消息不投影。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 import type { ICredentialService } from "../credential/credential.js";
 import type { BotProviderAdapter } from "./providers/types.js";
 import {
@@ -131,7 +133,8 @@ export function createTelegramChannelRuntime(deps: TelegramChannelRuntimeDeps) {
           provider: "telegram",
           status: "idle",
           messageId: "bots.runtime.telegramLongPollingHandledElsewhere",
-          message: "Telegram long polling is handled by another XWork window.",
+          // XCODE: 仅产品窗口提示使用共享品牌。
+          message: brandProductText("Telegram long polling is handled by another XWork window."),
           offset: await deps.readTelegramOffset(bot.id),
         });
         await waitFor(BOT_RUNTIME_LOCK_RETRY_MS, signal);

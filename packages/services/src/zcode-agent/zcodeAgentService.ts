@@ -2,6 +2,8 @@
 import { createPluginGuideAgentExtension } from "../xwork-plugin-guides/node.js";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { isAuxiliarySessionKind } from "@zcode/shared";
+// XCODE: 自有错误模板消费共享品牌，识别端兼容旧文案以维持重试和超时分类。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 import {
   pluginUiToolResultNotificationSchema,
   type PluginUiToolResultNotification,
@@ -508,7 +510,12 @@ export function supportsLegacyRemoteTaskAllowlist(workspaceIdentity: string | un
 }
 
 function isClosedStdioTransportError(error: unknown): boolean {
-  return error instanceof Error && error.message === "XWork agent stdio transport is closed";
+  // XCODE: 投影后的关闭提示和旧版提示都属于同一可重试 stdio 关闭竞态。
+  return (
+    error instanceof Error &&
+    (error.message === brandProductText("XWork agent stdio transport is closed") ||
+      error.message === "XWork agent stdio transport is closed")
+  );
 }
 
 interface SessionEventSequenceState {
@@ -687,7 +694,12 @@ function isProtocolRequestTimeout(error: unknown, method: string): boolean {
   if (error instanceof ZCodeProtocolRequestTimeoutError) {
     return error.method === method;
   }
-  return error instanceof Error && error.message === `XWork Protocol request timed out: ${method}`;
+  // XCODE: 保留旧客户端文本回退，同时接受新品牌；typed timeout 优先按 method 判断。
+  return (
+    error instanceof Error &&
+    (error.message === `${brandProductText("XWork Protocol request timed out:")} ${method}` ||
+      error.message === `XWork Protocol request timed out: ${method}`)
+  );
 }
 
 function assertV4AttachmentNdjsonEnvelope(method: string, params: unknown): void {
@@ -990,7 +1002,8 @@ function createRuntimeUnavailableError(params: ZCodeAgentWorkspaceTarget): Error
   code: typeof ZCODE_AGENT_RUNTIME_UNAVAILABLE_CODE;
   workspaceKey: string;
 } {
-  const error = new Error("XWork Agent runtime is not running.") as Error & {
+  // XCODE: 运行时状态提示投影品牌，附加错误 code 与处理路径不变。
+  const error = new Error(brandProductText("XWork Agent runtime is not running.")) as Error & {
     code: typeof ZCODE_AGENT_RUNTIME_UNAVAILABLE_CODE;
     workspaceKey: string;
   };
@@ -3305,7 +3318,8 @@ export function createZCodeAgentService(
 
         void client.respondError(request.id, {
           code: -32601,
-          message: `Unsupported XWork Protocol request: ${request.method}`,
+          // XCODE: 静态提示投影品牌，协议方法名原样插入。
+          message: `${brandProductText("Unsupported XWork Protocol request:")} ${request.method}`,
         });
       }),
       client.onClose(() => {
@@ -4481,7 +4495,10 @@ export function createZCodeAgentService(
           }
         }
         if (!presentation) {
-          throw new Error("XWork Protocol workspace/readPresentation did not return a result");
+          // XCODE: 仅本地无结果提示投影品牌，协议方法保持原值。
+          throw new Error(
+            brandProductText("XWork Protocol workspace/readPresentation did not return a result"),
+          );
         }
         logger.info(undefined, "XWork Protocol workspace/readPresentation 完成", {
           durationMs: Date.now() - startedAt,
@@ -5749,7 +5766,10 @@ export function createZCodeAgentService(
           module: "services.zcode_agent",
           requestId: params.requestId,
         });
-        throw new Error(`XWork session runtime preferences request not found: ${params.requestId}`);
+        // XCODE: 静态提示先投影，请求 id 原样保留。
+        throw new Error(
+          `${brandProductText("XWork session runtime preferences request not found:")} ${params.requestId}`,
+        );
       }
       const responseContext = {
         event: "zcode_agent.runtime_preferences.host_response_received",
@@ -5827,11 +5847,15 @@ export function createZCodeAgentService(
       const key = providerRuntimeHeadersRequestKey(params);
       const pending = pendingProviderRuntimeHeaders.get(key);
       if (!pending) {
-        throw new Error(`ZCode provider runtime headers request not found: ${params.requestId}`);
+        // XCODE: 本地提示先投影，请求 id 保持原值。
+        throw new Error(
+          `${brandProductText("ZCode provider runtime headers request not found:")} ${params.requestId}`,
+        );
       }
       if (pending.responding) {
         throw new Error(
-          `ZCode provider runtime headers response already pending: ${params.requestId}`,
+          // XCODE: 本地提示先投影，请求 id 保持原值。
+          `${brandProductText("ZCode provider runtime headers response already pending:")} ${params.requestId}`,
         );
       }
       // 不能在等待账号 IO 前删除 pending，否则新合入的取消通知找不到请求；

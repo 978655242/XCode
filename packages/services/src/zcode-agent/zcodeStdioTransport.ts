@@ -1,6 +1,8 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
+// XCODE: 关闭提示投影共享品牌，服务比较端同步兼容新旧提示。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 import { Emitter } from "@zcode/rpc";
 import type { ZCodeProtocolMessage } from "@zcode/shared";
 import { zcodeProtocolMessageSchema } from "@zcode/shared";
@@ -82,7 +84,8 @@ export class ZCodeStdioTransport implements ZCodeProtocolTransport {
 
   async send(message: ZCodeProtocolMessage): Promise<void> {
     if (this.disposed || this.closed || this.child.killed || !this.child.stdin.writable) {
-      throw new Error("XWork agent stdio transport is closed");
+      // XCODE: service 识别端同时接受新旧文案，关闭竞态的重试语义不变。
+      throw new Error(brandProductText("XWork agent stdio transport is closed"));
     }
     const frame = `${JSON.stringify(message)}\n`;
     await new Promise<void>((resolve, reject) => {

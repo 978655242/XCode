@@ -7,7 +7,8 @@ import { afterEach, describe, expect, it, test, vi } from "vitest";
 import { installFinderOpenFolderWorkflow } from "../src/main/desktopFinderOpenFolderWorkflow.js";
 
 const LEGACY_WORKFLOW_NAME = "Open in ZCode.workflow";
-const XWORK_WORKFLOW_NAME = "Open in XWork.workflow";
+// XCODE: 当前展示路径随品牌变更，旧 XWork 路径由独立迁移回归验证。
+const XWORK_WORKFLOW_NAME = "Open in Aiscoo.workflow";
 const BUNDLE_ID = "dev.zcode.app.finder-open-workflow";
 
 async function writeWorkflowInfo(homeDir: string, workflowName: string, bundleId: string) {
@@ -19,7 +20,7 @@ async function writeWorkflowInfo(homeDir: string, workflowName: string, bundleId
   );
 }
 
-test("installs the XWork Finder service and removes only the legacy app workflow", async () => {
+test("installs the Aiscoo Finder service and removes only the legacy app workflow", async () => {
   const homeDir = await mkdtemp(join(tmpdir(), "xwork-finder-workflow-"));
   try {
     await writeWorkflowInfo(homeDir, LEGACY_WORKFLOW_NAME, BUNDLE_ID);
@@ -41,7 +42,7 @@ test("installs the XWork Finder service and removes only the legacy app workflow
     await assert.rejects(
       readFile(join(servicesDir, LEGACY_WORKFLOW_NAME, "Contents", "Info.plist")),
     );
-    assert.match(xworkInfo, /Open in XWork/);
+    assert.match(xworkInfo, /Open in Aiscoo/);
     assert.equal(refreshCount, 1);
   } finally {
     await rm(homeDir, { recursive: true, force: true });
@@ -93,8 +94,8 @@ describe("desktopFinderOpenFolderWorkflow", () => {
     });
 
     const infoPlist = readInfoPlist(homeDir);
-    expect(infoPlist).toContain("<string>在XWork中打开</string>");
-    expect(infoPlist).not.toContain("<string>Open in XWork</string>");
+    expect(infoPlist).toContain("<string>在Aiscoo中打开</string>");
+    expect(infoPlist).not.toContain("<string>Open in Aiscoo</string>");
     expect(refreshServicesIndex).toHaveBeenCalledTimes(1);
   });
 
@@ -111,8 +112,8 @@ describe("desktopFinderOpenFolderWorkflow", () => {
     });
 
     const infoPlist = readInfoPlist(homeDir);
-    expect(infoPlist).toContain("<string>Open in XWork</string>");
-    expect(infoPlist).not.toContain("<string>在XWork中打开</string>");
+    expect(infoPlist).toContain("<string>Open in Aiscoo</string>");
+    expect(infoPlist).not.toContain("<string>在Aiscoo中打开</string>");
     expect(infoPlist).toContain("<string>5</string>");
     expect(refreshServicesIndex).toHaveBeenCalledTimes(1);
   });

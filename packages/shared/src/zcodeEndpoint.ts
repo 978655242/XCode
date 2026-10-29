@@ -1,5 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import type { ZCodeEnv } from "./env.js";
+// XCODE: 纯 JS 品牌入口可由 Node 配置期与浏览器共同加载，避免源码 .js→.ts 解析依赖。
+import { brandProductText } from "./xwork-brand/runtime.js";
 
 export const DEFAULT_ZCODE_ENDPOINT_ORIGIN = "https://zcode.z.ai";
 export const TEST_ZCODE_ENDPOINT_ORIGIN = "https://zcode.z.ai";
@@ -139,12 +141,14 @@ function readRuntimeZCodeEnvScopedValue(
 export function normalizeZCodeEndpointOrigin(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) {
-    throw new Error("XWork endpoint origin is empty");
+    // XCODE: 仅投影用户可见校验提示，origin 解析与真实服务地址不变。
+    throw new Error(brandProductText("XWork endpoint origin is empty"));
   }
 
   const parsed = new URL(trimmed);
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-    throw new Error("XWork endpoint origin must use http or https");
+    // XCODE: 只投影校验文案，http/https 协议门禁保持原样。
+    throw new Error(brandProductText("XWork endpoint origin must use http or https"));
   }
   return parsed.origin;
 }

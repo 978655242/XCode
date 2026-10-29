@@ -1,3 +1,5 @@
+// XCODE: 自有静态文案只插入共享产品名，内部协议和存储身份保留。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { access } from "node:fs/promises";
 import { join } from "node:path";
@@ -68,7 +70,7 @@ export function createServiceDescriptor(options: {
     return {
       kind: "systemd",
       name,
-      content: `[Unit]\nDescription=XWork Server\n[Service]\nExecStart=${shellQuote(options.command)} ${args.map(shellQuote).join(" ")}\nRestart=on-failure\n[Install]\nWantedBy=default.target\n`,
+      content: `[Unit]\nDescription=${PRODUCT_NAME} Server\n[Service]\nExecStart=${shellQuote(options.command)} ${args.map(shellQuote).join(" ")}\nRestart=on-failure\n[Install]\nWantedBy=default.target\n`,
     };
   }
   return {

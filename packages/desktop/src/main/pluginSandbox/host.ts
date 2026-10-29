@@ -1,3 +1,5 @@
+// XCODE: 仅默认产品文案读取品牌，第三方 serverName 不替换。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import type { Locale } from "@zcode/shared";
 import { PlatformChannels } from "@zcode/shared";
 import type { PluginSandboxHandle, PluginSandboxRegisterInput } from "@zcode/shared/mcp-apps";
@@ -160,7 +162,7 @@ export function installPluginSandboxHost(input: {
     registry,
     async prompt({ record, permissions: pending }) {
       const text = formatPluginSandboxPermissionDialogText(
-        { serverName: record.serverName ?? "ZCode Gen UI", permissions: pending },
+        { serverName: record.serverName ?? `${PRODUCT_NAME} Gen UI`, permissions: pending },
         resolveLocale(),
       );
       const owner = electronWebContents.fromId(record.ownerWebContentsId);

@@ -1,4 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
+// XCODE: 产品提示消费共享品牌，不调整 runtime 描述符的兼容标识。
+import { brandProductText } from "./xwork-brand/runtime.js";
+
 export type ZCodeAgentBinaryKind = "native-binary";
 
 export interface ZCodeAgentRuntimeDescriptor {
@@ -32,8 +35,10 @@ export const ZCODE_AGENT_RUNTIME: ZCodeAgentRuntimeDescriptor = {
   spawnArgs: ["app-server", "--stdio"],
   nativeConfigDir: ".zcode/cli",
   nativeConfigFileName: "config.json",
-  missingBinaryMessage:
+  // XCODE: 仅投影缺失运行时提示，二进制、环境变量和数据路径保留既有身份。
+  missingBinaryMessage: brandProductText(
     "[XWork Agent] glm binary 未找到，请设置 ZCODE_AGENT_WORKDIR、GLM_BINARY_PATH 或先准备 GLM 运行时资源",
+  ),
   resolveEntrySegments: (platform) => [resolvePlatformBinaryName("zcode-agent", platform)],
   nodeBundleEntryFile: "zcode.cjs",
   resolveNodeBundleSegments() {

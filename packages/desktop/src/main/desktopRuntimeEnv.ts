@@ -26,6 +26,12 @@ import {
   type SourceServerArtifactPolicy,
   type ZCodeRuntimeEnv,
 } from "@zcode/shared";
+// XCODE: 展示名由共享品牌配置提供，历史 Electron 数据名继续独立维护。
+import { PRODUCT_BRAND, PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import {
+  desktopDevelopmentKeychainName,
+  desktopProductIdentities,
+} from "../../scripts/desktop-product-identity.mjs";
 import { resolvePlatformKeyForPackagedApp } from "../../scripts/target-platform.mjs";
 import {
   getAppConfigDir,
@@ -62,10 +68,21 @@ function isTruthyRuntimeEnvOverride(name: string): boolean {
 // e2e 运行的是生产构建，默认会和本机正式版 ZCode 共用 app name / userData，
 // 触发 Electron 单实例锁后只激活已有窗口，Chromedriver 无法接管测试进程。
 // 这里允许测试显式隔离运行时身份，正常桌面/远控路径保持原来的默认值。
-// XCODE: 展示名迁移为 XWork；Electron 数据目录继续使用旧身份，保留历史会话与草稿。
+// XCODE: 展示名读取共享品牌；Electron 数据目录继续使用旧身份，保留历史会话与草稿。
 export const runtimeApplicationName =
   readRuntimeEnvOverride("ZCODE_DESKTOP_APPLICATION_NAME") ??
-  (isLocalDevelopmentRuntime ? "XWork Dev" : isPreviewPackagedRuntime ? "XWork Preview" : "XWork");
+  (isLocalDevelopmentRuntime
+    ? PRODUCT_BRAND.developmentName
+    : isPreviewPackagedRuntime
+      ? PRODUCT_BRAND.previewName
+      : PRODUCT_NAME);
+// XCODE: macOS 在 ready 前固定 safeStorage 钥匙串名称，沿用旧值才能解密既有凭据。
+export const runtimeKeychainApplicationName =
+  readRuntimeEnvOverride("ZCODE_DESKTOP_APPLICATION_NAME") ??
+  (isLocalDevelopmentRuntime
+    ? desktopDevelopmentKeychainName
+    : desktopProductIdentities[isPreviewPackagedRuntime ? "preview" : "production"]
+        .macKeychainName);
 const runtimeApplicationDataName =
   readRuntimeEnvOverride("ZCODE_DESKTOP_APPLICATION_NAME") ??
   (isLocalDevelopmentRuntime ? "ZCode Dev" : isPreviewPackagedRuntime ? "ZCode Preview" : "ZCode");

@@ -83,7 +83,7 @@ describe("ConversationShareLandingPage", () => {
     expect(html).toContain('data-share-continue-visible="true"');
     expect(html).toContain("请生成一个文件");
     // XCODE: 只替换产品展示名，保留 zcode 导入协议断言。
-    expect(html).toContain("去 XWork 继续");
+    expect(html).toContain("去 Aiscoo 继续");
     expect(html).toContain('data-share-theme-toggle="true"');
     expect(html).toContain("切换到深色主题");
     expect(html.match(/href="zcode:\/\/share\/import\?code=share-1"/g)?.length).toBe(2);

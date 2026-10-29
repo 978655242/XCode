@@ -1,6 +1,6 @@
 # 合并后巡检：同步 PR 被 squash 合并、main 偏离上游镜像。GitHub 规则集无法事前拦截这两类问题。
 # release 接 sync/upstream-* PR，必须保留 merge commit。
-name: XWork main guard
+name: Aiscoo main guard
 
 on:
   push:

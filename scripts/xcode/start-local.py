@@ -21,6 +21,8 @@ STATE = HOME / ".local/share/xcode-local"
 SPEC = HOME / ".config/xcode-local/start.json"
 ORIGIN = "http://127.0.0.1:3001"
 LABEL = "com.xwork.local-desktop"
+# XCODE: 仅展示名读取共享 JSON；launchd、配置和状态目录保持兼容身份。
+BRAND = json.loads((ROOT / "packages/shared/src/xwork-brand/brand.json").read_text())
 
 
 def run(args, *, check=True, timeout=20, env=None):
@@ -157,8 +159,8 @@ def desktop_pid():
         if executable is None:
             return None
         if (not executable.is_relative_to(ROOT / ".zcode-runtime/desktop-dev")
-                or executable.parts[-4:] != ("XWork Dev.app", "Contents", "MacOS", "Electron")):
-            raise RuntimeError("9229不是本仓库XWork Dev；不会启动第二个桌面")
+                or executable.parts[-4:] != (f"{BRAND['developmentName']}.app", "Contents", "MacOS", "Electron")):
+            raise RuntimeError(f"9229不是本仓库{BRAND['developmentName']}；不会启动第二个桌面")
         value = run(["/bin/ps", "eww", "-p", str(pid), "-o", "command="]).stdout
         found = re.search(r"(?:^|\s)NEW_API_BASE_URL=([^\s]*)", value)
         # Electron may rewrite argv/environment visible to ps; our launchd ancestry proves its launch environment.
@@ -334,7 +336,7 @@ def start(spec, path):
         ensure_desktop_job(spec, path)
     if action != "activate":
         wait_for(lambda: job_snapshot(LABEL)["running"], "桌面启动进程", 5)
-    wait_for(window_ready, "XWork真实桌面页面", 600, alive=lambda: job_snapshot(LABEL)["running"])
+    wait_for(window_ready, f"{BRAND['productName']}真实桌面页面", 600, alive=lambda: job_snapshot(LABEL)["running"])
     pid = desktop_pid()
     executable = process_executable(pid) if pid is not None else None
     if executable is None:

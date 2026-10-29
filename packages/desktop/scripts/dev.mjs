@@ -5,7 +5,7 @@ import { request } from "node:http";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { prepareDevElectronAppBundle } from "./devElectronAppBundle.mjs";
+import { DEV_ELECTRON_APP_NAME, prepareDevElectronAppBundle } from "./devElectronAppBundle.mjs";
 // XCODE: 隔离验收需要向开发版 Electron 转发 --open-workspace。
 import { resolveDevElectronAppArgs } from "./devElectronAppArgs.mjs";
 
@@ -131,7 +131,7 @@ if (process.platform === "darwin" && existsSync(electronBinary)) {
   });
   electronCommand = devBundle.executablePath;
   // XCODE: 开发启动提示与原生应用展示名一致。
-  console.log(`[dev] Prepared macOS XWork Dev bundle: ${devBundle.appPath}`);
+  console.log(`[dev] Prepared macOS ${DEV_ELECTRON_APP_NAME} bundle: ${devBundle.appPath}`);
 }
 
 // XCODE: 追加经白名单校验的 ZCODE_DESKTOP_DEV_APP_ARGS（如 --open-workspace）。

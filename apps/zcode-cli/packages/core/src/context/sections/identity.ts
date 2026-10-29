@@ -3,6 +3,8 @@
 // Identity Section Builder
 // ============================================================
 
+// XCODE: 身份模板在用户 OutputStyle 组合前读取品牌，不转换用户说明。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import type { ContextSection } from "../types.js";
 import type { OutputStylePromptConfig } from "../types.js";
 import { estimateTokens } from "../utils.js";
@@ -32,8 +34,8 @@ export function buildHarnessBlock(): string {
 
 function buildIdentityPrompt(outputStyle?: OutputStylePromptConfig): string {
   const intro = outputStyle
-    ? "You respond to the user according to the active Output Style below while using XWork's tools and instructions."
-    : "You are an interactive XWork agent that helps users with software engineering tasks.";
+    ? `You respond to the user according to the active Output Style below while using ${PRODUCT_NAME}'s tools and instructions.`
+    : `You are an interactive ${PRODUCT_NAME} agent that helps users with software engineering tasks.`;
 
   const identityLines = ["", intro, "", SECURITY_NOTICE].join("\n");
 

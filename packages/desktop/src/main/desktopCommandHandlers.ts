@@ -23,6 +23,8 @@ import type { MessageBoxOptions } from "electron";
 import { app, BrowserWindow, dialog, session, shell } from "electron";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+// XCODE: Endpoint 窗口的自有文案读取共享品牌，用户地址不参与品牌投影。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import { showAboutDialog } from "./about.js";
 import { checkForUpdateMenuClick } from "./autoUpdater.js";
 import { resolveCuaOsSupport } from "./cuaOsSupport.js";
@@ -316,7 +318,7 @@ function buildZCodeEndpointPromptHtml(currentValue: string): string {
   <head>
     <meta charset="utf-8" />
     <!-- XCODE: Endpoint 对话框只迁移展示名，不改变配置键或地址。 -->
-    <title>XWork Endpoint</title>
+    <title>${PRODUCT_NAME} Endpoint</title>
     <style>
       :root { color-scheme: light dark; }
       body { margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
@@ -329,7 +331,7 @@ function buildZCodeEndpointPromptHtml(currentValue: string): string {
   </head>
   <body>
     <form id="form">
-      <label for="endpoint">XWork endpoint origin</label>
+      <label for="endpoint">${PRODUCT_NAME} endpoint origin</label>
       <input id="endpoint" value="${value}" placeholder="https://endpoint.example.com" spellcheck="false" />
       <div class="hint">Use an http or https origin, for example https://endpoint.example.com.</div>
       <div class="actions">
@@ -368,7 +370,7 @@ function showZCodeEndpointPromptWindow(options: {
       resizable: false,
       minimizable: false,
       maximizable: false,
-      title: "XWork Endpoint",
+      title: `${PRODUCT_NAME} Endpoint`,
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
@@ -665,7 +667,7 @@ export async function executeDesktopCommand(options: {
       } catch (error) {
         await showMessageBoxWithOptionalParent(targetWindow, {
           type: "error",
-          title: "XWork Endpoint",
+          title: `${PRODUCT_NAME} Endpoint`,
           message: "Endpoint 无效",
           detail: error instanceof Error ? error.message : String(error),
         });

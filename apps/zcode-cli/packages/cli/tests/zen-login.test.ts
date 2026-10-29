@@ -57,7 +57,7 @@ test("help keeps upstream text and appends Zen commands once", async () => {
   assert.equal(code, 0);
   assert.match(out.read(), /login \[zai\|bigmodel\]/);
   assert.equal(out.read().match(/login zen/g)?.length, 1);
-  assert.match(out.read(), /退出 XWork Zen Plan/);
+  assert.match(out.read(), /退出 Aiscoo Zen Plan/);
 });
 
 const zenDeps = (status = { available: false, reason: "unavailable" }) => ({
@@ -81,7 +81,7 @@ test("Zen Plan is prepended to the unchanged upstream login choices", async () =
   const items = (await center("/login", {} as never)).selection?.items ?? [];
   assert.equal(items[0]?.command, "/login zen");
   // TUI 只为带 pending 的选项保留可取消的等待态；缺失时浏览器授权期间无法 Esc 取消。
-  assert.equal(items[0]?.pending?.primary, "等待 XWork Zen Plan 授权");
+  assert.equal(items[0]?.pending?.primary, "等待 Aiscoo Zen Plan 授权");
   assert.ok(items[0]?.pending?.cancelStatus);
   assert.deepEqual(
     items.slice(1).map((item) => item.id),

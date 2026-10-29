@@ -1,5 +1,7 @@
 // XCODE: 仅统一产品展示名称，保留内部标识与用户内容。
 import type { Locale, SkillScope } from "@zcode/shared";
+// XCODE: 只投影内置映射的自有静态描述，第三方正文与未命中的技能描述保持原样。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 
 interface SkillDisplayCandidate {
   name: string;
@@ -217,7 +219,15 @@ export function resolveSkillDisplayDescription(
   const localized = isOfficialBuiltinSkill(skill)
     ? BUILTIN_SKILL_DESCRIPTIONS[skill.name]?.[locale ?? "en-US"]
     : undefined;
-  return localized ?? skill.description;
+  // XCODE: ACP 时代 ZCode 是历史来源；只投影恢复目标库的当前产品名。
+  if (skill.name === "restore-legacy-sessions" && localized) {
+    return localized
+      .replace("新的 ZCode", brandProductText("新的 ZCode"))
+      .replace("new ZCode", brandProductText("new ZCode"));
+  }
+  return localized && skill.pluginName?.trim() !== "superpowers"
+    ? brandProductText(localized)
+    : (localized ?? skill.description);
 }
 
 function isOfficialBuiltinSkill(skill: SkillDisplayCandidate): boolean {

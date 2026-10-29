@@ -21,6 +21,7 @@
     "lint:fix": "oxlint --write src"
   },
   "dependencies": {
+    "@zcode/shared": "workspace:*",
     "@zcode/contracts": "workspace:*"
   },
   "devDependencies": {

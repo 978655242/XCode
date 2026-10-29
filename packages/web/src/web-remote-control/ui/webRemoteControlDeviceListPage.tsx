@@ -59,6 +59,8 @@ const PROVIDER_LABELS: Record<WebRemoteControlDeviceListAccount["provider"], str
 };
 
 interface WebRemoteControlDeviceListPageProps {
+  /** XCODE: 静态产品展示可装配，用户设备名称始终保持原值。 */
+  productName?: string;
   view: WebRemoteControlDeviceListView;
   locale: WebRemoteControlScreenLocale;
   onSelect(sid: string): void;
@@ -95,13 +97,14 @@ function describeDevice(
   device: WebRemoteControlDeviceGroup,
   copy: DeviceListCopy,
   showId: boolean,
+  productName: string,
 ): string {
   const platform = getDevicePlatformLabel(device.platform);
   const online = device.onlineConnections.length > 0;
   const single = device.onlineConnections.length === 1 ? device.onlineConnections[0] : undefined;
   const version = single?.meta.version?.trim();
   const parts = online
-    ? [platform, version ? `ZCode ${version}` : undefined]
+    ? [platform, version ? `${productName} ${version}` : undefined]
     : [platform, copy.offline];
   const filtered = parts.filter((part): part is string => Boolean(part));
   if (filtered.length === 0) filtered.push(online ? copy.online : copy.offline);
@@ -115,12 +118,14 @@ function DeviceSection({
   devices,
   copy,
   selectable,
+  productName,
   onOpen,
 }: {
   label: string;
   devices: WebRemoteControlDeviceGroup[];
   copy: DeviceListCopy;
   selectable: boolean;
+  productName: string;
   onOpen(device: WebRemoteControlDeviceGroup): void;
 }) {
   if (devices.length === 0) return null;
@@ -164,7 +169,7 @@ function DeviceSection({
               >
                 <span className="block truncate text-ui-base font-medium">{name}</span>
                 <span className="mt-0.5 block truncate text-ui-sm text-foreground-subtle">
-                  {describeDevice(device, copy, (nameCounts.get(name) ?? 0) > 1)}
+                  {describeDevice(device, copy, (nameCounts.get(name) ?? 0) > 1, productName)}
                 </span>
               </WebRemoteControlDeviceRow>
             </li>
@@ -234,8 +239,13 @@ export function WebRemoteControlDeviceListPage({
   onRefresh,
   onSwitchAccount,
   now = () => Date.now(),
+  productName = "ZCode",
 }: WebRemoteControlDeviceListPageProps) {
-  const copy = copyByLocale[locale];
+  // XCODE: 只装配本地静态帮助模板，设备与账号的用户值不参与替换。
+  const copy = {
+    ...copyByLocale[locale],
+    notFound: copyByLocale[locale].notFound.replace("ZCode", productName),
+  };
   const [sheetDeviceMid, setSheetDeviceMid] = useState<string | null>(null);
   const selectable = !view.loading && !view.error;
   const onlineDevices = view.devices.filter((device) => device.onlineConnections.length > 0);
@@ -253,7 +263,7 @@ export function WebRemoteControlDeviceListPage({
     <main className="h-dvh overflow-y-auto bg-background text-foreground">
       <div className="mx-auto w-full max-w-md px-4 pb-10 pt-[calc(env(safe-area-inset-top)+12px)]">
         <div className="flex h-10 items-center">
-          <WebRemoteControlBrand />
+          <WebRemoteControlBrand productName={productName} />
         </div>
         <div className="mt-3 flex items-center justify-between gap-3">
           <h1 className="text-ui-xl font-semibold">{copy.title}</h1>
@@ -291,6 +301,7 @@ export function WebRemoteControlDeviceListPage({
                 devices={onlineDevices}
                 copy={copy}
                 selectable={selectable}
+                productName={productName}
                 onOpen={openDevice}
               />
               <DeviceSection
@@ -298,6 +309,7 @@ export function WebRemoteControlDeviceListPage({
                 devices={offlineDevices}
                 copy={copy}
                 selectable={selectable}
+                productName={productName}
                 onOpen={openDevice}
               />
               <p className="px-1 pt-3 text-ui-sm leading-5 text-foreground-subtlest">
@@ -333,6 +345,7 @@ export function WebRemoteControlDeviceListPage({
       </div>
       <WebRemoteControlConnectionSheet
         device={sheetDevice}
+        productName={productName}
         locale={locale}
         disabled={!selectable}
         now={now}

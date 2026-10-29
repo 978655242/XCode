@@ -10,6 +10,9 @@ import {
   SUPPORTED_LOCALES,
 } from "./locale.js";
 import type { ZCodeCopy } from "./types.js";
+// XCODE: 下游装配投影自有模板，原始 locale 词典和动态用户值保持原样。
+import { brandCliCopy } from "./xwork-brand/index.js";
+export { PRODUCT_NAME, PRODUCT_WORDMARK, brandProductText } from "./xwork-brand/index.js";
 
 export {
   DEFAULT_LOCALE,
@@ -23,8 +26,8 @@ export type { LocaleDetectionInput } from "./locale.js";
 export type { CliCopy, TuiCopy, UiLocale, SupportedLocale, ZCodeCopy } from "./types.js";
 
 const CATALOGS: Record<SupportedLocale, ZCodeCopy> = {
-  "en-US": enUS,
-  "zh-CN": zhCN,
+  "en-US": brandCliCopy(enUS),
+  "zh-CN": brandCliCopy(zhCN),
 };
 
 export function getZCodeCopy(locale?: UiLocale | string, detected?: string | null): ZCodeCopy {

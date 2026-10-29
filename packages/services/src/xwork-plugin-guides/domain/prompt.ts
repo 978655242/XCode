@@ -5,6 +5,8 @@ import {
   type PluginGuideTarget,
 } from "@zcode/shared/xwork-plugin-guides";
 import type { ZCodeWorkspaceGenerateTextParams } from "@zcode/shared";
+// XCODE: 只投影自有 system 模板，插件材料、历史问答和用户问题保持原值。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 
 export function buildPluginGuideMessages(input: {
   target: PluginGuideTarget;
@@ -16,7 +18,7 @@ export function buildPluginGuideMessages(input: {
   const headings = PLUGIN_GUIDE_SECTIONS.map(
     (section) => `## ${section.title[input.target.locale]}`,
   ).join("\n");
-  const system = `You write accurate, practical plugin usage guides for XWork. Write all user-facing text in ${language}.
+  const system = `${brandProductText("You write accurate, practical plugin usage guides for XWork.")} Write all user-facing text in ${language}.
 Return exactly <reply>your concise answer to the user</reply> followed by <guide>the complete updated Markdown guide</guide>. Do not wrap the response in a code fence. Always include a complete guide, including when the user only asks a question; in that case the previous guide may be unchanged.
 The guide must contain the following exact level-two headings, in this exact order, with a substantive nonempty body in each:
 ${headings}

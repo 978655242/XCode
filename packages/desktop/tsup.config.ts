@@ -212,6 +212,12 @@ function createSharedDefines() {
 
 function createMainDefines() {
   return {
+    // XCODE: About 独立窗口在启动阶段也必须使用原稿 mark；资源构建时内嵌，不依赖 docs。
+    __XWORK_ABOUT_MARK_DATA_URL__: JSON.stringify(
+      `data:image/svg+xml;base64,${readFileSync(
+        resolve(import.meta.dirname, "../ui/src/xwork/brand/assets/mark-dark.svg"),
+      ).toString("base64")}`,
+    ),
     ...createSharedDefines(),
     // 正式安装包无法继承 GitLab Runner 或开发终端环境。这里只把 CI 提供的低权限写入配置
     // 编译进 Desktop Main，再由既有 Main -> Host -> Agent 安全边界定向传递。

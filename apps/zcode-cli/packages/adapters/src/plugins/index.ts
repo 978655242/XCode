@@ -1,3 +1,5 @@
+// XCODE: 自有静态展示模板读取共享品牌；用户内容与稳定标识保持原样。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -386,7 +388,7 @@ function warnUnsupportedComponents(loaded: LoadedPlugin, diagnostics: PluginDiag
     if (key in loaded.manifest) {
       diagnostics.push({
         code: "plugin_unsupported_component",
-        message: `Plugin component is diagnostic-only in this XWork runtime: ${key}`,
+        message: `Plugin component is diagnostic-only in this ${PRODUCT_NAME} runtime: ${key}`,
         path: loaded.manifestPath,
         pluginId: loaded.id,
         severity: "warning",
@@ -529,7 +531,7 @@ function parsePluginHookEvents(input: {
     if (!SUPPORTED_HOOK_EVENTS.has(eventName)) {
       input.diagnostics.push({
         code: "plugin_hook_unsupported_event",
-        message: `Plugin hook event is not supported by this XWork runtime: ${eventName}`,
+        message: `Plugin hook event is not supported by this ${PRODUCT_NAME} runtime: ${eventName}`,
         path: input.sourcePath,
         pluginId: input.loaded.id,
         severity: "warning",

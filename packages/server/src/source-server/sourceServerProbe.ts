@@ -17,6 +17,9 @@ import type {
   TransportContext,
 } from "@zcode/server/source-server/transportAdapter.js";
 
+// XCODE: 仅本地环境提示使用共享品牌，远端命令与协议标记保持兼容。
+import { brandProductText } from "@zcode/shared/xwork-brand";
+
 const SERVER_ROOT_SHELL = '"$HOME/.zcode/server"';
 const SERVER_BIN_SHELL = '"$HOME/.zcode/server/bin/zcode"';
 const SERVER_CURRENT_SHELL = `${SERVER_ROOT_SHELL}/current.json`;
@@ -86,7 +89,8 @@ function assertSupportedGlibc(platform: string, libcText: string): void {
   if (major > minMajor || (major === minMajor && minor >= minMinor)) return;
   const required = SOURCE_SERVER_MIN_GLIBC_VERSION.join(".");
   throw new SourceServerProbeEnvironmentError(
-    `Remote glibc ${major}.${minor} is older than glibc ${required} required by ZCode Source Server. ` +
+    // XCODE: 只投影静态产品提示，版本值在投影后插入。
+    `Remote glibc ${major}.${minor} is older than glibc ${required} ${brandProductText("required by ZCode Source Server.")} ` +
       `Use a Linux system with glibc ${required} or later, such as RHEL 8+, Ubuntu 20.04+ or Debian 10+.`,
   );
 }

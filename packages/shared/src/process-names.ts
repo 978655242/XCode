@@ -1,4 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
+// XCODE: 接受当前窗口展示名，技术进程前缀继续使用兼容身份。
+import { PRODUCT_NAME } from "./xwork-brand/runtime.js";
+
 const ZCODE_PROCESS_PREFIX = "zcode";
 const MAX_PROCESS_NAME_SEGMENT_LENGTH = 24;
 
@@ -50,7 +53,13 @@ export function formatZCodeHostProcessName(label?: string): string {
 
 export function formatZCodeRendererProcessName(windowTitle?: string): string {
   const normalizedTitle = windowTitle?.trim();
-  if (!normalizedTitle || normalizedTitle === "XWork" || normalizedTitle === "XCode") {
+  // XCODE: 新旧产品窗口名共用原有 main 分类，避免品牌迁移改变诊断身份。
+  if (
+    !normalizedTitle ||
+    normalizedTitle === PRODUCT_NAME ||
+    normalizedTitle === "XWork" ||
+    normalizedTitle === "XCode"
+  ) {
     return joinZCodeProcessName("renderer", "main");
   }
 
@@ -58,10 +67,13 @@ export function formatZCodeRendererProcessName(windowTitle?: string): string {
     return joinZCodeProcessName("renderer", "resource-manager");
   }
 
-  const currentRemoteWindowPrefix = "XWork - ";
+  // XCODE: 追加当前品牌前缀，保留历史远端窗口标题的进程分类。
+  const currentRemoteWindowPrefix = `${PRODUCT_NAME} - `;
   const remoteWindowPrefix = normalizedTitle.startsWith(currentRemoteWindowPrefix)
     ? currentRemoteWindowPrefix
-    : "XCode - ";
+    : normalizedTitle.startsWith("XWork - ")
+      ? "XWork - "
+      : "XCode - ";
   if (normalizedTitle.startsWith(remoteWindowPrefix)) {
     return joinZCodeProcessName(
       "renderer",

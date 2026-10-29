@@ -1,3 +1,5 @@
+// XCODE: 自有静态展示模板读取共享品牌；用户内容与稳定标识保持原样。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import type { ZCodeApp } from "../app/types.js";
 import type { ZCodeProtocolAgentDependencies } from "./server-types.js";
@@ -35,7 +37,7 @@ export class ProtocolRuntimeResources {
   };
 
   assertServing(): void {
-    if (this.stopping) throw new Error("XWork Protocol runtime is stopping");
+    if (this.stopping) throw new Error(`${PRODUCT_NAME} Protocol runtime is stopping`);
   }
 
   close(): Promise<void> {

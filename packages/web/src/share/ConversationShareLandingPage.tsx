@@ -12,6 +12,9 @@ import {
 import { ArrowUpRightIcon, MoonIcon, SunIcon } from "lucide-react";
 import { BIGMODEL_PROVIDER_ID, ZAI_PROVIDER_ID } from "@zcode/shared";
 import type { ConversationSharePreview } from "@zcode/shared";
+// XCODE: 只装配自有分享模板；分享正文、标题和导入 URL 保持原值。
+import { brandProductText, PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { AiscooWordmark } from "@zcode/ui/xwork-brand";
 import { ConversationShareReadonlyTimeline } from "@zcode/ui/conversation-share-readonly";
 import { renderOAuthProviderIcon } from "@zcode/ui/oauth-provider-icon";
 import { applyTheme, resolveTheme, type Theme } from "@zcode/ui/useTheme";
@@ -108,7 +111,7 @@ const ZCODE_DOWNLOAD_URL = "https://zcode.z.ai";
 
 const COPY: Record<ConversationShareLandingLocale, Copy> = {
   "zh-CN": {
-    brand: "XWork 会话分享",
+    brand: brandProductText("XWork 会话分享"),
     loading: "正在加载分享内容",
     loadingDescription: "请稍候，我们正在验证分享链接。",
     loginTitle: "登录后查看分享",
@@ -139,22 +142,22 @@ const COPY: Record<ConversationShareLandingLocale, Copy> = {
     networkDescription: "请检查网络后重试。",
     invalidTitle: "无法读取分享内容",
     invalidDescription: "分享服务返回了无法识别的数据，请提供错误详情。",
-    outdatedTitle: "需要更新 XWork",
-    outdatedDescription: "这个分享由更新版本的 XWork 创建，请升级后再查看。",
+    outdatedTitle: brandProductText("需要更新 XWork"),
+    outdatedDescription: brandProductText("这个分享由更新版本的 XWork 创建，请升级后再查看。"),
     unavailableTitle: "分享不可访问",
     unavailableDescription: "当前账号没有权限，或者分享内容已不存在。",
     retry: "重试",
-    continueInZCode: "去 XWork 继续",
+    continueInZCode: brandProductText("去 XWork 继续"),
     switchToDarkTheme: "切换到深色主题",
     switchToLightTheme: "切换到浅色主题",
-    continueHelp: "如果没有自动打开 XWork，请先下载客户端，或再次尝试打开。",
-    downloadZCode: "下载 XWork",
+    continueHelp: brandProductText("如果没有自动打开 XWork，请先下载客户端，或再次尝试打开。"),
+    downloadZCode: brandProductText("下载 XWork"),
     artifactCountOne: "{count} 个结果物",
     artifactCountOther: "{count} 个结果物",
     retryOpen: "再次打开",
   },
   "en-US": {
-    brand: "XWork Conversation Share",
+    brand: brandProductText("XWork Conversation Share"),
     loading: "Loading shared conversation",
     loadingDescription: "Please wait while we verify this share link.",
     loginTitle: "Sign in to view this share",
@@ -187,18 +190,21 @@ const COPY: Record<ConversationShareLandingLocale, Copy> = {
     invalidTitle: "Unable to read shared content",
     invalidDescription:
       "The sharing service returned unrecognized data. Provide the error details.",
-    outdatedTitle: "Update XWork to continue",
-    outdatedDescription:
+    outdatedTitle: brandProductText("Update XWork to continue"),
+    outdatedDescription: brandProductText(
       "This share was created by a newer version of XWork. Please update to view it.",
+    ),
     unavailableTitle: "Share unavailable",
     unavailableDescription:
       "This account is not allowed to view the share, or it no longer exists.",
     retry: "Try again",
-    continueInZCode: "Continue in XWork",
+    continueInZCode: brandProductText("Continue in XWork"),
     switchToDarkTheme: "Switch to dark theme",
     switchToLightTheme: "Switch to light theme",
-    continueHelp: "If XWork did not open, download the app or try opening it again.",
-    downloadZCode: "Download XWork",
+    continueHelp: brandProductText(
+      "If XWork did not open, download the app or try opening it again.",
+    ),
+    downloadZCode: brandProductText("Download XWork"),
     artifactCountOne: "{count} artifact",
     artifactCountOther: "{count} artifacts",
     retryOpen: "Try again",
@@ -443,9 +449,9 @@ export function ConversationShareLandingPage({
                   ref={brandRef}
                   data-share-brand="true"
                   className="shrink-0 text-ui-lg font-semibold text-foreground"
-                  aria-label="XWork"
+                  aria-label={PRODUCT_NAME}
                 >
-                  XWork
+                  <AiscooWordmark className="h-auto w-20" />
                 </div>
                 <h1
                   ref={titleRef}

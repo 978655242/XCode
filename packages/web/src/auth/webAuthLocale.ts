@@ -1,5 +1,7 @@
 // XCODE: 仅统一产品展示名称，保留内部标识与用户内容。
 import type { WebOAuthProviderId } from "./browserOAuthCredentialRepo.js";
+// XCODE: 登录页展示名来自共享品牌事实，供应商登录名称保持真实。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 
 type WebAuthLocale = "zh-CN" | "en-US";
 
@@ -18,7 +20,7 @@ interface WebAuthPageCopy {
 
 const WEB_AUTH_COPY = {
   "zh-CN": {
-    brand: "XWork",
+    brand: PRODUCT_NAME,
     loginTitle: "登录后继续使用 Web 远程控制",
     loginDescription: "请选择与电脑端相同的登录平台，并使用同一账号。",
     loginAction: { zai: "连接 Z.ai 继续使用", bigmodel: "连接 BigModel 继续使用" },
@@ -30,7 +32,7 @@ const WEB_AUTH_COPY = {
     retryAction: "重新登录",
   },
   "en-US": {
-    brand: "XWork",
+    brand: PRODUCT_NAME,
     loginTitle: "Sign In To Continue",
     loginDescription: "Choose the same sign-in provider and account as on your computer.",
     loginAction: { zai: "Connect to Z.ai", bigmodel: "Connect to BigModel" },

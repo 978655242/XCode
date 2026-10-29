@@ -1,4 +1,6 @@
 import type { McpServerConfig, ZCodeMcpServer } from "@zcode/shared";
+// XCODE: 只替换自有展示标签，MCP 配置 section 与存储标识保持原值。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 
 export const MCP_SECTIONS = ["zcodeagentmcp"] as const;
 
@@ -9,7 +11,7 @@ export const SOURCE_META: Record<
   { label: string; section: string; badgeClass: string }
 > = {
   zcodeagentmcp: {
-    label: "ZCode Agent",
+    label: brandProductText("ZCode Agent"),
     section: "ZCode Agent",
     badgeClass: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
   },

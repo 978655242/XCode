@@ -1,3 +1,5 @@
+// XCODE: 自有静态模板使用共享品牌，用户插值和兼容标识保持不变。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 export { hasConfiguredStandaloneCodingPlan, logoutZCodeCli } from "./auth-login-persistence.js";
 import {
@@ -165,7 +167,7 @@ export async function loginZCodeCli(
     } catch (error) {
       throw new ZCodeCliLoginError(
         "config_update_failed",
-        "Login succeeded but updating XWork config failed.",
+        `Login succeeded but updating ${PRODUCT_NAME} config failed.`,
         { cause: error },
       );
     }

@@ -1,5 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import type { Locale } from "@zcode/shared";
+// XCODE: 仅投影产品静态词典，调用方的工作区、错误与回答在之后插入。
+import { brandMessageCatalog } from "@zcode/shared/xwork-brand";
 
 export type BotMessageLocale = Extract<Locale, "zh-CN" | "en-US">;
 
@@ -270,6 +272,12 @@ const messages = {
   },
 } as const;
 
+// XCODE: 保留原始词典条目，以装配层覆盖统一品牌，避免转换用户插值。
+const brandedMessages = {
+  "zh-CN": brandMessageCatalog(messages["zh-CN"]),
+  "en-US": brandMessageCatalog(messages["en-US"]),
+};
+
 export type BotMessageId = keyof (typeof messages)[BotMessageLocale];
 
 export function normalizeBotMessageLocale(locale: Locale | undefined): BotMessageLocale {
@@ -281,7 +289,8 @@ export function formatBotMessage(
   id: BotMessageId,
   values: MessageValues = {},
 ): string {
-  let message: string = messages[normalizeBotMessageLocale(locale)][id];
+  // XCODE: 先读取品牌词典，再执行原有用户值插入。
+  let message: string = brandedMessages[normalizeBotMessageLocale(locale)][id];
   for (const [key, value] of Object.entries(values)) {
     message = message.replaceAll(`{${key}}`, String(value ?? ""));
   }

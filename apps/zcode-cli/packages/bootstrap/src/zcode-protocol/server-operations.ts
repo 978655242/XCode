@@ -1,3 +1,5 @@
+// XCODE: 自有静态模板使用共享品牌，用户插值和兼容标识保持不变。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import {
   isAuxiliarySessionKind,
@@ -2308,7 +2310,7 @@ export async function goalSession(context: ZCodeProtocolAgentServerContext, rawP
         targetId: target.targetID,
         workspacePath: record.workspace.workspacePath,
       });
-      activeAbortController.abort(new Error("XWork Protocol goal paused"));
+      activeAbortController.abort(new Error(`${PRODUCT_NAME} Protocol goal paused`));
     }
     const snapshotAfterGoal = await afterStateMutation(context, record, "goal_paused");
     return {
@@ -2767,7 +2769,7 @@ export async function stopSession(context: ZCodeProtocolAgentServerContext, rawP
       sessionId: params.sessionId,
     });
   }
-  record.activeAbortController?.abort(new Error("XWork Protocol session stopped"));
+  record.activeAbortController?.abort(new Error(`${PRODUCT_NAME} Protocol session stopped`));
   if (pausedTarget) {
     await afterStateMutation(context, record, "session_stop_goal_paused");
   }

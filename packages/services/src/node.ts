@@ -1,4 +1,6 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
+// XCODE: 仅本地静态状态模板消费共享品牌，Helper 返回值和用户错误原样插入。
+import { brandProductText } from "@zcode/shared/xwork-brand";
 import {
   createRemoteProjectService,
   IRemoteProjectService,
@@ -904,7 +906,9 @@ export function createDynamicCuaProductMcpServerResolver(options: {
       // 委托到底层真实 resolver（由 ICuaPermissionService.restartHelper 经此调用）。
       const resolver = await options.getResolver();
       if (!resolver) {
-        throw new Error("XWork Computer Use is not enabled (plugin off or not product mode).");
+        throw new Error(
+          brandProductText("XWork Computer Use is not enabled (plugin off or not product mode)."),
+        );
       }
       await resolver.restart();
     },
@@ -912,7 +916,9 @@ export function createDynamicCuaProductMcpServerResolver(options: {
       // 授权完成后的 restart 必须保留 session id，才能复用底层的幂等与时序保障。
       const resolver = await options.getResolver();
       if (!resolver) {
-        throw new Error("XWork Computer Use is not enabled (plugin off or not product mode).");
+        throw new Error(
+          brandProductText("XWork Computer Use is not enabled (plugin off or not product mode)."),
+        );
       }
       await resolver.restartAfterPermissionGrant(onboardingSessionId);
     },
@@ -1596,8 +1602,13 @@ export function createLocalServices(options: {
       resolveEndpointOrigin: resolveCurrentZCodeEndpointOrigin,
       onRefreshResult: (event) => {
         if (event.result === "updated")
-          providerConfigLog.info(undefined, "XWork Built-in CDN 配置已更新", event);
-        else providerConfigLog.debug(undefined, "XWork Built-in 刷新检查", event);
+          // XCODE: 本地产品配置状态日志投影品牌，远端事件数据不改写。
+          providerConfigLog.info(
+            undefined,
+            brandProductText("XWork Built-in CDN 配置已更新"),
+            event,
+          );
+        else providerConfigLog.debug(undefined, brandProductText("XWork Built-in 刷新检查"), event);
       },
       fetchRelease: (endpointOrigin, signal) =>
         fetchZCodeBuiltinRemoteRelease({
@@ -1609,7 +1620,10 @@ export function createLocalServices(options: {
         }),
     },
     onZCodeBuiltinRefreshError: (error) => {
-      providerConfigLog.warn(undefined, "XWork Built-in Config 远端刷新失败", { error });
+      // XCODE: 静态日志标题消费品牌，错误对象保留来源信息。
+      providerConfigLog.warn(undefined, brandProductText("XWork Built-in Config 远端刷新失败"), {
+        error,
+      });
     },
     onPersonalConfigRecovery: (event) => {
       providerConfigLog.warn(
@@ -2065,7 +2079,9 @@ export function createLocalServices(options: {
       ) {
         return {
           available: false,
-          reason: "XWork Computer Use is not enabled (plugin off or not product mode).",
+          reason: brandProductText(
+            "XWork Computer Use is not enabled (plugin off or not product mode).",
+          ),
         };
       }
       // 懒启动：状态查询绝不拉起 Helper。托管 host 在（如刚完成授权流）→ 全量查询；
@@ -2087,7 +2103,10 @@ export function createLocalServices(options: {
           return {
             available: false,
             reason:
-              "XWork Computer Use is not running; it will start automatically on first Computer Use use.",
+              // XCODE: 设置页本地状态提示消费品牌，状态语义保持不变。
+              brandProductText(
+                "XWork Computer Use is not running; it will start automatically on first Computer Use use.",
+              ),
             idle: true,
           } satisfies { available: false; reason: string; idle: true };
         }
@@ -2116,7 +2135,8 @@ export function createLocalServices(options: {
         } catch {
           return {
             available: false,
-            reason: "XWork Computer Use is starting up; retry in a moment.",
+            // XCODE: 设置页本地状态提示消费共享品牌。
+            reason: brandProductText("XWork Computer Use is starting up; retry in a moment."),
             idle: true,
           } satisfies { available: false; reason: string; idle: true };
         }
@@ -2126,7 +2146,7 @@ export function createLocalServices(options: {
         if (!helper || !isDefaultCuaProductHelperCurrent(helper)) {
           return {
             available: false,
-            reason: "XWork Computer Use lifecycle is disposed.",
+            reason: brandProductText("XWork Computer Use lifecycle is disposed."),
           };
         }
         // Screen Recording 的真值必须来自一个新进程：撤销对已运行的常驻 Helper 不生效，
@@ -2135,7 +2155,7 @@ export function createLocalServices(options: {
         if (!isDefaultCuaProductHelperCurrent(helper)) {
           return {
             available: false,
-            reason: "XWork Computer Use lifecycle is disposed.",
+            reason: brandProductText("XWork Computer Use lifecycle is disposed."),
           };
         }
         // 真实 screen-capture 探针：TCC screen_recording === "granted" 只说明系统记录了授权，并不保证
@@ -2150,7 +2170,7 @@ export function createLocalServices(options: {
         if (!isDefaultCuaProductHelperCurrent(helper)) {
           return {
             available: false,
-            reason: "XWork Computer Use lifecycle is disposed.",
+            reason: brandProductText("XWork Computer Use lifecycle is disposed."),
           };
         }
         const reportedOwnerDisplayName =
@@ -2194,7 +2214,9 @@ export function createLocalServices(options: {
       ) {
         return {
           ok: false,
-          reason: "XWork Computer Use is not enabled (plugin off or not product mode).",
+          reason: brandProductText(
+            "XWork Computer Use is not enabled (plugin off or not product mode).",
+          ),
         };
       }
       // 走 resolver.restart()，让 host 尽可能复用 transport；不得通过 disposeWorkspace
@@ -2207,7 +2229,9 @@ export function createLocalServices(options: {
       if (!resolver) {
         return {
           ok: false,
-          reason: "XWork Computer Use is not enabled (plugin off or not product mode).",
+          reason: brandProductText(
+            "XWork Computer Use is not enabled (plugin off or not product mode).",
+          ),
         };
       }
       try {
@@ -2219,14 +2243,15 @@ export function createLocalServices(options: {
         if (!helper || !isDefaultCuaProductHelperCurrent(helper)) {
           return {
             ok: false,
-            reason: "XWork Computer Use lifecycle is disposed.",
+            reason: brandProductText("XWork Computer Use lifecycle is disposed."),
           };
         }
         return { ok: true };
       } catch (error) {
         return {
           ok: false,
-          reason: `Failed to restart XWork Computer Use: ${
+          // XCODE: 静态失败提示先投影，底层异常作为外部值原样保留。
+          reason: `${brandProductText("Failed to restart XWork Computer Use:")} ${
             error instanceof Error ? error.message : String(error)
           }`,
         };
@@ -2715,7 +2740,8 @@ export function createLocalServices(options: {
             }
           })
           .catch((error) => {
-            zcodeJwtLogoutLogger.warn("XWork JWT logout failed", { error });
+            // XCODE: 静态产品日志投影品牌，JWT key 与错误对象不改写。
+            zcodeJwtLogoutLogger.warn(brandProductText("XWork JWT logout failed"), { error });
           });
       }
     : null;

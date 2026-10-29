@@ -5,7 +5,7 @@
  *
  * 通过 useOAuth hook 驱动 OAuth 流程。
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2Icon, LoaderIcon, TriangleAlertIcon } from "lucide-react";
 import {
   type OAuthProviderMeta,
@@ -22,7 +22,8 @@ import {
 } from "@zcode/shared/test-ids";
 import { Alert, AlertDescription } from "./components/ui/alert.js";
 import { Button } from "./components/ui/button.js";
-import { ZCodeAboutLogo } from "@/components/ui/ZCodeAboutLogo.js";
+// XCODE: 登录品牌复用完整 aiscoo 字标及其主题资源。
+import { AiscooAnimatedWordmark as AiscooWordmark, PRODUCT_NAME } from "@/xwork/brand/index.js";
 import { useOAuth } from "./hooks/useOAuth.js";
 import { useZCodeIntl } from "./i18n/IntlProvider.js";
 import { LoginApiKeyForm } from "./login/LoginApiKeyForm.js";
@@ -287,12 +288,7 @@ export function LoginPanel({ active, onComplete }: LoginPanelProps) {
 
   return (
     <>
-      <LoginPanelHeader
-        title={intl.formatMessage({ id: "login.title" })}
-        description={intl.formatMessage({ id: "login.description" })}
-      >
-        {null}
-      </LoginPanelHeader>
+      <LoginPanelHeader description={intl.formatMessage({ id: "login.description" })} />
 
       <div className="space-y-6">
         {/* Bugfix: Root 层写入 oauthError（轮询/回调失败）后 effect 会把 useOAuth reset 回 idle，
@@ -458,36 +454,24 @@ export function LoginPanel({ active, onComplete }: LoginPanelProps) {
   );
 }
 
-function LoginPanelHeader({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description: string;
-  children: ReactNode;
-}) {
+function LoginPanelHeader({ description }: { description: string }) {
   return (
     <header className="flex flex-col items-center gap-3 text-center">
       <LoginPanelLogo />
-      <div className="flex flex-col items-center gap-1 text-center">
-        <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
-        <p className="text-ui-base/relaxed text-foreground-subtle">{description}</p>
-      </div>
-      {children}
+      <p className="text-ui-base/relaxed text-foreground-subtle">{description}</p>
     </header>
   );
 }
 
 function LoginPanelLogo() {
   return (
-    // 登录 logo 壳是固定深色底，边框不能跟随浅色主题 token，否则浅色主题下边框过重。
+    // XCODE: 原方形容器压缩品牌辨识度；完整字标按卡片可用宽度等比展示。
     <div
-      className="relative mb-1 flex size-16 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,#000000_0%,#151718_100%)] text-[#ffffff] shadow-lg/20 before:pointer-events-none before:absolute before:inset-0 before:rounded-2xl before:border before:border-[rgba(255,255,255,0.1)]"
-      aria-label="XWork"
+      className="mb-1 flex w-full items-center justify-center"
+      aria-label={PRODUCT_NAME}
       role="img"
     >
-      <ZCodeAboutLogo className="h-auto w-10" />
+      <AiscooWordmark className="h-auto w-60 max-w-full" />
     </div>
   );
 }

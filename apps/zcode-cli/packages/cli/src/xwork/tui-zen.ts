@@ -1,4 +1,5 @@
 // XCODE: TUI 与模型 Registry 共享同一 Zen runtime；业务全部在此，上游 tui-prompt-handler 只做装配。
+import { PRODUCT_NAME } from "@zcode/i18n";
 import type { XworkZenCommandDeps } from "./contract.js";
 import type { createTuiProcessRuntimeState } from "../tui-prompt-handler-runtime.js";
 
@@ -8,7 +9,7 @@ type TuiProcessRuntimeState = ReturnType<typeof createTuiProcessRuntimeState>;
 export function createTuiZenCommandDeps(processRuntime: TuiProcessRuntimeState): XworkZenCommandDeps {
   const zenRuntime = async () => {
     const runtime = await processRuntime.providerRegistryRuntimePromise;
-    if (!runtime?.zenAccount) throw new Error("Configure NEW_API_BASE_URL to use XWork Zen Plan.");
+    if (!runtime?.zenAccount) throw new Error(`Configure NEW_API_BASE_URL to use ${PRODUCT_NAME} Zen Plan.`);
     return { runtime, zenAccount: runtime.zenAccount };
   };
   return {
