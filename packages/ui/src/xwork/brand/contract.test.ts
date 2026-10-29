@@ -46,7 +46,9 @@ describe("Aiscoo 品牌展示契约", () => {
   it("启动动画尊重减少动态效果，静态模式不加载动画资源", () => {
     const animated = render(createElement(AiscooStartupLogo));
     const still = render(createElement(AiscooStartupLogo, { animated: false }));
-    expect(animated).toContain("prefers-reduced-motion: reduce");
+    expect(animated).toContain('class="motion-reduce:hidden"');
+    expect(animated).toContain('class="hidden motion-reduce:block"');
+    expect(animated).not.toContain("<style");
     expect(animated).toContain('attributeName="opacity"');
     expect(animated).toContain(AISCOO_ASSET_URLS.startup.dark);
     expect(still).not.toContain("<animate");

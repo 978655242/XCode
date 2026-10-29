@@ -134,3 +134,9 @@ Electron 41.0.3 依据：[ready 前钥匙串配置](https://github.com/electron/
 [逐文件理由和合并预演](aiscoo-upstream-review.md) 列出与 `upstream/main` 相交的全部 **216 个已修改文件**。品牌实现位于独立模块，既有翻译词典不改；共享 package exports、依赖和 module requires 只追加。协议、存储、Zen service/AAD、Windows EXE、Linux 命令、更新身份和第三方归属保留。
 
 两项打包阻断及 CUA 动态标题漏项在独立复核中发现并修复：禁止主进程依赖源码相对 JSON 路径；package export 兼容既有 string-only alias；权限状态回调使用同一静态品牌词典。复核结束未留高置信未解决问题。
+
+### 提交前回归补充
+
+登录页评审后恢复上游默认头部，Root 通过可选 header 插槽装配独立 `AiscooLoginHeader`，默认标题、说明、图标及 OAuth 状态路径保持原有合同。真实 pre-push 钩子随后选中 84 个受影响根 UT 文件，其中静默启动测试发现下游 `AiscooStartupLogo` 的内嵌 style 文本进入页面 `textContent`；该轮结果为 1058 通过、1 失败，推送被阻止。
+
+修复仅位于下游品牌模块：移除组件内 style，复用现有 `motion-reduce:hidden`／`hidden motion-reduce:block` 切换动画与静态图；保留原有静默启动测试并加强品牌契约。修复后品牌契约、全局数据库启动、根启动壳、登录品牌四文件共 16 项回归通过，包含迁移到失败时的定时器清理。后续完整 pre-push 与 CI 结果以 PR 验证记录为准。

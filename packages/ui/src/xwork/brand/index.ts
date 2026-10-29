@@ -153,14 +153,10 @@ export function AiscooStartupLogo({
       focusable: false,
       "data-aiscoo-brand": "startup",
     },
-    createElement(
-      "style",
-      null,
-      ".aiscoo-startup-still{display:none}@media(prefers-reduced-motion: reduce){.aiscoo-startup-motion{display:none}.aiscoo-startup-still{display:block}}",
-    ),
+    // 静默启动要求页面无文本节点；复用样式类切换动效，避免内嵌 CSS 进入文本内容。
     createElement(
       "g",
-      { className: "aiscoo-startup-motion" },
+      { className: "motion-reduce:hidden" },
       createElement("animate", {
         attributeName: "opacity",
         begin: "3s",
@@ -170,7 +166,7 @@ export function AiscooStartupLogo({
       }),
       ...assetImages("startup", tone),
     ),
-    createElement("g", { className: "aiscoo-startup-still" }, ...assetImages("mark", tone)),
+    createElement("g", { className: "hidden motion-reduce:block" }, ...assetImages("mark", tone)),
   );
 }
 
