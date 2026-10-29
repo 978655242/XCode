@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import type { Locale } from "@zcode/shared";
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 
 // XCODE: Finder 服务目录也是用户可见品牌；bundle ID 保持稳定用于安全识别并迁移旧目录。
 const WORKFLOW_NAME = `Open in ${PRODUCT_NAME}.workflow`;

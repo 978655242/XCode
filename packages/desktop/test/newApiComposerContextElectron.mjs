@@ -16,7 +16,7 @@ assert.ok(process.argv[2], "Launch this fixture with runNewApiElectronSmokes.mjs
 
 // XCODE: 真实 Composer 切换必须隔离缓存订阅，不能只测试额度 mapper 或替换浮层组件。
 async function run() {
-  const temporary = await mkdtemp(join(process.argv[2], "xwork-composer-context-"));
+  const temporary = await mkdtemp(join(process.argv[2], "aiscoo-composer-context-"));
   app.setPath("userData", temporary);
   let win;
   let exitCode = 0;

@@ -4,7 +4,7 @@
 // ============================================================
 
 // XCODE: 身份模板在用户 OutputStyle 组合前读取品牌，不转换用户说明。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import type { ContextSection } from "../types.js";
 import type { OutputStylePromptConfig } from "../types.js";
 import { estimateTokens } from "../utils.js";

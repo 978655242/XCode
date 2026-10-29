@@ -7801,6 +7801,10 @@ const zhCN: Record<string, string> = {
   "settings.plugins.guide.section.limits": "能力边界与注意事项",
   "settings.plugins.guide.section.faq": "常见问题与参考资料",
   ...requestSecurityMessagesZhCN,
+  // XCODE: 桌面公开法律信息入口，仅追加展示文案。
+  "aiscoo.legal.title": "法律信息",
+  "aiscoo.legal.userAgreement": "用户协议",
+  "aiscoo.legal.privacyPolicy": "隐私政策",
 };
 
 export default zhCN;

@@ -13,7 +13,7 @@ assert.ok(process.argv[2], "Launch this fixture with runNewApiElectronSmokes.mjs
 
 // XCODE: 不在 Electron ESM 入口顶层等待 ready，避免启动互锁。
 async function run() {
-  const temporary = await mkdtemp(join(process.argv[2], "xwork-period-details-"));
+  const temporary = await mkdtemp(join(process.argv[2], "aiscoo-period-details-"));
   app.setPath("userData", temporary);
   let win;
   let exitCode = 0;

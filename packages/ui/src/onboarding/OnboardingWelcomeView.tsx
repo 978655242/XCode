@@ -2,7 +2,7 @@
 import { ArrowRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 // XCODE: 固定深色品牌容器选深色背景原稿，保留引导布局与交互。
-import { AiscooMark as ZCodeAboutLogo, PRODUCT_NAME } from "@/xwork/brand/index.js";
+import { AiscooMark as ZCodeAboutLogo, PRODUCT_NAME } from "@/aiscoo/brand/index.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { OnboardingWelcomeAsciiVisual } from "@/onboarding/OnboardingWelcomeAsciiVisual.js";
 

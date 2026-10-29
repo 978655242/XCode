@@ -162,14 +162,14 @@ export async function loadPolicy(cwd = process.cwd()) {
   const filename = path.join(cwd, "architecture-policy.yaml");
   const content = await fs.readFile(filename, "utf8");
   const raw = parseYaml(content);
-  // XCODE: 追加 architecture-policy.xwork.yaml 的下游模块，上游 YAML 保持原样以免同步冲突。
+  // XCODE: 追加 architecture-policy.aiscoo.yaml 的下游模块，上游 YAML 保持原样以免同步冲突。
   const extension = await fs
-    .readFile(path.join(cwd, "architecture-policy.xwork.yaml"), "utf8")
+    .readFile(path.join(cwd, "architecture-policy.aiscoo.yaml"), "utf8")
     .catch((error) => (error.code === "ENOENT" ? null : Promise.reject(error)));
   if (extension !== null && Array.isArray(raw?.modules)) {
     const extra = parseYaml(extension)?.modules;
     if (!Array.isArray(extra))
-      throw new Error("architecture-policy.xwork.yaml 必须包含 modules 数组");
+      throw new Error("architecture-policy.aiscoo.yaml 必须包含 modules 数组");
     raw.modules.push(...extra);
   }
   return validatePolicy(raw, cwd);

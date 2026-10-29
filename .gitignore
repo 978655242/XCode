@@ -83,3 +83,6 @@ __pycache__/
 /packages/server/.video_agent/
 /.video_agent/
 /packages/server/.zcodeignore
+
+# ZCode agent session artifacts
+.zcode/

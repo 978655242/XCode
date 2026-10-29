@@ -110,3 +110,28 @@ Apache-2.0 复制内容中的 148 个已确认改编文件包含文件内来源�
 该依赖由 `office-runtime` 声明为构建依赖。PDF 插件构建从 `400.css` 选择原有 WOFF2 分片并原样复制，不改字体内部名称；`apps/zcode-cli/packages/office-runtime/scripts/build.mjs` 将随包版权与完整许可写入插件的 `THIRD_PARTY_NOTICES.txt`。字体作为插件资源分发，继续保留 OFL 许可，不单独销售字体。
 
 许可门禁仅登记这一精确包名、版本与许可标识；其他包、版本或许可仍需核验。此记录不替代最终安装包审计，不关闭既有材料缺口。
+
+## XWork 账号默认头像：Multiavatar 1.0.7
+
+本次仅批准 `@multiavatar/multiavatar@1.0.7` 用于商业应用的账号默认头像附加功能。其原始许可字段是 `SEE LICENSE IN LICENSE`，对应 **MULTIAVATAR LICENSE v1.0**，不是 MIT。[官方公开条款](https://multiavatar.com/license/)允许商业软件使用，但禁止把现有头像设计集重打包、改名为另一产品，或用于相似、竞争的头像产品/服务；Multiavatar 必须是应用的附加功能，不能成为独立图库产品。升级版本或扩大用途需要重新复核。
+
+以 [npm 1.0.7 归档](https://registry.npmjs.org/@multiavatar/multiavatar/-/multiavatar-1.0.7.tgz)中的实际字节为准；该归档 SHA-256 为 `4ab4a4469aad79bce0096d65c8834a22377e372d1ca54b60df639c410c180f64`，npm SHA-512 integrity 也已核对。实装包的 LICENSE、package.json、源文件及 ESM/CommonJS 入口与此归档一致。原文快照如下，不运行格式化工具改写：
+
+| 材料 | 来源与 SHA-256 |
+| --- | --- |
+| [Multiavatar 原始许可](upstream/multiavatar-1.0.7-LICENSE.txt) | npm 归档 `package/LICENSE`；`39f19f0d872c650261c399ced4bb621f8d3a79352a1cee8af44a00433fd47cf2`；保留 `2020-2021 (c) Gie Katon`。 |
+| [Multiavatar 原始元数据](upstream/multiavatar-1.0.7-package.json) | npm 归档 `package/package.json`；`bcdca308e34f5526299715ce1217f3f129ea4bf760893f9d7150d247f215a09d`；精确版本与原始许可值均保留。 |
+| [CryptoJS v3.1.2 原始许可](upstream/cryptojs-3.1.2-LICENSE.txt) | [内嵌版权头链接的 Google Code 官方归档](https://storage.googleapis.com/google-code-archive/v2/code.google.com/crypto-js/wiki/License.wiki)；`6718c0ad644b5e025b9fc6580636b12244eafc727a237a3ddf2da656441a1863`；Jeff Mott，2009–2013，BSD-3-Clause。 |
+| [CryptoJS v3.1.2 元数据](upstream/cryptojs-3.1.2-package.json) | [官方 release-3.1.2 固定提交](https://raw.githubusercontent.com/brix/crypto-js/7e09961c6174bb23912d95e42fec340f38babdb0/package.json)；`c8d161440629ea606c73b49e360fbda55c00f99fb65913500cf8e2118d0f637e`；原字段 `New BSD`，不能套用其他版本的 MIT 条款。 |
+
+npm 1.0.7 自带完整 Multiavatar LICENSE，但内嵌 CryptoJS 只带版本、版权头和许可链接，未附完整条款。`multiavatar.js` 第 674–688 行的完整 CryptoJS 块与 [3.1.2 官方 SHA-256 rollup](https://raw.githubusercontent.com/brix/crypto-js/7e09961c6174bb23912d95e42fec340f38babdb0/build/rollups/sha256.js)仅有空白差异，去掉空白后的 SHA-256 均为 `f00b16d8ea4eaba201b8118589ef7da4869968da99f39faf0d71c19e5d62e184`。BSD 条款要求分发时保留版权、条件和免责声明，并禁止未经许可使用 CryptoJS/贡献者名称背书。
+
+`npm-overrides.json` 只为这个精确包追加 CryptoJS 原文材料；完整生成成功时，现有生成器从实装包读取 Multiavatar LICENSE，并将两套条款写入根声明。`scripts/aiscoo/multiavatar-license.mjs` 在门禁中比较扫描到的原始包名、版本、许可值；不改通用分类器、不归一化这个许可、不放行其他 `SEE LICENSE IN ...`。原有待核验事项保持登记，基础复核不替代完整发行审计。
+
+### 本次生成与剩余阻断（2026-10-29）
+
+完整工作区 `pnpm install --frozen-lockfile` 恢复后，生成曾被现有 `@lobehub/icons-static-svg@1.95.1` 缺完整原文阻断。随包 README 已指向上游 LICENSE，npm 的 `gitHead` 为 `49a2130df7bfa5eb1b088261bff20a37e2967789`；该提交的 `packages/static-svg/package.json` 确认精确包名与版本。据此取回 [该提交的完整 MIT 原文](https://raw.githubusercontent.com/lobehub/lobe-icons/49a2130df7bfa5eb1b088261bff20a37e2967789/LICENSE)，保存在 [本地快照](upstream/lobehub-icons-static-svg-1.95.1-LICENSE.txt)，SHA-256 为 `add9d7531d1b21646317a8958e38fc727506fa39d24bdecb44154d943c82753a`，仅追加现有 override，不改分类规则。
+
+随后以仓库固定 Node 24.14.0 完整运行 `node scripts/licenses.mjs notices` 成功：1230 个精确包版本、12 个复制组件、18 个原生归档；Multiavatar 原始许可及 CryptoJS BSD 条款均已进入根声明。相对旧 inventory 新增 11 个包版本：Multiavatar、原清单未覆盖的 LobeHub，以及既有 `@napi-rs/keyring@2.1.2` 与其 8 个平台包。声明新增约 1.42 MB，主要是各 keyring 平台包实际附带的 `LICENSE.third-party.md`；旧原文与顺序未重排，Electron 仅多收同哈希的 `dist/LICENSE` 引用。现有生成器只支持完整生产图，不能为缩小 diff 手工删除这些实际原文。基础输入新鲜度验证通过；原有 `reviewRequired` 的 19 项逐项保持，严格完整性验证继续失败。
+
+同一次恢复后，`node scripts/licenses.mjs check` 退出 1：`@giscus/react@3.1.0`、`@splinetool/runtime@1.12.98` 缺许可标识，开发依赖 `elkjs@0.11.1` 的 `EPL-2.0` 不在既有构建依赖复核范围。Multiavatar 不再出现在失败列表。三项错误最早观察于本次安装之后，没有安装前检查证据，故不归因于这次依赖添加；不通过修改其他包或通用规则绕过。这些标识错误与原有 19 项材料缺口仍需在发行前处理，本次未执行发行打包或发布。

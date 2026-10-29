@@ -234,7 +234,7 @@ test(
     let streaming: Promise<void> | undefined;
     runtime.start();
     try {
-      toolDirectory = await mkdtemp(join(tmpdir(), "xwork-native-sdk-tool-"));
+      toolDirectory = await mkdtemp(join(tmpdir(), "aiscoo-native-sdk-tool-"));
       await writeFile(join(toolDirectory, "fixture.txt"), "synthetic lookup result");
       const oldModel = runtime.modelFactory({ selection });
       streaming = runWithModelInvocationContext(credential, async () => {

@@ -10,7 +10,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { dirname, posix } from "node:path";
-import { PRODUCT_BRAND } from "@zcode/shared/xwork-brand";
+import { PRODUCT_BRAND } from "@zcode/shared/aiscoo-brand";
 
 export const DEV_ELECTRON_PROTOCOL_SCHEME = "zcode";
 // XCODE: 仅迁移开发应用展示名，协议、bundle ID 与缓存根目录保持不变。

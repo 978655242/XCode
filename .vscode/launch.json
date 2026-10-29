@@ -3,7 +3,7 @@
   "configurations": [
     {
       // XCODE: 调试入口显示名迁移，调试协议与端口保持不变。
-      "name": "XWork Desktop: Main",
+      "name": "Aiscoo Desktop: Main",
       "type": "pwa-node",
       "request": "attach",
       "port": 9231,
@@ -20,7 +20,7 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "XWork Desktop: Main (with host inspect)",
+      "name": "Aiscoo Desktop: Main (with host inspect)",
       "type": "pwa-node",
       "request": "attach",
       "port": 9231,
@@ -35,7 +35,7 @@
       "skipFiles": ["<node_internals>/**"]
     },
     {
-      "name": "XWork Desktop: Renderer",
+      "name": "Aiscoo Desktop: Renderer",
       "type": "pwa-chrome",
       "request": "attach",
       "port": 9229,
@@ -43,7 +43,7 @@
       "timeout": 30000
     },
     {
-      "name": "XWork Desktop: Host",
+      "name": "Aiscoo Desktop: Host",
       "type": "pwa-node",
       "request": "attach",
       "port": 9230,
@@ -59,16 +59,16 @@
   ],
   "compounds": [
     {
-      "name": "XWork Desktop: F5",
-      "configurations": ["XWork Desktop: Main", "XWork Desktop: Renderer"],
+      "name": "Aiscoo Desktop: F5",
+      "configurations": ["Aiscoo Desktop: Main", "Aiscoo Desktop: Renderer"],
       "stopAll": true
     },
     {
-      "name": "XWork Desktop: F5 (with host inspect)",
+      "name": "Aiscoo Desktop: F5 (with host inspect)",
       "configurations": [
-        "XWork Desktop: Main (with host inspect)",
-        "XWork Desktop: Renderer",
-        "XWork Desktop: Host"
+        "Aiscoo Desktop: Main (with host inspect)",
+        "Aiscoo Desktop: Renderer",
+        "Aiscoo Desktop: Host"
       ],
       "stopAll": true
     }

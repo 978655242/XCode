@@ -21,7 +21,7 @@ async function writeWorkflowInfo(homeDir: string, workflowName: string, bundleId
 }
 
 test("installs the Aiscoo Finder service and removes only the legacy app workflow", async () => {
-  const homeDir = await mkdtemp(join(tmpdir(), "xwork-finder-workflow-"));
+  const homeDir = await mkdtemp(join(tmpdir(), "aiscoo-finder-workflow-"));
   try {
     await writeWorkflowInfo(homeDir, LEGACY_WORKFLOW_NAME, BUNDLE_ID);
     let refreshCount = 0;
@@ -35,14 +35,14 @@ test("installs the Aiscoo Finder service and removes only the legacy app workflo
     });
 
     const servicesDir = join(homeDir, "Library", "Services");
-    const xworkInfo = await readFile(
+    const aiscooInfo = await readFile(
       join(servicesDir, XWORK_WORKFLOW_NAME, "Contents", "Info.plist"),
       "utf8",
     );
     await assert.rejects(
       readFile(join(servicesDir, LEGACY_WORKFLOW_NAME, "Contents", "Info.plist")),
     );
-    assert.match(xworkInfo, /Open in Aiscoo/);
+    assert.match(aiscooInfo, /Open in Aiscoo/);
     assert.equal(refreshCount, 1);
   } finally {
     await rm(homeDir, { recursive: true, force: true });
@@ -50,7 +50,7 @@ test("installs the Aiscoo Finder service and removes only the legacy app workflo
 });
 
 test("preserves an unrelated workflow that uses the legacy filename", async () => {
-  const homeDir = await mkdtemp(join(tmpdir(), "xwork-finder-workflow-"));
+  const homeDir = await mkdtemp(join(tmpdir(), "aiscoo-finder-workflow-"));
   try {
     await writeWorkflowInfo(homeDir, LEGACY_WORKFLOW_NAME, "devXzcodeYappZfinder-open-workflow");
 

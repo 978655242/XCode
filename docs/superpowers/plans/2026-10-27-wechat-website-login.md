@@ -15,7 +15,7 @@
 ## Global Constraints
 
 - Backend worktree: `/Users/timo/ai/new-api-wechat-open`，`feat/wechat-open-login`，从 backend release `d2abf9c` 切出。
-- 原 `/Users/timo/ai/new-api` 与 `/Users/timo/ai/XCode` 的无关改动不动；只写本任务规格/计划与隔离实现文件。
+- 原 `/Users/timo/ai/aiscoo-admin` 与 `/Users/timo/ai/XCode` 的无关改动不动；只写本任务规格/计划与隔离实现文件。
 - 保留 New API / QuantumNous 归属；保留旧公众号微信、其他登录方式、既有 Session/PKCE 语义。
 - SQLite/MySQL/PostgreSQL 真实实例验证迁移与约束，隔离浏览器验证真实响应 headers/body；真实微信验收另受应用资质/密钥/回调域名约束，不伪造通过。
 - 可执行协作接口与所有权清单见 `local://wechat-open-contract.md`；执行证据记入 `local://wechat-open-progress.md`。

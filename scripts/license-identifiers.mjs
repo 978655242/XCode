@@ -1,3 +1,6 @@
+// XCODE: 账号头像专用许可由独立扩展精确复核，既有分类和历史复核保持原行为。
+export { isReviewedMultiavatarLicense } from "./aiscoo/multiavatar-license.mjs";
+
 // 旧 npm 包的许可字段缺失或使用非 SPDX 拼写，不能因此给所有版本或未知包放行。
 // 原作者补充的同版 metadata 和发布包证据见 third-party/README.md。
 const reviewed = new Set(["buffers@0.1.1", "chainsaw@0.1.0"]);

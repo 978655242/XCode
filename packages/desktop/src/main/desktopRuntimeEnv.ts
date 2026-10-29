@@ -27,7 +27,7 @@ import {
   type ZCodeRuntimeEnv,
 } from "@zcode/shared";
 // XCODE: 展示名由共享品牌配置提供，历史 Electron 数据名继续独立维护。
-import { PRODUCT_BRAND, PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_BRAND, PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 import {
   desktopDevelopmentKeychainName,
   desktopProductIdentities,

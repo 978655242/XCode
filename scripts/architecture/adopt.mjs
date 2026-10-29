@@ -105,9 +105,9 @@ export async function adoptModule({
     if (!stat?.isDirectory()) throw new Error(`root 不是目录: ${root}`);
   }
 
-  // XCODE: 存在 architecture-policy.xwork.yaml 时，上游 YAML 没有的模块登记到扩展文件，避免重复登记并保持上游 YAML 原样。
+  // XCODE: 存在 architecture-policy.aiscoo.yaml 时，上游 YAML 没有的模块登记到扩展文件，避免重复登记并保持上游 YAML 原样。
   const upstreamPath = path.join(cwd, "architecture-policy.yaml");
-  const extensionPath = path.join(cwd, "architecture-policy.xwork.yaml");
+  const extensionPath = path.join(cwd, "architecture-policy.aiscoo.yaml");
   const upstreamDoc = parseDocument(await fs.readFile(upstreamPath, "utf8"));
   const inUpstream = upstreamDoc.get("modules")?.items?.some((item) => item.get?.("id") === id);
   const useExtension = !inUpstream && (await fs.stat(extensionPath).catch(() => null)) !== null;

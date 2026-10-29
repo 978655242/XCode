@@ -30,6 +30,8 @@ import { renderOAuthProviderIcon } from "./lib/oauthProviderIcon.js";
 import { ThemeHeroVisual } from "./openWorkspacePageThemeHero.js";
 import { useZCodeStore } from "./store/StoreProvider.js";
 import { DesktopOverlayWindowControls } from "@/DesktopOverlayWindowControls.js";
+// XCODE: 纯信息链接复用当前 provider 投影，不增加登录状态或授权步骤。
+import { AiscooLegalLinks } from "@/aiscoo/legal/index.js";
 
 interface WelcomeScreenProps {
   onComplete: (reason: LoginCompleteReason) => void | Promise<void>;
@@ -461,6 +463,8 @@ export function LoginPanel({ active, onComplete, header }: LoginPanelProps) {
             </Button>
           </div>
         )}
+        {/* XCODE: 公开法律链接常驻操作区底部，不受等待或失败状态影响。 */}
+        <AiscooLegalLinks providers={providers} placement="login" />
       </div>
     </>
   );

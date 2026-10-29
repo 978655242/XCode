@@ -1,5 +1,5 @@
 // XCODE: 自有静态展示模板读取共享品牌；用户内容与稳定标识保持原样。
-import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { querySessionDebug } from "./session-debug.js";
 import { offPeakControlParamsSchema, offPeakControlResultSchema } from "@zcode/shared";
@@ -120,7 +120,7 @@ import { updateOffPeakToolPolicy } from "./off-peak-tool-policy.js";
 import { updateDynamicWorkflowPolicy } from "./dynamic-workflow-policy.js";
 import { grantWorkspaceHookTrustForProtocol } from "./workspace-hook-trust.js";
 // XCODE: additive guide handlers leave the existing nonstream workspace method unchanged.
-import { readPluginSource, streamWorkspaceText } from "../xwork-plugin-guides/index.js";
+import { readPluginSource, streamWorkspaceText } from "../aiscoo-plugin-guides/index.js";
 import {
   V4InteractionRegistry,
   resolveV4InteractionRegistryOptionsFromEnv,
@@ -731,7 +731,7 @@ export class ZCodeProtocolAgentServer {
       case zcodeProtocolMethods.workspaceUpdateDynamicWorkflowPolicy:
         return await updateDynamicWorkflowPolicy(this.context, request.params);
       // XCODE: shared cancellation retains the existing operation admission and lifetime.
-      case zcodeProtocolMethods.xworkPluginGuideSource:
+      case zcodeProtocolMethods.aiscooPluginGuideSource:
         return await readPluginSource(this.context, request.params);
       case zcodeProtocolMethods.xworkWorkspaceStreamText:
         return await this.withWorkspaceGenerateTextSignal(request, (signal) =>

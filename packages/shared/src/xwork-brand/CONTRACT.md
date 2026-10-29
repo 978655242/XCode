@@ -1,7 +1,0 @@
-# Product brand display contract
-
-`brand.json` owns the downstream product name, display variants, final design palette and desktop icon presentation (`theme` and `markScale`). The desktop generator applies the configured uniform mark scale around the original canvas center while retaining the source tile geometry, gradient, shadow and alpha outline; original design files and other surfaces remain unchanged. This module is pure and does not read runtime settings or own mutable state. Build tools and asset generators read the same JSON before package compilation. The public package subpath provides JavaScript plus TypeScript declarations so standalone CLI packages can consume it without compiling the shared source tree or crossing their rootDir.
-
-Call `brandMessageCatalog` when assembling product-owned translation dictionaries, and call `brandProductText` only on a product-owned static template before inserting user values. User content, external documents, legal attribution and provider names never pass through this projection. Keys, interpolation placeholders, URLs, paths and inline technical references retain their original identity.
-
-The display identity does not configure app IDs, executable names, keychain services, encryption AAD, data directories, environment variables or OAuth/update protocols. Those stay owned by their existing runtime contracts, preserving existing users' data and credentials.

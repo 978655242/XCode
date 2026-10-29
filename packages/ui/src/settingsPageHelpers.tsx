@@ -34,6 +34,8 @@ import { SettingsBadge, SettingsGroupCard, SettingsRow } from "@/settings/Settin
 import { DataBaseDirControl } from "@/settings/DataBaseDirControl.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useOptionalServices } from "@/hooks/useServices.js";
+// XCODE: 法律入口独立扩展，通用设置只保留底部挂载点。
+import { AiscooLegalSettings } from "@/aiscoo/legal/index.js";
 import { ProactiveSuggestionsSetting } from "@/settings/ProactiveSuggestionsSetting.js";
 import { DynamicWorkflowModeSetting } from "@/settings/DynamicWorkflowModeSetting.js";
 import { normalizeInterfaceMode, type InterfaceMode } from "@/lib/interfaceMode.js";
@@ -980,6 +982,8 @@ export function GeneralSectionContent({
           }
         />
       </SettingsGroupCard>
+      {/* XCODE: 未登录可访问的桌面法律信息；元数据与打开动作由扩展负责。 */}
+      {isDesktop ? <AiscooLegalSettings /> : null}
     </div>
   );
 }

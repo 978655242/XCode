@@ -10,7 +10,7 @@ const requireServices = createRequire(new URL("../../services/package.json", imp
 const { build } = requireServices("esbuild");
 const requireDesktop = createRequire(new URL("../package.json", import.meta.url));
 const electron = requireDesktop("electron");
-const temporary = await mkdtemp(join(tmpdir(), "xwork-native-electron-tests-"));
+const temporary = await mkdtemp(join(tmpdir(), "aiscoo-native-electron-tests-"));
 try {
   for (const name of [
     "newApiComposerContextElectron",
@@ -19,6 +19,8 @@ try {
     "newApiUpgradePresentationElectron",
     "newApiModelSettingsElectron",
     "newApiModelCapabilitiesElectron",
+    "newApiAccountAvatarElectron",
+    "newApiLegalLinksElectron",
   ]) {
     const entry = new URL(`./${name}.mjs`, import.meta.url);
     const output = join(temporary, `${name}.mjs`);

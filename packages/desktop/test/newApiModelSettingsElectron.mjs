@@ -71,7 +71,7 @@ const snapshot = (status, title = "Fixture Plan A", used = "40") => ({
 assert.ok(process.argv[2], "Launch this fixture with runNewApiElectronSmokes.mjs");
 
 async function run() {
-  const temporary = await mkdtemp(join(process.argv[2], "xwork-model-settings-electron-"));
+  const temporary = await mkdtemp(join(process.argv[2], "aiscoo-model-settings-electron-"));
   app.setPath("userData", join(temporary, "profile"));
   let win,
     vite,

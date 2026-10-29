@@ -4315,7 +4315,7 @@ export const zcodeProtocolMethods = {
   interactionBrowserList: "interaction/browserList",
   interactionBrowserExecute: "interaction/browserExecute",
   // XCODE: read-only guide sources and a real auxiliary workspace text stream.
-  xworkPluginGuideSource: "xwork/plugins/guideSource",
+  aiscooPluginGuideSource: "xwork/plugins/guideSource",
   xworkWorkspaceStreamText: "xwork/workspace/streamText",
 } as const;
 

@@ -48,7 +48,7 @@ import { CodingPlanUpgradeDialogProvider } from "@/settings/CodingPlanUpgradeDia
 import { RewardsProvider } from "@/rewards/RewardsProvider.js";
 import { WelcomeScreen, type LoginCompleteReason } from "@/WelcomeScreen.js";
 // XCODE: 品牌登录头通过可选插槽装配，原登录页默认头部保持上游语义。
-import { AiscooLoginHeader } from "@/xwork/brand/index.js";
+import { AiscooLoginHeader } from "@/aiscoo/brand/index.js";
 import { setDefaultFileDisplayBasePath } from "@/lib/fileDisplay.js";
 import { readRendererLaunchTimings, shouldReportLaunchToInput } from "@/lib/launchToInputReport.js";
 import { reportUiLaunchToInput } from "@/lib/uiPerfArmsTelemetry.js";

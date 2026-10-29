@@ -12,12 +12,18 @@ import { NewApiClient, NewApiClientError } from "../../new-api/newApiClient.js";
 // XCODE: 私有目的 adapter 不实现官方 OAuthTokenSet 接口，避免通过 Renderer 暴露主账号密钥。
 export class NewApiProviderAdapter {
   readonly providerId = NEW_API_PROVIDER_ID;
-  readonly meta: OAuthProviderMeta = {
-    id: NEW_API_PROVIDER_ID,
-    displayName: "New API",
-    enabled: true,
-    order: 0,
-  };
+  get meta(): OAuthProviderMeta {
+    return {
+      id: NEW_API_PROVIDER_ID,
+      displayName: "New API",
+      enabled: true,
+      order: 0,
+      legalLinks: {
+        userAgreementUrl: new URL("/user-agreement", this.client.origin).href,
+        privacyPolicyUrl: new URL("/privacy-policy", this.client.origin).href,
+      },
+    };
+  }
   readonly redirectUri = NEW_API_CALLBACK_URI;
 
   constructor(readonly client: NewApiClient) {}

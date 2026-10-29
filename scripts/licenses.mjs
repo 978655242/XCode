@@ -17,6 +17,7 @@ import {
   isReviewedLegacyLicense,
   isReviewedBundledFontLicense,
   legacyLicenseIdentifier,
+  isReviewedMultiavatarLicense, // XCODE: 独立的精确许可复核，不改变通用分类器。
 } from "./license-identifiers.mjs";
 import { readFile } from "node:fs/promises";
 import {
@@ -122,6 +123,8 @@ if (command === "check") {
   for (const r of installed.values()) {
     if (r.bucket === "green" || isReviewedLegacyLicense(r) || isReviewedBundledFontLicense(r))
       continue;
+    // XCODE: 使用原始元数据复核，避免归一化后的 SEE LICENSE 值意外获得许可。
+    if (isReviewedMultiavatarLicense(scanned.get(`${r.name}@${r.version}`).pkg)) continue;
     if (r.bucket.startsWith("yellow") && weakAllowReason(r)) continue;
     bad.push(r);
   }

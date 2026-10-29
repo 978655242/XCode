@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript、Node.js 24.14.0、pnpm 10.33.2、现有 Vitest/Node test；New API Go/Gin/GORM 和现有 React 授权页面；平台系统凭据库。
 
-**Spec:** [CLI Zen Plan](../../../apps/zcode-cli/docs/design/v2/zen-plan.md)，后端 canonical spec 为 `/Users/timo/ai/new-api/docs/specs/xcode-integration.md`。
+**Spec:** [CLI Zen Plan](../../../apps/zcode-cli/docs/design/v2/zen-plan.md)，后端 canonical spec 为 `/Users/timo/ai/aiscoo-admin/docs/specs/xcode-integration.md`。
 
 ## Global Constraints
 

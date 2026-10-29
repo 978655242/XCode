@@ -25,7 +25,7 @@ for (const mode of ["desktop-continuous", "web-remote-replayable"] as const) {
       `${mode} ${type} waits for applied config and retries without consuming command identity`,
       { timeout: 20_000 },
       async () => {
-        const dir = await mkdtemp(join(tmpdir(), "xwork-applied-admission-"));
+        const dir = await mkdtemp(join(tmpdir(), "aiscoo-applied-admission-"));
         setDataBaseDir(dir);
         const transcriptPath = join(dir, "transcript.jsonl");
         const workerPath = join(dir, "worker.mjs");

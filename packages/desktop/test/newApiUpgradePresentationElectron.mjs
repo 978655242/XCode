@@ -25,7 +25,7 @@ const requireRoot = createRequire(new URL("../../../package.json", import.meta.u
 assert.ok(process.argv[2], "Launch this fixture with runNewApiElectronSmokes.mjs");
 
 async function run() {
-  const temporary = await mkdtemp(join(process.argv[2], "xwork-upgrade-electron-"));
+  const temporary = await mkdtemp(join(process.argv[2], "aiscoo-upgrade-electron-"));
   app.setPath("userData", join(temporary, "profile"));
   let win, vite, fixture, fixtureOrigin;
   const counters = { writes: 0 };

@@ -3,7 +3,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AISCOO_ASSET_URLS, AiscooIntlProvider, AiscooLoginHeader } from "@/xwork/brand/index.js";
+import { AISCOO_ASSET_URLS, AiscooIntlProvider, AiscooLoginHeader } from "@/aiscoo/brand/index.js";
 import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import { WelcomeScreen } from "@/WelcomeScreen.js";
 

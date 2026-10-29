@@ -11,7 +11,7 @@ const require = createRequire(import.meta.url);
 const cwd = fileURLToPath(new URL("..", import.meta.url));
 const newApiTests = globSync("packages/services/test/newApi*.test.ts", { cwd }).sort();
 assert.ok(newApiTests.length > 0, "Native account regressions are missing");
-const root = await mkdtemp(join(tmpdir(), "xwork-native-unit-"));
+const root = await mkdtemp(join(tmpdir(), "aiscoo-native-unit-"));
 try {
   const child = spawn(
     process.execPath,
@@ -33,7 +33,7 @@ try {
       "packages/desktop/scripts/devElectronAppArgs.test.mjs",
       "packages/desktop/scripts/devElectronAppBundle.test.mjs",
       "scripts/test/unit-test-isolation.test.mjs",
-      "scripts/test/architecture-policy-xwork.test.mjs",
+      "scripts/test/architecture-policy-aiscoo.test.mjs",
     ],
     {
       cwd,
@@ -63,7 +63,7 @@ try {
   // 一键启动器依赖 launchctl 与 /usr/sbin/lsof，只在 macOS 上有意义；Linux CI 跳过。
   if (process.exitCode === 0 && process.platform === "darwin") {
     process.exitCode = await new Promise((resolve, reject) => {
-      const python = spawn("python3", ["scripts/xcode/start-local.test.py"], {
+      const python = spawn("python3", ["scripts/aiscoo/start-local.test.py"], {
         cwd,
         stdio: "inherit",
         env: { ...process.env, HOME: root, USERPROFILE: root },

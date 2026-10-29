@@ -1,5 +1,5 @@
 // XCODE: 此模块也被 main 内联，必须静态导入品牌，不能在产物中读取源码相对路径。
-import { PRODUCT_BRAND as productBrand } from "@zcode/shared/xwork-brand";
+import { PRODUCT_BRAND as productBrand } from "@zcode/shared/aiscoo-brand";
 
 /**
  * 构建期开关：为真时安装包使用 Preview 身份，而后端环境仍由 `ZCODE_ENV` 单独决定。

@@ -64,6 +64,11 @@ export interface OAuthProviderMeta {
   displayName: string;
   enabled: boolean;
   order: number;
+  // XCODE: 可选公开信息链接，无会话、授权参数或供应商默认地址。
+  legalLinks?: {
+    userAgreementUrl: string;
+    privacyPolicyUrl: string;
+  };
 }
 
 // XCODE: 主身份和独立官方连接共享回调通道，但不共享身份 owner。
