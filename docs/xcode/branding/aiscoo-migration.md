@@ -76,6 +76,14 @@ flowchart LR
 
 本机 New API 服务健康，但此前真实客户端记录过 `Secure storage unavailable; private login requires recovery`。提交前复核 Electron 41.0.3 发现品牌更名会改变 ready 前的 `app.getName()`，从而改变 macOS `safeStorage` 选择的钥匙串服务／账号；这与 userData 路径无关。现已将历史钥匙串身份与展示身份分离：ready 前选择 XWork／XWork Preview／XWork Dev，ready 后恢复 Aiscoo；显式测试身份继续隔离。新增按服务名隔离的模拟钥匙串密文回归与启动顺序检查，不迁移或重置真实密钥。此修复消除已证实的品牌兼容风险，但未实际完成用户登录，不把原日志的底层异常或完整登录恢复写为已证实。验证 HTML 的固定失败提示仅为视觉夹具，不是认证结果；夹具均在忽略的 `out` 目录，不进入发布资源。
 
+### 登录失败根因与真实恢复验证（2026-10-29）
+
+确认根因是运行产物仍使用更名前后未分离的旧启动顺序：故障 Main 在 ready 前以 Aiscoo Dev 初始化 safeStorage，现存密文由 XWork Dev 钥匙串保护，`decryptString` 因身份不匹配而失败；Main 的安全密钥加载失败后，Local Host 的 `oauth.startOAuth` 在联网前被 `XCODE_SECURE_STORAGE_UNAVAILABLE` 拦截。与 Renderer、用户数据目录或账号密码无关。
+
+使用同一现存密文和真实 Electron 41.0.3 只读验证：直接 Aiscoo Dev 启动时 `isEncryptionAvailable=true` 但解密失败；XWork Dev→ready→Aiscoo Dev 顺序解密成功，不输出明文。源码已有的兼容处理得到确认，无需更改凭据加载或降级安全存储。完整重建后核对 Main 产物包含两个身份设置阶段，再正常退出无运行任务的旧桌面，沿用同一环境、用户目录和私有后端启动新版 Main／Host。新桌面自动恢复原账号、任务与模型配置，原安全密钥文件的大小、时间与字节保持不变，新启动日志未再出现安全存储不可用错误；没有重新登录、清空凭据或发起模型请求。
+
+新增真实 macOS 跨进程回归入口 `node packages/desktop/test/runAiscooKeychainSmoke.mjs`：Dev／正式／Preview 三种历史身份分别写入合成密文、验证错误的新名称无法解密、验证从实际源码提取的兼容启动顺序可解密，**9/9 通过**；临时 profile 与合成密文均清理，不读取真实凭据。已有身份及运行时回归 **50/50 通过**；首轮受宿主继承的 CUA Helper 环境覆盖影响的 3 项断言失败，在删除这三项环境覆盖后的相同测试命令通过，未修改其断言。根类型检查、Lint（316 warnings、0 errors）、架构检查与桌面构建均退出 0，未运行全量 UT。运行宿主为 Node 24.18.0，仓库固定版本不变。该验证证明原账号冷恢复已正常，不宣称完成新的浏览器授权或跨平台安全库验收。
+
 Electron 41.0.3 依据：[ready 前钥匙串配置](https://github.com/electron/electron/blob/v41.0.3/shell/browser/electron_browser_main_parts.cc#L509-L553)、[名称覆盖与 ready 事件](https://github.com/electron/electron/blob/v41.0.3/shell/browser/browser.cc#L179-L225)。原凭据加载器保持不变；修复仅使用既有 app 名称初始化入口与产品身份配置。
 
 提交前使用仓库固定 Node 24.14.0 重新运行根类型检查、44 个资源一致性校验及 9/9 图片测试，并运行 12 文件 98/98 品牌定向回归；CLI workspace 32 项构建成功。完整提交前门禁、上游合并预演和 CI 结果记录在对应 PR，历史阶段结果保留如下。
