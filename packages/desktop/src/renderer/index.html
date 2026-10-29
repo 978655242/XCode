@@ -106,13 +106,31 @@
     <div id="loading" class="[app-region:drag]" role="status" aria-busy="true" aria-label="Loading...">
       <div class="startup-logo-shell">
         <!-- XCODE: 桌面启动壳使用随包 ai 动画原稿与减弱动效静态稿。 -->
-        <img src="../../../ui/src/aiscoo/brand/assets/startup-light.svg" class="startup-logo aiscoo-startup-motion aiscoo-startup-light" alt="" aria-hidden="true" />
-        <img src="../../../ui/src/aiscoo/brand/assets/startup-dark.svg" class="startup-logo aiscoo-startup-motion aiscoo-startup-dark" alt="" aria-hidden="true" />
-        <img src="../../../ui/src/aiscoo/brand/assets/mark-light.svg" class="startup-logo aiscoo-startup-still aiscoo-startup-light" alt="" aria-hidden="true" />
-        <img src="../../../ui/src/aiscoo/brand/assets/mark-dark.svg" class="startup-logo aiscoo-startup-still aiscoo-startup-dark" alt="" aria-hidden="true" />
+        <!-- XCODE: src 由下方模块脚本注入。Vite dev 不重写 <img src>，仓库根相对路径会被 SPA fallback 成 index.html 导致破图；
+             ?url 导入在 dev 解析为 /@fs 直连文件、在 build 产物化，两端都指向同一品牌资源。 -->
+        <img data-startup-asset="startup-light" class="startup-logo aiscoo-startup-motion aiscoo-startup-light" alt="" aria-hidden="true" />
+        <img data-startup-asset="startup-dark" class="startup-logo aiscoo-startup-motion aiscoo-startup-dark" alt="" aria-hidden="true" />
+        <img data-startup-asset="mark-light" class="startup-logo aiscoo-startup-still aiscoo-startup-light" alt="" aria-hidden="true" />
+        <img data-startup-asset="mark-dark" class="startup-logo aiscoo-startup-still aiscoo-startup-dark" alt="" aria-hidden="true" />
       </div>
     </div>
     <script type="module">
+      import startupLightUrl from "../../../ui/src/aiscoo/brand/assets/startup-light.svg?url";
+      import startupDarkUrl from "../../../ui/src/aiscoo/brand/assets/startup-dark.svg?url";
+      import markLightUrl from "../../../ui/src/aiscoo/brand/assets/mark-light.svg?url";
+      import markDarkUrl from "../../../ui/src/aiscoo/brand/assets/mark-dark.svg?url";
+      // 修复依据：模块导入进入 Vite 依赖图，dev 与 build 得到可加载的同源资源 URL，
+      // 不再依赖静态 src 属性的路径解析，避免 dev 破图与 build 资源两套来源。
+      const startupAssetUrls = {
+        "startup-light": startupLightUrl,
+        "startup-dark": startupDarkUrl,
+        "mark-light": markLightUrl,
+        "mark-dark": markDarkUrl,
+      };
+      for (const img of document.querySelectorAll("img[data-startup-asset]")) {
+        const url = startupAssetUrls[img.dataset.startupAsset];
+        if (url) img.src = url;
+      }
       const startupLogoShell = document.querySelector(".startup-logo-shell");
       const startupLoading = document.getElementById("loading");
       const isUpdateStatusWindow =
