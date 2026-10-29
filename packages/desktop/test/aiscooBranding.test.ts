@@ -52,7 +52,7 @@ describe("Aiscoo native display and legacy identities", () => {
     "keeps existing macOS ciphertext readable when displaying $display",
     async ({ legacy, display }) => {
       const source = await readFile(new URL("../src/main/index.ts", import.meta.url), "utf8");
-      const early = source.match(/^app\.setName\([^\n]+\);/mu)?.[0];
+      const early = source.match(/^app\.setName\([\s\S]*?\);/mu)?.[0];
       const ready = source.match(
         /app\.whenReady\(\)\.then\(async \(\) => \{\s*(?:\/\/[^\n]*\n\s*)*(app\.setName\([^\n]+\);)/u,
       )?.[1];

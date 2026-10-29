@@ -294,7 +294,9 @@ if (!app.isPackaged && process.env.ZCODE_DISABLE_FIXED_REMOTE_DEBUGGING_PORT !==
 }
 
 // XCODE: Electron macOS 在 ready 前选择加密钥匙串，必须沿用历史应用名称。
-app.setName(process.platform === "darwin" ? runtimeKeychainApplicationName : runtimeApplicationName);
+app.setName(
+  process.platform === "darwin" ? runtimeKeychainApplicationName : runtimeApplicationName,
+);
 if (runtimeHomePath) {
   app.setPath("home", runtimeHomePath);
 }

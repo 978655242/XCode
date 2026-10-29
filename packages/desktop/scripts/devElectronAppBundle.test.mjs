@@ -42,8 +42,13 @@ test("prepareDevElectronAppBundle links the package root as the Electron app ent
 
   const infoPlist = await readFile(join(bundle.appPath, "Contents", "Info.plist"), "utf8");
   assert.match(infoPlist, /<key>ZCODE_LOCAL_DEV_BUNDLE<\/key>\s*<string>1<\/string>/u);
-  assert.match(infoPlist, /<key>CFBundleDisplayName<\/key>\s*<string>XWork Dev<\/string>/u);
-  assert.match(infoPlist, /<key>CFBundleName<\/key>\s*<string>XWork Dev<\/string>/u);
+  // XCODE: plist 展示新品牌；加密钥匙串身份由 Main 的 ready 前名称独立保持。
+  assert.match(infoPlist, /<key>CFBundleDisplayName<\/key>\s*<string>Aiscoo Dev<\/string>/u);
+  assert.match(infoPlist, /<key>CFBundleName<\/key>\s*<string>Aiscoo Dev<\/string>/u);
+  assert.match(
+    infoPlist,
+    /<key>CFBundleIdentifier<\/key>\s*<string>dev\.zcode\.app\.development<\/string>/u,
+  );
   assert.match(
     infoPlist,
     /<key>ELECTRON_RENDERER_URL<\/key>\s*<string>http:\/\/localhost:5174<\/string>/u,
