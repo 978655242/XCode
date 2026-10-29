@@ -170,4 +170,4 @@ Keychain 历史身份（ready 前 XWork/XWork Preview/XWork Dev）、appId 与�
 
 目录改名后本地重启桌面时发现：dev 模式启动过渡页中央只有破图占位符。CDP 取证确认 `index.html` 静态 `<img src="../../../ui/...">` 在 Vite dev 下不被重写，仓库根相对路径落入 SPA fallback，返回 200 + `text/html`（index.html），`naturalWidth=0`；静态资源本身（startup-light/dark.svg、mark-light/dark.svg）服务正常。该缺陷自 #36 引入静态启动图即存在，生产构建不受影响（资源由打包器处理），因此此前验收未暴露；与项目命名迁移无因果关系，借本次本地验证发现。
 
-修复位于 `packages/desktop/src/renderer/index.html`：img 改用 `data-startup-asset` 属性 + 内联模块 `?url` 导入注入 src，同一品牌资源在 dev 解析为 `/@fs` 直连、在 build 产物化为哈希资源，两端单一来源。验证：dev 页面 html-proxy 模块导入正确重写为新路径 `/@fs` URL，CDP 重载截图确认过渡页白色 ai 动画标可见（原破图占位消失）；品牌/窗口相关定向回归 6 文件 84/84 通过；`build:no-runtime-assets` 生产构建退出 0，产物 `out/renderer/index.html` 无仓库相对 svg 引用。
+修复位于 `packages/desktop/src/renderer/index.html`：img 改用 `data-startup-asset` 属性 + 内联模块 `?url` 导入注入 src，同一品牌资源在 dev 解析为 `/@fs` 直连、在 build 产物化为哈希资源，两端单一来源。验证：dev 页面 html-proxy 模块导入正确重写为新路径 `/@fs` URL，CDP 实测冷启动后 4 个启动 logo 均解码成功（naturalWidth=172，修复前为 0），重载截图中过渡页显示浅色主题稿 ai 标（深色 #121317 主体加白色眼睛，画布透明，实际对比度取决于窗口背景与系统主题）；品牌/窗口相关定向回归 6 文件 84/84 通过；`build:no-runtime-assets` 生产构建退出 0，产物 `out/renderer/index.html` 无仓库相对 svg 引用。
