@@ -2,7 +2,7 @@ import { createElement, type ReactElement } from "react";
 import { useDraftComposerCentering } from "./useDraftComposerCentering.js";
 import "./brand.css";
 import { brandMessageCatalog, PRODUCT_NAME } from "@zcode/shared/xwork-brand";
-import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
+import { useZCodeIntl, ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import type {
   AiscooBrandProps,
   AiscooAnimatedWordmarkProps,
@@ -207,6 +207,28 @@ export function AiscooAnimatedWordmark({
       tone,
       className: "hidden h-auto w-full motion-reduce:block",
     }),
+  );
+}
+
+export function AiscooLoginHeader(): ReactElement {
+  const { intl } = useZCodeIntl();
+  return createElement(
+    "header",
+    { className: "flex flex-col items-center gap-3 text-center" },
+    createElement(
+      "div",
+      {
+        className: "mb-1 flex w-full items-center justify-center",
+        "aria-label": PRODUCT_NAME,
+        role: "img",
+      },
+      createElement(AiscooAnimatedWordmark, { className: "h-auto w-60 max-w-full" }),
+    ),
+    createElement(
+      "p",
+      { className: "text-ui-base/relaxed text-foreground-subtle" },
+      intl.formatMessage({ id: "login.description" }),
+    ),
   );
 }
 

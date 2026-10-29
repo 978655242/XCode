@@ -3,7 +3,8 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AISCOO_ASSET_URLS, AiscooIntlProvider } from "@/xwork/brand/index.js";
+import { AISCOO_ASSET_URLS, AiscooIntlProvider, AiscooLoginHeader } from "@/xwork/brand/index.js";
+import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import { WelcomeScreen } from "@/WelcomeScreen.js";
 
 const oauthState = vi.hoisted(() => ({
@@ -46,12 +47,28 @@ vi.mock("@/hooks/usePlatform.js", () => ({
 afterEach(cleanup);
 
 describe("Aiscoo 登录页完整字标", () => {
+  it("未传品牌头部插槽时保留原默认标题、说明和图标", () => {
+    oauthState.status = "idle";
+    render(
+      createElement(ZCodeIntlProvider, {
+        initialLocale: "zh-CN",
+        children: createElement(WelcomeScreen, { onComplete: vi.fn() }),
+      }),
+    );
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("XWork");
+    expect(screen.getByText("连接账号，开始使用 XWork", { exact: true })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "XWork" })).toBeTruthy();
+  });
+
   it.each(["idle", "waiting", "error"] as const)("%s 状态展示可访问的完整主题字标", (status) => {
     oauthState.status = status;
     render(
       createElement(AiscooIntlProvider, {
         initialLocale: "zh-CN",
-        children: createElement(WelcomeScreen, { onComplete: vi.fn() }),
+        children: createElement(WelcomeScreen, {
+          onComplete: vi.fn(),
+          header: createElement(AiscooLoginHeader),
+        }),
       }),
     );
 

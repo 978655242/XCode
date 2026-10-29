@@ -5,7 +5,7 @@
  *
  * 通过 useOAuth hook 驱动 OAuth 流程。
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Loader2Icon, LoaderIcon, TriangleAlertIcon } from "lucide-react";
 import {
   type OAuthProviderMeta,
@@ -22,8 +22,7 @@ import {
 } from "@zcode/shared/test-ids";
 import { Alert, AlertDescription } from "./components/ui/alert.js";
 import { Button } from "./components/ui/button.js";
-// XCODE: 登录品牌复用完整 aiscoo 字标及其主题资源。
-import { AiscooAnimatedWordmark as AiscooWordmark, PRODUCT_NAME } from "@/xwork/brand/index.js";
+import { ZCodeAboutLogo } from "@/components/ui/ZCodeAboutLogo.js";
 import { useOAuth } from "./hooks/useOAuth.js";
 import { useZCodeIntl } from "./i18n/IntlProvider.js";
 import { LoginApiKeyForm } from "./login/LoginApiKeyForm.js";
@@ -34,11 +33,13 @@ import { DesktopOverlayWindowControls } from "@/DesktopOverlayWindowControls.js"
 
 interface WelcomeScreenProps {
   onComplete: (reason: LoginCompleteReason) => void | Promise<void>;
+  // XCODE: 下游可装配纯展示头部，未提供时保留上游默认布局。
+  header?: ReactNode;
 }
 
 export type LoginCompleteReason = "oauth" | "apiKey" | "skip";
 
-export function WelcomeScreen({ onComplete }: WelcomeScreenProps) {
+export function WelcomeScreen({ onComplete, header }: WelcomeScreenProps) {
   return (
     <main className="relative flex h-full min-h-dvh items-center justify-center overflow-hidden bg-background px-4 py-6 text-foreground sm:px-6">
       <ThemeHeroVisual className="absolute inset-0" />
@@ -46,7 +47,7 @@ export function WelcomeScreen({ onComplete }: WelcomeScreenProps) {
       <div className="pointer-events-none absolute left-0 top-0 right-0 z-10 flex h-12 items-center [app-region:drag] platform-windows-desktop:right-[134px] platform-linux-desktop:right-[134px]" />
       <DesktopOverlayWindowControls />
       <section className="relative z-10 w-full flex flex-col gap-10 max-w-sm rounded-2xl border border-popover-border bg-background p-8 text-ui-base/relaxed shadow-md sm:p-10">
-        <LoginPanel active onComplete={onComplete} />
+        <LoginPanel active onComplete={onComplete} header={header} />
       </section>
     </main>
   );
@@ -55,6 +56,7 @@ export function WelcomeScreen({ onComplete }: WelcomeScreenProps) {
 interface LoginPanelProps {
   active: boolean;
   onComplete: (reason: LoginCompleteReason) => void | Promise<void>;
+  header?: ReactNode;
 }
 
 interface ActiveLoginEntryAttempt {
@@ -76,7 +78,7 @@ export function shouldCompleteLoginFromExistingUser(params: {
   return params.hasUser && !params.attempt;
 }
 
-export function LoginPanel({ active, onComplete }: LoginPanelProps) {
+export function LoginPanel({ active, onComplete, header }: LoginPanelProps) {
   const { intl } = useZCodeIntl();
   const {
     startLogin,
@@ -288,7 +290,17 @@ export function LoginPanel({ active, onComplete }: LoginPanelProps) {
 
   return (
     <>
-      <LoginPanelHeader description={intl.formatMessage({ id: "login.description" })} />
+      {/* XCODE: 仅在装配处覆盖头部，不改默认渲染与登录业务状态。 */}
+      {header !== undefined ? (
+        header
+      ) : (
+        <LoginPanelHeader
+          title={intl.formatMessage({ id: "login.title" })}
+          description={intl.formatMessage({ id: "login.description" })}
+        >
+          {null}
+        </LoginPanelHeader>
+      )}
 
       <div className="space-y-6">
         {/* Bugfix: Root 层写入 oauthError（轮询/回调失败）后 effect 会把 useOAuth reset 回 idle，
@@ -454,24 +466,36 @@ export function LoginPanel({ active, onComplete }: LoginPanelProps) {
   );
 }
 
-function LoginPanelHeader({ description }: { description: string }) {
+function LoginPanelHeader({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
   return (
     <header className="flex flex-col items-center gap-3 text-center">
       <LoginPanelLogo />
-      <p className="text-ui-base/relaxed text-foreground-subtle">{description}</p>
+      <div className="flex flex-col items-center gap-1 text-center">
+        <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+        <p className="text-ui-base/relaxed text-foreground-subtle">{description}</p>
+      </div>
+      {children}
     </header>
   );
 }
 
 function LoginPanelLogo() {
   return (
-    // XCODE: 原方形容器压缩品牌辨识度；完整字标按卡片可用宽度等比展示。
+    // 登录 logo 壳是固定深色底，边框不能跟随浅色主题 token，否则浅色主题下边框过重。
     <div
-      className="mb-1 flex w-full items-center justify-center"
-      aria-label={PRODUCT_NAME}
+      className="relative mb-1 flex size-16 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,#000000_0%,#151718_100%)] text-[#ffffff] shadow-lg/20 before:pointer-events-none before:absolute before:inset-0 before:rounded-2xl before:border before:border-[rgba(255,255,255,0.1)]"
+      aria-label="XWork"
       role="img"
     >
-      <AiscooWordmark className="h-auto w-60 max-w-full" />
+      <ZCodeAboutLogo className="h-auto w-10" />
     </div>
   );
 }

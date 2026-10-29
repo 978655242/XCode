@@ -4,7 +4,7 @@
 
 品牌事实与图形均在独立 xwork-brand / xwork-brand-ui / cli-brand 模块，既有文件只作模板／资源／入口接线。严格 JSON、二进制和生成文件通过本清单说明，不写无效注释。
 
-共 215 个被修改的上游文件。
+共 216 个被修改的上游文件。
 
 | 文件                                                                                       | 必要性与扩展方式                                                                                                                                     |
 | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -149,7 +149,8 @@
 | `packages/ui/src/DesktopTopOverlay.tsx`                                                    | 该自有静态模板没有现成产品注入口；仅增加共享品牌契约调用或常量读取，在用户插值前装配，原接口、存储和业务流程保留。                                   |
 | `packages/ui/src/SettingsPage.tsx`                                                         | 该自有静态模板没有现成产品注入口；仅增加共享品牌契约调用或常量读取，在用户插值前装配，原接口、存储和业务流程保留。                                   |
 | `packages/ui/src/UpdateStatusWindowRoot.tsx`                                               | 只在现有应用入口替换 Provider 装配为 Aiscoo 包装，复用原语言状态与 UI 生命周期。                                                                     |
-| `packages/ui/src/WelcomeScreen.tsx`                                                        | 该自有静态模板没有现成产品注入口；仅增加共享品牌契约调用或常量读取，在用户插值前装配，原接口、存储和业务流程保留。                                   |
+| `packages/ui/src/Root.tsx`                                                                 | 在既有登录入口传入 AiscooLoginHeader 展示插槽，登录业务状态与上游默认头部保持不变。                                                                  |
+| `packages/ui/src/WelcomeScreen.tsx`                                                        | 只增加可选 header 插槽并透传；未提供时保留原 LoginPanelHeader 的 title／description／children 与默认图标，不直接改写上游视觉默认值。                 |
 | `packages/ui/src/WindowsTopLeftLogo.tsx`                                                   | 现有组件没有产品图形插槽，最小接线至独立品牌模块；保留导出、布局和无障碍／测试合同，原稿 SVG 随 Vite 入包。                                          |
 | `packages/ui/src/WorkspaceSidebarFooter.tsx`                                               | 该自有静态模板没有现成产品注入口；仅增加共享品牌契约调用或常量读取，在用户插值前装配，原接口、存储和业务流程保留。                                   |
 | `packages/ui/src/components/mobile-ui/ZCodeAppLogo.tsx`                                    | 现有组件没有产品图形插槽，最小接线至独立品牌模块；保留导出、布局和无障碍／测试合同，原稿 SVG 随 Vite 入包。                                          |
