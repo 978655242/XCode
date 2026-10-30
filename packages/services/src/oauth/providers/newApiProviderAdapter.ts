@@ -1,7 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import {
   NEW_API_PROVIDER_ID,
-  NEW_API_CALLBACK_URI,
   NEW_API_CLIENT_ID,
   parseNewApiAuthorizationCallback,
   type NewApiSessionBundle,
@@ -25,9 +24,12 @@ export class NewApiProviderAdapter {
       },
     };
   }
-  readonly redirectUri = NEW_API_CALLBACK_URI;
+  readonly redirectUri: string;
 
-  constructor(readonly client: NewApiClient) {}
+  constructor(readonly client: NewApiClient) {
+    // XCODE: authorize、callback和token复用client绑定值，避免跨渠道回跳或换码不一致。
+    this.redirectUri = client.redirectUri;
+  }
 
   createAuthorization(): { state: string; codeVerifier: string; authorizeUrl: string } {
     const state = randomBytes(32).toString("base64url");
@@ -45,7 +47,7 @@ export class NewApiProviderAdapter {
   }
 
   parseCallback(raw: string): { state: string; code: string } {
-    const parsed = parseNewApiAuthorizationCallback(raw);
+    const parsed = parseNewApiAuthorizationCallback(raw, this.redirectUri);
     if (!parsed) throw new NewApiClientError("XCODE_AUTH_REQUEST_INVALID", 400);
     return parsed;
   }

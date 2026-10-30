@@ -8,7 +8,10 @@
  */
 export type DesktopProductFlavor = "production" | "preview";
 
-export interface DesktopProductIdentity {
+// XCODE: 手写声明与共享 profile 的新增投影字段保持一致。
+import type { AiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
+
+export interface DesktopProductIdentity extends AiscooDesktopIdentity {
   readonly flavor: DesktopProductFlavor;
   readonly appId: string;
   readonly productName: string;

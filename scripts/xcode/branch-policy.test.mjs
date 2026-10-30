@@ -119,6 +119,20 @@ function rejects(result, reason) {
   assert.match(result.stderr, reason);
 }
 
+test("the historical sync log keeps working relative documentation links", () => {
+  const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
+  const logPath = join(repoRoot, "docs/xcode/upstream-sync-log.md");
+  const log = readFileSync(logPath, "utf8");
+  const links = [...log.matchAll(/\]\((\.\.?\/[^)#]+)(?:#[^)]*)?\)/g)].map((match) =>
+    fileURLToPath(
+      new URL(match[1], new URL("../../docs/xcode/upstream-sync-log.md", import.meta.url)),
+    ),
+  );
+  assert.ok(links.length > 0);
+  for (const target of links) assert.ok(existsSync(target), `missing historical link: ${target}`);
+  assert.equal(existsSync(join(repoRoot, "docs/aiscoo/upstream-sync-log.md")), false);
+});
+
 test("upstream sync merges into release with mirror and sync-log requirements", (t) => {
   const repo = repository(t);
   accepts(repo.pr(repo.sync(), "sync/upstream-20261019"));

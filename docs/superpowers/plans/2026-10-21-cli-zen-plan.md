@@ -14,7 +14,7 @@
 
 - 展示名 `XWork Zen Plan`，命令 `zcode login zen`，保留官方入口；无参数 logout 保留官方语义。
 - 客户端 `xwork-cli`，回调 `http://127.0.0.1:<port>/oauth/callback`；桌面仍为 `xcode-desktop` 与 `zcode://oauth/callback`。
-- 显式 `NEW_API_BASE_URL`；不猜 origin，不明文保存凭据，不复制桌面密钥或 SID。
+- 显式 `AISCOO_ADMIN_BASE_URL`；不猜 origin，不明文保存凭据，不复制桌面密钥或 SID。
 - 本机浏览器授权；`--no-browser` 不表示支持跨机 SSH 登录。购买、续费留在浏览器。
 - 新代码模块先登记架构与 contract；CLI bootstrap 不跨域导入 Services 实现。
 - 各仓库从 release 创建功能分支；不部署、不推送、不重启正式后端，不修改真实账号授权。真实模型请求单独明确范围。

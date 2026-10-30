@@ -7,7 +7,7 @@
 桌面快捷入口以本机实际文件为准。仓库入口为 **`scripts/aiscoo/启动 Aiscoo.command`**（转发到同一实现）；旧入口 `scripts/xcode/启动 XCode.command` 仍可用。入口只负责补启动或激活现有 Aiscoo Dev；不是 Apple Xcode。需要 Docker Desktop、现有数据库/原生API部署、仓库依赖和已安装 Node24，不自动安装、拉镜像或更新业务构件。
 
 - 当前 API 是既有 launchd 作业 `com.new-api.local-backend`，binary及私密 `.env` 在 `~/Library/Application Support/new-api-local/`；使用现有 `new-api-local-postgres` 的 `127.0.0.1:15433/new_api`。这是已由用户确认复用的原生部署，下面旧容器/SQLite验收段落仅作为历史记录，不是当前启动规格。
-- `NEW_API_BASE_URL` 固定为 `http://127.0.0.1:3001`。binary、配置、plist或数据库身份变化会明确拒绝，不根据“端口能通”接管未知实例；安装清单在 `~/.config/xcode-local/start.json`（0600），不含密钥明文。
+- `AISCOO_ADMIN_BASE_URL` 固定为 `http://127.0.0.1:3001`。binary、配置、plist或数据库身份变化会明确拒绝，不根据“端口能通”接管未知实例；安装清单在 `~/.config/xcode-local/start.json`（0600），不含密钥明文。
 - 旧 `new-api` 容器保持停止且 restart policy 为 `no`，避免启动 Docker 数据库时旧 API 抢占端口；不删除旧容器或卷。原生 API 的既有登录自启/自动重启策略保留；本轮桌面作业 `com.xwork.local-desktop` 不登录自启、不自动重启。
 - 保持系统 HOME 和原钥匙串/业务目录，沿用当前账号、项目及草稿。入口使用既有 `ZCODE_BUILTIN_PROVIDER_CONFIG_FILE` 指向仓库 `config/provider/zcode-builtin.json`，解决 Dev.app symlink下模型资源相对根错误，不复制资源或伪造目录。
 - 日志：`~/.local/share/xcode-local/desktop.log`；原生 API 日志沿用其现有 plist。并发点击只有一份检查，已有桌面只激活；孤立或手工部分 dev 会拒绝，保护既有构建输出。
@@ -18,10 +18,12 @@
 
 ## 配置与边界
 
-独立 CLI Zen（2026-10-21）：本机 `~/.local/bin/zcode` 使用 `feature/cli-zen-plan-implementation` worktree 的 Node bundle，支持 `login zen`、`logout zen` 及 TUI `/login zen`、`/logout zen`。显式设置 `NEW_API_BASE_URL`；浏览器必须与 CLI 同机。正式服务须先部署 New API 的 `9cffe3717`（客户端与 SID 归属）和 `16024d865`（授权页面）或其合并结果。当前 3001 未因本次实现而升级，不能据 CLI 帮助出现 Zen 推断正式服务可登录。隔离 Chrome→Go→CLI 冷恢复→真实 prompt→本机合成上游→退出验收通过，无外部计费调用；Windows/Linux、SEA 原生资源和完整 PTY 工具交互未实跑。详细证据及限制见 [CLI Zen spec](../../apps/zcode-cli/docs/design/v2/zen-plan.md)。删除功能 worktree 前须重新安装命令，启动器依赖该目录及相邻 node_modules。
+当前公开后端配置键为 `AISCOO_ADMIN_BASE_URL`；旧键 `NEW_API_BASE_URL` 不再读取，也不提供 fallback。用户需自行更新 `.env`、进程环境或启动配置中的键名；本次更名不自动改写用户文件或凭据。
+
+独立 CLI Zen（2026-10-21）：本机 `~/.local/bin/zcode` 使用 `feature/cli-zen-plan-implementation` worktree 的 Node bundle，支持 `login zen`、`logout zen` 及 TUI `/login zen`、`/logout zen`。显式设置 `AISCOO_ADMIN_BASE_URL`；浏览器必须与 CLI 同机。正式服务须先部署 New API 的 `9cffe3717`（客户端与 SID 归属）和 `16024d865`（授权页面）或其合并结果。当前 3001 未因本次实现而升级，不能据 CLI 帮助出现 Zen 推断正式服务可登录。隔离 Chrome→Go→CLI 冷恢复→真实 prompt→本机合成上游→退出验收通过，无外部计费调用；Windows/Linux、SEA 原生资源和完整 PTY 工具交互未实跑。详细证据及限制见 [CLI Zen spec](../../apps/zcode-cli/docs/design/v2/zen-plan.md)。删除功能 worktree 前须重新安装命令，启动器依赖该目录及相邻 node_modules。
 
 - Node 版本使用 `mise.toml`，pnpm 使用根 `package.json`。本次验证使用 Node 24.14.0 / pnpm 10.33.2。
-- 只有显式 `NEW_API_BASE_URL` 且本机桌面 Local Host 才启用私有组合，没有默认 3001。Main 安全库、Host 与 scheduler 使用相同 dotenv→已定义 process env 优先级；显式空 process 值遮蔽 dotenv。未配置的原非私有桌面、独立 Web/远程路径保留；已启用后任何认证、目录或资金错误都不回退到原官方身份或钱包。
+- 只有显式 `AISCOO_ADMIN_BASE_URL` 且本机桌面 Local Host 才启用私有组合，没有默认 3001。Main 安全库、Host 与 scheduler 使用相同 dotenv→已定义 process env 优先级；显式空 process 值遮蔽 dotenv。未配置的原非私有桌面、独立 Web/远程路径保留；已启用后任何认证、目录或资金错误都不回退到原官方身份或钱包。
 - Origin 必须是精确 origin，不能含路径、query、fragment、用户名或密码；HTTP 仅允许 loopback。生产操作员明确设置后端 `XCODE_INTEGRATION_ENABLED`、与客户端完全一致的 `XCODE_PUBLIC_ORIGIN`，并验证实际二进制、挂载及数据库。
 - 不复用 Z.ai/BigModel 的环境变量。它们继续属于独立官方连接；metadata、网页地址和 `server_address` 均不能改变私有 API origin。
 - 现有 3001 服务不能仅凭 `/api/status` 成功判定就绪。2026-10-18 授权页专项已获明确授权并切换真实 Go embed；当前 binary/assets、人工确认门槛和未完成边界见下节生产记录，不能沿用旧隔离报告的“未部署”结论。
@@ -29,7 +31,7 @@
 显式启用既有测试启动命令（后端与数据隔离需由操作员先准备）：
 
 ```sh
-NEW_API_BASE_URL=http://127.0.0.1:3001 pnpm dev:desktop:test
+AISCOO_ADMIN_BASE_URL=http://127.0.0.1:3001 pnpm dev:desktop:test
 ```
 
 桌面运行时隔离变量：`ZCODE_DESKTOP_USER_DATA_DIR`、`ZCODE_DESKTOP_SESSION_DATA_DIR`；业务数据根通过已有 `ZCODE_DATA_BASE_DIR` 处理，必须核实启动链实际采用的值，不能只设置变量就假设隔离成功。不要连接真实用户目录做注册、撤销或额度耗尽场景。
@@ -57,7 +59,7 @@ macOS 保持系统 `HOME` 不变，应用/Host/工作区使用上述隔离变量
 
 已实现 [授权页规格](specs/new-api-authorization-account-switch.md) 的当前账户展示、常显“使用其他账户”和一次主动授权。换号会退出**当前浏览器会话**，影响同源其他后台标签；重新登录后必须再次确认。普通授权创建独立桌面设备会话，浏览器仍保持登录，换号不续期原 10 分钟请求。取消只结束本页操作，不声称撤销服务端 flow。
 
-隔离验收使用新构建 Web + Go embed、原生 setup/register 合成 A/B、独立 SQLite/密钥、`NEW_API_BASE_URL=http://127.0.0.1:43017`；Docker 仅发布 `127.0.0.1:43017:3000`。生产根路由真双标签、迟到退出 / 409 / 网络故障、原生登录返回、一次性提交与中英/主题/窄屏/真实 200% Chromium 缩放均有分项证据。详细状态及脱敏截图见 [S04 报告](../../.superpowers/sdd/2026-10-17-new-api-authorization-account-switch/task-4-report.md)，不可把受控故障注入当作真实后端故障。
+隔离验收使用新构建 Web + Go embed、原生 setup/register 合成 A/B、独立 SQLite/密钥、`AISCOO_ADMIN_BASE_URL=http://127.0.0.1:43017`；Docker 仅发布 `127.0.0.1:43017:3000`。生产根路由真双标签、迟到退出 / 409 / 网络故障、原生登录返回、一次性提交与中英/主题/窄屏/真实 200% Chromium 缩放均有分项证据。详细状态及脱敏截图见 [S04 报告](../../.superpowers/sdd/2026-10-17-new-api-authorization-account-switch/task-4-report.md)，不可把受控故障注入当作真实后端故障。
 
 S04 fix round1 曾在真实 CSS640×409 /200% 下确认品牌 masthead 与授权标题同在 y32 的实际重叠。仅授权 wrapper 增加 `sm:pt-16`，不改共享登录布局、字号或品牌；重新 Web/Go embed 后实际 header bottom64/title top96，不相交，1280×900及393×852亦通过。最终截图为等待字体/动画/登录toast自然消失后的独立顶端和操作区 viewport（native capturePage 与 Playwright，非 full-page 拼接）；换号框也已用动画完成后有效opacity1的中英截图替代过渡帧。失败与闭合详见报告§10；新的隔离 backend SHA 为 `1d84f8cf2d432afb38d100c775ecece3fc19037a3d285aa9300a4fc5cc7dbe87`，不表示3001部署。
 
@@ -73,7 +75,7 @@ S04 fix round1 曾在真实 CSS640×409 /200% 下确认品牌 masthead 与授权
 
 `node packages/desktop/test/runNewApiElectronSmokes.mjs` 默认运行全部已有场景，也可追加精确 fixture 名称只复验指定场景，例如 `newApiModelSettingsElectron newApiLegalLinksElectron`；未知名称报错，未选择的场景不算通过。运行时仍使用 runner 自有临时目录与原各场景断言。
 
-Web handoff 与升级页展示场景共用测试环境变量 `XCODE_NEW_API_SOURCE_DIR` 指定受审后端 checkout 根目录；未设置时使用客户端仓库的同级 `aiscoo-admin` 目录，不再读取旧 `new-api` 目录。显式值可为绝对路径或相对启动 cwd 的路径；该变量只选择 fixture 文件来源，不改变 `NEW_API_BASE_URL`、真实服务、账号或构建产物。
+Web handoff 与升级页展示场景共用测试环境变量 `XCODE_NEW_API_SOURCE_DIR` 指定受审后端 checkout 根目录；未设置时使用客户端仓库的同级 `aiscoo-admin` 目录，不再读取旧 `new-api` 目录。显式值可为绝对路径或相对启动 cwd 的路径；该变量只选择 fixture 文件来源，不改变 `AISCOO_ADMIN_BASE_URL`、真实服务、账号或构建产物。
 
 Web handoff 在监听端口前异步读取真实 `web/public/xcode-plan-display.js`，缺失或不可读立即失败；bootstrap 计数只在脚本响应成功结束后增加。升级页展示的本地 fixture 使用同一 checkout 的 `web/dist`，启动前检查 `dist/index.html` 可读，仍按真实 head bootstrap 与现有首帧断言验收；显式 `XCODE_UPGRADE_SMOKE_SEED` 的既有 live 场景不读取本地 dist。缺少外部产物时记录环境阻塞，不自动构建后端，不用客户端注入或伪造脚本替代。精确复验入口：
 
@@ -174,7 +176,7 @@ macOS/Windows 使用 Electron `safeStorage`；Linux 的 `basic_text`、无可用
 
 ```sh
 pnpm test:unit:node
-NEW_API_BASE_URL=http://127.0.0.1:3001 node packages/desktop/test/runNewApiElectronSmokes.mjs
+AISCOO_ADMIN_BASE_URL=http://127.0.0.1:3001 node packages/desktop/test/runNewApiElectronSmokes.mjs
 pnpm typecheck
 pnpm lint
 pnpm fmt:check
@@ -205,7 +207,7 @@ Marketplace 导入回归通过临时 Git URL 映射克隆本地已提交 fixture
 
 - 发布前核对客户端/后端源码、构建标记、挂载、canonical origin、功能开关和实际 consumer；备份并确认审计保留，使用明确允许的测试数据验证撤销和资金域。
 - 关闭开关不是旧二进制安全回滚：先撤销全部专用客户端 Session/relay key，取消所有有效 xcode 实例，保留 purpose/scope 与资金审计。确认旧代码不能把专用实例/托管 key 当 general/wallet 再部署旧二进制。
-- 切客户端 URL 或去掉 `NEW_API_BASE_URL` 不迁移用户、订阅或秘密，也不允许未归属云凭据被认领。原生 browser Session 与 Aiscoo Session 的撤销语义必须分别检查。
+- 切客户端 URL 或去掉 `AISCOO_ADMIN_BASE_URL` 不迁移用户、订阅或秘密，也不允许未归属云凭据被认领。原生 browser Session 与 Aiscoo Session 的撤销语义必须分别检查。
 - 默认不自动发布、不提交/推送、不重启用户已有服务、不改业务数据库；部署必须有明确授权。PR 目标 `release`，`main` 仍只镜像上游。
-- 2026-10-12 用户明确选择「桌面前端＋3001嵌入页」后，已重建桌面/本机 Agent、New API Web 与 Go embed，并启动 `NEW_API_BASE_URL=http://127.0.0.1:3001 pnpm dev:desktop:prod`。现有 `new-api` 容器保留原配置、会话密钥、数据挂载和端口，实际版本为 `xwork-upgrade-20261012`，加载 `index.3b9adbf597.js`；数据库新增可空 `xcode_display`，完整性检查通过，原 3 个账号、2 个模板、账号额度及订阅记录与升级前一致。真实 Native 页面已验证账号恢复、模板读取、个人/团队切换及主题/语言/字号继承，不替代完整 G1–G5 验收。
+- 2026-10-12 用户明确选择「桌面前端＋3001嵌入页」后，已重建桌面/本机 Agent、New API Web 与 Go embed，并启动 `AISCOO_ADMIN_BASE_URL=http://127.0.0.1:3001 pnpm dev:desktop:prod`。现有 `new-api` 容器保留原配置、会话密钥、数据挂载和端口，实际版本为 `xwork-upgrade-20261012`，加载 `index.3b9adbf597.js`；数据库新增可空 `xcode_display`，完整性检查通过，原 3 个账号、2 个模板、账号额度及订阅记录与升级前一致。真实 Native 页面已验证账号恢复、模板读取、个人/团队切换及主题/语言/字号继承，不替代完整 G1–G5 验收。
 - 本次部署备份位于 `~/ai/new-api-backup-xcode-restart-zv7Pnl/`，包含一致数据库快照、旧二进制和私有容器配置；目录及私有文件已限制权限，禁止提交或对外分享。旧容器保留为停止状态的 `new-api-before-upgrade-zv7Pnl`，不要与新容器同时写入相同数据库。当前模板未配置 `xcode_display`，页面按规格保留原始名称与条款；未改写套餐价格、授权、权益或补造体验/Lite/Pro/Max。

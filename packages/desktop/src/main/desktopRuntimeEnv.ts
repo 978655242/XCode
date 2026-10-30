@@ -28,6 +28,9 @@ import {
 } from "@zcode/shared";
 // XCODE: 展示名由共享品牌配置提供，历史 Electron 数据名继续独立维护。
 import { PRODUCT_BRAND, PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+// XCODE: 应用与数据身份由独立下游配置提供，历史钥匙串名称另行保留。
+import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
+import { buildAiscooDesktopStorageEnv } from "../aiscoo-desktop-identity/index.js";
 import {
   desktopDevelopmentKeychainName,
   desktopProductIdentities,
@@ -68,7 +71,7 @@ function isTruthyRuntimeEnvOverride(name: string): boolean {
 // e2e 运行的是生产构建，默认会和本机正式版 ZCode 共用 app name / userData，
 // 触发 Electron 单实例锁后只激活已有窗口，Chromedriver 无法接管测试进程。
 // 这里允许测试显式隔离运行时身份，正常桌面/远控路径保持原来的默认值。
-// XCODE: 展示名读取共享品牌；Electron 数据目录继续使用旧身份，保留历史会话与草稿。
+// XCODE: 展示名读取共享品牌；Aiscoo 数据目录按渠道隔离，旧数据通过显式迁移处理。
 export const runtimeApplicationName =
   readRuntimeEnvOverride("ZCODE_DESKTOP_APPLICATION_NAME") ??
   (isLocalDevelopmentRuntime
@@ -85,6 +88,8 @@ export const runtimeKeychainApplicationName =
         .macKeychainName);
 const runtimeApplicationDataName =
   readRuntimeEnvOverride("ZCODE_DESKTOP_APPLICATION_NAME") ??
+  // XCODE: appId 本身不隔离 Electron 目录，Aiscoo 渠道使用自己的 userData/sessionData。
+  resolveAiscooDesktopIdentity()?.dataName ??
   (isLocalDevelopmentRuntime ? "ZCode Dev" : isPreviewPackagedRuntime ? "ZCode Preview" : "ZCode");
 // Electron 的 app.getPath("home") 不一定跟随测试进程里的 HOME 覆盖。
 // e2e 默认工作区依赖 home 路径，因此提供显式覆盖，避免测试写到开发者真实 ~/ZCodeProject。
@@ -611,6 +616,8 @@ export function buildHostProcessEnv(hostProcessLocalEnv: Record<string, string>)
     // 工作树或根据安装路径猜测；否则同一产品版本的不同修复包无法在 ARMS 中区分。
     [ZCODE_BUILD_COMMIT_ID_ENV]: ZCODE_COMMIT,
     ...(dataBaseDir !== homedir() ? { ZCODE_DATA_BASE_DIR: dataBaseDir } : {}),
+    // XCODE: CLI 默认路径不跟随业务根，显式补齐已有覆盖键，防止写回 ZCode 用户库。
+    ...buildAiscooDesktopStorageEnv(dataBaseDir, rawInheritedEnv),
     ...(windowsAppInstallDir ? { [ZCODE_WINDOWS_APP_INSTALL_DIR_ENV]: windowsAppInstallDir } : {}),
     ...(bundledCuaHelperAppPath
       ? { [ZCODE_CUA_BUNDLED_HELPER_APP_PATH_ENV]: bundledCuaHelperAppPath }

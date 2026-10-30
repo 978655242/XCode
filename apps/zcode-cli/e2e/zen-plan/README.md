@@ -41,7 +41,7 @@ node apps/zcode-cli/e2e/zen-plan/run.mjs --backend /tmp/zen-e2e-backend --case=p
 | plan-revocation-and-restore | 撤销指定套餐后请求被拒且不泄露凭据；重新指定后恢复 |
 | server-side-session-revocation | 服务端撤销 SID 后不能继续调用模型 |
 | backend-outage-recovery | 后端停止时请求及时失败、不删除凭据；恢复后可用 |
-| missing-origin | 缺少 `NEW_API_BASE_URL` 时不发起授权并给出提示 |
+| missing-origin | 缺少 `AISCOO_ADMIN_BASE_URL` 时不发起授权并给出提示 |
 | official-logout-keeps-zen | 无参数 `logout` 保持官方语义，不撤销 Zen |
 
 ## 不覆盖

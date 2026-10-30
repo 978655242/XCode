@@ -233,7 +233,10 @@ export function createSettingServiceWithMigrations(): {
 } {
   // 原因：每次 IO 动态读 HOME 会让旧异步投影写进后来实例的目录。
   // 在实例创建时取值，既支持测试/Host 注入，也让读取、文件锁与替换始终同源。
-  const settingsFile = join(resolveUserHomeDir(), ".zcode", "v2", "setting.json");
+  // XCODE: 宿主已选独立设置文件时仍读 HOME 会反读并迁移旧设置；仅覆盖文件路径，未注入时保留原默认。
+  const settingsFile =
+    process.env.ZCODE_SETTINGS_FILE_PATH?.trim() ||
+    join(resolveUserHomeDir(), ".zcode", "v2", "setting.json");
   // 个性化指令文件与 settingsFile 同理：实例创建时取值，读取与写入始终同源。
   const userInstructionsFile = getAgentUserInstructionsFilePath();
   // 修复原因（评审 CR-01）：atomicWriteText 只保证单次替换完整，不保证多次保存的提交顺序；

@@ -21,7 +21,7 @@ test("Host private namespaces are denied for every public credential operation",
 test("Main-only keystore key cannot survive runtime or tool passthrough env sanitization", () => {
   const env = {
     XCODE_PRIVATE_CREDENTIAL_SECRET: "private-os-key",
-    NEW_API_BASE_URL: "http://127.0.0.1:3001",
+    AISCOO_ADMIN_BASE_URL: "http://127.0.0.1:3001",
     ZCODE_TOOL_ENV_PASSTHROUGH_JSON: JSON.stringify({
       XCODE_PRIVATE_CREDENTIAL_SECRET: "private-os-key",
       HTTP_PROXY: "http://proxy.example",
@@ -29,7 +29,7 @@ test("Main-only keystore key cannot survive runtime or tool passthrough env sani
   };
   const runtime = sanitizeZCodeRuntimeEnv(env);
   assert.equal(runtime.XCODE_PRIVATE_CREDENTIAL_SECRET, undefined);
-  assert.equal(runtime.NEW_API_BASE_URL, "http://127.0.0.1:3001");
+  assert.equal(runtime.AISCOO_ADMIN_BASE_URL, "http://127.0.0.1:3001");
   assert.equal(
     JSON.parse(runtime.ZCODE_TOOL_ENV_PASSTHROUGH_JSON ?? "{}").XCODE_PRIVATE_CREDENTIAL_SECRET,
     undefined,

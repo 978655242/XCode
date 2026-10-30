@@ -155,6 +155,8 @@ import {
 } from "./desktopApplicationMenu.js";
 import { applyAppIcon } from "./desktopWindowChrome.js";
 import { resolveWindowsAppUserModelIdForFlavor } from "../../scripts/desktop-product-identity.mjs";
+// XCODE: 开发与正式 Aiscoo 都使用自身 AUMID，保留通用未注入身份的上游默认。
+import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
 import type { DesktopWindowSize } from "./desktopWindowSize.js";
 import { maybeWarnArchitectureMismatch } from "./desktopArchitectureGuard.js";
 import { maybeBlockStartupForForceUpdate } from "./forceUpdateGuard.js";
@@ -586,7 +588,9 @@ async function runBrowserCommandOnView(params: {
 let currentDesktopZoomLevel = 0;
 let currentDesktopWindowSize: DesktopWindowSize | undefined;
 const preloadPath = join(import.meta.dirname, "../preload/index.cjs");
-const settingsFile = join(homedir(), ".zcode", "v2", "setting.json");
+// XCODE: 冷启动预热若仍读旧 HOME，会启动其他产品的活动工作区；复用早期已选设置路径，未注入保持上游默认。
+const settingsFile =
+  process.env.ZCODE_SETTINGS_FILE_PATH?.trim() || join(homedir(), ".zcode", "v2", "setting.json");
 let activeAppShutdownPolicy = resolveAppShutdownPolicy("normal", process.platform);
 let activeAppShutdownKind: AppShutdownKind | null = null;
 const WINDOWS_AGENT_FORCE_KILL_TIMEOUT_MS = 2_000;
@@ -608,7 +612,7 @@ const hostProcessLocalEnv = loadHostProcessEnvFromLocalFiles();
 delete hostProcessLocalEnv.XCODE_PRIVATE_CREDENTIAL_SECRET;
 // XCODE: 与 Host 使用相同 dotenv→process 优先级，避免有私有服务但未加载 OS 加密密钥。
 const nativePrivateMode = Boolean(
-  (process.env.NEW_API_BASE_URL ?? hostProcessLocalEnv.NEW_API_BASE_URL)?.trim(),
+  (process.env.AISCOO_ADMIN_BASE_URL ?? hostProcessLocalEnv.AISCOO_ADMIN_BASE_URL)?.trim(),
 );
 let privateCredentialSecret: string | undefined;
 interface RuntimeProcessEnvPreparation {
@@ -2279,7 +2283,8 @@ app.whenReady().then(async () => {
     // 打包态必须与 NSIS 快捷方式使用同一 AUMID，否则 Shell 把它们当成不同应用。
     // 使用构建期产品身份，不依赖用户机器环境；开发态继续保持独立身份。
     app.setAppUserModelId(
-      resolveWindowsAppUserModelIdForFlavor(ZCODE_PRODUCT_FLAVOR, { isPackaged: app.isPackaged }),
+      resolveAiscooDesktopIdentity()?.appId ??
+        resolveWindowsAppUserModelIdForFlavor(ZCODE_PRODUCT_FLAVOR, { isPackaged: app.isPackaged }),
     );
   }
 

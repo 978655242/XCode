@@ -5,11 +5,11 @@ import type { createTuiProcessRuntimeState } from "../tui-prompt-handler-runtime
 
 type TuiProcessRuntimeState = ReturnType<typeof createTuiProcessRuntimeState>;
 
-// env（含 .env）在 runtime 启动时才确定，故不在装配时判断；未配置 NEW_API_BASE_URL 时 zenAccount 为 undefined。
+// env（含 .env）在 runtime 启动时才确定，故不在装配时判断；未配置 AISCOO_ADMIN_BASE_URL 时 zenAccount 为 undefined。
 export function createTuiZenCommandDeps(processRuntime: TuiProcessRuntimeState): XworkZenCommandDeps {
   const zenRuntime = async () => {
     const runtime = await processRuntime.providerRegistryRuntimePromise;
-    if (!runtime?.zenAccount) throw new Error(`Configure NEW_API_BASE_URL to use ${PRODUCT_NAME} Zen Plan.`);
+    if (!runtime?.zenAccount) throw new Error(`Configure AISCOO_ADMIN_BASE_URL to use ${PRODUCT_NAME} Zen Plan.`);
     return { runtime, zenAccount: runtime.zenAccount };
   };
   return {

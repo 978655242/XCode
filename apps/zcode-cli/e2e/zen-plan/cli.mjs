@@ -48,7 +48,7 @@ export async function createDevice(root, name, origin) {
     env: {
       ...process.env,
       PATH: `${shim}${delimiter}${process.env.PATH}`,
-      NEW_API_BASE_URL: origin,
+      AISCOO_ADMIN_BASE_URL: origin,
       ZCODE_DATA_BASE_DIR: deviceRoot,
       ZCODE_STORAGE_DIR: join(deviceRoot, ".zcode"),
       ZCODE_SESSION_DB_PATH: join(deviceRoot, ".zcode", "cli", "db", "db.sqlite"),
