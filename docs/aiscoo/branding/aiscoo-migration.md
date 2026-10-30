@@ -14,7 +14,7 @@
 
 采纳上游新设置、数据同步、onboarding、composer 与会话恢复实现；沿用现有 Aiscoo 品牌契约和登录 header 插槽，欢迎展示挂接新版页面，不恢复已删除的 `OnboardingWelcomeView`。New API 主账号 owner、会话事件、请求代次及官方云凭据独立命名空间保持原规格；模型、插件指南、确定性头像继续从各自公开入口装配，不新增界面认证缓存。验收覆盖共享 Root 登录取消/重试、账号切换、模型选择、插件指南和新版欢迎页，以及桌面/手机、浅深主题的可重复场景；未执行的场景须在同步记录标明。
 
-开发副本的签名时序：Electron 44.7.0 的 Dev.app 在品牌 plist、ICNS 和 `Resources/app` 入口全部刷新后才做 ad-hoc 签名。原样缓存不重复签名；图标、renderer URL 或入口变化必须重签，签名失败不能写入已完成指纹。旧 format=3 的未签名缓存不再复用，新指纹使用 format=4；工程回归与隔离桌面启动分别验证缓存时序和真实加载。
+开发副本的签名时序：Electron 44.7.0 的 Dev.app 在品牌 plist、ICNS 和 `Resources/app` 入口全部刷新后才做 ad-hoc 签名。原样缓存不重复签名；图标、renderer URL 或入口变化必须重签，签名失败不能写入已完成指纹。旧 format=3 的未签名缓存不再复用，新指纹使用 format=4；工程回归与隔离桌面启动分别验证缓存时序和真实加载。跨平台 Node 回归使用既有 `signApp` 注入点，在签名调用时核对已准备的入口、图标与 plist，并验证恰好调用一次；合成 `.app` 不调用宿主 `codesign`。真实 macOS runtime 的签名与加载继续由隔离桌面场景验收。
 
 同步后已晋升正式目录的 E2E 场景，其 manifest 与 provider fixture 的 `spec` 必须指向现存正式文件；沿用上游 canonical formal target 校验器，保留原回放内容、断言与历史验收状态。About、子代理 prompt 及运行中 guide 的品牌预期与共享品牌事实 `Aiscoo` 一致，不修改技术身份或回放响应。修正路径和文字后通过 fixture 检查不代表真实 Electron 场景已执行。
 
