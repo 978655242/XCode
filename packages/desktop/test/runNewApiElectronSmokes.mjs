@@ -21,6 +21,8 @@ try {
     "newApiModelCapabilitiesElectron",
     // XCODE: 公开法律入口复用独立、无真实账号的 Electron 场景。
     "newApiLegalLinksElectron",
+    // XCODE: 覆盖真实 Footer 和默认头像在隔离 Electron 中的图片解码。
+    "newApiAccountAvatarElectron",
   ]) {
     const entry = new URL(`./${name}.mjs`, import.meta.url);
     const output = join(temporary, `${name}.mjs`);

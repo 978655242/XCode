@@ -26,6 +26,8 @@ import {
 } from "./third-party-npm.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+// XCODE: 账号头像专用许可复核放在下游独立文件，上游门禁循环不改。
+import { applyReviewedMultiavatarLicense } from "./aiscoo/multiavatar-license.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const command = process.argv[2] || "notices";
@@ -91,6 +93,7 @@ function classify(raw) {
   return GREEN.test(t) ? "green" : "review";
 }
 for (const r of installed.values()) r.bucket = classify(r.license);
+applyReviewedMultiavatarLicense(installed, scanned); // XCODE: 仅精确包名、版本和原始许可值。
 
 // ---------- 构建工具许可标识复核（不是二进制发行义务豁免） ----------
 const WEAK_ALLOW = [[/^lightningcss/, "当前仅构建依赖；进入生产图时需重新核对 MPL 源码提供义务"]];

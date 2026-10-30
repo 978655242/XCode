@@ -19,7 +19,8 @@
     "./replay": "./src/replay.ts",
     "./xwork-startup-context": "./src/xwork/startup-context/index.ts",
     "./xwork-brand": "./src/xwork/brand/index.ts",
-    "./aiscoo-brand": "./src/xwork/brand/index.ts"
+    "./aiscoo-brand": "./src/xwork/brand/index.ts",
+    "./xwork-account-avatar": "./src/xwork/account-avatar/index.ts"
   },
   "scripts": {
     "lint": "oxlint",
@@ -41,6 +42,7 @@
     "@modelcontextprotocol/client": "2.0.0",
     "@modelcontextprotocol/core": "2.0.0",
     "@modelcontextprotocol/ext-apps": "2.0.0",
+    "@multiavatar/multiavatar": "1.0.7",
     "@pierre/diffs": "^1.1.22",
     "@radix-ui/react-popper": "1.2.8",
     "@radix-ui/react-radio-group": "^1.3.8",
