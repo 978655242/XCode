@@ -17,6 +17,8 @@ import {
   resolveZaiOAuthClientId,
   resolveZaiOAuthOrigin,
 } from "@zcode/shared/zcodeEndpoint";
+// XCODE: 本机 profile 只装配公开配置，不导入 Node 服务或 CLI 构建产物。
+import { browserWebProfile } from "../../scripts/aiscoo/browser-web-profile.mjs";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const REPO_ROOT = resolve(HERE, "../..");
@@ -45,10 +47,14 @@ export default defineConfig(({ mode }) => {
   const bigmodelOAuthOrigin = resolveBigModelApiOrigin(endpointEnv);
   // ZAI OAuth client_id 是公开标识，允许注入浏览器包；secret/token 不得走 VITE_。
   const zaiOAuthClientId = resolveZaiOAuthClientId(endpointEnv);
+  // XCODE: 显式开启才增加本机账号 profile，普通 Web 使用原配置。
+  const browserAccount = browserWebProfile(env);
 
   return {
     // XCODE: 仅转换静态启动 Logo，保持上游 Web 入口及运行时逻辑不变。
     plugins: [
+      // XCODE: 本机入口限制先于 Vite 内置中间件，原 Web 不注册。
+      ...(browserAccount ? [browserAccount.plugin] : []),
       aiscooStartupLogoPlugin(),
       pdfJsCMapsPlugin(),
       react(),
@@ -70,7 +76,10 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
-      proxy: {
+      // XCODE: 明确启用本机 profile 时固定 loopback 和精确端口。
+      ...(browserAccount?.server ?? {}),
+      // XCODE: 专用 API 代理必须先于 /api 通配；覆盖同名键不会改变 JS 键的顺序。
+      proxy: browserAccount?.proxy ?? {
         // Web 登录本地调试时，OAuth token 交换必须先命中线上同源接口。
         // 该专用代理放在 `/api` 通配代理之前，避免被转发到本地 server 导致 404。
         "/api/v1/oauth/token": {
@@ -116,6 +125,10 @@ export default defineConfig(({ mode }) => {
       "import.meta.env.VITE_ZAI_OAUTH_CLIENT_ID": JSON.stringify(zaiOAuthClientId),
       "import.meta.env.VITE_ZAI_OAUTH_ORIGIN": JSON.stringify(zaiOAuthOrigin),
       "import.meta.env.VITE_BIGMODEL_OAUTH_ORIGIN": JSON.stringify(bigmodelOAuthOrigin),
+      // XCODE: 只公开经过验证的 origin，关闭时不改变原 Web 身份。
+      "import.meta.env.VITE_AISCOO_BROWSER_NEW_API_ORIGIN": JSON.stringify(
+        browserAccount?.origin ?? "",
+      ),
     },
     build: {
       // 生产不在浏览器产物暴露 sourceMappingURL，避免客户端侧还原业务源码。

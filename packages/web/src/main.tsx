@@ -1,5 +1,5 @@
 // XCODE: 仅统一产品展示名称，保留内部标识与用户内容。
-import { mobilePluginDiscoveryTelemetrySchema } from "@zcode/shared";
+import { DesktopCommandIds, mobilePluginDiscoveryTelemetrySchema } from "@zcode/shared";
 // XCODE: 自有页面标题在装配时投影品牌，不改协议、URL 或用户内容。
 import { brandProductText, PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import {
@@ -43,6 +43,11 @@ import {
 import { WebCallbackPage } from "./auth/WebCallbackPage.js";
 import { WebLoginPage } from "./auth/WebLoginPage.js";
 import { createWebAuthService } from "./auth/webAuthService.js";
+// XCODE: 普通本机 Web 只替换账号来源；远控/分享继续使用原浏览器 OAuth。
+import {
+  createBrowserNewApiAccount,
+  registerBrowserAccountChannel,
+} from "./aiscoo-browser-account/index.js";
 import { WEB_ZAI_OAUTH_CONFIG, resolveWebAuthDevReturnTo } from "./auth/webZaiOAuthConfig.js";
 import { parseOAuthState, resolveSafeAppReturnTo } from "./auth/oauthStateCodec.js";
 import { resolveWebCommunityUrl, resolveWebHelpConfig } from "./communityUrl.js";
@@ -241,6 +246,19 @@ async function resolveFeedbackUrl(): Promise<string | undefined> {
 installDocumentHiddenMotionPause();
 const root = createRoot(document.getElementById("root")!);
 const webAuthService = createWebAuthService();
+// XCODE: 显式开关不影响远控/分享；PKCE 和凭据只由浏览器账号模块持有。
+const browserAccountOrigin = import.meta.env.VITE_AISCOO_BROWSER_NEW_API_ORIGIN?.trim();
+let browserAccount: ReturnType<typeof createBrowserNewApiAccount> | undefined;
+function getBrowserAccount() {
+  if (!browserAccountOrigin) return undefined;
+  return (browserAccount ??= createBrowserNewApiAccount({
+    origin: browserAccountOrigin,
+    browserOrigin: window.location.origin,
+    localStorage: window.localStorage,
+    sessionStorage: window.sessionStorage,
+    locks: navigator.locks,
+  }));
+}
 let isPageUnloading = false;
 
 // 初始化 Web 端流式 clientId，确保所有 hook 在首次渲染前就使用稳定 ID
@@ -2068,6 +2086,25 @@ async function bootstrapWebApp() {
     return;
   }
 
+  // XCODE: 本机回调复用原页面，只适配 New API 的返回形状。
+  const account = getBrowserAccount();
+  if (account && window.location.pathname === "/oauth/callback") {
+    root.render(
+      <WebCallbackPage
+        authService={{
+          handleCallback: async (url) => {
+            const result = await account.oauth.handleCallback(url);
+            // XCODE: 本机 callback 无跨源中转；无有效结果必须允许重试，不能永久等待。
+            if (result?.kind !== "session") throw new Error("XCODE_AUTH_REQUEST_INVALID");
+            return { userInfo: result.userInfo, appReturnTo: "/" };
+          },
+        }}
+        onSuccess={() => window.location.replace("/")}
+        onRetry={() => window.location.replace("/")}
+      />,
+    );
+    return;
+  }
   let bootstrap: WebBootstrapResult;
   try {
     bootstrap = await resolveWebBootstrap();
@@ -2084,10 +2121,40 @@ async function bootstrapWebApp() {
   }
 
   try {
+    let browserChannel: { dispose(): void } | undefined;
     const services = await connectViaWebSocket(bootstrap.wsUrl, {
-      onClose: () => {},
+      onClose: () => {
+        browserChannel?.dispose();
+      },
+      // XCODE: 同一连接仅追加固定账号 channel，不暴露整个浏览器对象。
+      ...(account
+        ? {
+            registerChannels: (server) => {
+              browserChannel = registerBrowserAccountChannel(server, account);
+            },
+          }
+        : {}),
     });
     const platform = createWebPlatform();
+    if (account) {
+      // XCODE: 复用原登录按钮与服务；授权同页跳转，不增加弹窗状态机。
+      const executeDesktopCommand = platform.executeDesktopCommand;
+      platform.executeDesktopCommand = async (command, ...args) => {
+        // XCODE: 既有退出收尾请求重启；浏览器导航清除旧确认框并重读账号。
+        if (command === DesktopCommandIds.RelaunchApp) window.location.replace("/");
+        else await executeDesktopCommand(command, ...args);
+      };
+      const openExternal = platform.openExternal;
+      platform.openExternal = (url) => {
+        const target = new URL(url);
+        if (
+          target.origin === browserAccountOrigin &&
+          target.pathname === "/api/xcode/v1/auth/authorize"
+        ) {
+          window.location.assign(target.href);
+        } else openExternal(url);
+      };
+    }
     document.title = brandProductText("XWork - Web + Server");
 
     root.render(

@@ -213,3 +213,22 @@ modules:
       - packages/ui/src/xwork/account-avatar/contract.ts
     layers: { ui: . }
     owner: account
+  # XCODE: 浏览器持有凭据，Server 只装配连接期账号投影。
+  - id: aiscoo-browser-account-web
+    roots: [packages/web/src/aiscoo-browser-account]
+    managed: true
+    requires: [shared, services, rpc]
+    publicEntrypoints:
+      - packages/web/src/aiscoo-browser-account/index.ts
+      - packages/web/src/aiscoo-browser-account/contract.ts
+    layers: { adapters: . }
+    owner: account
+  - id: aiscoo-browser-account-server
+    roots: [packages/server/src/aiscoo-browser-account]
+    managed: true
+    requires: [shared, services, rpc]
+    publicEntrypoints:
+      - packages/server/src/aiscoo-browser-account/index.ts
+      - packages/server/src/aiscoo-browser-account/contract.ts
+    layers: { adapters: . }
+    owner: account

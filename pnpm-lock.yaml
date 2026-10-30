@@ -1908,6 +1908,12 @@ importers:
       '@zcode/client':
         specifier: workspace:*
         version: link:../client
+      '@zcode/rpc':
+        specifier: workspace:*
+        version: link:../rpc
+      '@zcode/services':
+        specifier: workspace:*
+        version: link:../services
       '@zcode/shared':
         specifier: workspace:*
         version: link:../shared
