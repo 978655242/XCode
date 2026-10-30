@@ -71,6 +71,8 @@ New API 账号 owner → 已核验会话事件 → Provider 投影 / worker 配�
 - `git merge-tree --write-tree --name-only HEAD upstream/main` 退出 0，无冲突。同步总量包含大量原样上游测试退役与工程改动；PR 附完整上游路径清单与实际下游适配理由。
 - Electron 44 真实上下文、周期详情、handoff、升级展示、模型能力、法律入口与头像场景均通过；法律入口覆盖 16 布局 / 32 点击。模型设置在六组串行 runner 中正常退出，但不输出单独摘要。handoff/升级首轮的旧外部路径失败已改为测试专用 `XCODE_NEW_API_SOURCE_DIR`，默认同级 `aiscoo-admin`；真实 bootstrap blob `9548cb4969afb8210af483f4d402a8b6b0b46dc7`。能力场景首轮缺截图目录，准备隔离证据目录后复验通过；未访问真实账号、支付或计费推理。
 - Electron 44 钥匙串 smoke 两轮 development/seed 均在 15 秒内未完成，临时应用日志有 sandbox/启动延迟；未调大超时或修改安全存储策略，该项不宣称通过。尚未执行 Windows/Linux、完整用户数据冷恢复及手机真实设备端到端验收。
+- 最终逐文件审查修正了 5 份 fixture 的旧 pending 路径及 About、子代理、guide 回放的 3 处旧品牌预期；6 个正式场景通过现有 fixture 校验器（4 个路径场景修前失败、修后通过），不计为真实 Electron 复跑。修后根 typecheck、Lint（0 errors / 308 warnings）及变更架构检查通过。
+- 首次真实推送钩子通过并推送同步分支；本机 PR 策略默认 HTTPS fetch 曾遇 GitHub 空响应，随后使用同一 canonical 上游 SSH 地址复验退出 0。未修改策略或绕过门禁。
 
 单独 cherry-pick 的提交：无。
 

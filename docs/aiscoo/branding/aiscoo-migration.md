@@ -16,6 +16,8 @@
 
 开发副本的签名时序：Electron 44.7.0 的 Dev.app 在品牌 plist、ICNS 和 `Resources/app` 入口全部刷新后才做 ad-hoc 签名。原样缓存不重复签名；图标、renderer URL 或入口变化必须重签，签名失败不能写入已完成指纹。旧 format=3 的未签名缓存不再复用，新指纹使用 format=4；工程回归与隔离桌面启动分别验证缓存时序和真实加载。
 
+同步后已晋升正式目录的 E2E 场景，其 manifest 与 provider fixture 的 `spec` 必须指向现存正式文件；沿用上游 canonical formal target 校验器，保留原回放内容、断言与历史验收状态。About、子代理 prompt 及运行中 guide 的品牌预期与共享品牌事实 `Aiscoo` 一致，不修改技术身份或回放响应。修正路径和文字后通过 fixture 检查不代表真实 Electron 场景已执行。
+
 ## 旧品牌残留的展示规则（2026-10-30）
 
 托管 New API Chat Completions 的内置 Provider 名称、产品自己的 OpenRouter 归因以及新建官方插件市场的默认描述使用品牌配置中的 Aiscoo；保留原 Provider ID、服务地址、账号与模型配置、请求头名称及官方市场 ID。已有官方市场记录和用户自定义名称不批量改写；官方市场刷新时仍以远端清单的描述为准。用户内容、第三方资料与历史记录不替换，兼容身份、协议、旧数据目录及钥匙串不迁移。

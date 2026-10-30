@@ -94,10 +94,10 @@ describe("会话区 subagent prompt assembly E2E", () => {
     await seedSubagentInstructionFixtures();
     await prepareIncomingMessageCapability(false);
 
-    // XCODE: 子代理与系统提示词展示名已迁移为 XWork（general-purpose.ts/explore.ts/cli-prefix.ts）；回放夹具同步匹配 XWork。
+    // XCODE: 子代理与系统提示词展示名已迁移为 Aiscoo（general-purpose.ts/explore.ts/cli-prefix.ts）；回放夹具同步匹配 Aiscoo。
     await runSubagentPromptAssemblyScenario({
       agentPromptIncludes: [
-        "You are an agent for XWork CLI",
+        "You are an agent for Aiscoo CLI",
         "the caller will relay this to the user",
       ],
       agentPromptExcludes: [CUSTOM_AGENT_PROMPT_MARKER],
@@ -114,8 +114,8 @@ describe("会话区 subagent prompt assembly E2E", () => {
     // 全局新建会改变 cwd，导致 custom child 缺少本项目的 AGENTS.md 指令。
     await prepareV4ConversationE2E({ skipProvider: true });
     await runSubagentPromptAssemblyScenario({
-      // XCODE: Explore 提示词展示名已迁移为 XWork（explore.ts）。
-      agentPromptIncludes: ["You are XWork Explore", "READ-ONLY MODE"],
+      // XCODE: Explore 提示词展示名已迁移为 Aiscoo（explore.ts）。
+      agentPromptIncludes: ["You are Aiscoo Explore", "READ-ONLY MODE"],
       agentPromptExcludes: [CUSTOM_AGENT_PROMPT_MARKER],
       childMarker: EXPLORE_CHILD_MARKER,
       childReplyToken: EXPLORE_CHILD_REPLY_TOKEN,
@@ -132,8 +132,8 @@ describe("会话区 subagent prompt assembly E2E", () => {
         CUSTOM_AGENT_PROMPT_MARKER,
         "Reply only with the requested marker.",
       ],
-      // XCODE: general-purpose 提示词展示名已迁移为 XWork。
-      agentPromptExcludes: ["You are an agent for XWork CLI"],
+      // XCODE: general-purpose 提示词展示名已迁移为 Aiscoo。
+      agentPromptExcludes: ["You are an agent for Aiscoo CLI"],
       childMarker: CUSTOM_CHILD_MARKER,
       childReplyToken: CUSTOM_CHILD_REPLY_TOKEN,
       finalToken: CUSTOM_FINAL_TOKEN,
@@ -149,8 +149,8 @@ describe("会话区 subagent prompt assembly E2E", () => {
         ISOLATED_CUSTOM_AGENT_PROMPT_MARKER,
         "Reply only with the requested marker.",
       ],
-      // XCODE: general-purpose 提示词展示名已迁移为 XWork。
-      agentPromptExcludes: ["You are an agent for XWork CLI"],
+      // XCODE: general-purpose 提示词展示名已迁移为 Aiscoo。
+      agentPromptExcludes: ["You are an agent for Aiscoo CLI"],
       childMarker: ISOLATED_CUSTOM_CHILD_MARKER,
       childReplyToken: ISOLATED_CUSTOM_CHILD_REPLY_TOKEN,
       finalToken: ISOLATED_CUSTOM_FINAL_TOKEN,
@@ -169,9 +169,9 @@ describe("会话区 subagent prompt assembly E2E", () => {
     await runSubagentPromptAssemblyScenario({
       mcs: true,
       modelId,
-      // XCODE: general-purpose 提示词展示名已迁移为 XWork（general-purpose.ts）。
+      // XCODE: general-purpose 提示词展示名已迁移为 Aiscoo（general-purpose.ts）。
       agentPromptIncludes: [
-        "You are an agent for XWork CLI",
+        "You are an agent for Aiscoo CLI",
         "the caller will relay this to the user",
       ],
       agentPromptExcludes: [CUSTOM_AGENT_PROMPT_MARKER],
