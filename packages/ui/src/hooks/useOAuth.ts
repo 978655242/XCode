@@ -4,8 +4,10 @@
  * 仅负责发起登录和 UI 状态管理。
  * OAuth 回调监听在 Root/App 常驻层，不在此 hook 中。
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { OAuthProviderId, OAuthProviderMeta } from "@zcode/shared";
+// XCODE: 通用生命周期合同由产品入口可选注入，缺省时保留原路径。
+import type { OAuthLifecyclePlatform } from "@/oauth-lifecycle/contract.js";
 import {
   BIGMODEL_PROVIDER_ID,
   NEW_API_PROVIDER_ID,
@@ -33,8 +35,35 @@ export function useOAuth() {
   const [activeProvider, setActiveProvider] = useState<OAuthProviderId | null>(null);
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [pendingProvider, setPendingProvider] = useState<OAuthProviderId | null>(null);
+  const [manualAuthorizationUrl, setManualAuthorizationUrl] = useState<string | null>(null);
   const loginAttemptRef = useRef(0);
+  // XCODE: 语言广播会改变 intl；生命周期只读最新文案，不能因此重建并清掉等待中的授权。
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
+  // XCODE: 手势仅在同步调用期间传递给生命周期，不改变原登录参数。
+  const userGestureRef = useRef(false);
   const setOAuthPollingActive = useZCodeStore((state) => state.setOAuthPollingActive);
+  // XCODE: 可选生命周期复用原有 UI 状态，缺省时不改变上游流程。
+  const lifecycle = useMemo(
+    () =>
+      (platform as OAuthLifecyclePlatform).oauthLifecycle?.createLogin({
+        platform,
+        oauthService,
+        currentAttempt: () => loginAttemptRef.current,
+        invalidateAttempt: () => {
+          loginAttemptRef.current++;
+        },
+        setManualAuthorizationUrl,
+        fail: () => {
+          setOAuthPollingActive(false);
+          setStatus("error");
+          setError(intlRef.current.formatMessage({ id: "login.oauth.loginFailure" }));
+          setPendingProvider(null);
+        },
+      }),
+    [oauthService, platform, setOAuthPollingActive],
+  );
+  useEffect(() => lifecycle?.mount(), [lifecycle]);
 
   const refreshProviders = useCallback(async () => {
     try {
@@ -72,29 +101,38 @@ export function useOAuth() {
   const startLogin = useCallback(
     async (provider: OAuthProviderId, options: { purpose?: LoginEntryPurpose } = {}) => {
       const loginAttempt = ++loginAttemptRef.current;
+      // XCODE: 消费一次性手势标记后再调用扩展，避免重入或自动登录复用该标记。
+      const userGesture = userGestureRef.current;
+      userGestureRef.current = false;
+      // XCODE: begin 在手势调用栈内同步执行，并返回扩展的启动前握手；未注入时保留原有启动时序。
+      const admission = lifecycle?.begin(provider, loginAttempt, userGesture);
       try {
         setStatus("waiting");
         setError(null);
         setPendingProvider(provider);
 
-        const {
-          authorizeUrl,
-          state,
-          provider: startedProvider,
-          purpose,
-        } = provider === NEW_API_PROVIDER_ID
-          ? await oauthService.startOAuth(provider)
-          : await oauthService.startOAuthWithPolling(provider);
+        if (admission && !(await admission)) return;
+        const response =
+          provider === NEW_API_PROVIDER_ID
+            ? await oauthService.startOAuth(provider)
+            : await oauthService.startOAuthWithPolling(provider);
+        const { authorizeUrl, state, provider: startedProvider, purpose } = response;
 
         if (loginAttemptRef.current !== loginAttempt) {
+          // XCODE: 已取消、关闭或被替换的尝试仍需释放它在 Host 侧创建的授权。
+          lifecycle?.acceptResponse(loginAttempt, response);
           return;
         }
+        // XCODE: 扩展先关联启动响应，允许它处理先于 RPC 返回的事件。
+        const openAuthorization = lifecycle?.acceptResponse(loginAttempt, response);
+        if (lifecycle && !openAuthorization) return;
 
         platform.registerOAuthState({ state, provider: startedProvider, purpose });
         setOAuthPollingActive(
           startedProvider === ZAI_PROVIDER_ID || startedProvider === BIGMODEL_PROVIDER_ID,
         );
-        platform.openExternal(authorizeUrl);
+        // XCODE: 扩展可接管打开动作，缺省仍使用原平台方法。
+        if (!openAuthorization?.()) platform.openExternal(authorizeUrl);
         void reportAppTelemetryEvent(
           platform,
           {
@@ -118,6 +156,7 @@ export function useOAuth() {
         if (loginAttemptRef.current !== loginAttempt) {
           return;
         }
+        lifecycle?.clear();
         logger.error("[useOAuth] 启动 OAuth 失败:", err);
         setOAuthPollingActive(false);
         setStatus("error");
@@ -127,26 +166,44 @@ export function useOAuth() {
         setPendingProvider(null);
       }
     },
-    [intl, oauthService, platform, setOAuthPollingActive],
+    [intl, lifecycle, oauthService, platform, setOAuthPollingActive],
+  );
+
+  // XCODE: 在点击调用栈内委托原登录入口，让扩展同步准备窗口。
+  const startLoginFromUserGesture = useCallback(
+    (provider: OAuthProviderId, options: { purpose?: LoginEntryPurpose } = {}) => {
+      userGestureRef.current = true;
+      try {
+        return startLogin(provider, options);
+      } finally {
+        userGestureRef.current = false;
+      }
+    },
+    [startLogin],
   );
 
   const cancel = useCallback(
     async (provider?: OAuthProviderId) => {
-      loginAttemptRef.current += 1;
-      await oauthService.cancelPending(provider);
+      const cancellationAttempt = ++loginAttemptRef.current;
+      // XCODE: 扩展提前释放本次尝试并只按其 state 取消；未接管时沿用原 provider 级取消。
+      const ownedCancellation = lifecycle?.cancel(provider);
+      await (ownedCancellation ?? oauthService.cancelPending(provider));
+      if (lifecycle && loginAttemptRef.current !== cancellationAttempt) return;
       setOAuthPollingActive(false);
       setStatus("idle");
       setError(null);
       setPendingProvider(null);
     },
-    [oauthService, setOAuthPollingActive],
+    [lifecycle, oauthService, setOAuthPollingActive],
   );
 
   const reset = useCallback(() => {
+    // XCODE: 扩展使关闭后的迟到响应失效，并释放当前授权页。
+    lifecycle?.clear(true);
     setStatus("idle");
     setError(null);
     setPendingProvider(null);
-  }, []);
+  }, [lifecycle]);
 
   /** 由 Root/App 层的回调监听器调用，更新 UI 状态 */
   const setOAuthError = useCallback((message: string) => {
@@ -164,6 +221,7 @@ export function useOAuth() {
 
   return {
     startLogin,
+    startLoginFromUserGesture,
     cancel,
     reset,
     status,
@@ -172,6 +230,7 @@ export function useOAuth() {
     activeProvider,
     loadingProviders,
     pendingProvider,
+    manualAuthorizationUrl,
     refreshProviders,
     setOAuthError,
     setOAuthSuccess,

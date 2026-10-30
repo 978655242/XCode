@@ -9,6 +9,11 @@ import { thirdPartyNoticesVitePlugin } from "../../scripts/third-party-notices.m
 import { resolveRemoteFrontendVersion } from "./vite/remoteFrontendVersion.mjs";
 // XCODE: Web 启动图片位于相邻包，dev 会把相对 URL 当成页面路径并返回 HTML；构建时内联原稿可让首屏无需脚本加载。
 import { aiscooStartupLogoPlugin } from "../../scripts/aiscoo/web-startup-logo.mjs";
+// XCODE: 本机开发服务的特殊路由和 HMR 需要单独的 loopback 边界。
+import {
+  createLocalWebViteBoundary,
+  localWebViteFileAllow,
+} from "../../scripts/aiscoo/local-web-vite-boundary.mjs";
 // Bugfix: Vite 配置在 Node 加载期执行，不能导入 @zcode/shared 根入口。
 // 根入口包含 NodeNext 风格的源码 re-export，Node 会按真实文件查找 .js 并在 bootstrap 阶段失败。
 import {
@@ -45,10 +50,36 @@ export default defineConfig(({ mode }) => {
   const bigmodelOAuthOrigin = resolveBigModelApiOrigin(endpointEnv);
   // ZAI OAuth client_id 是公开标识，允许注入浏览器包；secret/token 不得走 VITE_。
   const zaiOAuthClientId = resolveZaiOAuthClientId(endpointEnv);
+  // XCODE: 本机 Web 的代理只能转发给回环 Server，且须保留浏览器 Host/Origin 用于鉴权。
+  const localWeb = env.VITE_AISCOO_LOCAL_WEB === "1";
+  const localWebServerPort = env.AISCOO_LOCAL_WEB_SERVER_PORT?.trim() || "3030";
+  const localWebPort = env.AISCOO_LOCAL_WEB_PORT?.trim() || "5174";
+  if (
+    localWeb &&
+    (!/^[1-9]\d{0,4}$/.test(localWebPort) ||
+      Number(localWebPort) > 65535 ||
+      Number(localWebPort) === 80)
+  ) {
+    throw new Error("AISCOO_LOCAL_WEB_PORT must be a valid non-default HTTP port");
+  }
+  if (
+    localWeb &&
+    (!/^[1-9]\d{0,4}$/.test(localWebServerPort) || Number(localWebServerPort) > 65535)
+  ) {
+    throw new Error("AISCOO_LOCAL_WEB_SERVER_PORT must be a valid TCP port");
+  }
+  const webServerHttpOrigin = localWeb
+    ? `http://127.0.0.1:${localWebServerPort}`
+    : "http://localhost:3030";
+  const webServerWsOrigin = localWeb
+    ? `ws://127.0.0.1:${localWebServerPort}`
+    : "ws://localhost:3030";
 
   return {
     // XCODE: 仅转换静态启动 Logo，保持上游 Web 入口及运行时逻辑不变。
     plugins: [
+      // XCODE: 本机 profile 的 loopback 边界必须排在 Vite 内置中间件之前；普通 Web 不注册。
+      ...(localWeb ? [createLocalWebViteBoundary(localWebPort)] : []),
       aiscooStartupLogoPlugin(),
       pdfJsCMapsPlugin(),
       react(),
@@ -70,7 +101,18 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
+      // XCODE: 本机 profile 不使用 Vite 默认的任意 localhost 端口 CORS 或整个仓库文件白名单。
+      ...(localWeb
+        ? {
+            cors: {
+              origin: [`http://127.0.0.1:${localWebPort}`, `http://localhost:${localWebPort}`],
+            },
+            fs: { strict: true, allow: localWebViteFileAllow(REPO_ROOT) },
+          }
+        : {}),
       proxy: {
+        // XCODE: 上游专用代理优先匹配 /api；本机需先拦截 HTTP 和 WS，保留原始 Host/Origin 交给回环 Server 鉴权。
+        ...(localWeb ? { "^/api": { target: webServerHttpOrigin, ws: true } } : {}),
         // Web 登录本地调试时，OAuth token 交换必须先命中线上同源接口。
         // 该专用代理放在 `/api` 通配代理之前，避免被转发到本地 server 导致 404。
         "/api/v1/oauth/token": {
@@ -85,8 +127,8 @@ export default defineConfig(({ mode }) => {
           ws: true,
         },
         // 将 /ws 和 /api 请求代理到 server（默认 3030 端口）
-        "/ws": { target: "ws://localhost:3030", ws: true },
-        "/api": { target: "http://localhost:3030" },
+        "/ws": { target: webServerWsOrigin, ws: true },
+        "/api": { target: webServerHttpOrigin },
       },
     },
     optimizeDeps: {
@@ -109,6 +151,8 @@ export default defineConfig(({ mode }) => {
       __ZCODE_MIN_COMPATIBLE_VERSION__: JSON.stringify(minCompatibleVersion),
       __ZCODE_COMMIT__: JSON.stringify(env.ZCODE_COMMIT || "unknown"),
       __ZCODE_ENV__: JSON.stringify(zcodeEnv),
+      // XCODE: 显式编译本机 Web profile，避免把远控或上游页面误识别为本机登录。
+      "import.meta.env.VITE_AISCOO_LOCAL_WEB": JSON.stringify(localWeb ? "1" : "0"),
       "import.meta.env.VITE_ZCODE_BASE_URL": JSON.stringify(zcodeEndpointOrigin),
       // 兼容旧 Web runtime 读取名；新代码统一读 VITE_ZCODE_BASE_URL。
       "import.meta.env.VITE_ZCODE_ENDPOINT_ORIGIN": JSON.stringify(zcodeEndpointOrigin),

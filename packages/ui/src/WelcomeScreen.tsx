@@ -39,11 +39,19 @@ interface WelcomeScreenProps {
   footer?: (providers: readonly OAuthProviderMeta[]) => ReactNode;
   // XCODE: 产品可隐藏 API key 入口；默认继续提供原登录表单。
   hideApiKeyLogin?: boolean;
+  // XCODE: 允许下游仅覆盖等待提示的展示名，不更改 provider ID 或其他模式。
+  oauthWaitingDisplayNames?: Readonly<Record<string, string>>;
 }
 
 export type LoginCompleteReason = "oauth" | "apiKey" | "skip";
 
-export function WelcomeScreen({ onComplete, header, footer, hideApiKeyLogin }: WelcomeScreenProps) {
+export function WelcomeScreen({
+  onComplete,
+  header,
+  footer,
+  hideApiKeyLogin,
+  oauthWaitingDisplayNames,
+}: WelcomeScreenProps) {
   return (
     <main className="relative flex h-full min-h-dvh items-center justify-center overflow-hidden bg-background px-4 py-6 text-foreground sm:px-6">
       <ThemeHeroVisual className="absolute inset-0" />
@@ -58,6 +66,7 @@ export function WelcomeScreen({ onComplete, header, footer, hideApiKeyLogin }: W
           header={header}
           footer={footer}
           hideApiKeyLogin={hideApiKeyLogin}
+          oauthWaitingDisplayNames={oauthWaitingDisplayNames}
         />
       </section>
     </main>
@@ -72,6 +81,7 @@ interface LoginPanelProps {
   footer?: (providers: readonly OAuthProviderMeta[]) => ReactNode;
   // XCODE: 与欢迎页同一展示开关，直接使用 LoginPanel 时保持默认入口。
   hideApiKeyLogin?: boolean;
+  oauthWaitingDisplayNames?: Readonly<Record<string, string>>;
 }
 
 interface ActiveLoginEntryAttempt {
@@ -99,10 +109,12 @@ export function LoginPanel({
   header,
   footer,
   hideApiKeyLogin,
+  oauthWaitingDisplayNames,
 }: LoginPanelProps) {
   const { intl } = useZCodeIntl();
   const {
     startLogin,
+    startLoginFromUserGesture,
     cancel,
     reset,
     status,
@@ -111,6 +123,7 @@ export function LoginPanel({
     loadingProviders,
     pendingProvider,
     refreshProviders,
+    manualAuthorizationUrl, // XCODE: 本机 Web 弹窗被阻止时的人工授权入口；置于末尾以避开上游同位置的新增字段。
   } = useOAuth();
   const user = useZCodeStore((s) => s.user);
   const oauthError = useZCodeStore((s) => s.oauthError);
@@ -144,6 +157,7 @@ export function LoginPanel({
       provider: OAuthProviderMeta["id"],
       options?: Parameters<typeof startLogin>[1],
       loginEntryAttemptId?: number,
+      userGesture = false,
     ) => {
       const activeAttempt = activeLoginEntryAttemptRef.current;
       if (activeAttempt && activeAttempt.id !== loginEntryAttemptId) {
@@ -161,9 +175,18 @@ export function LoginPanel({
         markLoginEntryAttemptStatus(loginEntryAttemptId, "waiting");
       }
       lastAttemptProviderRef.current = provider;
-      return startLogin(provider, options);
+      // XCODE: 自动恢复沿用原入口；真实点击同步通知可选生命周期。
+      return userGesture && startLoginFromUserGesture
+        ? startLoginFromUserGesture(provider, options)
+        : startLogin(provider, options);
     },
-    [finishActiveLoginEntryAttempt, markLoginEntryAttemptStatus, setOAuthError, startLogin],
+    [
+      finishActiveLoginEntryAttempt,
+      markLoginEntryAttemptStatus,
+      setOAuthError,
+      startLogin,
+      startLoginFromUserGesture,
+    ],
   );
 
   const providerNameMap = useMemo(
@@ -362,7 +385,8 @@ export function LoginPanel({
                         ? TID_OAUTH_LOGIN_BUTTON
                         : testId(TID_OAUTH_LOGIN_BUTTON, provider.id)
                     }
-                    onClick={() => void startTrackedLogin(provider.id)}
+                    // XCODE: 只有真实点击才允许本机 Web 同步预开授权窗口。
+                    onClick={() => void startTrackedLogin(provider.id, undefined, undefined, true)}
                   >
                     {renderOAuthProviderIcon(provider.id, "size-4")}
                     <span className="min-w-0 truncate">
@@ -413,9 +437,23 @@ export function LoginPanel({
               <LoaderIcon className="size-4 animate-spin" />
               {intl.formatMessage(
                 { id: "login.oauth.waiting" },
-                { provider: pendingProviderName ?? "OAuth" },
+                // XCODE: 本机 Web 需要产品展示名；只投影文案，取消和登录仍使用原 ID。
+                {
+                  provider:
+                    (pendingProvider && oauthWaitingDisplayNames?.[pendingProvider]) ||
+                    pendingProviderName ||
+                    "OAuth",
+                },
               )}
             </div>
+            {/* XCODE: 弹窗被阻止或自动登录无手势时，用户可主动打开当前授权地址。 */}
+            {manualAuthorizationUrl ? (
+              <Button asChild variant="outline" className="h-10 w-full text-ui-base" size="lg">
+                <a href={manualAuthorizationUrl} target="_blank" rel="noopener noreferrer">
+                  {intl.formatMessage({ id: "login.oauth.openAuthorization" })}
+                </a>
+              </Button>
+            ) : null}
             <Button
               variant="outline"
               className="h-10 w-full text-ui-base"
@@ -462,7 +500,7 @@ export function LoginPanel({
                 // OAuth 回调失败会触发 reset()，它会清空 pendingProvider。
                 // 重新登录必须沿用刚才失败的渠道，不能因为 providers[0] 的原始顺序退回 BigModel。
                 // store 残留错误由 startTrackedLogin 发起前统一清理。
-                void startTrackedLogin(retryProvider);
+                void startTrackedLogin(retryProvider, undefined, undefined, true);
               }}
             >
               {intl.formatMessage({ id: "login.oauth.retry" })}

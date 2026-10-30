@@ -1294,6 +1294,8 @@ const zhCN: Record<string, string> = {
   "login.oauth.regionTag.zai": "全球",
   "login.oauth.regionTag.bigmodel": "中国",
   "login.oauth.waiting": "等待 {provider} 完成认证...",
+  // XCODE: 本机 Web 弹窗被阻止时提供可点击的授权入口。
+  "login.oauth.openAuthorization": "打开登录页面",
   "login.oauth.loginFailure": "登录失败，请重试",
   "login.oauth.cancel": "取消",
   "login.oauth.retry": "重新登录",
@@ -1330,6 +1332,14 @@ const zhCN: Record<string, string> = {
   "logout.confirm.descriptionDefault": "断开连接后会重启 App，之后需要重新连接账号。",
   "logout.confirm.ok": "断开连接并重启",
   "logout.confirm.cancel": "取消",
+  // XCODE: 本机 Web 不重启桌面，也不能把远端撤销未确认描述成成功。
+  "logout.localWeb.confirm.title": "退出本机账号？",
+  "logout.localWeb.confirm.description": "退出后将移除本机登录凭据并尝试撤销服务端会话。",
+  "logout.localWeb.confirm.ok": "退出",
+  "logout.localWeb.unconfirmed.title": "本机已退出",
+  "logout.localWeb.unconfirmed.description": "无法确认服务端会话是否已撤销。",
+  "logout.localWeb.failed.title": "无法确认退出状态",
+  "logout.localWeb.failed.description": "本机登录凭据或账号状态可能未完成清理，请检查后再继续。",
   "sidebar.profile.accountId": "ID: {id}",
   "sidebar.profile.copyUserId": "点击复制用户 ID",
   "sidebar.profile.userIdCopied": "用户 ID 已复制",

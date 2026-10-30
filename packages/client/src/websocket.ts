@@ -18,6 +18,8 @@ export interface WebSocketConnectionCloseEvent {
 interface WebSocketConnectionOptions {
   onClose?: (event: WebSocketConnectionCloseEvent) => void;
   onOpenSocket?: (socket: WebSocket) => void;
+  // XCODE: 本机 Web 使用握手子协议传递内存令牌，不写入 URL 或自动发送的 cookie。
+  protocols?: string[];
 }
 
 function wrapBrowserWebSocket(ws: WebSocket): ISocket {
@@ -64,7 +66,8 @@ export function connectViaWebSocket(
   options?: WebSocketConnectionOptions,
 ): Promise<IServiceAccessor> {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(wsUrl);
+    // XCODE: 未传协议时保留上游连接行为。
+    const ws = options?.protocols ? new WebSocket(wsUrl, options.protocols) : new WebSocket(wsUrl);
     let settled = false;
 
     ws.addEventListener("error", () => {

@@ -86,6 +86,10 @@ import { consumeZcodeJwtInvalidRestartMarker } from "@/root/zcodeJwtInvalidResta
 import { useDesktopNativeThemeSync } from "@/root/useDesktopNativeThemeSync.js";
 import { useRootPlatformEffects } from "@/root/useRootPlatformEffects.js";
 import { useRootWorkspaceActions } from "@/root/useRootWorkspaceActions.js";
+// XCODE: 本机模式注入可选生命周期，其他平台继续使用现有退出流程。
+import { useConfirmDialog } from "@/hooks/useConfirmDialog.js";
+import { useAlertDialog } from "@/hooks/useAlertDialog.js";
+import type { OAuthLifecyclePlatform } from "@/oauth-lifecycle/contract.js";
 import { useBotBroadcastEffects } from "@/root/useBotBroadcastEffects.js";
 import { registerBaseWorkspaceServices } from "@/store/remoteWorkspaceSessionStore.js";
 import type { RootProps } from "@/root/types.js";
@@ -683,6 +687,18 @@ function RootInner({
   const handleReauthenticationRequired = useCallback(() => {
     setWelcomeScreenOpenReason("session-expired");
   }, []);
+  // XCODE: 退出处理器只在本机 Web 工厂显式注入时生效。
+  const requestLogoutConfirmation = useConfirmDialog();
+  const requestLogoutAlert = useAlertDialog();
+  const logoutOverride = (platform as OAuthLifecyclePlatform).oauthLifecycle?.createLogout?.({
+    oauthService: services.oauthService,
+    intl,
+    requestConfirmation: requestLogoutConfirmation,
+    requestAlert: requestLogoutAlert,
+    setUser,
+    setOAuthError,
+    refreshProviderState,
+  });
   const {
     setWorkspaceActionError,
     startDraftInWorkspace,
@@ -713,6 +729,8 @@ function RootInner({
     updateAppSettings,
     setOAuthError,
     setUser,
+    // XCODE: 仅显式本机 Web 工厂替换退出动作。
+    logoutOverride,
     onProviderFamilyDomainClearedAfterLogout: () => {
       setWelcomeScreenOpenReason("logout-provider-required");
     },
@@ -1534,6 +1552,12 @@ function RootInner({
               : undefined
           }
           hideApiKeyLogin
+          // XCODE: 仅本机 Web 调整 New API 的等待显示名。
+          oauthWaitingDisplayNames={
+            (platform as OAuthLifecyclePlatform).oauthLifecycle
+              ? { "new-api": "Aiscoo" }
+              : undefined
+          }
         />
       </RootShell>
     );

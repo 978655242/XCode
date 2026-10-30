@@ -33,6 +33,8 @@ import { createXWorkRoot } from "@zcode/ui/xwork-startup-context";
 import { createAiscooAccountAvatarRoot } from "@zcode/ui/xwork-account-avatar";
 // XCODE: 产品入口显式投影词典，原 Provider 默认不变。
 import { AiscooIntlProvider as ZCodeIntlProvider } from "@zcode/ui/xwork-brand";
+// XCODE: 只为本机 Web 装配可选 OAuth 生命周期。
+import { aiscooLocalWebOAuthLifecycle } from "@zcode/ui/aiscoo-local-web-oauth";
 import "./styles.css";
 import {
   connectViaProtocol,
@@ -565,6 +567,41 @@ function createWebPlatform(options?: {
     openExternal: (url) => {
       window.open(url, "_blank", "noopener,noreferrer");
     },
+    // XCODE: 仅本机 Web 在用户手势中预开窗口；导航前先移除 opener，避免外站控制应用。
+    ...(import.meta.env.VITE_AISCOO_LOCAL_WEB === "1" && !platformProxy
+      ? {
+          prepareLocalWebOAuthWindow: () => {
+            if (navigator.userActivation && !navigator.userActivation.isActive) return null;
+            const popup = window.open("about:blank", "_blank");
+            if (!popup) return null;
+            try {
+              popup.opener = null;
+              if (popup.opener !== null) throw new Error("Unable to detach opener");
+              return {
+                navigate: (url: string) => {
+                  try {
+                    if (popup.closed) return false;
+                    popup.location.replace(url);
+                    return true;
+                  } catch {
+                    return false;
+                  }
+                },
+                close: () => {
+                  try {
+                    popup.close();
+                  } catch {
+                    // 用户或浏览器可能已关闭窗口。
+                  }
+                },
+              };
+            } catch {
+              popup.close();
+              return null;
+            }
+          },
+        }
+      : {}),
     openFeedback: async () => {
       const feedbackUrl = await resolveFeedbackUrl();
       if (!feedbackUrl) {
@@ -693,7 +730,7 @@ function resolveDefaultWsOrigin(): string {
   return `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}`;
 }
 
-async function resolveWebBootstrap(): Promise<WebBootstrapResult> {
+async function resolveWebBootstrap(localWebToken?: string): Promise<WebBootstrapResult> {
   const params = new URLSearchParams(window.location.search);
   const remoteId = params.get("remote");
   const wsUrl = remoteId
@@ -707,6 +744,14 @@ async function resolveWebBootstrap(): Promise<WebBootstrapResult> {
   try {
     const response = await fetch("/api/server-info", {
       cache: "no-store",
+      // XCODE: 含令牌的请求拒绝重定向，避免自定义认证头被转发到其他来源。
+      ...(localWebToken
+        ? {
+            headers: { "x-aiscoo-local-web-token": localWebToken },
+            credentials: "omit" as const,
+            redirect: "error" as const,
+          }
+        : {}),
     });
     if (!response.ok) {
       return { wsUrl };
@@ -2050,6 +2095,31 @@ async function bootstrapExternalRelayWebRemoteControl(
 
 async function bootstrapWebApp() {
   const params = new URLSearchParams(window.location.search);
+  // XCODE: 本机页面必须先阻断旧 Web 路由，避免官方账号或远控绕过本机授权边界。
+  if (
+    import.meta.env.VITE_AISCOO_LOCAL_WEB === "1" &&
+    (window.location.pathname !== "/" || params.has("remote"))
+  ) {
+    const zh = isZhLocale();
+    document.documentElement.lang = zh ? "zh-CN" : "en-US";
+    document.title = zh ? "Aiscoo - 页面不支持" : "Aiscoo - Page not supported";
+    root.render(
+      <main className="flex min-h-dvh items-center justify-center bg-background px-4 py-8 text-foreground">
+        <section className="w-full max-w-md rounded-lg border border-card-border bg-card p-6 shadow-sm">
+          <h1 className="text-ui-lg font-medium">
+            {zh ? "本机 Web 不支持此页面" : "This page is not supported in local Web"}
+          </h1>
+          <p className="mt-3 text-ui-base text-foreground-subtle">
+            {zh ? "请返回本机应用首页。" : "Return to the local application home page."}
+          </p>
+          <a className="mt-5 inline-flex text-ui-base text-brand underline" href="/">
+            {zh ? "返回首页" : "Return home"}
+          </a>
+        </section>
+      </main>,
+    );
+    return;
+  }
   if (isWebRemoteControlRoute() || isWebRemoteControlOAuthCallback(new URL(window.location.href))) {
     document.documentElement.lang = resolveWebRemoteControlScreenLocale(navigator.language);
   }
@@ -2069,8 +2139,28 @@ async function bootstrapWebApp() {
   }
 
   let bootstrap: WebBootstrapResult;
+  let localWebToken: string | undefined;
   try {
-    bootstrap = await resolveWebBootstrap();
+    // XCODE: 令牌仅保存在本页内存，避免浏览器把 cookie 自动发送给其他回环端口。
+    if (import.meta.env.VITE_AISCOO_LOCAL_WEB === "1") {
+      const session = await fetch("/api/local-web/session", {
+        method: "POST",
+        credentials: "omit",
+        cache: "no-store",
+      });
+      if (!session.ok) throw new Error("无法建立本机 Web 安全会话");
+      const result: unknown = await session.json();
+      if (
+        !result ||
+        typeof result !== "object" ||
+        !("token" in result) ||
+        typeof result.token !== "string" ||
+        !/^[A-Za-z0-9_-]{43}$/.test(result.token)
+      )
+        throw new Error("无法建立本机 Web 安全会话");
+      localWebToken = result.token;
+    }
+    bootstrap = await resolveWebBootstrap(localWebToken);
   } catch (error) {
     renderWebRemoteControlFailure(
       error && typeof error === "object" && "reason" in error
@@ -2085,9 +2175,40 @@ async function bootstrapWebApp() {
 
   try {
     const services = await connectViaWebSocket(bootstrap.wsUrl, {
-      onClose: () => {},
+      ...(localWebToken
+        ? { protocols: ["aiscoo-local-web-v1", `aiscoo-local-web-token.${localWebToken}`] }
+        : {}),
+      onClose: () => {
+        // 修复原因：过期连接不能继续操作；重载会建立新的内存会话。
+        if (localWebToken && !isPageUnloading) {
+          localWebToken = undefined;
+          const zh = isZhLocale();
+          root.render(
+            <main className="flex min-h-dvh items-center justify-center bg-background px-4 text-foreground">
+              <section className="w-full max-w-md rounded-lg border border-card-border bg-card p-6">
+                <h1 className="text-ui-lg font-medium">
+                  {zh ? "本机连接已断开" : "Local connection closed"}
+                </h1>
+                <p className="mt-3 text-ui-base text-foreground-subtle">
+                  {zh ? "请重新加载以继续。" : "Reload to continue."}
+                </p>
+                <button className="mt-5 underline" onClick={() => window.location.reload()}>
+                  {zh ? "重新加载" : "Reload"}
+                </button>
+              </section>
+            </main>,
+          );
+        }
+      },
     });
     const platform = createWebPlatform();
+    // XCODE: 仅本机 Web 接收 Host 的无秘密登录完成事件；远控和桌面沿用各自的回调链。
+    if (import.meta.env.VITE_AISCOO_LOCAL_WEB === "1") {
+      Object.assign(platform, {
+        aiscooLocalWebOAuthSync: true,
+        oauthLifecycle: aiscooLocalWebOAuthLifecycle,
+      });
+    }
     document.title = brandProductText("XWork - Web + Server");
 
     root.render(

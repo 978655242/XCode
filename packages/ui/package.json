@@ -21,7 +21,8 @@
     "./xwork-brand": "./src/xwork/brand/index.ts",
     "./aiscoo-brand": "./src/xwork/brand/index.ts",
     "./xwork-account-avatar": "./src/xwork/account-avatar/index.ts",
-    "./aiscoo-startup-context": "./src/aiscoo/startup-context/index.ts"
+    "./aiscoo-startup-context": "./src/aiscoo/startup-context/index.ts",
+    "./aiscoo-local-web-oauth": "./src/aiscoo/local-web-oauth/index.ts"
   },
   "scripts": {
     "lint": "oxlint",

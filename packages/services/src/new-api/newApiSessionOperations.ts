@@ -72,14 +72,17 @@ export async function restoreSessionProfile(
   }
 }
 
+// XCODE: 返回是否已确认远端撤销；失败只记录静态错误码，本机 Web 退出据此拒绝“已撤销”，桌面调用方忽略返回值。
 export async function revokeSession(
   adapter: NewApiProviderAdapter,
   bundle: NewApiSessionBundle,
-): Promise<void> {
+): Promise<boolean> {
   try {
     await adapter.logout(bundle);
     log.info(undefined, "Private session remotely revoked");
+    return true;
   } catch (error) {
     log.warn(undefined, "Private session remote revocation failed", errorCode(error));
+    return false;
   }
 }
