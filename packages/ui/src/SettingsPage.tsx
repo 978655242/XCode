@@ -1,6 +1,8 @@
 import { SettingsMachinesProvider } from "@/settings/SettingsMachine.js";
 // XCODE: Native 产品套餐名通过共享品牌模板显示。
 import { brandProductText } from "@zcode/shared/xwork-brand";
+// XCODE: 桌面通用设置通过可选插槽装配独立法律信息。
+import { AiscooLegalSettings } from "@/aiscoo/legal/index.js";
 import { getWorkspaceSourceServerId } from "@/conversation-workspace-target/sourceIdentity.js";
 import { RemoteConnectionNavigationDot } from "@/remote-connection/RemoteConnectionNavigationDot.js";
 import { resolveRemoteConnectionNavigationPresentation } from "@/lib/remoteConnectionPresentation.js";
@@ -1827,6 +1829,12 @@ export function SettingsPage({
                               interfaceMode={interfaceMode}
                               setInterfaceMode={setInterfaceMode}
                               isDesktop={isDesktop}
+                              // XCODE: 只在桌面装配，远控及普通 Web 保持原设置。
+                              footer={
+                                isDesktop && !isWebRemoteControl ? (
+                                  <AiscooLegalSettings />
+                                ) : undefined
+                              }
                               isWindowsDesktop={isWindowsDesktop}
                               isLinuxDesktop={isLinuxDesktop}
                               linuxCloseToTray={linuxCloseToTray}

@@ -13,7 +13,7 @@ import {
   TID_SETTINGS_TOOL_SEARCH_SELECT,
   TID_SETTINGS_TOOL_SEARCH_OPTION,
 } from "@zcode/shared/test-ids";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, type ReactNode } from "react";
 import type { IPlatformService } from "@zcode/shared";
 import {
   TID_SETTINGS_LOCALE_SELECT_ITEM,
@@ -189,6 +189,7 @@ export function GeneralSectionContent({
   onAskUserQuestionAutoResolutionEnabledChange = async () => {},
   onModelIoFullRetentionEnabledChange = async () => {},
   onOpenOnboardingDialog,
+  footer,
 }: {
   localePreference: LocalePreference;
   interfaceMode?: InterfaceMode;
@@ -261,6 +262,8 @@ export function GeneralSectionContent({
   onAskUserQuestionAutoResolutionEnabledChange?: (enabled: boolean) => Promise<void>;
   onModelIoFullRetentionEnabledChange?: (enabled: boolean) => Promise<void>;
   onOpenOnboardingDialog: () => void;
+  // XCODE: 由平台装配可选底部内容，未提供时保持原设置行为。
+  footer?: ReactNode;
 }) {
   const { intl } = useZCodeIntl();
   const hasServices = Boolean(useOptionalServices());
@@ -980,6 +983,8 @@ export function GeneralSectionContent({
           }
         />
       </SettingsGroupCard>
+      {/* XCODE: 独立扩展可在通用设置底部提供信息。 */}
+      {footer}
     </div>
   );
 }

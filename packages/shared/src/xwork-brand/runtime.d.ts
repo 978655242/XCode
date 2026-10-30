@@ -17,7 +17,7 @@ export interface ProductBrand {
   }>;
 }
 
-export const PRODUCT_BRAND: Readonly<ProductBrand>;
+export const PRODUCT_BRAND: Readonly<ProductBrand & { legalOperatorName: string }>;
 export const PRODUCT_NAME: string;
 export const PRODUCT_WORDMARK: string;
 /** Only for product-owned static templates, before user values are interpolated. */

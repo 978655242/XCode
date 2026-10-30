@@ -49,6 +49,8 @@ import { RewardsProvider } from "@/rewards/RewardsProvider.js";
 import { WelcomeScreen, type LoginCompleteReason } from "@/WelcomeScreen.js";
 // XCODE: 品牌登录头通过可选插槽装配，原登录页默认头部保持上游语义。
 import { AiscooLoginHeader } from "@/xwork/brand/index.js";
+// XCODE: 仅桌面装配公开法律入口，其他平台保留默认登录页。
+import { AiscooLegalLinks } from "@/aiscoo/legal/index.js";
 import { setDefaultFileDisplayBasePath } from "@/lib/fileDisplay.js";
 import { readRendererLaunchTimings, shouldReportLaunchToInput } from "@/lib/launchToInputReport.js";
 import { reportUiLaunchToInput } from "@/lib/uiPerfArmsTelemetry.js";
@@ -1521,7 +1523,16 @@ function RootInner({
         {requestSecurityBridgeNode}
         {remoteConnectionDialog}
         {directoryBrowserDialog}
-        <WelcomeScreen onComplete={handleWelcomeScreenComplete} header={<AiscooLoginHeader />} />
+        <WelcomeScreen
+          onComplete={handleWelcomeScreenComplete}
+          header={<AiscooLoginHeader />}
+          // XCODE: 普通 Web 和手机远控不挂载桌面法律扩展。
+          footer={
+            isDesktop && !isWebRemoteControlRoot
+              ? (providers) => <AiscooLegalLinks providers={providers} placement="login" />
+              : undefined
+          }
+        />
       </RootShell>
     );
   }

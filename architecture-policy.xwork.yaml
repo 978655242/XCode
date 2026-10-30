@@ -141,3 +141,13 @@ modules:
       - packages/ui/src/xwork/brand/contract.ts
     layers: { ui: . }
     owner: product
+  # XCODE: 法律入口使用独立下游模块与既有品牌事实来源。
+  - id: aiscoo-legal-ui
+    roots: [packages/ui/src/aiscoo/legal]
+    managed: true
+    requires: [ui, shared, xwork-brand]
+    publicEntrypoints:
+      - packages/ui/src/aiscoo/legal/index.ts
+      - packages/ui/src/aiscoo/legal/contract.ts
+    layers: { ui: . }
+    owner: product

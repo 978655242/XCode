@@ -19,6 +19,8 @@ try {
     "newApiUpgradePresentationElectron",
     "newApiModelSettingsElectron",
     "newApiModelCapabilitiesElectron",
+    // XCODE: 公开法律入口复用独立、无真实账号的 Electron 场景。
+    "newApiLegalLinksElectron",
   ]) {
     const entry = new URL(`./${name}.mjs`, import.meta.url);
     const output = join(temporary, `${name}.mjs`);

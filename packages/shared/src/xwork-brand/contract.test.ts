@@ -12,6 +12,7 @@ describe("Aiscoo product branding contract", () => {
     const legacy = await import("@zcode/shared/xwork-brand");
     const current = await import("@zcode/shared/aiscoo-brand");
     expect(current.PRODUCT_BRAND).toBe(legacy.PRODUCT_BRAND);
+    expect(current.PRODUCT_BRAND.legalOperatorName).toBe("杭州艾思酷国际贸易有限公司");
     expect(current.brandProductText).toBe(legacy.brandProductText);
   });
 

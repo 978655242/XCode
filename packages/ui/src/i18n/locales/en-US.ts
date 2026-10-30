@@ -8220,6 +8220,10 @@ const enUS: Record<string, string> = {
   "settings.plugins.guide.section.limits": "Limits and considerations",
   "settings.plugins.guide.section.faq": "Questions and sources",
   ...requestSecurityMessagesEnUS,
+  // XCODE: 桌面公开法律信息的展示文案。
+  "aiscoo.legal.title": "Legal Information",
+  "aiscoo.legal.userAgreement": "User Agreement",
+  "aiscoo.legal.privacyPolicy": "Privacy Policy",
 };
 
 export default enUS;
