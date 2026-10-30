@@ -25,6 +25,7 @@
 ## 2026-10-30 同步 upstream v3.17.1 (3c5b2276..a60ba6a7)
 
 - 状态：上游与最新 release 已通过 merge commit 集成，待同步 PR 评审；必须使用 Create a merge commit，不能 squash 或 rebase。
+- 同步 PR：[\#50](https://github.com/978655242/aiscoo/pull/50)（`sync/upstream-20261030 → release`）；[逐文件审查附表](../aiscoo/upstream-sync-20261030-review.md)。
 - 同步分支：`sync/upstream-20261030`，从 `origin/release` @ `b5333ac1` 切出；整体合并上游并保留原始 SHA，不 cherry-pick。
 
 | 上游提交   | 说明                                                                                     | 分类（采纳/适配/拒绝） | 备注 / 拒绝原因                                      |
