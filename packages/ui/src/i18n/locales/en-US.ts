@@ -1573,6 +1573,8 @@ const enUS: Record<string, string> = {
   "login.oauth.copyLoginLink": "Copy login link",
   "login.oauth.copyLinkSuccess": "Copied. Paste and open it in your browser.",
   "login.oauth.copyLinkFailed": "Could not copy the login link. Please try again.",
+  // XCODE: Manual-link display for the optional authorization lifecycle.
+  "login.oauth.openAuthorization": "Open sign-in page",
   "login.oauth.loginFailure": "Login failed, please try again",
   "login.oauth.cancel": "Cancel",
   "login.oauth.retry": "Retry login",

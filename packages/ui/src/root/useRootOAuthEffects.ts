@@ -1,5 +1,7 @@
 /* eslint-disable max-lines -- OAuth lifecycle effects intentionally share one coordination point. */
 import { useEffect, useRef } from "react";
+// XCODE: 可选通用生命周期用于产品装配，未注入时原恢复逻辑不变。
+import type { OAuthLifecyclePlatform } from "@/oauth-lifecycle/contract.js";
 import type {
   IPlatformService,
   OAuthProviderId,
@@ -140,27 +142,61 @@ export function useRootOAuthEffects({
   const oauthLoginSucceededRef = useRef(false);
   const oauthLoginSuccessInFlightRef = useRef(false);
   const oauthLoginSuccessOwnerRef = useRef<"polling" | "deep-link" | null>(null);
+  // XCODE: 单个可选生命周期为启动和设置读取共享失效栅栏；沿用已有 effect 管理卸载。
+  const lifecycle = useRef<
+    ReturnType<NonNullable<OAuthLifecyclePlatform["oauthLifecycle"]>["createSession"]> | undefined
+  >(undefined);
 
   useEffect(() => {
     let disposed = false;
+    // XCODE: 在 effect 内装配单一生命周期，确保替换服务时旧订阅先卸载。
+    const sessionLifecycle = (platform as OAuthLifecyclePlatform).oauthLifecycle?.createSession({
+      oauthService: services.oauthService,
+      setUser,
+      setIsRestoringOAuthSession,
+      setOAuthError,
+      loginFailureMessage: () => intl.formatMessage({ id: "login.oauth.loginFailure" }),
+      refreshProviderState,
+      markOAuthSuccess,
+    });
+    lifecycle.current = sessionLifecycle;
+    const disposeLifecycle = sessionLifecycle?.mount();
+    const startupRevision = sessionLifecycle?.captureRevision();
+    const startupIsCurrent = () =>
+      !disposed &&
+      (startupRevision === undefined || sessionLifecycle?.isCurrent(startupRevision) === true);
+
     async function restoreOAuthSessionInBackground() {
       logger.info("[Root] 后台启动 OAuth 本地会话恢复");
       let hasRestoredUser = false;
       try {
         // XCODE: Native 恢复须由远端 Me 确认；其他提供方保持上游本地缓存恢复规则。
         const result = await services.oauthService.restoreCachedSessionState();
-
-        if (disposed) {
+        // XCODE: 扩展可校验启动准入，缺省时不增加等待。
+        if (
+          sessionLifecycle &&
+          startupRevision !== undefined &&
+          !(await sessionLifecycle.admitStartup(startupRevision))
+        )
+          return;
+        if (!startupIsCurrent()) {
+          if (!disposed) setIsRestoringOAuthSession(false);
           return;
         }
 
         hasRestoredUser = await applyCachedOAuthSessionRestoreResult({
           result,
-          setUser,
+          setUser: (user) => {
+            if (startupIsCurrent()) setUser(user);
+          },
           requestAlert,
-          onReauthenticationRequired,
+          onReauthenticationRequired: () => {
+            if (startupIsCurrent()) onReauthenticationRequired();
+          },
           shouldReauthenticate: async () =>
-            !disposed && (await services.oauthService.getActiveProvider()) === null,
+            startupIsCurrent() &&
+            (await services.oauthService.getActiveProvider()) === null &&
+            startupIsCurrent(),
           copy:
             result.status === "unavailable" && result.reason === "credential-recovery-required"
               ? {
@@ -181,6 +217,8 @@ export function useRootOAuthEffects({
           return;
         }
       }
+      // XCODE: 迟到的启动恢复不能覆盖较新的会话事件。
+      if (!startupIsCurrent()) return;
 
       // 启动恢复是异步后台流程，慢网时如果不单独暴露“恢复中”状态，
       // sidebar 会先按 user=null 渲染成“登录”，而登录弹窗又还能读到本地 activeProvider，
@@ -212,15 +250,21 @@ export function useRootOAuthEffects({
 
     return () => {
       disposed = true;
+      disposeLifecycle?.();
+      if (lifecycle.current === sessionLifecycle) lifecycle.current = undefined;
     };
   }, [
     intl,
+    markOAuthSuccess,
     onReauthenticationRequired,
+    platform,
     refreshAppSettings,
     refreshProviderState,
     requestAlert,
     services,
+    services.oauthService,
     setIsRestoringOAuthSession,
+    setOAuthError,
     setUser,
   ]);
 
@@ -234,14 +278,24 @@ export function useRootOAuthEffects({
         if (disposed || !providers.some((provider) => provider.id === NEW_API_PROVIDER_ID)) return;
         const reconcileIdentity = () => {
           const current = ++request;
+          // XCODE: 设置读取与会话事件共用扩展的代次栅栏。
+          const sessionLifecycle = lifecycle.current;
+          const sessionRevision = sessionLifecycle?.captureRevision();
+          const isCurrent = () =>
+            !disposed &&
+            current === request &&
+            sessionLifecycle === lifecycle.current &&
+            (sessionRevision === undefined ||
+              sessionLifecycle?.isCurrent(sessionRevision) === true);
           void services.oauthService
             .getActiveProvider()
             .then((provider) => {
-              if (!disposed && current === request && provider !== NEW_API_PROVIDER_ID)
-                setUser(null);
+              // XCODE: 本机 Web 的 owner 事件可能先于设置观察结果；旧读取不得清掉新登录。
+              if (isCurrent() && provider !== NEW_API_PROVIDER_ID) setUser(null);
             })
             .catch(() => {
-              if (!disposed && current === request) setUser(null);
+              // XCODE: 扩展可保留身份投影；缺省保持原有读取失败行为。
+              if (isCurrent() && !sessionLifecycle?.preserveIdentityOnReadError) setUser(null);
             });
         };
         subscription = services.providerSettingsService.onDidChange(reconcileIdentity);

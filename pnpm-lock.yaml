@@ -1344,6 +1344,9 @@ importers:
       '@lydell/node-pty-linux-x64':
         specifier: 1.2.0-beta.10
         version: 1.2.0-beta.10
+      '@napi-rs/keyring':
+        specifier: 2.1.2
+        version: 2.1.2
       '@zcode/client':
         specifier: workspace:*
         version: link:../client
@@ -1429,6 +1432,9 @@ importers:
       '@larksuiteoapi/node-sdk':
         specifier: 1.64.0
         version: 1.64.0
+      '@zcode/adapters':
+        specifier: workspace:*
+        version: link:../../apps/zcode-cli/packages/adapters
       '@zcode/provider':
         specifier: workspace:*
         version: link:../provider

@@ -5,7 +5,12 @@ import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TID_OAUTH_COPY_LOGIN_LINK } from "@zcode/shared/test-ids";
 import type { OAuthProviderMeta } from "@zcode/shared";
-import { AISCOO_ASSET_URLS, AiscooIntlProvider, AiscooLoginHeader } from "@/xwork/brand/index.js";
+import {
+  AISCOO_ASSET_URLS,
+  AiscooIntlProvider,
+  AiscooLoginHeader,
+  resolveAiscooOAuthWaitingDisplayNames,
+} from "@/xwork/brand/index.js";
 import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import { WelcomeScreen } from "@/WelcomeScreen.js";
 
@@ -17,19 +22,24 @@ const oauthState = vi.hoisted(() => ({
   startLogin: vi.fn(),
   cancel: vi.fn(),
   authorizeUrl: null as string | null,
+  manualAuthorizationUrl: null as string | null,
+  startLoginFromUserGesture: undefined as undefined | ReturnType<typeof vi.fn>,
+  pendingProvider: "new-api",
 }));
 
 vi.mock("@/hooks/useOAuth.js", () => ({
   useOAuth: () => ({
     startLogin: oauthState.startLogin,
+    startLoginFromUserGesture: oauthState.startLoginFromUserGesture,
     cancel: oauthState.cancel,
     reset: vi.fn(),
     status: oauthState.status,
     error: oauthState.status === "error" ? "登录失败，请重试" : null,
     providers: oauthState.providers,
     loadingProviders: false,
-    pendingProvider: oauthState.status === "waiting" ? "new-api" : null,
+    pendingProvider: oauthState.status === "waiting" ? oauthState.pendingProvider : null,
     authorizeUrl: oauthState.authorizeUrl,
+    manualAuthorizationUrl: oauthState.manualAuthorizationUrl,
     refreshProviders: vi.fn(),
   }),
 }));
@@ -61,6 +71,9 @@ afterEach(() => {
   cleanup();
   oauthState.status = "idle";
   oauthState.authorizeUrl = null;
+  oauthState.manualAuthorizationUrl = null;
+  oauthState.startLoginFromUserGesture = undefined;
+  oauthState.pendingProvider = "new-api";
   oauthState.providers = [{ id: "new-api", displayName: "New API", enabled: true, order: 0 }];
   oauthState.startLogin.mockClear();
   oauthState.cancel.mockClear();
@@ -227,5 +240,85 @@ describe("Aiscoo 登录页完整字标", () => {
     if (status === "error") {
       expect(screen.getByText("登录失败，请重试")).toBeTruthy();
     }
+  });
+
+  it.each([
+    ["zh-CN", "等待 aiscoo 完成认证..."],
+    ["en-US", "Waiting for aiscoo authentication..."],
+  ] as const)("%s 等待展示名映射保留原取消身份", (locale, message) => {
+    oauthState.status = "waiting";
+    render(
+      createElement(AiscooIntlProvider, {
+        initialLocale: locale,
+        children: createElement(WelcomeScreen, {
+          onComplete: vi.fn(),
+          oauthWaitingDisplayNames: resolveAiscooOAuthWaitingDisplayNames(),
+        }),
+      }),
+    );
+    expect(screen.getByText(message)).toBeTruthy();
+    fireEvent.click(screen.getByTestId("oauth-cancel"));
+    expect(oauthState.cancel).toHaveBeenCalledExactlyOnceWith("new-api");
+  });
+
+  it("未装配映射时保留原提供方等待名", () => {
+    oauthState.status = "waiting";
+    render(
+      createElement(ZCodeIntlProvider, {
+        initialLocale: "zh-CN",
+        children: createElement(WelcomeScreen, { onComplete: vi.fn() }),
+      }),
+    );
+    expect(screen.getByText("等待 New API 完成认证...")).toBeTruthy();
+  });
+
+  it("品牌映射不覆盖其他提供方的名称", () => {
+    oauthState.status = "waiting";
+    oauthState.pendingProvider = "bigmodel";
+    oauthState.providers = [{ id: "bigmodel", displayName: "BigModel", enabled: true, order: 0 }];
+    render(
+      createElement(AiscooIntlProvider, {
+        initialLocale: "zh-CN",
+        children: createElement(WelcomeScreen, {
+          onComplete: vi.fn(),
+          oauthWaitingDisplayNames: resolveAiscooOAuthWaitingDisplayNames(),
+        }),
+      }),
+    );
+    expect(screen.getByText("等待 BigModel 完成认证...")).toBeTruthy();
+  });
+
+  it("可选生命周期的手动授权链接与既有复制链接共存", () => {
+    oauthState.status = "waiting";
+    oauthState.manualAuthorizationUrl = "https://example.test/authorize?state=synthetic";
+    oauthState.authorizeUrl = "https://account.example.test/authorize?state=fixture";
+    render(
+      createElement(AiscooIntlProvider, {
+        initialLocale: "zh-CN",
+        children: createElement(WelcomeScreen, { onComplete: vi.fn() }),
+      }),
+    );
+    const link = screen.getByRole("link", { name: "打开登录页面" });
+    expect(link.getAttribute("href")).toBe(oauthState.manualAuthorizationUrl);
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(screen.getByTestId(TID_OAUTH_COPY_LOGIN_LINK)).toBeTruthy();
+  });
+
+  it.each(["idle", "error"] as const)("%s 实际点击使用可选手势入口", (status) => {
+    oauthState.status = status;
+    oauthState.startLoginFromUserGesture = vi.fn();
+    render(
+      createElement(AiscooIntlProvider, {
+        initialLocale: "zh-CN",
+        children: createElement(WelcomeScreen, { onComplete: vi.fn() }),
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: status === "idle" ? "登录" : "重新登录" }));
+    expect(oauthState.startLoginFromUserGesture).toHaveBeenCalledExactlyOnceWith(
+      "new-api",
+      undefined,
+    );
+    expect(oauthState.startLogin).not.toHaveBeenCalled();
   });
 });

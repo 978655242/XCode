@@ -1,6 +1,6 @@
 # Aiscoo / New API 本机集成运行手册
 
-客户端规则见 [spec](specs/new-api-integration.md)，认证、资金与管理员接口以 [New API canonical spec](../../../new-api/docs/specs/xcode-integration.md) 为唯一来源。实施与发布验收见 [执行计划](../superpowers/plans/2026-10-08-new-api-integration.md)。
+客户端规则见 [spec](specs/new-api-integration.md)，认证、资金与管理员接口以 [New API canonical spec](../../../aiscoo-admin/docs/specs/xcode-integration.md) 为唯一来源。实施与发布验收见 [执行计划](../superpowers/plans/2026-10-08-new-api-integration.md)。
 
 ## 本机一键启动（2026-10-19 当前部署）
 
@@ -17,6 +17,10 @@
 真实冷启动、只读模型/套餐恢复、Cmd+Q及窗口重开已验。**现有 API 仍监听全接口，不应暴露3001至不可信网络**；本轮未改其绑定配置。既有 `config/default.json` 相对根问题仍可能影响社群/反馈配置，本入口只使用现有provider覆盖修正模型资源。未执行真实模型调用、支付、授权变更或全量产品验收。详情见[一键启动实施计划](../superpowers/plans/2026-10-18-xcode-one-click-start.md)。
 
 ## 配置与边界
+
+当前本机 Web 沿用 [浏览器持有凭据规格](specs/browser-new-api.md)：通过 `pnpm dev:web`，显式设置 `AISCOO_BROWSER_NEW_API=1` 与 `AISCOO_ADMIN_BASE_URL`，由浏览器持有 state、PKCE 和会话凭据；Host 通过现有 account authority 接口读取连接期投影与请求期凭据，不持久化浏览器 refresh token。普通 standalone Web 创建项目和聊天首发仍未验收，不能据登录适配或 CLI 回环验证宣称完整聊天可用。[旧 Host-owner 本机 Web 方案](specs/local-web-new-api.md) 仅保留历史设计，不作为当前启用入口或通过记录。
+
+合入分支 `e2721fd6` 在合并前仍有 7 项 logout 测试失败；未在本次文档冲突处理中重跑，也未确认根因。旧方案的品牌、隔离或其他阶段通过记录不覆盖这 7 项失败，不代表当前 release 的退出、冷恢复或完整本机 Web 验收通过。统一验证以本轮合并后的实际执行结果为准。
 
 环境变量迁移：`NEW_API_BASE_URL` 已更名为 `AISCOO_ADMIN_BASE_URL`，旧键不再作为 fallback。用户需自行更新自己的 `.env` 和启动器 plist 中的键名，并按原流程重新生成启动配置、重启相关进程。迁移不会自动读取或改写现有用户文件或 credentials；API 路径与 providerId 保持不变。
 

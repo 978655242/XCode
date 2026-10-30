@@ -53,7 +53,7 @@ import { CodingPlanUpgradeDialogProvider } from "@/settings/CodingPlanUpgradeDia
 import { RewardsProvider } from "@/rewards/RewardsProvider.js";
 import { WelcomeScreen, type LoginCompleteReason } from "@/WelcomeScreen.js";
 // XCODE: 品牌登录头通过可选插槽装配，原登录页默认头部保持上游语义。
-import { AiscooLoginHeader } from "@/xwork/brand/index.js";
+import { AiscooLoginHeader, resolveAiscooOAuthWaitingDisplayNames } from "@/xwork/brand/index.js";
 // XCODE: 仅桌面装配公开法律入口，其他平台保留默认登录页。
 import { AiscooLegalLinks } from "@/aiscoo/legal/index.js";
 import { setDefaultFileDisplayBasePath } from "@/lib/fileDisplay.js";
@@ -1557,6 +1557,8 @@ function RootInner({
               : undefined
           }
           hideApiKeyLogin
+          // XCODE: 等待提示使用产品品牌，保留原 provider 与 release 的认证链路。
+          oauthWaitingDisplayNames={resolveAiscooOAuthWaitingDisplayNames()}
         />
       </RootShell>
     );

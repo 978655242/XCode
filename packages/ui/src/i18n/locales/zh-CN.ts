@@ -1434,6 +1434,8 @@ const zhCN: Record<string, string> = {
   "login.oauth.copyLoginLink": "复制登录链接",
   "login.oauth.copyLinkSuccess": "复制成功，请到浏览器中粘贴并打开",
   "login.oauth.copyLinkFailed": "复制登录链接失败，请重试",
+  // XCODE: 可选授权生命周期的手动链接展示。
+  "login.oauth.openAuthorization": "打开登录页面",
   "login.oauth.loginFailure": "登录失败，请重试",
   "login.oauth.cancel": "取消",
   "login.oauth.retry": "重新登录",

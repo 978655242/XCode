@@ -626,12 +626,12 @@ Selection，请求打到 Highspeed 推理接口而非 Team Coding Plan Endpoint�
 Figma 节点：`6430-11379`（2026-08-31 换稿；旧稿 `6012:18468` 已废弃）。全局通知 surface 中的 Highspeed 分享卡按以下静态视觉实现：
 
 - 卡片宽度撑满侧栏活动槽位，高度固定为 `96px`，与营销 Banner 对齐；外框不设最大宽度和额外 padding。侧栏缩放时只调整背景裁切，文字和按钮尺寸保持不变，窄屏不得溢出侧栏。
-- 卡片使用 `12px` 圆角。浅色主题采用接近营销 Banner 的 `#FAFAFA` 底色及主题浅灰描边，SVG 只保留低透明度 Z 水印，不含银灰渐变和噪点；深色主题保留原合成 SVG 背景。
-- 左上使用宽 `52px`、60% 不透明度的 `ZCodeWordmarkLogo` SVG 字标；模型行距顶部 `34px`，中部独立一行以 `text-ui-lg`（默认 16px）、600 字重突出完整模型名 `GLM-5.3-Highspeed`，名前放置 16px 的 Zap 闪电图标、间距 4px，图标使用同系主题紫色；文字使用 Highspeed 紫色系横向渐变：浅色主题 `#4830C8` → `#6041FF` → `#8955DB`，深色主题 `#9B85FF` → `#B09AFF` → `#CEACFF`，渐变按文字宽度铺开；不支持文字背景裁切时回退到主题文字色。下方以 `text-ui-base`（默认 14px）展示次级文案「分享你的加速时刻」（英文 `Share your speedup`）。右下保留 `View` 按钮，使用 `text-ui-base`（默认 14px）、24px 高度；次级文案为按钮预留空间，窄屏溢出省略。
+- 卡片使用 `12px` 圆角。浅色主题采用接近营销 Banner 的 `#FAFAFA` 底色及主题浅灰描边，深色主题使用透明底与透明描边。产品装饰统一为 `AiscooMark` 静态 `ai` SVG，保留原背景层位置，使用 `h-24 w-28`、右偏移 `-right-3` 与 6% 不透明度；浅深资源按当前应用主题互斥展示。中性胶囊眼和同源字标以 [Aiscoo 图标与显示名](../aiscoo/branding/icon-spec.md) 为准。
+- 左上使用宽 `52px`、60% 不透明度的静态小写 `aiscoo` 字标，`ZCodeWordmarkLogo` 为 `AiscooWordmark` 的兼容导出；模型行距顶部 `34px`，中部独立一行以 `text-ui-lg`（默认 16px）、600 字重突出完整模型名 `GLM-5.3-Highspeed`，名前放置 16px 的 Zap 闪电图标、间距 4px，图标使用同系主题紫色；文字使用 Highspeed 紫色系横向渐变：浅色主题 `#4830C8` → `#6041FF` → `#8955DB`，深色主题 `#9B85FF` → `#B09AFF` → `#CEACFF`，渐变按文字宽度铺开；不支持文字背景裁切时回退到主题文字色。下方以 `text-ui-base`（默认 14px）展示次级文案「分享你的加速时刻」（英文 `Share your speedup`）。右下保留 `View` 按钮，使用 `text-ui-base`（默认 14px）、24px 高度；次级文案为按钮预留空间，窄屏溢出省略。
 - 右下 `View` 按钮带眼睛图标，点击打开分享弹窗（`HighspeedShareDialog`）展示加速统计。左下角分享卡只在卡级聚合数据完整且总体加速倍率严格大于 `1.2x` 时才发布；无数据或未达标（≤`1.2x`）不发布左下角卡（发布门禁与本按钮门禁同口径，见 `highspeedTurnStore.listHighspeedCardAutoShareCandidates`）。因此已发布的卡必然满足资格，`View` 按钮总会渲染。为保证这一点，通知 payload 必须携带与发布门禁**同精度**的指标事实：`durationMs`、`savedDurationMs`（毫秒、不取整）以及 `tokenUsage`；组件内仍以同一 `isHighspeedShareEligible` 对这些毫秒字段复检作为纵深防御，任何不可信或未达标数据都不得进入分享弹窗。**卡片渲染侧不得依据展示精度字段（秒级取整值）重新判定资格**：曾经 payload 只带 `ceil(duration)` / `round(saved)` 的秒级字段，渲染侧由秒重建倍率会在 `(1.2, ~1.25]` 边界带系统性低估（如 6100ms/1225ms 实际 7325/6100≈1.2008x → 重建 8/7≈1.14x），使已发布的卡隐藏 `View`。秒级展示值只能由毫秒字段在渲染时派生；仅 ≤24h 内遗留的秒级 payload 允许按 `×1000` 兜底读取。此处与组尾 footer（§10）有意不同：footer 未达标时仍展示、仅隐藏按钮，左下角分享卡未达标则整卡不发布。分享地址、share id 及对应 shareUrl 复制链路已从 Highspeed 分享中移除（见 `docs/highspeed-share-client-generated.md`）。
 - 右上关闭按钮距顶部、右侧各 `10px`，桌面和触屏均常显；与营销 Banner 共用 `ghost` / `icon-xs` 圆形按钮及图标尺寸，默认无底色，hover 提高对比度，保留键盘焦点环。继续触发全局通知 24 小时静默规则。
 - 本期只实现静态布局、hover/focus 等基础可用状态，不实现动效。
-- 卡片在 Light/Dark/Zai 主题下分别使用浅色水印 SVG 与深色设计底图；外围布局仍使用现有 sidebar surface。
+- 卡片在 Light/Dark/Zai 主题下复用 Aiscoo 同源浅深资源；这里的 `ai` 装饰与完整字标保持静态，10 秒笑眼与整头弹跳只用于品牌规范指定的动态入口。外围布局仍使用现有 sidebar surface。
 
 ```text
 card expires_at reached -------+
