@@ -1,6 +1,6 @@
 # 本机 Web：浏览器持有 New API 凭据
 
-状态：实施中，2026-10-30。用户明确选择尽量少改、浏览器持凭据；替代已关闭且未合并的 PR #47。范围仍为同机浏览器 + 现有 Server + 本机 CLI，不扩展部署 Web、多用户或手机远控。
+状态：浏览器登录与凭据适配已实现，2026-10-30；普通 standalone Web 创建项目和聊天首发尚未验收。用户明确选择尽量少改、浏览器持凭据；替代已关闭且未合并的 PR #47。范围仍为同机浏览器 + 现有 Server + 本机 CLI，不扩展部署 Web、多用户或手机远控。
 
 ## 1. 复用与范围
 
@@ -8,6 +8,7 @@
 - 浏览器通过 WebCrypto 生成 state 和 S256 PKCE，使用现有公共客户端 `xwork-cli` 和精确 `http://127.0.0.1:<Web端口>/oauth/callback`，同页跳转到 New API 原生授权页，回调成功返回 `/`。源码允许这种回调，不要求独立 listener。仅本机模式启用专用同源控制 API 代理，不修改 New API 后端和 CORS。
 - 公开配置为 `AISCOO_BROWSER_NEW_API=1` 与 `NEW_API_BASE_URL`；浏览器访问地址必须是有显式非默认端口的 `http://127.0.0.1`。启用配置不得回退到官方账号。远控、分享、Desktop 及未启用配置时保持既有默认行为。
 - 不带入 #47 的 Host 登录状态机、OS keyring、私有磁盘凭据库、CLI adapters 依赖、新网络 session/token 系统和专用进程启动器。
+- 普通 standalone Web 的项目创建仍存在既有边界：UI 默认传 `hostId=local`，Server 持库 owner 为 `remote:server:<id>`，因而目录/保存会被 `project.host-offline` 拒绝；未选择项目的草稿被 `project.remote-project-required` 拒绝。本次不改写 owner、workspace identity 或远端项目权限。真实 CLI 的 helper 查询通过，不能据此声称普通新用户从创建项目到聊天首发已可用；该交互需要独立的当前 Server 项目适配。
 
 ## 2. 所有权与接口
 
