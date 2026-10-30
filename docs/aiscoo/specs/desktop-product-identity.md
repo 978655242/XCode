@@ -14,7 +14,7 @@ Aiscoo 正式版、开发版、Preview 和上游 ZCode 必须能够共存。Aisc
 
 唯一身份配置位于 @zcode/shared/aiscoo-desktop-identity，构建工具和运行时复用。Desktop 构建显式固化渠道；未注入 Aiscoo 渠道的通用运行时保持上游默认值。系统应用 ID、Windows executable/AUMID、Linux executable/package/desktop MIME、macOS开发副本与正式协议声明均须与该配置一致。
 
-合并最新 release 时，Main、Host、scheduler 的共享服务依赖图必须继续可构建；原生钥匙串沿用现有运行时外置依赖机制，由真实平台 loader 选择目标 `.node`，不在 ESM bundle 内解析其他平台二进制。打包闭包检查仍须证明运行时依赖完整。历史本机 Web 快照不因身份合并恢复为现行产品入口，现行 Web 规范仍为 [browser-new-api.md](browser-new-api.md)。
+合并最新 release 时，Main、Host、scheduler 的共享服务依赖图必须继续可构建；原生钥匙串沿用现有运行时外置依赖机制，由真实平台 loader 选择目标 `.node`，不在 ESM bundle 内解析其他平台二进制。打包闭包检查仍须证明运行时依赖完整。macOS 的 `node-pty` helper 在最后一次 asar 重打包之后、签名之前必须保有执行权限；以实际 PTY spawn 验收，不能只检查文件存在。历史本机 Web 快照不因身份合并恢复为现行产品入口，现行 Web 规范仍为 [browser-new-api.md](browser-new-api.md)。
 
 ## 授权接口与所有者
 

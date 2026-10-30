@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
+import { mkdtemp, mkdir, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { replaceAppAsarFromStaging } from "../../packages/desktop/scripts/app-asar-repack.mjs";
 import test from "node:test";
 import { promisify } from "node:util";
 
@@ -144,6 +148,43 @@ test("Desktop services bundles leave the native keyring for runtime platform sel
     },
   );
   assert.match(stdout, /NATIVE_KEYRING_RUNTIME_VERIFIED/);
+});
+
+test("macOS PTY helper remains executable after the real archive repack and final hook", async () => {
+  if (process.platform === "win32") return;
+  const root = await mkdtemp(join(tmpdir(), "aiscoo-pty-packaging-"));
+  try {
+    const sourceDir = join(root, "source");
+    const helperRelative = "node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper";
+    await mkdir(join(sourceDir, "node_modules/node-pty/prebuilds/darwin-arm64"), {
+      recursive: true,
+    });
+    // XCODE: asar 解包会丢失 helper 的执行位，最终 hook 必须恢复真实进程可执行能力。
+    await writeFile(join(sourceDir, helperRelative), "#!/bin/sh\nexit 0\n", { mode: 0o644 });
+    const archive = join(root, "app.asar");
+    const asarCli = join(
+      dirname(requireFromDesktop.resolve("@electron/asar/package.json")),
+      "bin/asar.js",
+    );
+    await replaceAppAsarFromStaging({
+      sourceDir,
+      appAsarPath: archive,
+      targetPlatformKey: "darwin-arm64",
+      runAsarCommand: (args) => execFileSync(process.execPath, [asarCli, ...args]),
+    });
+    const config = (await import("../../packages/desktop/electron-builder.config.js")).default;
+    const assets = await import("../../packages/desktop/scripts/node-pty-package-assets.mjs");
+    assert.ok(config.afterPack.toString().includes("ensurePackagedNodePtyHelperExecutable"));
+    await assets.ensurePackagedNodePtyHelperExecutable({
+      resourcesDir: root,
+      platformKey: "darwin-arm64",
+    });
+    const helper = join(`${archive}.unpacked`, helperRelative);
+    assert.ok((await stat(helper)).mode & 0o111);
+    await execFileAsync(helper, []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 for (const [label, environment, channel] of [
