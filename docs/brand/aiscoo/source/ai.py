@@ -13,7 +13,7 @@ HEAD_CX = 66                      # wordmark units; right side tucks behind the 
 TX, TY = HEAD_CX - HX * S, 50 - HY * S
 I_LEFT, GAP = 116, 5
 SHIFT = -(HEAD_CX - 50)           # move everything so the head's left edge sits at x=0
-EYES, EY, ERX, ERY = (31.5, 47.5), 57, 6.5, 9
+EYES, EY, EYE_WIDTH, EYE_HEIGHT = (30.5, 48.5), 57, 7.4, 17.2
 # i proportions (wordmark units, x-height 0..100). Stem top = round-cap centre.
 I_STEM_TOP, I_DOT_CY, I_DOT_R = 11, -18, 11   # stem cap top at 0 = level with the head and s c o; dot gap 7
 
@@ -22,23 +22,19 @@ def set_i(stem_top, dot_cy, dot_r):
     global I_STEM_TOP, I_DOT_CY, I_DOT_R
     I_STEM_TOP, I_DOT_CY, I_DOT_R = stem_top, dot_cy, dot_r
 
-# The i stem is the pivot for the tilt: 111% / 100% of the head's box in mark space.
-ACTIVE, CYCLE = 4.8, 8.0   # seconds of motion; the rest of the cycle the robot stays tucked behind the i
-
-
 def _stretch(css):
-    """Keep the motion's absolute timing and extend the final hidden hold to fill the longer cycle."""
-    k = ACTIVE / CYCLE
-
-    def frames(m):
+    # 原因：oo_preview 导入时仍构造旧实验动效；保留其接口，正式 Logo 直接使用 anim.CSS。
+    def frames(match):
         return re.sub(r'(\d+(?:\.\d+)?)%',
-                      lambda p: p.group(0) if p.group(1) == "100" else f"{float(p.group(1)) * k:g}%", m.group(0))
+                      lambda p: p.group(0) if p.group(1) == "100"
+                      else f"{float(p.group(1)) * 4.8 / 8:g}%", match.group(0))
     css = re.sub(r'@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}', frames, css)
-    return css.replace(f"{ACTIVE}s", f"{CYCLE}s")
+    return css.replace("4.8s", "8.0s")
 
 
-CSS = _stretch(BASE_CSS.replace("transform-box:view-box;transform-origin:62px 86px",
-                                "transform-box:fill-box;transform-origin:111% 100%"))
+# The i stem is the pivot for the tilt: 111% / 100% of the head's box in mark space.
+CSS = BASE_CSS.replace("transform-box:view-box;transform-origin:62px 86px",
+                       "transform-box:fill-box;transform-origin:111% 100%")
 
 
 # Same offset as the peek keyframes' hidden pose. CSS animation overrides this attribute while it runs,
@@ -57,12 +53,25 @@ def set_head(top=0, right=116):
 
 
 def head(fg, bg, u, tucked=False):
-    eyes = "".join(f'<ellipse class="eye" cx="{x}" cy="{EY}" rx="{ERX}" ry="{ERY}" fill="{bg}"/>' for x in EYES)
+    # 胶囊直接改变高度闭眼，保留圆头；静态与减少动态效果时只显示常态眼睛。
+    eyes = "".join(f'<rect class="eye" x="{x-EYE_WIDTH/2:g}" y="{EY-EYE_HEIGHT/2:g}" '
+                   f'width="{EYE_WIDTH}" height="{EYE_HEIGHT}" rx="{EYE_WIDTH/2:g}" fill="{bg}"/>'
+                   for x in EYES)
+    # 原因：细描边在小尺寸下显尖；闭合厚弧保留饱满弧顶、内凹底和圆润端点。
+    smile = "".join(
+        f'<g transform="translate({x:g} 0)"><path d="M-6.7 56.8'
+        'C-6.7 53.1 -3.7 50.3 0 50.3C3.7 50.3 6.7 53.1 6.7 56.8'
+        'C6.7 58.2 5.8 59.1 4.5 59.1C3.2 59.1 2.7 58.2 2 57.2'
+        'C1 55.8 -1 55.8 -2 57.2C-2.7 58.2 -3.2 59.1 -4.5 59.1'
+        'C-5.8 59.1 -6.7 58.2 -6.7 56.8Z"/></g>' for x in EYES)
+    eyes = (f'<g class="eye-open">{eyes}</g><g class="smile" opacity="0" '
+            f'fill="{bg}">{smile}</g>')
     defs = (f'<clipPath id="{u}hide"><rect x="-200" y="-200" width="{I_LEFT-GAP+200}" height="500"/></clipPath>'
             f'<clipPath id="{u}hc"><circle cx="{HX}" cy="{HY}" r="{HR-1}"/></clipPath>')
     body = (f'<g clip-path="url(#{u}hide)"><g transform="translate({TX:.2f} {TY:.2f}) scale({S:.4f})">'
-            f'<g class="head"{TUCK if tucked else ""}><g class="tilt"><circle cx="{HX}" cy="{HY}" r="{HR}" fill="{fg}"/>'
-            f'<g clip-path="url(#{u}hc)"><g class="eyes">{eyes}</g></g></g></g></g></g>')
+            f'<g class="head"{TUCK if tucked else ""}><g class="bounce"><g class="tilt">'
+            f'<circle cx="{HX}" cy="{HY}" r="{HR}" fill="{fg}"/>'
+            f'<g clip-path="url(#{u}hc)"><g class="eyes">{eyes}</g></g></g></g></g></g></g>')
     return defs, body
 
 

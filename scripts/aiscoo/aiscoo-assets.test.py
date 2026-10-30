@@ -18,18 +18,19 @@ SCRIPT = ROOT / "scripts/aiscoo/generate-icons.py"
 SOURCE = ROOT / "docs/brand/aiscoo"
 SIZES = (16, 24, 32, 48, 64, 128, 256, 512, 1024)
 SVG_NS = "{http://www.w3.org/2000/svg}"
-# 原因：本次反馈仅调整桌面图标；固定既有 Web、安装器与 DMG 字节以阻止范围扩散。
-UNCHANGED_OUTPUT_HASHES = {
-    "packages/web/public/favicon.ico": "b760abb8b5951f59868f4432b5e5c6ff029e88730e91d72d5467e2cb81058428",
-    "packages/web/public/apple-touch-icon.png": "73e50b0624912a874ea9f92a2c9f2f5a87b0f7e2d303088c3ee24239a5949c69",
-    "packages/web/public/icon-192.png": "4c3b035d82e4ea1d2d6cc1ef3d410e723399919c0076baf7887697dd6e90d5bb",
-    "packages/web/public/icon-512.png": "1b6be9c7cd35f76f535498ec96abde18b5e812e7f83ba7f7e9afe248a0d0cfaa",
-    "packages/desktop/build/icon_installer.png": "929379b8f39557ef1a0ac4efdb3a58ab2258b0dc77533be1d9b8e2193d0b99aa",
-    "packages/desktop/build/icon_installer.ico": "f915d7e2f17f5ef80578f604af2e43a2aa6d5700b34433b1f01adcf8ae7420c5",
-    "packages/desktop/build/icon_installer.icns": "9e82b16861b9c447aa2864e72a73d63daa01bc48d6aa48eec1ce3490a4af1d05",
-    "packages/desktop/build/dmg_background.png": "5503e1b368a207c9bf77cd6c104caf43d1d7d0e1e3743e83babadb6408bc8f54",
-    "packages/desktop/build/dmg_background@2x.png": "beeeffb5941fdcab4d470d732ffd8041157296c85da9a78dc887a6033d9f62d7",
-}
+# 原因：眼型升级覆盖全部品牌出口；桌面主题配置仍不能影响 Web／安装器，
+# 已发布文件须与同版设计源一致，原字母和背景几何由 robot-motion.test.py 独立锁定。
+NON_DESKTOP_OUTPUTS = (
+    "packages/web/public/favicon.ico",
+    "packages/web/public/apple-touch-icon.png",
+    "packages/web/public/icon-192.png",
+    "packages/web/public/icon-512.png",
+    "packages/desktop/build/icon_installer.png",
+    "packages/desktop/build/icon_installer.ico",
+    "packages/desktop/build/icon_installer.icns",
+    "packages/desktop/build/dmg_background.png",
+    "packages/desktop/build/dmg_background@2x.png",
+)
 
 
 def hashes(directory):
@@ -84,8 +85,9 @@ class AiscooAssetTests(unittest.TestCase):
         self.assertEqual(hashes(SOURCE), self.source_before)
         self.generate("--check")
 
-    def test_all_38_original_design_files_remain_immutable(self):
-        self.assertEqual(len(self.source_before), 38)
+    def test_design_inputs_remain_immutable_during_publication(self):
+        self.assertIn("source/ai.py", self.source_before)
+        self.assertIn("app-icon/png/icon-light-1024.png", self.source_before)
         self.assertEqual(hashes(SOURCE), self.source_before)
 
     def test_production_assets_are_published_in_existing_packaging_paths(self):
@@ -163,7 +165,7 @@ class AiscooAssetTests(unittest.TestCase):
                                      (SOURCE / f"app-icon/png/icon-{theme}-1024.png").read_bytes())
                     self.assertNotEqual((output / "packages/desktop/build/icon.png").read_bytes(),
                                         (self.output / "packages/desktop/build/icon.png").read_bytes())
-                    for name in UNCHANGED_OUTPUT_HASHES:
+                    for name in NON_DESKTOP_OUTPUTS:
                         self.assertEqual((output / name).read_bytes(),
                                          (self.output / name).read_bytes(), name)
 
@@ -226,16 +228,16 @@ class AiscooAssetTests(unittest.TestCase):
             for name in (f"startup-{theme}.svg", f"wordmark-animated-{theme}.svg"):
                 text = (assets / name).read_text()
                 self.assertIn("prefers-reduced-motion:reduce", text)
-                self.assertIn("8.0s", text)
+                self.assertIn("10.0s", text)
             for path in assets.glob(f"*-{theme}.svg"):
                 tree = ET.fromstring(path.read_text())
                 self.assertFalse(any(el.tag in (SVG_NS + "text", SVG_NS + "image", SVG_NS + "script")
                                      for el in tree.iter()), path.name)
 
-    def test_web_and_installer_outputs_remain_byte_identical(self):
-        for name, digest in UNCHANGED_OUTPUT_HASHES.items():
+    def test_web_and_installer_publish_the_current_design(self):
+        for name in NON_DESKTOP_OUTPUTS:
             with self.subTest(name=name):
-                self.assertEqual(hashlib.sha256((self.output / name).read_bytes()).hexdigest(), digest)
+                self.assertEqual((self.output / name).read_bytes(), (ROOT / name).read_bytes())
 
     def test_mobile_and_installer_outputs_have_correct_canvas_and_theme(self):
         for name, size in (("apple-touch-icon.png", 180), ("icon-192.png", 192), ("icon-512.png", 512)):
