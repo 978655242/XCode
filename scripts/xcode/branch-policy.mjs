@@ -80,7 +80,10 @@ async function checkPr() {
   // fork 点：PR 包含的最新上游提交；它之前、目标分支还没有的提交就是本 PR 新引入的上游改动。
   const forkPoint = await git("merge-base", headSha, upstreamRef);
   const upstreamCount = Number(await git("rev-list", "--count", forkPoint, `^${baseRef}`));
-  const changedFiles = lines(await git("diff", "--name-only", `${baseRef}...${headSha}`));
+  // 修复原因：重命名检测会隐藏受保护日志的旧路径，必须将移动视为删除和新增。
+  const changedFiles = lines(
+    await git("diff", "--no-renames", "--name-only", `${baseRef}...${headSha}`),
+  );
   const touchesSyncLog = changedFiles.includes(SYNC_LOG);
 
   if (isSync) {
@@ -99,7 +102,15 @@ async function checkPr() {
         `同步分支引入了 ${MIRROR_BRANCH} 镜像中还没有的上游提交。先快进并推送 ${MIRROR_BRANCH}，再从 ${MIRROR_BRANCH} 合并。`,
       );
     }
-    if (!touchesSyncLog) errors.push(`同步 PR 必须更新 ${SYNC_LOG}（分类、冲突取舍、拒绝原因）。`);
+    // 修复原因：删除、移动或替换为目录不能算更新，提交后的固定路径必须保留文件。
+    if (
+      !touchesSyncLog ||
+      !(await git("ls-tree", "-r", "--name-only", headSha, "--", SYNC_LOG))
+        .split("\n")
+        .includes(SYNC_LOG)
+    ) {
+      errors.push(`同步 PR 必须更新 ${SYNC_LOG}（分类、冲突取舍、拒绝原因）。`);
+    }
   } else {
     if (upstreamCount > 0) {
       errors.push(
@@ -159,7 +170,10 @@ async function guardMerge() {
   for (const commit of commits) {
     const [sha, parents, subject] = commit.split("\t");
     if (parents.split(" ").length > 1) continue;
-    const files = lines(await git("diff-tree", "--no-commit-id", "--name-only", "-r", sha));
+    // 修复原因：巡检也必须看到改名前的日志路径，不受 Git 重命名配置影响。
+    const files = lines(
+      await git("diff-tree", "--no-renames", "--no-commit-id", "--name-only", "-r", sha),
+    );
     if (/^sync[:(]/.test(subject) || files.includes(SYNC_LOG)) {
       errors.push(
         `${sha.slice(0, 7)} "${subject}" 是单父提交却包含上游同步内容：同步 PR 被 squash 合并了。` +
