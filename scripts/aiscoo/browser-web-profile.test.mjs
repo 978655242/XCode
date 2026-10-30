@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { browserWebProfile } from "./browser-web-profile.mjs";
+import { browserWebProfile, composeBrowserWebProxy } from "./browser-web-profile.mjs";
 
 const env = { AISCOO_BROWSER_NEW_API: "1", NEW_API_BASE_URL: "https://account.example" };
 test("disabled profile leaves existing Web configuration unchanged", () => {
@@ -55,22 +55,56 @@ test("authorization callback permits only a cross-site top-level navigation", ()
       },
     },
   });
-  for (const mode of ["navigate", "no-cors"]) {
-    let reached = false;
-    middleware(
-      {
-        method: "GET",
-        url: "/oauth/callback?provider=new-api&code=synthetic&state=synthetic",
-        headers: { host: "127.0.0.1:5173", "sec-fetch-site": "cross-site", "sec-fetch-mode": mode },
-      },
-      { end() {} },
-      () => {
-        reached = true;
-      },
-    );
-    assert.equal(reached, mode === "navigate");
+  for (const path of [
+    "/oauth/callback",
+    "/remote/v4",
+    "/remote/v4/",
+    "/share/callback",
+    "/cn/share/callback",
+  ]) {
+    for (const mode of ["navigate", "no-cors"]) {
+      let reached = false;
+      middleware(
+        {
+          method: "GET",
+          url: `${path}?provider=synthetic&code=synthetic&state=synthetic`,
+          headers: {
+            host: "127.0.0.1:5173",
+            "sec-fetch-site": "cross-site",
+            "sec-fetch-mode": mode,
+          },
+        },
+        { end() {} },
+        () => {
+          reached = true;
+        },
+      );
+      assert.equal(reached, mode === "navigate", `${path} ${mode}`);
+    }
   }
 });
+test("local account proxies preserve existing OAuth and remote routes ahead of the API fallback", () => {
+  const oauth = { target: "https://official.example", changeOrigin: true, secure: true };
+  const remote = { ...oauth, ws: true };
+  const existing = {
+    "/api/v1/oauth/token": oauth,
+    "/api/v1/remote": remote,
+    "/ws": { target: "ws://localhost:3030", ws: true },
+    "/api": { target: "http://localhost:3030" },
+  };
+  assert.equal(composeBrowserWebProxy(null, existing), existing);
+  const proxy = composeBrowserWebProxy(browserWebProfile(env), existing);
+  assert.equal(proxy["/api/v1/oauth/token"], oauth);
+  assert.equal(proxy["/api/v1/remote"], remote);
+  const target = (path) => proxy[Object.keys(proxy).find((prefix) => path.startsWith(prefix))];
+  assert.equal(target("/api/v1/oauth/token"), oauth);
+  assert.equal(target("/api/v1/remote/devices"), remote);
+  assert.equal(target("/api/xcode/v1/auth/token").target, env.NEW_API_BASE_URL);
+  assert.equal(target("/api/info").target, "http://127.0.0.1:3030");
+  assert.equal(target("/ws").target, "ws://127.0.0.1:3030");
+  assert.equal(existing["/api"].target, "http://localhost:3030");
+});
+
 test("invalid origins never turn into a proxy target", () => {
   for (const origin of [
     "http://evil.example",

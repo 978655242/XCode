@@ -193,7 +193,16 @@ export function createBrowserAccountBridge(
         throw bridgeError("XCODE_ACCESS_EXPIRED");
       } catch (error) {
         current(source, capturedRevision);
-        throw sanitizedError(error);
+        const failure = sanitizedError(error);
+        if (["XCODE_SESSION_INVALID", "XCODE_CREDENTIAL_SCOPE_DENIED"].includes(failure.code)) {
+          // Native 已确认撤销；先同步清空 Host 投影，再通知浏览器按捕获代次清凭据，不能等待清理 hook。
+          ownerAcceptance = transition(source, null);
+          const invalidatedRevision = revision;
+          const notified = request<void>(source, "invalidateCredential", { owner: expected });
+          await Promise.all([ownerAcceptance, notified]);
+          current(source, invalidatedRevision);
+        }
+        throw failure;
       }
     },
     async getRelayCredential(expected) {

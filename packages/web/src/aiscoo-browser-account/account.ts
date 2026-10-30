@@ -590,6 +590,20 @@ export function createBrowserNewApiAccount(
       },
     }),
     getOwner,
+    invalidateCredential: (expected: NewApiOwner) => {
+      if (disposed) return;
+      const record = read();
+      if (
+        !record ||
+        expected.origin !== origin ||
+        expected.userId !== record.bundle.user.id ||
+        expected.sid !== record.bundle.session_id ||
+        expected.authGeneration !== record.authGeneration
+      )
+        return;
+      // Host 的确认撤销只作用于捕获代次；复用同步失效路径，迟到刷新不能复活，也不删除新账号。
+      invalidate(record, revision);
+    },
     getControlCredential: async (expected: NewApiOwner) => {
       const record = expectedRecord(expected);
       const captured = revision;

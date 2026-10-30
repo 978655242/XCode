@@ -18,7 +18,10 @@ import {
   resolveZaiOAuthOrigin,
 } from "@zcode/shared/zcodeEndpoint";
 // XCODE: 本机 profile 只装配公开配置，不导入 Node 服务或 CLI 构建产物。
-import { browserWebProfile } from "../../scripts/aiscoo/browser-web-profile.mjs";
+import {
+  browserWebProfile,
+  composeBrowserWebProxy,
+} from "../../scripts/aiscoo/browser-web-profile.mjs";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const REPO_ROOT = resolve(HERE, "../..");
@@ -78,8 +81,8 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       // XCODE: 明确启用本机 profile 时固定 loopback 和精确端口。
       ...(browserAccount?.server ?? {}),
-      // XCODE: 专用 API 代理必须先于 /api 通配；覆盖同名键不会改变 JS 键的顺序。
-      proxy: browserAccount?.proxy ?? {
+      // XCODE: 原 OAuth/远控专用目标必须保留；本机条目追加在 /api 通配之前。
+      proxy: composeBrowserWebProxy(browserAccount, {
         // Web 登录本地调试时，OAuth token 交换必须先命中线上同源接口。
         // 该专用代理放在 `/api` 通配代理之前，避免被转发到本地 server 导致 404。
         "/api/v1/oauth/token": {
@@ -96,7 +99,7 @@ export default defineConfig(({ mode }) => {
         // 将 /ws 和 /api 请求代理到 server（默认 3030 端口）
         "/ws": { target: "ws://localhost:3030", ws: true },
         "/api": { target: "http://localhost:3030" },
-      },
+      }),
     },
     optimizeDeps: {
       // 修复：在依赖预构建阶段显式加入 react 相关入口，避免 rolldown 解析 `react/jsx-runtime`

@@ -42,6 +42,27 @@ export function registerBrowserAccountChannel(
         const session = await account.oauth.restoreCachedSessionState();
         return { owner: account.getOwner(), session };
       }
+      if (command === "invalidateCredential") {
+        const owner = (arg as { owner?: NewApiOwner } | undefined)?.owner;
+        if (
+          !arg ||
+          typeof arg !== "object" ||
+          Object.keys(arg).join() !== "owner" ||
+          !owner ||
+          Object.keys(owner).sort().join() !== "authGeneration,origin,sid,userId" ||
+          typeof owner.origin !== "string" ||
+          typeof owner.userId !== "string" ||
+          !/^[1-9]\d*$/.test(owner.userId) ||
+          typeof owner.sid !== "string" ||
+          !owner.sid ||
+          owner.sid.trim() !== owner.sid ||
+          !Number.isSafeInteger(owner.authGeneration) ||
+          owner.authGeneration <= 0
+        )
+          throw new Error("AISCOO_BROWSER_RPC_INVALID");
+        account.invalidateCredential(owner);
+        return;
+      }
       if (command === "control" || command === "relay") {
         const owner = (arg as { owner?: NewApiOwner } | undefined)?.owner;
         if (!owner) throw new Error("AISCOO_BROWSER_RPC_INVALID");

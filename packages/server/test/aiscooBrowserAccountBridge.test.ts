@@ -361,6 +361,143 @@ describe("browser account reverse bridge", () => {
     expect(action).toHaveBeenCalledTimes(1);
   });
 
+  it.each(["XCODE_SESSION_INVALID", "XCODE_CREDENTIAL_SCOPE_DENIED"])(
+    "invalidates confirmed %s before awaiting the hook or browser and blocks relay",
+    async (code) => {
+      const accepted = Promise.withResolvers<void>();
+      const notified = Promise.withResolvers<void>();
+      const entered = Promise.withResolvers<void>();
+      const { bridge, authority, browser } = fixture({
+        onOwnerChanged: (next) => (next === null ? accepted.promise : undefined),
+      });
+      await bridge.attach(browser.client).ready;
+      browser.call.mockImplementation(async (command, arg) => {
+        if (command === "control") return { owner, accessToken: "test-control" };
+        if (command === "invalidateCredential") {
+          expect(authority.getOwner()).toBeNull();
+          expect(authority.isCurrent(owner)).toBe(false);
+          expect(arg).toEqual({ owner });
+          browser.events.fire({ owner: null });
+          entered.resolve();
+          return notified.promise;
+        }
+        throw new Error("unexpected command");
+      });
+      const reading = authority.withControlSession(async () => {
+        throw Object.assign(new Error("untrusted native details"), { code });
+      });
+      const outcome = reading.catch((error: unknown) => error);
+      await vi.waitFor(() => expect(authority.getOwner()).toBeNull());
+      await entered.promise;
+      await expect(authority.getRelayCredential(owner)).rejects.toThrow("XCODE_STALE_OWNER");
+      accepted.resolve();
+      notified.resolve();
+      expect(await outcome).toMatchObject({ code, message: code });
+      expect(browser.call.mock.calls.map(([command]) => command)).toEqual([
+        "restore",
+        "control",
+        "invalidateCredential",
+      ]);
+    },
+  );
+
+  it.each(["XCODE_SESSION_INVALID", "XCODE_CREDENTIAL_SCOPE_DENIED"])(
+    "does not invalidate a replacement owner for a late confirmed %s",
+    async (code) => {
+      const { bridge, authority, browser } = fixture();
+      await bridge.attach(browser.client).ready;
+      const entered = Promise.withResolvers<void>();
+      const result = Promise.withResolvers<never>();
+      const reading = authority.withControlSession(async () => {
+        entered.resolve();
+        return result.promise;
+      });
+      const rejected = expect(reading).rejects.toThrow("XCODE_STALE_OWNER");
+      await entered.promise;
+      browser.events.fire({ owner: nextOwner });
+      result.reject(Object.assign(new Error(code), { code }));
+      await rejected;
+      expect(authority.isCurrent(nextOwner)).toBe(true);
+      expect(browser.call.mock.calls.map(([command]) => command)).toEqual(["restore", "control"]);
+    },
+  );
+
+  it("keeps replacement ownership when browser invalidation completes late", async () => {
+    const { bridge, authority, browser } = fixture();
+    const attached = bridge.attach(browser.client);
+    await attached.ready;
+    const entered = Promise.withResolvers<void>();
+    const completed = Promise.withResolvers<void>();
+    browser.call.mockImplementation(async (command) => {
+      if (command === "control") return { owner, accessToken: "test-control" };
+      if (command === "invalidateCredential") {
+        entered.resolve();
+        return completed.promise;
+      }
+      throw new Error("unexpected command");
+    });
+    const reading = authority.withControlSession(async () => {
+      throw Object.assign(new Error("revoked"), { code: "XCODE_SESSION_INVALID" });
+    });
+    const rejected = expect(reading).rejects.toThrow("XCODE_STALE_OWNER");
+    await entered.promise;
+    attached.dispose();
+    await bridge.attach(peer().client).ready;
+    completed.resolve();
+    await rejected;
+    expect(authority.isCurrent(owner)).toBe(true);
+  });
+
+  it("notifies the captured browser and remains invalid when owner cleanup rejects", async () => {
+    const { bridge, authority, browser } = fixture({
+      onOwnerChanged: (next) => {
+        if (next === null)
+          throw Object.assign(new Error("cleanup rejected"), { code: "XCODE_BACKEND_UNAVAILABLE" });
+      },
+    });
+    await bridge.attach(browser.client).ready;
+    browser.call.mockImplementation(async (command, arg) => {
+      if (command === "control") return { owner, accessToken: "test-control" };
+      if (command === "invalidateCredential") {
+        expect(arg).toEqual({ owner });
+        return;
+      }
+      throw new Error("unexpected command");
+    });
+    await expect(
+      authority.withControlSession(async () => {
+        throw Object.assign(new Error("revoked"), { code: "XCODE_SESSION_INVALID" });
+      }),
+    ).rejects.toThrow("XCODE_BACKEND_UNAVAILABLE");
+    expect(authority.isCurrent(owner)).toBe(false);
+    await expect(authority.getRelayCredential(owner)).rejects.toThrow("XCODE_STALE_OWNER");
+    expect(browser.call.mock.calls.map(([command]) => command)).toEqual([
+      "restore",
+      "control",
+      "invalidateCredential",
+    ]);
+  });
+
+  it.each(["XCODE_BACKEND_UNAVAILABLE", "XCODE_PROTOCOL_INVALID", "NETWORK_ERROR"])(
+    "preserves the owner and relay after unconfirmed %s",
+    async (code) => {
+      const { bridge, authority, browser } = fixture();
+      await bridge.attach(browser.client).ready;
+      await expect(
+        authority.withControlSession(async () => {
+          throw Object.assign(new Error(code), { code });
+        }),
+      ).rejects.toThrow();
+      expect(authority.isCurrent(owner)).toBe(true);
+      await expect(authority.getRelayCredential(owner)).resolves.toHaveProperty("token");
+      expect(browser.call.mock.calls.map(([command]) => command)).toEqual([
+        "restore",
+        "control",
+        "relay",
+      ]);
+    },
+  );
+
   it("sanitizes remote errors without retaining messages, stacks, or token data", async () => {
     const { bridge, authority, browser } = fixture();
     await bridge.attach(browser.client).ready;

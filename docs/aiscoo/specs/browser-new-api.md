@@ -6,7 +6,7 @@
 
 - 沿用 `pnpm dev:web`、现有 WebSocket RPC、`IOAuthService`、`WebCallbackPage`、AccountProviderService、Native 目录解析及 Worker 的请求期鉴权协议。上游 Z.ai/BigModel 远控和分享登录保持原路径。
 - 浏览器通过 WebCrypto 生成 state 和 S256 PKCE，使用现有公共客户端 `xwork-cli` 和精确 `http://127.0.0.1:<Web端口>/oauth/callback`，同页跳转到 New API 原生授权页，回调成功返回 `/`。源码允许这种回调，不要求独立 listener。仅本机模式启用专用同源控制 API 代理，不修改 New API 后端和 CORS。
-- 公开配置为 `AISCOO_BROWSER_NEW_API=1` 与 `NEW_API_BASE_URL`；浏览器访问地址必须是有显式非默认端口的 `http://127.0.0.1`。启用配置不得回退到官方账号。远控、分享、Desktop 及未启用配置时保持既有默认行为。
+- 公开配置为 `AISCOO_BROWSER_NEW_API=1` 与 `NEW_API_BASE_URL`；浏览器访问地址必须是有显式非默认端口的 `http://127.0.0.1`。启用配置不得回退到官方账号。远控、分享、Desktop 及未启用配置时保持既有默认行为。本机代理必须保留原 `/api/v1/oauth/token`、`/api/v1/remote` 专用目标，所有专用条目排在 `/api` 通配之前；只将本机 `/ws` 与 `/api` 目标切到精确回环 Server。
 - 不带入 #47 的 Host 登录状态机、OS keyring、私有磁盘凭据库、CLI adapters 依赖、新网络 session/token 系统和专用进程启动器。
 - 普通 standalone Web 的项目创建仍存在既有边界：UI 默认传 `hostId=local`，Server 持库 owner 为 `remote:server:<id>`，因而目录/保存会被 `project.host-offline` 拒绝；未选择项目的草稿被 `project.remote-project-required` 拒绝。本次不改写 owner、workspace identity 或远端项目权限。真实 CLI 的 helper 查询通过，不能据此声称普通新用户从创建项目到聊天首发已可用；该交互需要独立的当前 Server 项目适配。
 
@@ -50,7 +50,7 @@ sequenceDiagram
 
 - callback 处理单飞；state/回调/provider/期限必须匹配。code 兑换不自动重试；合法 proof 重放会撤销已签发 SID。旧尝试不能覆盖后来接受的登录。非法回调不访问 token endpoint。
 - refresh 在浏览器 Web Lock 内重新读取当前 bundle，轮换后同次写回；保持原 user/SID/relay key，只有同一 owner 可接受结果。退出/换号/断连之后的迟到结果不能发布给新 attachment。
-- 恢复必须经 `/me` 确认，过期 control 先刷新。网络失败显示不可用并保留可恢复存储；明确失效清除当前凭据。不能把 opaque token 或缓存头像当身份验证。
+- 恢复必须经 `/me` 确认，过期 control 先刷新。网络失败显示不可用并保留可恢复存储；控制接口确认 SID/凭据用途无效时，Host 在异步通知前同步使捕获 owner 和目录失效，再通知浏览器按 generation/user/SID 清除匹配凭据。迟到错误不得清除后来新账号；网络或服务故障不得伪装撤销。不能把 opaque token 或缓存头像当身份验证。
 - 退出先使本地 owner 无效、清存储并通知 Server 使执行失效，再尝试原 SID 的远端 logout。撤销失败明确报错，不声称远端已撤销；不撤销后来新登录的 SID。登录/退出均通过原 `IOAuthService` 消费路径。
 - 浏览器关闭后 Server 无可用 credential source；不保存 control/refresh/relay key 到 Host 磁盘。已有已接受任务的恢复仍由现有 CLI 管理；新请求不能借用上个 attachment 的凭据。
 - 本机 Server 与 Vite 明确监听 loopback，代理目标固定为已验证 New API origin；不能把任意 URL、凭据或 token 编入公开配置。不为浏览器方案开放公网/局域网访问。开发服务器使用明确 Host/Origin 边界；该边界不引入新登录 session 系统。

@@ -24,6 +24,7 @@ describe("browser account public contract", () => {
       "getControlCredential",
       "getOwner",
       "getRelayCredential",
+      "invalidateCredential",
       "oauth",
     ]);
     await expect(account.oauth.startOAuth("zai")).rejects.toThrow("XCODE_PROVIDER_INVALID");

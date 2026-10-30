@@ -20,6 +20,8 @@ export interface BrowserNewApiAccount {
   getOwner(): NewApiOwner | null;
   getControlCredential(expected: NewApiOwner): Promise<{ accessToken: string; owner: NewApiOwner }>;
   getRelayCredential(expected: NewApiOwner): Promise<{ token: string; expiresAt: number }>;
+  /** Native-confirmed revocation; synchronously clears only the captured credential owner. */
+  invalidateCredential(expected: NewApiOwner): void;
   /** Invalidates this page's in-flight work; persistent login and pending navigation survive. */
   dispose(): void;
 }

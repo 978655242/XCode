@@ -1,3 +1,13 @@
+// 本机代理曾整体替换上游表，导致远控/分享 OAuth 被 /api 通配送到本机。
+// 保留既有专用目标，再追加本机条目；关闭时返回原表，不修改共享配置对象。
+export function composeBrowserWebProxy(profile, existing) {
+  if (!profile) return existing;
+  const specific = Object.fromEntries(
+    Object.entries(existing).filter(([path]) => path !== "/ws" && path !== "/api"),
+  );
+  return { ...specific, ...profile.proxy };
+}
+
 // 本机 Web 只增加公开配置、同源代理与开发服务器入口限制，不持有登录凭据。
 export function browserWebProfile(env) {
   if (env.AISCOO_BROWSER_NEW_API !== "1") return null;
@@ -42,10 +52,17 @@ export function browserWebProfile(env) {
       configureServer(server) {
         server.middlewares.use((req, res, next) => {
           const requestOrigin = req.headers.origin;
-          // 授权站的回跳是跨站顶层导航，仅精确 callback 允许进入 SPA。
+          // 本机与原远控/分享回跳都是跨站顶层导航；页面仍按原 state 校验处理回调。
+          const callbackPaths = new Set([
+            "/oauth/callback",
+            "/remote/v4",
+            "/remote/v4/",
+            "/share/callback",
+            "/cn/share/callback",
+          ]);
           const callbackNavigation =
             req.method === "GET" &&
-            req.url?.split("?")[0] === "/oauth/callback" &&
+            callbackPaths.has(req.url?.split("?")[0]) &&
             req.headers["sec-fetch-mode"] === "navigate";
           if (
             req.headers.host !== browser.host ||

@@ -11,6 +11,7 @@ export function sanitizedError(error: unknown): Error & { code: string } {
     "XCODE_STALE_OWNER",
     "XCODE_PROTOCOL_INVALID",
     "XCODE_SESSION_INVALID",
+    "XCODE_CREDENTIAL_SCOPE_DENIED",
     "XCODE_BACKEND_UNAVAILABLE",
     "XCODE_CREDENTIAL_RECOVERY_REQUIRED",
     "XCODE_ACCESS_EXPIRED",

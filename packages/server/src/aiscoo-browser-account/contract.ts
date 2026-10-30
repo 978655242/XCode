@@ -58,6 +58,7 @@ export interface BrowserAccountWireCommands {
   restore: { arg: undefined; result: BrowserAccountRestoreResult };
   control: { arg: BrowserAccountControlRequest; result: BrowserAccountControlResult };
   relay: { arg: BrowserAccountRelayRequest; result: BrowserAccountRelayResult };
+  invalidateCredential: { arg: { owner: NewApiOwner }; result: void };
   oauth: {
     arg: BrowserAccountOAuthRequest;
     result: BrowserAccountOAuthResult<BrowserAccountOAuthMethod>;

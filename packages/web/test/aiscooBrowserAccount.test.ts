@@ -1,7 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { IChannelServer, IServerChannel } from "@zcode/rpc";
 import type { NewApiSessionBundle } from "@zcode/shared";
 import {
   createBrowserNewApiAccount,
+  registerBrowserAccountChannel,
   type BrowserNewApiAccountOptions,
 } from "../src/aiscoo-browser-account/index.js";
 
@@ -165,7 +167,43 @@ function fixture() {
   };
 }
 
+afterEach(() => vi.unstubAllGlobals());
+
 describe("browser New API account", () => {
+  it("admits only the explicit owner-bound reverse invalidation command", async () => {
+    const f = fixture();
+    await f.login();
+    const owner = f.account.getOwner()!;
+    vi.stubGlobal("window", { addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    let channel!: IServerChannel;
+    const attached = registerBrowserAccountChannel(
+      {
+        registerChannel: (_name: string, value: IServerChannel) => {
+          channel = value;
+        },
+      } as IChannelServer,
+      f.account,
+    );
+    try {
+      await expect(
+        channel.call("browser", "invalidateCredential", { owner: { ...owner, extra: true } }),
+      ).rejects.toThrow("AISCOO_BROWSER_RPC_INVALID");
+      expect(f.account.getOwner()).toEqual(owner);
+      await expect(
+        channel.call("browser", "invalidateCredential", { owner }),
+      ).resolves.toBeUndefined();
+      expect(f.account.getOwner()).toBeNull();
+      expect(f.stored()).toBeUndefined();
+      await expect(
+        channel.call("browser", "invalidateCredential", { owner }),
+      ).resolves.toBeUndefined();
+      await expect(
+        channel.call("browser", "oauth", { method: "invalidateCredential", args: [owner] }),
+      ).rejects.toThrow("AISCOO_BROWSER_RPC_INVALID");
+    } finally {
+      attached.dispose();
+    }
+  });
   it.each([
     "http://localhost:5173",
     "https://127.0.0.1:5173",
@@ -585,6 +623,90 @@ describe("browser New API account", () => {
     expect(f.account.getOwner()).toEqual(owner);
     expect(f.calls("auth/refresh")).toHaveLength(1);
   });
+
+  it("invalidates the captured credential synchronously during refresh without resurrection", async () => {
+    const f = fixture();
+    await f.login();
+    const owner = f.account.getOwner()!;
+    const refreshed = deferred<Response>();
+    const entered = deferred<void>();
+    f.refresh(() => {
+      entered.resolve();
+      return refreshed.promise;
+    });
+    f.setTime(initialTime + 60_000);
+    const refresh = f.account.getControlCredential(owner);
+    await entered.promise;
+    const changes: string[] = [];
+    f.account.oauth.onDidChangeSession((event) => changes.push(event));
+    f.account.invalidateCredential(owner);
+    expect(f.account.getOwner()).toBeNull();
+    expect(f.stored()).toBeUndefined();
+    expect(changes).toEqual(["signed-out"]);
+    f.account.invalidateCredential(owner);
+    expect(changes).toEqual(["signed-out"]);
+    refreshed.resolve(
+      success({ ...bundle(initialTime + 60_000), refresh_token: "late-test-refresh" }),
+    );
+    await expect(refresh).rejects.toThrow("XCODE_STALE_OWNER");
+    await expect(f.account.getRelayCredential(owner)).rejects.toThrow("XCODE_STALE_OWNER");
+    expect(f.calls("auth/logout")).toHaveLength(0);
+  });
+
+  it("clears the captured persisted generation even after an unavailable restore", async () => {
+    const f = fixture();
+    await f.login();
+    const owner = f.account.getOwner()!;
+    f.me(async () => {
+      throw new Error("network unavailable");
+    });
+    await f.account.oauth.restoreCachedSessionState();
+    expect(f.account.getOwner()).toBeNull();
+    expect(f.stored()).toBeDefined();
+    f.account.invalidateCredential(owner);
+    expect(f.stored()).toBeUndefined();
+  });
+
+  it("does not clear a newer login with the same user and SID", async () => {
+    const f = fixture();
+    await f.login();
+    const old = f.account.getOwner()!;
+    await f.login();
+    const next = f.account.getOwner()!;
+    const saved = f.stored();
+    expect(next.authGeneration).not.toBe(old.authGeneration);
+    f.account.invalidateCredential(old);
+    expect(f.account.getOwner()).toEqual(next);
+    expect(f.stored()).toEqual(saved);
+  });
+
+  it.each(["origin", "user", "sid", "generation", "cross-tab"])(
+    "preserves a new owner on stale invalidation: %s",
+    async (kind) => {
+      const f = fixture();
+      await f.login();
+      const old = f.account.getOwner()!;
+      if (kind === "cross-tab") {
+        const other = f.open({ sessionStorage: new MemoryStorage() });
+        await f.login(other);
+        const saved = f.stored();
+        const accepted = other.getOwner();
+        f.account.invalidateCredential(old);
+        expect(f.stored()).toEqual(saved);
+        expect(other.getOwner()).toEqual(accepted);
+      } else {
+        const expected = { ...old };
+        if (kind === "origin") expected.origin = "https://other.example.test";
+        if (kind === "user") expected.userId = "2";
+        if (kind === "sid") expected.sid = "other-sid";
+        if (kind === "generation") expected.authGeneration++;
+        const saved = f.stored();
+        f.account.invalidateCredential(expected);
+        expect(f.account.getOwner()).toEqual(old);
+        expect(f.stored()).toEqual(saved);
+      }
+    },
+  );
 
   it("blocks stale cross-tab credentials and late restore after disposal", async () => {
     const f = fixture();
