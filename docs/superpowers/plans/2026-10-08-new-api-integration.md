@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- 本期全部本机启动、部署、访问；显式 `NEW_API_BASE_URL=http://127.0.0.1:3001` 才启用本机桌面私有组合，HTTP 仅允许本机 loopback，不能从 metadata/server_address 推导 origin。未配置的非私有宿主及独立 Web/远程路径保留；私有链路失败不回退。
+- 本期全部本机启动、部署、访问；显式 `AISCOO_ADMIN_BASE_URL=http://127.0.0.1:3001` 才启用本机桌面私有组合，HTTP 仅允许本机 loopback，不能从 metadata/server_address 推导 origin。未配置的非私有宿主及独立 Web/远程路径保留；私有链路失败不回退。
 - 普通 BigModel/Z.ai 个人、企业、Start Plan 全部 clean cutover；自配 Provider/key/模型、历史 ref 与现有远程/Web功能不删除。
 - 旧官方 Plan 选择一律要求用户重选，即使 model_id 相同。私有 Provider 固定三个 anchor，group 为 `new-api-family`，不是按套餐生成 ID。
 - 不做已有 New API 用户/订阅迁移绑定、企业组织权限、Start 独立余额、线上购买、额外 reset 机会或新增遥测采集。
@@ -280,7 +280,7 @@ mise exec -- pnpm fmt:check
 mise exec -- pnpm architecture:check --changed
 ```
 
-- [ ] 启动真实桌面：`NEW_API_BASE_URL=http://127.0.0.1:3001 mise exec -- pnpm dev:desktop:test`，使用隔离开发数据目录；复核环境变量实际到Host，不默认launcher已透传。操作原生注册→私有登录→无授权推理拒绝→管理员grant→手动选择模型→三SDK流/tool/允许的vision/reasoning/取消→实际consume/额度/账号图表→额度耗尽→撤销。
+- [ ] 启动真实桌面：`AISCOO_ADMIN_BASE_URL=http://127.0.0.1:3001 mise exec -- pnpm dev:desktop:test`，使用隔离开发数据目录；复核环境变量实际到Host，不默认launcher已透传。操作原生注册→私有登录→无授权推理拒绝→管理员grant→手动选择模型→三SDK流/tool/允许的vision/reasoning/取消→实际consume/额度/账号图表→额度耗尽→撤销。
 - [ ] 额度耗尽时钱包/general订阅仍充足，实际检查两者余额不变；不同Native key/general/wallet消费进入账号图表，另一用户不进入；Native套餐卡只指定实例。逐项复核后台renew/expired renew/replace/revoke/同模板单实例reset、并发revision及跨周期settle/refund/reserve证据。
 - [ ] 重启恢复、A→B→A、迟到callback/usage/catalog/cloud结果、网络503、明确SID/key撤销；观察Host和worker都拒绝旧执行、WebView关闭、云凭据只同owner恢复，网络失败不假signed-out/no_plan/0。
 - [ ] 检查原生面板购买仍可用；private payment/reset guards无伪造成功；所有三类凭据交换攻击、普通key旁路/热缓存/旧hash/缺purpose拒绝结果由New API报告对应。真实SQLite/MySQL/PostgreSQL矩阵不可用时记缺项，不能以SQLite覆盖三方言。

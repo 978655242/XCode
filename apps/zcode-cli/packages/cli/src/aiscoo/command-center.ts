@@ -32,7 +32,7 @@ export function buildZenLoginItem(locale?: string): TuiSelectionItem {
   };
 }
 
-/** zen 未配置（未设 NEW_API_BASE_URL）时传 undefined，行为与上游完全一致。 */
+/** zen 未配置（未设 AISCOO_ADMIN_BASE_URL）时传 undefined，行为与上游完全一致。 */
 export function createXworkCommandCenter(
   deps: CommandCenterDeps,
   zen: XworkZenCommandDeps | undefined,

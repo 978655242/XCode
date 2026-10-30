@@ -73,7 +73,7 @@ export async function startProcessProviderRegistryRuntime(
     : undefined;
   const runtime = new NodeProviderRegistryRuntime({
     ...paths,
-    newApiOrigin: env.NEW_API_BASE_URL,
+    newApiOrigin: env.AISCOO_ADMIN_BASE_URL,
     ...(bundledFile
       ? {
           zcodeBuiltinFilePath: bundledFile,

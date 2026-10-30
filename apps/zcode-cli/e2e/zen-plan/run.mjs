@@ -338,12 +338,12 @@ const cases = {
     check(recovered.code === 0 && recovered.stdout.includes(ACCEPTANCE_MARKER), "stored session recovers after outage");
   },
 
-  // 15. 缺少 NEW_API_BASE_URL：不发起授权，给出可操作提示。
+  // 15. 缺少 AISCOO_ADMIN_BASE_URL：不发起授权，给出可操作提示。
   async "missing-origin"(context) {
     const device = await createDevice(context.root, "no-origin", context.backend.origin);
-    delete device.env.NEW_API_BASE_URL;
+    delete device.env.AISCOO_ADMIN_BASE_URL;
     const result = await runCli(device, ["login", "zen", "--no-browser", "--json"]).exited;
-    check(result.code !== 0 && /NEW_API_BASE_URL/.test(result.stderr), "missing origin is rejected with guidance");
+    check(result.code !== 0 && /AISCOO_ADMIN_BASE_URL/.test(result.stderr), "missing origin is rejected with guidance");
     check(!/authorize/.test(result.stderr), "no authorization URL was emitted");
   },
 

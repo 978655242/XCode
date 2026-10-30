@@ -101,9 +101,13 @@ sequenceDiagram
 
 ### 4.1 配置与 Adapter
 
-新增明确的 `NEW_API_BASE_URL`，开发值 `http://127.0.0.1:3001`；解析并规范化精确 origin，HTTP 仅允许本机 loopback。不要复用 Z.ai/BigModel/官方 XCode 服务的 env 或从网页 metadata 接受任意 endpoint。
+Aiscoo Admin 的显式服务地址配置为 `AISCOO_ADMIN_BASE_URL`，开发值 `http://127.0.0.1:3001`；解析并规范化精确 origin，HTTP 仅允许本机 loopback。不要复用 Z.ai/BigModel/官方 XCode 服务的 env 或从网页 metadata 接受任意 endpoint。
 此显式 origin 启用桌面私有组合；未配置的原非私有宿主及独立 Web/远程路径保留。已配置后，认证、目录、套餐或用量失败不得回退到原官方身份/资金或自配 Provider；配置值不是从 status、metadata 或旧官方 origin 推导的默认值。
 Main 与 Host 使用同一有效环境配置：开发 `.env`/`.env.local` 与进程环境的既有优先级一致，进程中的显式空值也必须一致关闭；安全密钥加载及闲时 scheduler 模式不能仅检查未经合并的进程环境。
+
+2026-10-30 配置命名迁移：Desktop Main/Host/scheduler、Web/Vite/Server、CLI、Host→Worker 及本机启动器统一读取和传递 `AISCOO_ADMIN_BASE_URL`；旧键 `NEW_API_BASE_URL` 退役，不作为别名或回退。已有部署和个人 `.env` 需自行改键名，本次改名不写入或自动迁移这些文件。此变更不修改 API 路径、Provider ID、OAuth client_id、凭据存储 key 或认证业务逻辑。
+
+迁移验收：新键配置的合法 origin 继续生效；process 值覆盖 dotenv，process 显式空值继续关闭；仅设置旧键不会启用私有组合（显式开启浏览器 profile 但缺少新键时拒绝配置）；Host→Worker 和启动器只发送新键，CLI 缺配置时提示新键。
 
 主登录 Provider ID 为 `new-api`；在已有 OAuth adapter/service 框架中增加原生授权 code + PKCE adapter。所有浏览器登录/注册页转到 New API 本源，复用原生密码、注册、2FA、Passkey 等流程。不在 Electron 保存密码，也不复制 Native 登录表单/账户库。
 

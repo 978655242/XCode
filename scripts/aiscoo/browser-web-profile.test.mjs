@@ -2,13 +2,33 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { browserWebProfile, composeBrowserWebProxy } from "./browser-web-profile.mjs";
 
-const env = { AISCOO_BROWSER_NEW_API: "1", NEW_API_BASE_URL: "https://account.example" };
+const env = { AISCOO_BROWSER_NEW_API: "1", AISCOO_ADMIN_BASE_URL: "https://account.example" };
 test("disabled profile leaves existing Web configuration unchanged", () => {
   assert.equal(browserWebProfile({}), null);
 });
+test("retired backend key neither enables nor overrides the Admin profile", () => {
+  assert.equal(browserWebProfile({ NEW_API_BASE_URL: "https://retired.example" }), null);
+  assert.throws(() =>
+    browserWebProfile({
+      AISCOO_BROWSER_NEW_API: "1",
+      NEW_API_BASE_URL: env.AISCOO_ADMIN_BASE_URL,
+    }),
+  );
+  assert.equal(
+    browserWebProfile({ ...env, NEW_API_BASE_URL: "https://retired.example" }).origin,
+    env.AISCOO_ADMIN_BASE_URL,
+  );
+  assert.throws(() =>
+    browserWebProfile({
+      ...env,
+      AISCOO_ADMIN_BASE_URL: "",
+      NEW_API_BASE_URL: "https://retired.example",
+    }),
+  );
+});
 test("profile only adds public origin, fixed loopback and same-origin proxies", () => {
   const profile = browserWebProfile(env);
-  assert.equal(profile.origin, env.NEW_API_BASE_URL);
+  assert.equal(profile.origin, env.AISCOO_ADMIN_BASE_URL);
   assert.deepEqual(profile.server, {
     host: "127.0.0.1",
     port: 5173,
@@ -17,7 +37,7 @@ test("profile only adds public origin, fixed loopback and same-origin proxies", 
     allowedHosts: ["127.0.0.1"],
   });
   assert.equal(Object.keys(profile.proxy)[0], "/api/xcode/v1");
-  assert.equal(profile.proxy["/api/xcode/v1"].target, env.NEW_API_BASE_URL);
+  assert.equal(profile.proxy["/api/xcode/v1"].target, env.AISCOO_ADMIN_BASE_URL);
   assert.equal(profile.proxy["/ws"].target, "ws://127.0.0.1:3030");
 });
 test("entry boundary runs before Vite and rejects cross-site and editor actions", () => {
@@ -99,7 +119,7 @@ test("local account proxies preserve existing OAuth and remote routes ahead of t
   const target = (path) => proxy[Object.keys(proxy).find((prefix) => path.startsWith(prefix))];
   assert.equal(target("/api/v1/oauth/token"), oauth);
   assert.equal(target("/api/v1/remote/devices"), remote);
-  assert.equal(target("/api/xcode/v1/auth/token").target, env.NEW_API_BASE_URL);
+  assert.equal(target("/api/xcode/v1/auth/token").target, env.AISCOO_ADMIN_BASE_URL);
   assert.equal(target("/api/info").target, "http://127.0.0.1:3030");
   assert.equal(target("/ws").target, "ws://127.0.0.1:3030");
   assert.equal(existing["/api"].target, "http://localhost:3030");
@@ -111,7 +131,7 @@ test("invalid origins never turn into a proxy target", () => {
     "https://user:pass@account.example",
     "https://account.example/path",
   ]) {
-    assert.throws(() => browserWebProfile({ ...env, NEW_API_BASE_URL: origin }));
+    assert.throws(() => browserWebProfile({ ...env, AISCOO_ADMIN_BASE_URL: origin }));
   }
   for (const browserOrigin of [
     "http://localhost:5173",

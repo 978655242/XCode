@@ -12,8 +12,8 @@ import { openUrlInBrowser } from "../browser.js";
 export async function createZenDefaultDependencies(
   env: Readonly<Record<string, string | undefined>>,
 ) {
-  const origin = env.NEW_API_BASE_URL?.trim();
-  if (!origin) throw new Error(`Set NEW_API_BASE_URL to use ${PRODUCT_NAME} Zen Plan.`);
+  const origin = env.AISCOO_ADMIN_BASE_URL?.trim();
+  if (!origin) throw new Error(`Set AISCOO_ADMIN_BASE_URL to use ${PRODUCT_NAME} Zen Plan.`);
   const root = env.ZCODE_DATA_BASE_DIR?.trim()
     ? resolve(env.ZCODE_DATA_BASE_DIR.trim())
     : homedir();

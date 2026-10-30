@@ -37,6 +37,36 @@ async function startRuntime(env: Readonly<Record<string, string | undefined>> = 
 }
 
 describe("托管 Worker 账号交付", () => {
+  it.each([
+    { env: { AISCOO_ADMIN_BASE_URL: "http://127.0.0.1:3001" }, enabled: true },
+    { env: { NEW_API_BASE_URL: "http://127.0.0.1:3001" }, enabled: false },
+    {
+      env: {
+        AISCOO_ADMIN_BASE_URL: "",
+        NEW_API_BASE_URL: "http://127.0.0.1:3001",
+      },
+      enabled: false,
+    },
+    {
+      env: {
+        AISCOO_ADMIN_BASE_URL: "http://127.0.0.1:3001",
+        NEW_API_BASE_URL: "http://127.0.0.1:3002",
+      },
+      enabled: true,
+    },
+  ])("仅新配置键启用 Native origin，旧键不回退：$env", async ({ env, enabled }) => {
+    const started = await startRuntime(env);
+    // 配置地址只装配锚点；账号未授权时 Registry 仍关闭，不能用可执行投影验证配置。
+    const provider = started.snapshot.config.zcodeBuiltinProviders.get(
+      "account:new-api-openai-chat-completions",
+    );
+    if (enabled) {
+      expect(provider?.api?.baseUrl).toBe("http://127.0.0.1:3001/v1");
+    } else {
+      expect(provider).toBeUndefined();
+    }
+  });
+
   it("Account B 先到时接收 B、立即撤销失效授权；配套配置到后才确认整体应用 B", async () => {
     const started = await startRuntime();
     const registry = started.runtime.registryService;
@@ -103,7 +133,7 @@ describe("托管 Worker 账号交付", () => {
 
   it("Native 完整能力与 owner 同一快照应用，缺失能力或 current 时失败关闭", async () => {
     const origin = "http://127.0.0.1:3001";
-    const started = await startRuntime({ NEW_API_BASE_URL: origin });
+    const started = await startRuntime({ AISCOO_ADMIN_BASE_URL: origin });
     const providerId = "account:new-api-anthropic-messages";
     const modelId = "native-model";
     const modelConfig = createTestProviderRegistry([{ providerId, modelId }])
