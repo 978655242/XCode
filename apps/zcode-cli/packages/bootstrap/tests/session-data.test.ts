@@ -20,16 +20,21 @@ function harness(
   };
   const sizes: Record<string, number> = { sess_a: 10, sess_a_child: 5, sess_b: 7, sess_gone: 3 };
   const calls: string[] = [];
+  // XCODE: 真实 store 删行会同时清掉引用方的 part；重评引用不能继续返回已删除会话。
+  const deleted = new Set<string>();
   const host: SessionDataHost = {
     store: {
       listOwnedSessionTrees: async (ids) =>
         new Map(ids.map((id) => [id, trees[id] ?? []] as const)) as never,
       listArtifactReferrers: async (ids) =>
         new Map(
-          ids.flatMap((id) => (options.referrers?.[id] ? [[id, options.referrers[id]] as const] : [])),
+          ids.flatMap((id) => (options.referrers?.[id]
+            ? [[id, options.referrers[id].filter((referrer) => !deleted.has(referrer))] as const]
+            : [])),
         ) as never,
       purgeSessions: async (ids) => {
         calls.push(`purge:${ids.join(",")}`);
+        for (const id of ids) for (const child of trees[id] ?? [id]) deleted.add(child);
       },
     },
     files: {

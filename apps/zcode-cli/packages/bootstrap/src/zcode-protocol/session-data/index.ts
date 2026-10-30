@@ -10,6 +10,8 @@ import {
 import { createSessionResidentPoolHost, deactivateSessionRecord } from "../session-residency.js";
 import { parseParams, type ZCodeProtocolAgentServerContext } from "../server-types.js";
 import type { SessionDataHost } from "./contract.js";
+// XCODE: 原批次预排除候选引用会误删失败幸存者的附件；独立策略只委托原删除 owner 执行。
+import { purgeWithSurvivorSafety } from "./aiscoo-purge-safety.js";
 
 export type { SessionDataHost } from "./contract.js";
 
@@ -77,6 +79,13 @@ async function referencedRoots(
 }
 
 export async function purgeSessionDataWith(
+  host: SessionDataHost,
+  params: V4SessionDataParams,
+): Promise<V4SessionDataPurgeResult> {
+  return purgeWithSurvivorSafety(host, params, purgeSessionDataBatchWith);
+}
+
+async function purgeSessionDataBatchWith(
   host: SessionDataHost,
   params: V4SessionDataParams,
 ): Promise<V4SessionDataPurgeResult> {

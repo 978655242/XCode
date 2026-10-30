@@ -17,6 +17,8 @@ import { checkRemoteSyncDirectoriesWriteAccess } from "#src/remote-sync/remoteSy
 import { resolveUserHomeDir } from "#src/subagents/subagentStorage.js";
 import type { IDataSyncCategoryService } from "./contract.js";
 import { errorMessage } from "./syncUtils.js";
+// XCODE: 保留上游导入流程，在实际写入边界拒绝 collector 不会遍历的目标软链。
+import { assertCommandSyncDestination } from "./commandSyncPathSafety.js";
 
 const COMMAND_EXTENSION = /\.md$/iu;
 
@@ -137,12 +139,19 @@ async function importOne(
   const content = Buffer.from(payloadItem.content);
   const existing = current.get(item.key);
   try {
+    // XCODE: 路径或祖先已是软链时明确失败，悬空叶子也不能伪装成普通缺失项。
+    await assertCommandSyncDestination(
+      resolveUserHomeDir(),
+      existing?.source === "zcode" ? existing.filePath : join(commandsRoot("zcode"), ...segments),
+    );
     if (item.mode === "createOnly") {
+      const targetPath = join(commandsRoot("zcode"), ...segments);
       // 列表加载后目标端出现同 key 命令（任一目录）：不写入，提示刷新后重试。
       if (existing) return { key: item.key, status: "conflict" };
-      const targetPath = join(commandsRoot("zcode"), ...segments);
       if (await pathExists(targetPath)) return failed(`target path already exists: ${targetPath}`);
       await mkdir(dirname(targetPath), { recursive: true });
+      // XCODE: mkdir 的异步间隙后复核，再交给上游原子字节写入。
+      await assertCommandSyncDestination(resolveUserHomeDir(), targetPath);
       await writeFileAtomically(targetPath, content);
       return { key: item.key, status: "created", createdPath: targetPath };
     }
@@ -156,6 +165,8 @@ async function importOne(
       return { key: item.key, status: "conflict" };
     }
     const { mode } = await lstat(existing.filePath);
+    // XCODE: 覆盖沿用原 hash/source 判断，但实际写入仍必须拒绝被替换的根或祖先链接。
+    await assertCommandSyncDestination(resolveUserHomeDir(), existing.filePath);
     await writeFileAtomically(existing.filePath, content, mode);
     return { key: item.key, status: "updated" };
   } catch (error) {

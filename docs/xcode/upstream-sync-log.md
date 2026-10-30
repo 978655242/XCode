@@ -76,6 +76,13 @@ New API 账号 owner → 已核验会话事件 → Provider 投影 / worker 配�
 - 手工完整 `pnpm verify:pre-push`、原生及独立回归已通过。首轮推送后核验发现 `--ignore-scripts` 安装未生成隔离 worktree 的 Husky 启动文件，不能记为自动钩子通过；用现有 `pnpm exec husky` 补齐后，提交 `21818899` 的实际 push 完整 hook 退出 0（schema 8/8、架构工程 53/53、原生 198/198、Vitest 63 文件 496/496），该次增量工程选择 0/157。整批同步基线的 157/157 跳过事实另见上文。本机 PR 策略默认 HTTPS fetch 曾遇 GitHub 空响应，随后使用同一 canonical 上游 SSH 地址复验退出 0。未修改策略或使用 `--no-verify`。
 - PR #50 首轮完整 Linux verify 在 `devElectronAppBundle.test.mjs` 失败：原生 197/198，合成 `.app` 调用 `/usr/bin/codesign` 报 ENOENT；类型、Lint、完整架构及 CLI 构建均已通过。夹具改用生产已有 `signApp` 注入点，保留原断言并补签名调用时入口/图标/plist 就绪和恰好一次断言；生产签名逻辑不改。定向 Node 1/1、格式、根 typecheck、Lint（0 errors / 308 warnings）及变更架构检查通过；Linux 修后结果以 PR 最新 verify 为准。
 
+PR 审查正确性收尾：
+
+- 提交 `53acf7c4` 的 GitHub `policy`、`verify` 均通过：Linux 原生 198/198、独立 Vitest 63 文件 496/496，类型、Lint、完整架构及 CLI build 通过。随后两条自动审查意见确认属于新上游真实缺陷，修后按最新提交再次验证。
+- 会话 purge 原批次把全部候选当作已删除，A 失败后仍可能清掉 A 引用的 B 附件；同树 owned child 也存在风险。公共入口最小委托独立策略，原 batch 主体不改、原文件/SQL owner 不变；只有实际 deleted 才重评 referenced 项，失败不重试、memory 一次。跨树无环仍可全删，同树跨 session 引用和循环依赖明确保留。独立规格见 [会话清理安全](../aiscoo/specs/upstream-sync-session-purge-safety.md)。19 个新回归与原文件合计 31/31、SQLite 精确 2/2 通过；不宣称失败会话自身多路径文件删除可回滚。
+- 命令同步原实现沿既有祖先符号链接写出 commands root，collector 又跳过该路径；独立异步 lstat helper 在原创建/写入边界拒绝 `.zcode`、root、祖先及叶子链接，原 collector、冲突/hash、权限及原子写保持。真实服务入口 RED 5 通过/7 失败 → GREEN 12/12，回归精确追加原生 runner。规格见 [同步写入安全](../aiscoo/specs/upstream-sync-data-safety.md)；不声称消除恶意并发 TOCTOU，Windows junction 未实机验证。
+- 两项修复后根 typecheck、Lint（0 errors / 308 warnings）与完整架构（0 违规）通过，CLI build 与最终推送/CI 结果按 PR 最新提交核对。未外发上游 PR 或审查回复，原用户工作目录未动。
+
 单独 cherry-pick 的提交：无。
 
 ## 2026-10-21 同步 upstream v3.16.2 (0a1fc56d..3c5b2276)
