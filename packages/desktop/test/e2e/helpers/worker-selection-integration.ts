@@ -16,6 +16,7 @@ import {
   getDataBaseDir,
   setDataBaseDir,
 } from "@zcode/services/node";
+import type { IModelSelectionService } from "@zcode/services";
 import { BUILTIN_MODEL_PROVIDER_IDS } from "@zcode/shared";
 import { createProjectService } from "../../../../services/src/project/index.js";
 import { TaskIndexRepo } from "../../../../services/src/session/taskIndexRepo.js";
@@ -32,14 +33,7 @@ type WorkerSelectionIntegration = {
   projectService: ReturnType<typeof createProjectService>;
   agent: ReturnType<typeof createZCodeAgentService>;
   task: ReturnType<typeof createZCodeTaskServiceAdapter>;
-  modelSelectionService: {
-    getView(
-      input?: ModelSelectionViewInput,
-    ): ReturnType<ReturnType<typeof createNodeModelSelectionFacade>["getView"]>;
-    onDidChange(
-      listener: Parameters<ReturnType<typeof createNodeModelSelectionFacade>["onDidChange"]>[0],
-    ): { dispose(): void };
-  };
+  modelSelectionService: Pick<IModelSelectionService, "getView" | "onDidChange">;
   selectAccount(providerId: string): Promise<void>;
   setDeliveryPaused(paused: boolean): Promise<void>;
   dispose(): Promise<void>;

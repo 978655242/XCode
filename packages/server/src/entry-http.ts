@@ -8,8 +8,18 @@ import {
   readBundledZCodeBuiltinProviderConfig,
 } from "./bundledZCodeBuiltinProviderConfig.js";
 import { createHttpServer, resolveHttpServerId } from "./http.js";
+// XCODE: 可选本机浏览器账号使用同一服务装配，不创建 Host 持久凭据。
+import type { IChannelClient } from "@zcode/rpc";
+import type { NewApiOwner } from "@zcode/shared";
+import {
+  createBrowserAccountBridge,
+  resolveBrowserAccountProfile,
+} from "./aiscoo-browser-account/index.js";
 
 async function main(): Promise<void> {
+  // XCODE: 配置错误在存储/服务初始化前失败；普通入口仍使用原环境配置。
+  const browserProfile = resolveBrowserAccountProfile(process.env);
+  let browserBridge: ReturnType<typeof createBrowserAccountBridge> | undefined;
   const zcodeBuiltinProviderConfigFilePath = await materializeBundledZCodeBuiltinProviderConfig({
     environmentConfigRoot: getAppConfigDir(),
     content: readBundledZCodeBuiltinProviderConfig(),
@@ -26,6 +36,20 @@ async function main(): Promise<void> {
       sourceServerId: serverId,
       zcodeBuiltinProviderConfigFilePath,
       providerProvisioningTargetEnabled: Boolean(authToken),
+      // XCODE: 相同 Native 目录和请求 resolver 只更换凭据来源。
+      ...(browserProfile
+        ? {
+            newApiAccountAuthority: {
+              origin: browserProfile.origin,
+              create(onOwnerChanged: (owner: NewApiOwner | null) => Promise<void>) {
+                browserBridge = createBrowserAccountBridge(browserProfile.origin, {
+                  onOwnerChanged,
+                });
+                return browserBridge.authority;
+              },
+            },
+          }
+        : {}),
     });
 
   createHttpServer(services, port, {
@@ -37,6 +61,14 @@ async function main(): Promise<void> {
     ...(host ? { host } : {}),
     ...(staticRoot ? { staticRoot, spaFallback: true } : {}),
     ...(authToken ? { authToken, authRequired: true } : {}),
+    // XCODE: 本机模式限制监听与来源；不新建浏览器网络 session。
+    ...(browserProfile
+      ? {
+          host: "127.0.0.1",
+          acceptRequest: browserProfile.acceptRequest,
+          attachBrowserPeer: (client: IChannelClient) => browserBridge!.attach(client),
+        }
+      : {}),
   });
 }
 

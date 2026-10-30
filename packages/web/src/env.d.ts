@@ -12,6 +12,8 @@ interface ImportMetaEnv {
   readonly VITE_WEB_REMOTE_ALLOW_DEV_RETURN_TO?: string;
   // OSS 多版本发布时资源 base 带版本目录，页面路由由该变量显式给出。
   readonly VITE_WEB_REMOTE_CONTROL_ROUTE_PATH?: string;
+  // XCODE: 浏览器仅接收开关和公开 origin，凭据不编入构建。
+  readonly VITE_AISCOO_BROWSER_NEW_API_ORIGIN?: string;
   readonly VITE_ZCODE_BASE_URL?: string;
   readonly VITE_ZCODE_ENDPOINT_ORIGIN?: string;
   readonly VITE_ZCODE_WEB_REMOTE_CONTROL_RELAY_WS_URL?: string;
