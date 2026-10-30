@@ -41,12 +41,14 @@ try {
     // XCODE: 不共享用户 dev server 的优化缓存；仅关闭投机预热，按需模块与 HMR 保持真实。
     cacheDir: process.argv[2],
     server: { host: "127.0.0.1", port: 0, strictPort: true, preTransformRequests: false },
+    // XCODE: 采用新版手机服务的 Worker 预构建，避免操作中首次发现依赖触发 full reload。
+    optimizeDeps: { include: ["@pierre/diffs/worker/worker.js"] },
   });
   assert.ok(vite.httpServer, "Missing Vite HTTP server");
   // XCODE: Vite 8 的 listen(0) 会回落 5173；其公开 HTTP listen 包装仍负责完整初始化。
   // HTTP/HMR 均由 Vite 创建与关闭，只通过 Node 原生监听选择真正的临时端口。
   const listening = once(vite.httpServer, "listening");
-  vite.httpServer.listen(0, "127.0.0.1");
+  vite.httpServer.listen(Number(process.argv[3] ?? "0"), "127.0.0.1");
   await listening;
   const address = vite.httpServer.address();
   if (!address || typeof address === "string") throw new Error("缺少 Mobile Web fixture 端口");

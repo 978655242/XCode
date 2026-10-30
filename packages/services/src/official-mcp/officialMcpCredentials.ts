@@ -18,6 +18,7 @@
 import {
   OFFICIAL_MCP_AUTH_HEADER_NAMES,
   getModelProviderFamilySpec,
+  type OfficialAuthConsumerKind,
   type OfficialMcpAuthFailureReason,
   type ZCodeAccountAccess,
   type ZCodeProviderAccountAccess,
@@ -94,6 +95,15 @@ export function createCredentialResolvedLogKey(input: {
 }
 
 let lastCredentialResolvedLogKey: string | undefined;
+
+export interface OfficialMcpCredentialResolveOptions {
+  /**
+   * 套餐可选（插件命令进程，技术方案 5.8）：选中连接没有有效套餐时不返回 plan_required，
+   * 只给 ZCode 登录身份，由服务端按免费档处理。登录态不完整（缺 MaaS JWT、跨 family）
+   * 仍按 unavailable 返回，绝不把付费用户降成免费。
+   */
+  planOptional?: boolean;
+}
 
 export interface OfficialMcpCredentialResolverDeps {
   accountRequestAuthService: {
@@ -224,6 +234,7 @@ function identityOnlyOutcome(identity: OfficialMcpIdentitySnapshot): OfficialMcp
  */
 export async function resolveOfficialMcpCredentials(
   deps: OfficialMcpCredentialInput,
+  options: OfficialMcpCredentialResolveOptions = {},
 ): Promise<OfficialMcpCredentialOutcome> {
   if ("officialCloudHost" in deps) {
     // Explicit Native mode has no legacy/global fallback, including when locked or disconnected.
@@ -278,7 +289,21 @@ export async function resolveOfficialMcpCredentials(
       selectedProvider.provider.access,
     );
     const selected = resolveSelectedPlan(selectedProvider.provider, accountAccess);
-    if (!selected.ok) return selected;
+    if (!selected.ok) {
+      if (!options.planOptional || selected.reason !== "official_auth_plan_required") {
+        return selected;
+      }
+      // 套餐可选：选中的 Coding Plan 连接当前没有有效套餐（过期、类型不符），按只有登录身份处理。
+      // 和上面「没有选中套餐」一样先确认身份没有在解析期间变化。
+      const latestIdentity = await readIdentitySnapshot(deps);
+      if (
+        !latestIdentity.ok ||
+        !isSameIdentitySnapshot(identity.snapshot, latestIdentity.snapshot)
+      ) {
+        continue;
+      }
+      return identityOnlyOutcome(identity.snapshot);
+    }
 
     // zcode JWT 是全局登录身份镜像；只校验 selectedKey 会把 ZAI JWT 与 BigModel key 拼到同一请求。
     if (identity.snapshot.activeProvider !== selected.plan.providerFamily) {
@@ -391,6 +416,7 @@ export function buildOfficialMcpAuthHeaders(
 
 /** XCODE: Host 请求上下文冻结一次调用的 owner/官方连接代际。 */
 export interface OfficialMcpAuthHeadersRequestContext {
+  consumer: OfficialAuthConsumerKind;
   mcpKey: string;
   pluginId: string;
   targetOrigin: string;
@@ -415,7 +441,11 @@ export function createOfficialMcpAuthHeadersResolver(deps: OfficialMcpCredential
     request?: OfficialMcpAuthHeadersRequestContext,
   ): Promise<OfficialMcpAuthHeadersOutcome>;
 } {
-  let pending: Promise<OfficialMcpAuthHeadersOutcome> | null = null;
+  // 两种消费方的解析结果不同（套餐可选与否），按模式分别合并在飞的请求。
+  const pending = new Map<
+    "plan-required" | "plan-optional",
+    Promise<OfficialMcpAuthHeadersOutcome>
+  >();
 
   return {
     captureOwnerFence: () =>
@@ -428,10 +458,13 @@ export function createOfficialMcpAuthHeadersResolver(deps: OfficialMcpCredential
       return fence.scope === scope && (await fence.isCurrent());
     },
     async resolveHeaders(request?: OfficialMcpAuthHeadersRequestContext) {
+      const mode = request?.consumer === "plugin-command" ? "plan-optional" : "plan-required";
       // XCODE: 每次解析都比对调用最初的非秘密 scope，不能把 B 当前有效当作 A 准入。
       if ("officialCloudHost" in deps) {
         const ownerFence = deps.officialCloudHost.captureOwnerFence();
-        const outcome = await resolveOfficialMcpCredentials(deps);
+        const outcome = await resolveOfficialMcpCredentials(deps, {
+          planOptional: mode === "plan-optional",
+        });
         if (!ownerFence.isCurrent() || !outcome.ok) return fail("official_auth_scope_changed");
         const scope = outcome.snapshot.invocationScope;
         if (!scope || (request?.scope ? request.scope !== scope : !request?.captureOnly)) {
@@ -448,18 +481,22 @@ export function createOfficialMcpAuthHeadersResolver(deps: OfficialMcpCredential
       }
       if (request?.scope) return fail("official_auth_scope_changed");
       if (request?.captureOnly || request?.validateOnly) return { ok: true, headers: {} };
-      if (pending) return pending;
+      // 非 Native 宿主保留上游按 consumer 模式合并在飞请求的行为。
+      const existing = pending.get(mode);
+      if (existing) return existing;
       const inFlight = (async (): Promise<OfficialMcpAuthHeadersOutcome> => {
-        const outcome = await resolveOfficialMcpCredentials(deps);
+        const outcome = await resolveOfficialMcpCredentials(deps, {
+          planOptional: mode === "plan-optional",
+        });
         if (!outcome.ok) return { ok: false, reason: outcome.reason };
         return { ok: true, headers: buildOfficialMcpAuthHeaders(outcome.snapshot) };
       })();
-      pending = inFlight;
+      pending.set(mode, inFlight);
       // 用双 handler 的 then 而非 finally：finally 会派生一个同样 reject 的 promise，
       // 调用方只 await 了 inFlight，那个派生 promise 无人处理会变成 unhandled rejection。
       // 解析抛错也必须清空 slot，否则后续请求会永久复用失败的 Promise。
       const clear = (): void => {
-        if (pending === inFlight) pending = null;
+        if (pending.get(mode) === inFlight) pending.delete(mode);
       };
       inFlight.then(clear, clear);
       return inFlight;

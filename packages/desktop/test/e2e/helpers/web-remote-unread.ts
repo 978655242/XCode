@@ -106,7 +106,9 @@ export async function showMobileTaskHome(page: Page) {
 }
 
 /** 配对凭据只经内存 loopback receiver，不进入 WebDriver 返回值与日志。 */
-export async function obtainUnreadPairingUrl(): Promise<string> {
+export async function obtainUnreadPairingUrl(
+  expectedOrigin = "http://127.0.0.1:5173",
+): Promise<string> {
   let receive!: (url: string) => void;
   const pairing = new Promise<string>((resolveUrl) => {
     receive = resolveUrl;
@@ -156,15 +158,8 @@ export async function obtainUnreadPairingUrl(): Promise<string> {
       { timeout: 60_000, timeoutMsg: "MRO03 pairing link unavailable" },
     );
     const url = await pairing;
-    // XCODE: 当前 Web 使用动态端口，必须与本轮夹具的实际地址精确匹配。
-    const configuredUrl = process.env.ZCODE_WEB_REMOTE_CONTROL_URL?.trim();
-    const target = new URL(url);
-    if (
-      !configuredUrl ||
-      target.origin !== new URL(configuredUrl).origin ||
-      target.pathname !== "/remote/v4"
-    )
-      throw new Error("MRO03 requires current local Web frontend at /remote/v4");
+    if (new URL(url).origin !== expectedOrigin)
+      throw new Error("MRO03 requires loopback Web frontend");
     await browser.keys("Escape");
     return url;
   } finally {

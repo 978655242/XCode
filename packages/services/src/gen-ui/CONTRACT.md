@@ -40,3 +40,7 @@ sequenceDiagram
   R->>F: Read committed observed snapshots in that scope
   R-->>R: Serialize per path and suppress unchanged snapshots
 ```
+
+Model state travels as bounded `genUiContext` input metadata, never appended to user text.
+The CLI owns legacy-tail decoding and reminder projection; queued inputs retain the snapshot
+captured at admission. Empty arrays identify new-format input. See `docs/specs/gen-ui-model-context.md`.

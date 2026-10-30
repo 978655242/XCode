@@ -198,7 +198,7 @@ hiddenGrace ── 首次有效操作 ──> snoozed
   desktop GUI 只保留一条代表路径，mobile replayable 由恢复集成测试覆盖。
 
 GUI 候选位于
-`packages/desktop/test/e2e/conversation-session/manual-review/pending/conversation-session-ask-user-question-auto-resolution-setting.test.ts`。
+`packages/desktop/test/e2e/conversation-session/conversation-session-ask-user-question-auto-resolution-setting.test.ts`。
 它只允许在 `ZCODE_ENV=test` 下使用 `ZCODE_E2E_ASK_USER_QUESTION_CLOCK_SCALE=20`
 缩放 runtime 的 60 秒/300 秒窗口；生产环境忽略该注入。候选在人工确认前不晋级正式 E2E。
 该候选保留普通模型上下文窗口，不继承 `manual-review` 自动压缩测试的 240/80 小窗口，

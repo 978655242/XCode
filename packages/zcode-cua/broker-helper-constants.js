@@ -7,3 +7,4 @@ export const HELPER_DISPLAY_NAME = `${PRODUCT_NAME} Computer Use`;
 export const HELPER_EXECUTABLE_NAME = "XWork Computer Use";
 export const HELPER_BUNDLE_ID = "dev.zcode.cua-helper";
 export const DEV_CUA_HELPER_BUNDLE_ID = "dev.zcode.cua-helper.dev";
+export const HELPER_GHOST_CURSOR_OVERLAY_ARG = "--ghost-cursor-overlay";

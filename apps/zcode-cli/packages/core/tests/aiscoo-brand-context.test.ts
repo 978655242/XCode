@@ -6,9 +6,13 @@ import { buildDesktopContextSection } from "../src/context/sections/desktop.js";
 
 describe("downstream brand system templates", () => {
   it("brands only owned identity templates and preserves supplied directory text", () => {
-    expect(buildCliPrefixSection().content).toBe("You are Aiscoo, an interactive coding agent");
-    expect(buildIdentitySection().content).toContain("interactive Aiscoo agent");
-    expect(buildIdentitySection({ name: "XWork", prompt: "ZCode" }).content).toContain("using Aiscoo's tools");
+    expect(buildCliPrefixSection().content).toBe("You are Aiscoo, an interactive agent");
+    expect(buildIdentitySection().content).toContain(
+      "You are an agent working with the user toward their goals, using your own judgment along the way.",
+    );
+    expect(buildIdentitySection({ name: "XWork", prompt: "ZCode" }).content).toContain(
+      'You are an interactive agent that helps users according to your "Output Style", which describes how you should respond to user queries.',
+    );
     const directory = "/tmp/XWork ZCode/XCode";
     const section = buildDesktopContextSection(directory);
     expect(section.name).toBe("Aiscoo Desktop Context");
@@ -25,7 +29,7 @@ describe("downstream brand system templates", () => {
       outputStyle: { name: "XWork", prompt: userValue, keepCodingInstructions: false },
       userInstructions: { filePath: "/tmp/XWork/AGENTS.md", fileName: "AGENTS.md", content: userValue, bytesRead: userValue.length, sizeBytes: userValue.length, truncated: false },
     }).build();
-    expect(result.systemMessages[0].content).toBe("You are Aiscoo, an interactive coding agent");
+    expect(result.systemMessages[0].content).toBe("You are Aiscoo, an interactive agent");
     expect(result.sections.some((section) => section.content.includes(userValue))).toBe(true);
     expect(JSON.stringify(result.metaUserAttachments)).toContain(userValue);
   });

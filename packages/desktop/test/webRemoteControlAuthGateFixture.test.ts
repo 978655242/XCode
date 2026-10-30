@@ -34,9 +34,15 @@ it("keeps cached-account business requests inside the auth-gate fixture and rest
 });
 
 it.each([
+  "command-center-history-search.test.ts",
   "conversation-session-virtual-project-mobile.test.ts",
+  "conversation-session-composer-settlement.test.ts",
+  "conversation-session-new-task-missing-root-mobile.test.ts",
   "conversation-session-web-remote-project-directory.test.ts",
   "conversation-session-web-remote-unread.test.ts",
+  "conversation-session-web-remote-terminal.test.ts",
+  "conversation-session-workspace-mcp-trust.test.ts",
+  "conversation-session-id-compatibility.test.ts",
 ])(
   "provides %s with an isolated authenticated relay and the current Web frontend",
   async (spec) => {
@@ -55,6 +61,7 @@ it.each([
         credentialsFile,
         settingsFile,
         workspacePath: root,
+        webUrl: "http://127.0.0.1:0/remote/v4",
       });
       expect(close).not.toBeNull();
       const webUrl = new URL(process.env.ZCODE_WEB_REMOTE_CONTROL_URL!);

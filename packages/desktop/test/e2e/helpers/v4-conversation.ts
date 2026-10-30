@@ -6,6 +6,7 @@ import { selectCombinedComposerThoughtLevel } from "./composer-model-picker.js";
 // 旧 helper 的登录/工作区/provider 部分继续复用（desktop-app.ts / upstream-provider.ts）。
 import { encodeCustomModelValue } from "@zcode/shared";
 import {
+  TID_CHAT_ERROR_DETAILS_BUTTON,
   TID_CHAT_MODE_SELECT_ITEM,
   TID_CHAT_MODE_SELECT_TRIGGER,
   TID_CHAT_SUMMARY_PANEL,
@@ -13,9 +14,6 @@ import {
   TID_CHAT_MODEL_SELECT_ITEM,
   TID_CHAT_MODEL_SELECT_TRIGGER,
   TID_CHAT_THOUGHT_LEVEL_SELECT_ITEM,
-  TID_CONFIRM_DIALOG_CONFIRM,
-  TID_SETTINGS_BACK_BUTTON,
-  TID_SETTINGS_SECTION_NAV,
   TID_CHAT_THOUGHT_LEVEL_SELECT_TRIGGER,
   TID_PROMPT_SUGGESTION_OPTION,
   TID_PROMPT_SUGGESTION_PANEL,
@@ -23,8 +21,6 @@ import {
   TID_LOGIN_API_KEY_INPUT,
   TID_LOGIN_USE_API_KEY_BUTTON,
   TID_TASK_ITEM,
-  TID_TASK_ARCHIVE,
-  TID_TASK_SETTINGS_BUTTON,
   TID_TASK_NEW_BUTTON,
   TID_V4_AUTODRAIN_TOGGLE,
   TID_V4_ATTACHMENT,
@@ -76,6 +72,7 @@ import {
 } from "./upstream-provider.js";
 import { readV4ChatRootSnapshotInBrowser } from "./conversation-session-chat-root-snapshot-script.js";
 import { getTaskStoreSnapshot as readTaskStoreSnapshotForDiagnostics } from "./conversation-session-store.js";
+import { consumeDraftRegenerationResend } from "#e2e/helpers/draft-regeneration-resend";
 import { sel } from "./selectors.js";
 import { skipOccupationOnboardingIfPresent } from "./occupation-onboarding.js";
 import { startDraftFromProject, waitForProjectRow } from "#e2e/helpers/project-sidebar";
@@ -414,6 +411,17 @@ export async function getV4ConversationState(): Promise<V4ConversationStateSnaps
  * setInputValueByTestIdDom 的 __zcodeLexicalInputE2E bridge 分支（驱动真实 editor state）。
  */
 export async function sendV4Prompt(prompt: string) {
+  const resendOnDraftRegeneration = consumeDraftRegenerationResend();
+  for (let attempt = 1; ; attempt += 1) {
+    const since = resendOnDraftRegeneration ? await readRendererNow() : 0;
+    await submitV4Prompt(prompt);
+    if (!resendOnDraftRegeneration || attempt >= DRAFT_REGENERATION_MAX_ATTEMPTS) return;
+    if (!(await isDraftRegenerationSendFailure(since))) return;
+    console.warn(`[e2e][draft-regeneration] 第 ${attempt} 次发送遇到草稿换代，按产品提示重发`);
+  }
+}
+
+async function submitV4Prompt(prompt: string) {
   await setV4ComposerText(prompt);
   const mainPaneTestId = testId(TID_V4_SESSION_PANE, V4_MAIN_PANE_ID);
   try {
@@ -501,6 +509,70 @@ export async function sendV4Prompt(prompt: string) {
   if (!submitResult.submitted) {
     throw new Error(`v4 composer 没有派发 submit 事件: ${JSON.stringify(submitResult)}`);
   }
+}
+
+// 草稿换代首发失败（staging 存量，另行排期）：重启并切模型后，草稿预热会话可能在首发前
+// 换代，产品报“草稿会话已切换，请重新发送”，正文退回 composer。三处抛错都在 prompt 派发
+// 之前，重发不会重复投递。产品修复前，只在重启准备之后的那次发送上按产品提示重发（有上限），
+// 其他失败照常暴露。
+const DRAFT_REGENERATION_SEND_ERROR = "草稿会话已切换，请重新发送";
+const DRAFT_REGENERATION_MAX_ATTEMPTS = 3;
+const DRAFT_SEND_RESULT_TIMEOUT_MS = 30_000;
+
+/** 读 renderer 当前时钟，作为“本次点击之后”的 send 漏斗事件起点。 */
+function readRendererNow(): Promise<number> {
+  return browser.execute(() => Date.now());
+}
+
+async function isDraftRegenerationSendFailure(since: number): Promise<boolean> {
+  // send_click 与 send_result 一一对应；按本次点击的 send_result 判定这次发送的结果。
+  // 不能只看错误横幅：失败横幅会一直留到下一次成功发送，分不清是哪一次发送失败。
+  let status: string | null = null;
+  await browser
+    .waitUntil(
+      async () => {
+        status = await browser.execute((sinceMs) => {
+          type SendFunnelEvent = {
+            name: string;
+            recordedAt?: number;
+            properties?: Record<string, unknown>;
+          };
+          const events =
+            (window as Window & { __zcodeArmsCustomEventsE2E?: SendFunnelEvent[] })
+              .__zcodeArmsCustomEventsE2E ?? [];
+          const click = events.find(
+            (event) => event.name === "send_click" && (event.recordedAt ?? 0) >= sinceMs,
+          );
+          const clickId = click?.properties?.send_click_id;
+          if (!clickId) return null;
+          const result = events.find(
+            (event) => event.name === "send_result" && event.properties?.send_click_id === clickId,
+          );
+          return typeof result?.properties?.status === "string" ? result.properties.status : null;
+        }, since);
+        return status !== null;
+      },
+      { timeout: DRAFT_SEND_RESULT_TIMEOUT_MS },
+    )
+    .catch(() => undefined);
+  if (status !== "fail") return false;
+  // 横幅只显示通用的“发送失败”，原因只在详情弹窗里；必须确认是换代错误才重发。
+  const paneTestId = testId(TID_V4_SESSION_PANE, V4_MAIN_PANE_ID);
+  await $(`[data-testid="${paneTestId}"] [data-testid="${TID_CHAT_ERROR_DETAILS_BUTTON}"]`).click();
+  const dialog = $('[role="dialog"]');
+  await dialog.waitForDisplayed({ timeout: 5000, timeoutMsg: "发送失败详情弹窗没有打开" });
+  const detail = await dialog.getText();
+  await browser.keys("Escape");
+  await dialog.waitForDisplayed({
+    reverse: true,
+    timeout: 5000,
+    timeoutMsg: "发送失败详情弹窗没有关闭",
+  });
+  if (!detail.includes(DRAFT_REGENERATION_SEND_ERROR)) {
+    console.warn(`[e2e][draft-regeneration] 发送失败但不是草稿换代，不重发: ${detail}`);
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -993,6 +1065,24 @@ export function getV4ComposerBackgroundWorkCounts(): Promise<{
   }, TID_V4_COMPOSER_BACKGROUND_WORK_TRIGGER);
 }
 
+/**
+ * 失败时收集后台工作证据。用于区分三种情况：tool_use 未命中 fixture、
+ * 权限弹窗导致工具未启动、事件已到达但 UI 未投影。
+ */
+export async function describeV4BackgroundFailureState(): Promise<string> {
+  const [counts, works, snapshot] = await Promise.all([
+    getV4ComposerBackgroundWorkCounts(),
+    getV4BackgroundWorks(),
+    getV4PaneSnapshot(),
+  ]);
+  return JSON.stringify({
+    canStop: snapshot.canStop,
+    composer: counts,
+    backgroundWorks: works,
+    timelineTail: snapshot.timelineText.slice(-1500),
+  });
+}
+
 /** Electron driver 不实现 WebDriver window/rect；通过主进程 BrowserWindow 调整 viewport。 */
 export async function setV4ElectronWindowSize(width: number, height: number) {
   // Bug 根因：外框和 renderer 内容区的差值随平台及 zoom 改变，固定误差会误报超时。
@@ -1122,44 +1212,53 @@ export async function clickV4BackgroundWorkCancel(workId: string) {
   }, workId);
 }
 
-/** 通过任务行归档，再在归档管理中永久删除当前任务。 */
+/** 通过侧栏归档，再从归档管理永久删除当前会话。 */
 export async function clickV4DeleteSession() {
-  const { taskId } = await getV4ConversationState();
-  if (!taskId) throw new Error("永久删除前没有当前任务身份");
-  const row = $(sel(testId(TID_TASK_ITEM, taskId)));
+  const { sessionId } = await getV4PaneSnapshot();
+  if (!sessionId || sessionId === "draft") throw new Error("删除要求已建立的会话");
+  // 原因：Header 删除入口已移除；只能走用户可见的任务生命周期入口。
+  const row = $(`[data-testid="${TID_TASK_ITEM}-${sessionId}"]`);
   await row.waitForDisplayed({ timeout: 15000 });
-  // XCODE: 当前产品从归档管理永久删除，不能把单纯归档后隐藏当成删除成功。
-  await row.moveTo();
-  await row.$(sel(testId(TID_TASK_ARCHIVE, taskId))).click();
-  await browser.waitUntil(
-    async () => (await row.getAttribute("data-archive-confirming-task-id")) === taskId,
-    { timeout: 15000, timeoutMsg: "任务行没有进入归档确认" },
+  await row.click({ button: "right" });
+  const archive = $(
+    '//*[@role="menuitem" and (normalize-space(.)="归档任务" or normalize-space(.)="Archive task")]',
   );
-  await row.$(sel(testId(TID_TASK_ARCHIVE, taskId))).click();
+  await archive.waitForDisplayed({ timeout: 15000 });
+  await archive.click();
   await row.waitForExist({ reverse: true, timeout: 15000 });
-  await $(sel(TID_TASK_SETTINGS_BUTTON)).click();
-  const archives = $(sel(testId(TID_SETTINGS_SECTION_NAV, "archives")));
-  await archives.waitForClickable({ timeout: 15000 });
-  await archives.click();
-  // XCODE: 普通任务视图和未分类任务没有项目祖先，归档管理的真实分组才是删除入口。
-  await $('[data-testid="archive-group-toggle"]').waitForClickable({ timeout: 15000 });
+  await $('[data-testid="task-settings-button"]').click();
+  await $('[data-testid="settings-section-nav-archives"]').click();
+  // 归档管理默认收起分组，先经 UI 展开，不能把折叠中的任务误判为归档丢失。
+  await $('[data-testid="archive-group-toggle"]').waitForDisplayed({ timeout: 15000 });
   for (const toggle of await $$('[data-testid="archive-group-toggle"]')) {
     if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
   }
-  const archivedSelector = `[data-testid="archive-task"][data-task-id=${JSON.stringify(taskId)}]`;
-  const archived = $(archivedSelector);
+  const archived = $(`[data-testid="archive-task"][data-task-id="${sessionId}"]`);
   await archived.waitForDisplayed({ timeout: 15000 });
-  if ((await $$(archivedSelector).length) !== 1) {
-    throw new Error(`归档管理中待删除任务身份不唯一: ${taskId}`);
-  }
-  const remove = archived.$('[data-testid="archive-delete"]');
-  await remove.waitForClickable({ timeout: 15000 });
-  await remove.click();
-  const confirm = $(sel(TID_CONFIRM_DIALOG_CONFIRM));
-  await confirm.waitForClickable({ timeout: 15000 });
+  // 运行日志证明：展开动画中 row 已可见，但删除按钮仍被裁剪，原生 click 报 not interactable。
+  // 等真实动画结束和按钮可点击后只点击一次，不能用固定暂停或重复点击补救。
+  await browser.waitUntil(
+    () =>
+      browser.execute((id) => {
+        const task = document.querySelector(`[data-testid="archive-task"][data-task-id="${id}"]`);
+        const content = task?.closest('[data-state="open"]');
+        return (
+          Boolean(content) &&
+          content!
+            .getAnimations({ subtree: true })
+            .every((animation) => animation.playState !== "running")
+        );
+      }, sessionId),
+    { timeout: 15000, timeoutMsg: "归档分组展开动画未结束" },
+  );
+  const deleteButton = archived.$('[data-testid="archive-delete"]');
+  await deleteButton.waitForClickable({ timeout: 15000 });
+  await deleteButton.click();
+  const confirm = $('[data-testid="confirm-dialog-confirm"]');
+  await confirm.waitForDisplayed({ timeout: 15000 });
   await confirm.click();
   await archived.waitForExist({ reverse: true, timeout: 15000 });
-  await $(sel(TID_SETTINGS_BACK_BUTTON)).click();
+  await $('[data-testid="settings-back-button"]').click();
 }
 
 /** 读取 Composer 当前 mode/模型选择显示。 */
@@ -1574,25 +1673,24 @@ export function getV4SessionTitle(): Promise<string | null> {
   }, TID_V4_SESSION_TITLE);
 }
 
-/** 从当前任务行右键菜单打开重命名对话框，提交真实 TaskService 命令。 */
+/** 从当前会话的侧栏右键菜单重命名。 */
 export async function renameV4Session(title: string) {
-  const { taskId } = await getV4ConversationState();
-  if (!taskId) throw new Error("重命名前没有当前任务身份");
-  const row = $(sel(testId(TID_TASK_ITEM, taskId)));
-  await row.waitForClickable({ timeout: 15000 });
-  // XCODE: 旧 header 输入框已移除，任务行菜单与对话框才是当前用户入口。
+  const { sessionId } = await getV4PaneSnapshot();
+  if (!sessionId || sessionId === "draft") throw new Error("重命名要求已建立的会话");
+  // 原因：Header 不再提供重命名表单；侧栏菜单才是当前产品入口。
+  const row = $(`[data-testid="${TID_TASK_ITEM}-${sessionId}"]`);
+  await row.waitForDisplayed({ timeout: 15000 });
   await row.click({ button: "right" });
   const rename = $(
     '//*[@role="menuitem" and (normalize-space(.)="重命名任务" or normalize-space(.)="Rename task")]',
   );
-  await rename.waitForClickable({ timeout: 15000 });
+  await rename.waitForDisplayed({ timeout: 15000 });
   await rename.click();
-  const dialog = $('[role="dialog"][data-state="open"]');
-  const input = dialog.$("input");
+  const input = $('[role="dialog"] input');
   await input.waitForDisplayed({ timeout: 15000 });
   await input.setValue(title);
-  await browser.keys("Enter");
-  await dialog.waitForDisplayed({ reverse: true, timeout: 15000 });
+  await input.addValue("\uE007");
+  await input.waitForExist({ reverse: true, timeout: 15000 });
 }
 
 /** 读取输入控制条：autoDrain（data-auto-drain）与 followupMode（data-followup-mode）。 */
@@ -2430,7 +2528,7 @@ export function isV4ComposerFocused(): Promise<boolean> {
 
 /** 读取 composer 附件卡片的可观察文件名与 ready 状态。 */
 export function getV4ComposerAttachments(): Promise<
-  Array<{ text: string; uploadStatus: string | null }>
+  Array<{ text: string; kind: string | null; uploadStatus: string | null }>
 > {
   return browser.execute(
     (attachmentPrefix) =>
@@ -2442,6 +2540,7 @@ export function getV4ComposerAttachments(): Promise<
           const mediaFilename = element.querySelector<HTMLImageElement>("img[alt]")?.alt.trim();
           return {
             text: mediaFilename || (element.innerText || element.textContent || "").trim(),
+            kind: element.getAttribute("data-composer-attachment-kind"),
             uploadStatus: element.getAttribute("data-upload-status"),
           };
         }),
@@ -2499,13 +2598,23 @@ export async function clickV4SlashOption(optionId: string) {
   return dispatched;
 }
 
-/** 通过 composer 工具条切换协作模式（switchCollaborationMode 命令）。 */
+/** 通过 Composer 工具条切换草稿权限，显式确认进入完全访问。 */
 export async function switchV4Mode(mode: string) {
+  const previous = mode === "yolo" ? (await getV4ModelConfig()).mode : null;
   await selectRadixOption(
     TID_CHAT_MODE_SELECT_TRIGGER,
     testId(TID_CHAT_MODE_SELECT_ITEM, mode),
     `v4 模式选择器没有出现目标模式项: ${mode}`,
   );
+  if (mode === "yolo" && previous !== "yolo") {
+    const risk = $('[data-testid="yolo-confirmation-risk"]');
+    await risk.waitForClickable();
+    await risk.click();
+    const confirm = $('[data-testid="yolo-confirmation-confirm"]');
+    await confirm.waitForClickable();
+    await confirm.click();
+    await $('[data-testid="yolo-confirmation-dialog"]').waitForDisplayed({ reverse: true });
+  }
 }
 
 export async function waitForV4PlanModeEnabled(timeout: number): Promise<void> {

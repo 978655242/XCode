@@ -181,8 +181,22 @@ async function run() {
       ["unassigned", false, false],
     ]) {
       const shown = await observe(`window.renderPanel(${JSON.stringify(status)}, ${withQuota})`);
-      if (valid) assert.match(shown, /Current subscription period\n75%/, status);
-      else {
+      if (valid) {
+        // XCODE: spec 要求使用服务端唯一月周期及 UTC+8 重置日，旧“当前周期”断言已过期。
+        assert.match(shown, /Usage remaining\nMonthly\n75% · Nov 2/, status);
+        assert.equal(
+          await observe("document.querySelectorAll('.bg-surface-hover').length"),
+          1,
+          status,
+        );
+        assert.equal(
+          await observe(
+            "[...document.querySelectorAll('span')].filter(node => node.textContent === 'Monthly').length",
+          ),
+          1,
+          status,
+        );
+      } else {
         assert.match(shown, /Usage remaining\nNo active Coding Plan/, status);
         assert.doesNotMatch(shown, /Current subscription period|75%/, status);
       }

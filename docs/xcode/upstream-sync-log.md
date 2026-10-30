@@ -22,6 +22,48 @@
 单独 cherry-pick 的提交（如有）：
 ```
 
+## 2026-10-30 同步 upstream v3.17.1 (3c5b2276..a60ba6a7)
+
+- 状态：同步分支准备中，验证结果完成后补充；当前已同步基线仍以上方字段为准。
+- 同步分支：`sync/upstream-20261030`，从 `origin/release` @ `b5333ac1` 切出；整体合并上游并保留原始 SHA，不 cherry-pick。
+
+| 上游提交   | 说明                                                                                     | 分类（采纳/适配/拒绝） | 备注 / 拒绝原因                                      |
+| ---------- | ---------------------------------------------------------------------------------------- | ---------------------- | ---------------------------------------------------- |
+| `a60ba6a7` | v3.17.1：远端数据同步、项目管理、任务重启、提供商与模型配置、Electron 升级及工程测试调整 | 采纳并适配             | 整体 merge；保留 Aiscoo 品牌、New API 与既有下游扩展 |
+
+同步约束与验收依据：
+
+- 复用新版公开契约、数据同步与运行时单一 owner；New API 主账号和官方云连接各自持有原有凭据/代次，不新增认证缓存或接受队列。
+- 桌面 `desktop-continuous` 与手机 `web-remote-replayable` 继续通过原 Host attachment 与 owner/lease 路由；身份使用 `workspaceIdentity?.trim() || workspacePath`。
+- 上游退役的业务单测采用新版工程测试入口；Aiscoo 专属回归保留独立入口，不能为通过门禁削弱断言或恢复已移除业务模块。
+- 运行类型、Lint、架构、schema、CLI 及相关 Aiscoo 回归；桌面/远控涉及的协议适配需提供可重复场景，环境限制如实登记。
+
+```text
+Renderer / 手机输入 → 可信 attachment → Host owner/lease → CLI CommandInbox
+New API 账号 owner → 已核验会话事件 → Provider 投影 / worker 配置
+独立官方云连接 → 原命名空间凭据 → 官方 MCP / 闲时任务
+```
+
+冲突文件及取舍：
+
+- CLI bootstrap/core：采用新版生命周期 owner、同轮通知与完整 prompt 合同；保留 New API 请求期凭据 fence。分享导入已提交后即使初始化与关闭同时失败，仍返回 `sharedImportCommit`，保留聚合 cause，不重复清理持久资源；`provider-regression` 仅读取显式静态 Key。
+- services/Host：任务创建适配 `{ sessionId, additionalDirectories }` 与 `creationCommand`，保留同步 owner fence；官方 MCP 采用新版 `plugin-command` 模式并继续独立凭据 namespace；闲时过期采用失败收口和手动 Continue，保留 expectedTask CAS、核销 outbox 与 handoff。
+- UI/Web：采用数据同步、新职业引导、session config pending 与生命周期恢复；品牌、法律信息、Native 额度、模型菜单与插件指南仍由各自扩展装配，不恢复删除的旧 onboarding。
+- Desktop：融合新版 provider provisioning、手机 MCP allowlist 与指南访问策略；Electron 开发包在品牌资源与入口就绪后签名，缓存指纹升为 format=4；迁移 E2E/helper 的 imports 与模型菜单断言。
+- 工程与许可：采用上游 engineering-only 清单、四份模块契约和 App 单测退役；只迁出已有 Aiscoo 场景到独立 `test:aiscoo`，原生回归仍单独执行。依赖锁与许可清单由工具生成，下游 UI 回归保留原测试库。
+
+阶段验证（合入同步期间新到的 release 前）：
+
+- Node 24.14.0、pnpm 10.33.2；根 Lint 0 errors / 310 warnings；CLI Lint 0 errors / 54 warnings；CLI 34 包 typecheck 与构建通过。
+- 完整 Aiscoo Node 回归 198/198、本机启动器 9/9；UI/Web 23 文件 178/178；services/protocol 11 文件 105/105；Desktop 专属 4 文件 30/30，开发包工程 10/10；架构工程回归 53/53，schema 8/8 与两份 baseline 兼容。
+- CLI 定向首轮 18 文件 395/396，唯一 workflow 稳定归档标识失败已修并补跑；workflow/项目凭据 22/22、共享导入 5/5、Provider 工具 30/30、SEA 资产 44/44 最终通过。
+- 关键账号边界定向 63/63；覆盖 desktop-continuous / web-remote-replayable、同步事务 precommit fence、官方云在途换号及手动 Continue。
+- 根 typecheck 最后一个 E2E 返回类型注解已修，最终整体验证待接入最新 release 后执行。真实 Electron 首个上下文场景通过，周期详情旧夹具预期已按规格修正；完整八组及钥匙串验收尚待最终结果。
+- 工程 affected 官方选择 157/157，按上游合同明确跳过，未执行全量工程套件；不将此记为测试通过。许可标识与声明新鲜度检查通过，仍有上游既有 19 项材料需发布前复核。
+- 同步期间 `release` 新增 PR #48（浏览器持有凭据），随后以 merge commit 整合，最终验证和 PR 链接在提交前补齐。
+
+单独 cherry-pick 的提交：无。
+
 ## 2026-10-21 同步 upstream v3.16.2 (0a1fc56d..3c5b2276)
 
 - 同步 PR：#18

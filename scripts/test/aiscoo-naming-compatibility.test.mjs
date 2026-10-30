@@ -84,7 +84,14 @@ test("historical brand assets, sync log and pre-push path remain intact", async 
     cwd: root,
     encoding: "utf8",
   });
-  assert.equal(current, baseline);
+  // XCODE: 同步 PR 可追加记录，但品牌兼容必须保留原有全部历史条目。
+  const historicalHeading = "## 2026-10-21 同步 upstream v3.16.2";
+  assert.ok(current.includes(historicalHeading));
+  assert.equal(
+    current.slice(current.indexOf(historicalHeading)),
+    baseline.slice(baseline.indexOf(historicalHeading)),
+  );
+  assert.ok(current.startsWith("# 上游同步记录\n"));
   const historicalLinks = [...current.matchAll(/\]\((\.\.?\/[^)#]+)(?:#[^)]*)?\)/g)];
   assert.ok(historicalLinks.length > 0);
   for (const [, relative] of historicalLinks) {

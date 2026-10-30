@@ -24,11 +24,24 @@ import {
   type SeedReplayProviderModel,
 } from "./model-provider-restart-config.js";
 import { getV4DraftThoughtState } from "./v4-conversation.js";
-import { getComposerRecentStorageKey } from "./conversation-session-store.js";
 
 const paths = getE2EAppDataPaths();
 const SETTINGS_FILE = join(paths.appDataDir, "setting.json");
 const CREDENTIALS_FILE = paths.credentialsFile;
+async function currentComposerRecentKey(): Promise<string> {
+  return browser.execute((workspacePath) => {
+    // 首次草稿可能尚无导航缓存；直接读当前草稿 owner，不能用旧 workspace 键或猜测项目。
+    const state = (
+      window as Window & {
+        __zcodeSessionStoreE2E?: {
+          getState(): { workspaces: Record<string, { draftProjectId?: string | null }> };
+        };
+      }
+    ).__zcodeSessionStoreE2E?.getState().workspaces[workspacePath];
+    if (!state) throw new Error(`当前工作区草稿状态未就绪: ${workspacePath}`);
+    return `zcode-composer-recent:v2:${JSON.stringify(["desktop", "local", state.draftProjectId ?? null])}`;
+  }, paths.workspace);
+}
 
 export { seedTurboAgentStartupModel } from "./model-provider-restart-runtime.js";
 
@@ -102,6 +115,7 @@ export async function seedBigModelStartPlanCredential() {
 }
 
 export async function seedReplayProvider(params: {
+  apiFormat?: PersonalProviderConfigSeed["apiFormat"];
   apiKey?: string;
   baseURL?: string;
   enabled?: boolean;
@@ -119,7 +133,9 @@ export async function seedReplayProvider(params: {
     // 内建 account provider 的模型规则按 anthropic-messages 匹配；若用 OpenAI Chat Completions
     // 格式覆盖连接配置，GLM builtin model rules 不会命中，模型在 Registry 中
     // 会因缺少完整 option/properties 被过滤，UI 菜单就看不到该计划模型。
-    apiFormat: params.id.startsWith("account:") ? "anthropic-messages" : "openai-chat-completions",
+    apiFormat:
+      params.apiFormat ??
+      (params.id.startsWith("account:") ? "anthropic-messages" : "openai-chat-completions"),
     apiKey: params.apiKey ?? getUpstreamApiKey(),
     baseURL,
     enabled: params.enabled ?? true,
@@ -143,29 +159,33 @@ export async function seedPersistedModelSelection(params: {
   providerId: string;
   reasoningLevel: string;
 }) {
-  const storageKey = await getComposerRecentStorageKey(paths.workspace);
+  const key = await currentComposerRecentKey();
   await browser.execute(
-    (storageKey, selection, appProvider) => {
+    (recentKey, selection, appProvider) => {
+      const previous = JSON.parse(window.localStorage.getItem(recentKey) ?? "{}");
       window.localStorage.setItem(
-        storageKey,
+        recentKey,
         JSON.stringify({
-          providerId: selection.providerId,
-          modelId: selection.modelId,
-          options: { reasoningLevel: selection.reasoningLevel },
+          ...previous,
+          modelSelection: {
+            providerId: selection.providerId,
+            modelId: selection.modelId,
+            options: { reasoningLevel: selection.reasoningLevel },
+          },
         }),
       );
       window.localStorage.setItem("zcode-last-agent-provider", appProvider);
     },
-    storageKey,
+    key,
     params,
     ZCODE_AGENT_PROVIDER,
   );
 }
 
 export async function readLastSelectedAgentConfig() {
-  const storageKey = await getComposerRecentStorageKey(paths.workspace);
-  return await browser.execute((storageKey) => {
-    const raw = window.localStorage.getItem(storageKey);
+  const key = await currentComposerRecentKey();
+  return await browser.execute((recentKey) => {
+    const raw = window.localStorage.getItem(recentKey);
     if (!raw) return null;
     const recent: unknown = JSON.parse(raw);
     // Recent 扩展为模型与权限并列保存；重启断言同时兼容旧的纯模型种子。
@@ -194,7 +214,7 @@ export async function readLastSelectedAgentConfig() {
       model: `${candidate.providerId}/${candidate.modelId}`,
       thoughtLevel: candidate.options?.reasoningLevel ?? null,
     };
-  }, storageKey);
+  }, key);
 }
 
 export async function waitForLastSelectedAgentConfig(params: {
@@ -358,20 +378,23 @@ export async function restartIntoWorkspacePreservingProfile() {
 
 export async function waitForSelectedModel(providerId: string, modelId: string) {
   const expected = encodeCustomModelValue(providerId, modelId);
+  const recentKey = await currentComposerRecentKey();
   let actual: string | null = null;
   try {
     await browser.waitUntil(
       async () => {
         const snapshot = await browser.execute(
-          (value, triggerTestId) => {
+          (value, triggerTestId, key) => {
             const trigger = document.querySelector<HTMLElement>(`[data-testid="${triggerTestId}"]`);
             return {
               actual: trigger?.dataset.modelCurrentValue ?? null,
               matched: trigger?.dataset.modelCurrentValue === value,
+              storedConfig: window.localStorage.getItem(key),
             };
           },
           expected,
           TID_CHAT_MODEL_SELECT_TRIGGER,
+          recentKey,
         );
         actual = snapshot.actual;
         return snapshot.matched;
