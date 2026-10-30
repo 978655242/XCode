@@ -56,9 +56,29 @@ function validatePolicy(raw, cwd) {
     };
   });
   const moduleIds = new Set(modules.map((module) => module.id));
+  // XCODE: 别名只映射到已登记的唯一模块，不复制 owner 或放宽模块边界。
+  const aliases = Object.create(null);
+  if (
+    raw.aliases !== undefined &&
+    (!raw.aliases || typeof raw.aliases !== "object" || Array.isArray(raw.aliases))
+  ) {
+    throw new Error("模块 aliases 必须是映射");
+  }
+  for (const [alias, target] of Object.entries(raw.aliases ?? {})) {
+    if (
+      !alias ||
+      alias.trim() !== alias ||
+      moduleIds.has(alias) ||
+      typeof target !== "string" ||
+      !moduleIds.has(target)
+    ) {
+      throw new Error(`模块别名无效或重复: ${alias} -> ${target}`);
+    }
+    aliases[alias] = target;
+  }
   for (const module of modules) {
     for (const dependency of module.requires) {
-      if (!moduleIds.has(dependency))
+      if (!moduleIds.has(dependency) && !Object.hasOwn(aliases, dependency))
         throw new Error(`模块 ${module.id} 依赖未知模块 ${dependency}`);
     }
   }
@@ -106,7 +126,12 @@ function validatePolicy(raw, cwd) {
     ...exception,
     paths: exception.paths ?? [],
   }));
-  return { version: 1, modules, global, exceptions };
+  return { version: 1, modules, global, exceptions, aliases };
+}
+
+// XCODE: 仅已验证的别名映射到同一个模块，未知 ID 继续触发既有检查。
+export function canonicalModuleId(id, policy) {
+  return policy.aliases[id] ?? id;
 }
 
 export function layerForFile(file, module) {
@@ -167,10 +192,28 @@ export async function loadPolicy(cwd = process.cwd()) {
     .readFile(path.join(cwd, "architecture-policy.xwork.yaml"), "utf8")
     .catch((error) => (error.code === "ENOENT" ? null : Promise.reject(error)));
   if (extension !== null && Array.isArray(raw?.modules)) {
-    const extra = parseYaml(extension)?.modules;
+    const downstream = parseYaml(extension);
+    const extra = downstream?.modules;
     if (!Array.isArray(extra))
       throw new Error("architecture-policy.xwork.yaml 必须包含 modules 数组");
     raw.modules.push(...extra);
+    // XCODE: 下游别名单独追加，保留上游清单的所有现有条目。
+    if (downstream.aliases !== undefined) {
+      if (
+        !downstream.aliases ||
+        typeof downstream.aliases !== "object" ||
+        Array.isArray(downstream.aliases)
+      ) {
+        throw new Error("模块 aliases 必须是映射");
+      }
+      if (
+        raw.aliases &&
+        Object.keys(downstream.aliases).some((key) => Object.hasOwn(raw.aliases, key))
+      ) {
+        throw new Error("模块别名重复");
+      }
+      raw.aliases = { ...raw.aliases, ...downstream.aliases };
+    }
   }
   return validatePolicy(raw, cwd);
 }

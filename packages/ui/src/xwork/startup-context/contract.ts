@@ -1,2 +1,2 @@
-/** 启动归属水合与用户导航分开；请求复用共享 Root 的通用接点。 */
-export type { RestoredDraftContext } from "@/root/types.js";
+// XCODE: 旧路径转发到唯一 Aiscoo 实现，保留已有调用。
+export * from "../../aiscoo/startup-context/contract.js";

@@ -9,6 +9,7 @@
     "./xwork-brand": "./src/xwork-brand/runtime.js",
     "./aiscoo-brand": "./src/xwork-brand/runtime.js",
     "./xwork-plugin-guides": "./src/xwork-plugin-guides/index.ts",
+    "./aiscoo-plugin-guides": "./src/aiscoo-plugin-guides/index.ts",
     ".": "./src/index.ts",
     "./runtime-env": "./src/runtimeEnv.ts",
     "./test-ids": "./src/test-ids.ts",

@@ -469,6 +469,8 @@ export const zcodeProtocolNotifications = {
   processNetworkRequests: "process/networkRequests",
   // XCODE: independent plugin guide text deltas, outside session replay.
   xworkWorkspaceTextDelta: "xwork/workspace/textDelta",
+  // XCODE: 新名称复用历史通知 wire，兼容旧 CLI 和 Host。
+  aiscooWorkspaceTextDelta: "xwork/workspace/textDelta",
 } as const;
 
 /** 启动控制面独立于 task stream；数据库身份不可携带路径/凭据。 */
@@ -4317,6 +4319,9 @@ export const zcodeProtocolMethods = {
   // XCODE: read-only guide sources and a real auxiliary workspace text stream.
   xworkPluginGuideSource: "xwork/plugins/guideSource",
   xworkWorkspaceStreamText: "xwork/workspace/streamText",
+  // XCODE: 保留原 wire，只为同一方法追加新的代码属性名称。
+  aiscooPluginGuideSource: "xwork/plugins/guideSource",
+  aiscooWorkspaceStreamText: "xwork/workspace/streamText",
 } as const;
 
 export type ZCodeProtocolMethod = (typeof zcodeProtocolMethods)[keyof typeof zcodeProtocolMethods];

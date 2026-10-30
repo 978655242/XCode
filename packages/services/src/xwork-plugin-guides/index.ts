@@ -1,7 +1,2 @@
-export { IPluginGuideService } from "./contract.js";
-export type {
-  PluginGuideAgentPort,
-  PluginGuideRepository,
-  PluginGuideServiceDependencies,
-} from "./contract.js";
-export { withPluginGuideExposure } from "./domain/exposure-policy.js";
+// XCODE: 旧路径转发到唯一 Aiscoo 实现，保留已有调用。
+export * from "../aiscoo-plugin-guides/index.js";

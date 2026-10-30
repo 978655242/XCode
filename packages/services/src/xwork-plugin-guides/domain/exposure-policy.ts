@@ -1,11 +1,2 @@
-import type { ServiceExposurePolicy } from "../../collection.js";
-import { IPluginGuideService } from "../contract.js";
-
-/** Add the reviewed product channel at attachment assembly; preserve upstream policy defaults. */
-export function withPluginGuideExposure(
-  policy: ServiceExposurePolicy | undefined,
-): ServiceExposurePolicy | undefined {
-  return policy
-    ? { allowedChannels: new Set([...policy.allowedChannels, IPluginGuideService.channelName]) }
-    : undefined;
-}
+// XCODE: 旧路径转发到唯一 Aiscoo 实现，保留已有调用。
+export * from "../../aiscoo-plugin-guides/domain/exposure-policy.js";

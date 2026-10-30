@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import { adoptModule } from "../architecture/adopt.mjs";
-import { loadPolicy } from "../architecture/index.mjs";
+import { checkArchitecture, generateContext, loadPolicy } from "../architecture/index.mjs";
 
 const UPSTREAM = `version: 1
 modules:
@@ -68,6 +68,113 @@ test("extension modules go through the same validation as upstream modules", asy
   await withPolicy("version: 1\n", (cwd) =>
     assert.rejects(loadPolicy(cwd), /必须包含 modules 数组/),
   );
+});
+
+test("aliases resolve one owner and preserve dependency and public-entry checks", async () => {
+  const policyYaml = `version: 1
+modules:
+  - id: consumer
+    roots: [packages/consumer/src]
+    managed: true
+    requires: [aiscoo-brand]
+  - id: stranger
+    roots: [packages/stranger/src]
+    managed: true
+    requires: []
+`;
+  const extension = `aliases:
+  aiscoo-brand: xwork-brand
+modules:
+  - id: xwork-brand
+    roots: [packages/brand/src]
+    managed: true
+    owner: product
+    requires: []
+    publicEntrypoints: [packages/brand/src/index.ts, packages/brand/src/contract.ts]
+`;
+  await withPolicy(extension, async (cwd) => {
+    await writeFile(join(cwd, "architecture-policy.yaml"), policyYaml);
+    await writeFile(join(cwd, "pnpm-workspace.yaml"), "packages: [packages/*]\n");
+    for (const id of ["consumer", "stranger", "brand"]) {
+      const dir = join(cwd, "packages", id, "src");
+      await mkdir(dir, { recursive: true });
+      await writeFile(
+        join(cwd, "packages", id, "package.json"),
+        JSON.stringify({ name: `@fixture/${id}`, exports: { ".": "./src/index.ts" } }),
+      );
+      await writeFile(
+        join(dir, "module.ts"),
+        `export const module = { requires: ${id === "consumer" ? '["aiscoo-brand"]' : "[]"} };\n`,
+      );
+      await writeFile(join(dir, "contract.ts"), "export type Contract = string;\n");
+      await writeFile(join(dir, "contract.example.ts"), "export {};\n");
+      await writeFile(join(dir, "contract.test.ts"), "export {};\n");
+      await writeFile(join(dir, "CONTRACT.md"), "# contract\n");
+      await writeFile(
+        join(dir, "index.ts"),
+        id === "consumer" ? 'import "@fixture/brand";\n' : "export const value = 1;\n",
+      );
+    }
+    const result = await checkArchitecture({ cwd });
+    assert.deepEqual(result.violations, []);
+    assert.equal(
+      await generateContext({ cwd, moduleId: "xwork-brand" }),
+      await generateContext({ cwd, moduleId: "aiscoo-brand" }),
+    );
+    assert.match(await generateContext({ cwd, moduleId: "aiscoo-brand" }), /owner: product/);
+    await writeFile(
+      join(cwd, "architecture-policy.yaml"),
+      policyYaml.replace("requires: [aiscoo-brand]", "requires: [xwork-brand]"),
+    );
+    await writeFile(
+      join(cwd, "packages/consumer/src/module.ts"),
+      'export const module = { requires: ["xwork-brand"] };\n',
+    );
+    assert.deepEqual((await checkArchitecture({ cwd })).violations, []);
+    await writeFile(join(cwd, "architecture-policy.yaml"), policyYaml);
+    await writeFile(
+      join(cwd, "packages/consumer/src/module.ts"),
+      'export const module = { requires: ["aiscoo-brand"] };\n',
+    );
+    await writeFile(join(cwd, "packages/stranger/src/index.ts"), 'import "@fixture/brand";\n');
+    await writeFile(join(cwd, "packages/brand/src/private.ts"), "export const secret = 1;\n");
+    await writeFile(
+      join(cwd, "packages/consumer/src/private.ts"),
+      'import "@fixture/brand/src/private.js";\n',
+    );
+    const failures = await checkArchitecture({ cwd });
+    assert.equal(failures.violations.filter((item) => item.rule === "module-dependency").length, 1);
+    assert.equal(failures.violations.filter((item) => item.rule === "deep-import").length, 1);
+    await writeFile(
+      join(cwd, "packages/consumer/src/module.ts"),
+      'export const module = { requires: ["xwork-brand"] };\n',
+    );
+    const mismatch = await checkArchitecture({
+      cwd,
+      changedFiles: ["architecture-policy.xwork.yaml"],
+    });
+    assert.equal(
+      mismatch.violations.filter((item) => item.rule === "manifest-policy-mismatch").length,
+      1,
+    );
+    assert.equal(mismatch.changedClosure, null);
+    await assert.rejects(
+      adoptModule({ cwd, id: "aiscoo-brand", roots: ["packages/brand/src"] }),
+      /别名/,
+    );
+  });
+});
+
+test("invalid and conflicting aliases are rejected", async () => {
+  for (const aliases of [
+    "aiscoo: missing",
+    "upstream: downstream",
+    '"": downstream',
+    "aiscoo: [downstream]",
+  ]) {
+    const extension = `aliases:\n  ${aliases}\nmodules:\n  - id: downstream\n    roots: [src/downstream]\n`;
+    await withPolicy(extension, (cwd) => assert.rejects(loadPolicy(cwd), /别名|alias/i));
+  }
 });
 
 test("adopt registers and re-adopts XWork modules in the extension file only", async () => {

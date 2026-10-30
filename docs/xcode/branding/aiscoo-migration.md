@@ -1,12 +1,12 @@
 # Aiscoo 品牌迁移清单与验收
 
-状态：已实施并完成源码、构建与定向验收，按用户要求提交并通过 PR 合入 `release`。基线：`84e1e3dd`；分支：`feature/aiscoo-branding`。未发布安装包；提交与合并结果以对应 PR 为准。
+原品牌显示迁移已通过 PR 合入 `release`。下文“项目代码与目录命名迁移”为独立后续工作，当前尚待全部验证与集成；其分支和验证结果不继承原品牌 PR 的完成状态。原品牌迁移基线：`84e1e3dd`；分支：`feature/aiscoo-branding`。未发布安装包；提交与合并结果以对应 PR 为准。
 
 ## 产品规则与唯一所有者
 
 产品显示名为 **Aiscoo**，用户提供的几何字标为小写 **aiscoo**，资源 slug 为 `aiscoo`。以 `docs/brand/aiscoo` 已提交的最终设计为原稿，不使用早期彩色草稿重新设计 Logo。浅色使用黑色字标，深色使用白色字标；桌面系统／Dock 图标基于已设计好的黑色版，内部 `ai` 围绕画布中心等比放大 20%，保留圆角底的几何、渐变、原有阴影与透明轮廓，原稿不改；Web／手机图标继续使用既有浅色版。
 
-品牌事实唯一所有者为 `packages/shared/src/xwork-brand/brand.json`，通过 `@zcode/shared/xwork-brand` 的原生 JavaScript 入口和相邻类型声明公开纯展示契约；Node 构建通过静态导入内联同一 JSON，Python 生成器直接读取该文件。桌面运行时不按源码相对路径读取品牌文件。界面资源唯一所有者为 `packages/ui/src/xwork/brand/assets`，公开组件由 `xwork-brand-ui` 模块提供。产品定制模块继续沿用 `xwork` 目录，便于识别下游扩展，不为更名机械改内部目录。
+品牌事实唯一所有者为 `packages/shared/src/xwork-brand/brand.json`，通过 `@zcode/shared/xwork-brand` 的原生 JavaScript 入口和相邻类型声明公开纯展示契约；Node 构建通过静态导入内联同一 JSON，Python 生成器直接读取该文件。桌面运行时不按源码相对路径读取品牌文件。界面资源唯一所有者为 `packages/ui/src/xwork/brand/assets`。品牌与插件指南的实现移入 Aiscoo 命名目录，旧公开路径转发到同一实现；架构 owner 与原 ID 保持不变，并追加新 ID 别名。
 
 界面使用独立 `AiscooIntlProvider` 包装，在应用入口显式装配品牌词典；原 `ZCodeIntlProvider` 保留上游默认，通过可选 `catalogTransform` 开放通用扩展。远控组件同样通过可选 `productName` 注入，原默认值和上游测试保留。只转换产品自己维护的静态文案模板，在插入用户值之前完成品牌投影。不得对用户会话、插件正文、项目名称、HTML 页面内容或最终模型输出做全局品牌替换。供应商 ZAI、BigModel、第三方产品、上游 ZCode 归属及法律信息保留真实名称。品牌集中配置，不在业务模块散落新的名称常量。
 
@@ -15,6 +15,19 @@
 托管 New API Chat Completions 的内置 Provider 名称、产品自己的 OpenRouter 归因以及新建官方插件市场的默认描述使用品牌配置中的 Aiscoo；保留原 Provider ID、服务地址、账号与模型配置、请求头名称及官方市场 ID。已有官方市场记录和用户自定义名称不批量改写；官方市场刷新时仍以远端清单的描述为准。用户内容、第三方资料与历史记录不替换，兼容身份、协议、旧数据目录及钥匙串不迁移。
 
 共享包和 UI 包追加 `aiscoo-brand` 公开入口，与既有 `xwork-brand` 入口指向同一实现；旧路径和架构模块 ID 保持兼容。验收覆盖两种入口、运行时内置 Provider 配置、OpenRouter 与非 OpenRouter 请求头、新建和既有市场记录及第三方内容。
+
+## 项目代码与目录命名迁移（待验收）
+
+本次以 `origin/release` 的既有行为为基线，将可迁移的 XWork 下游实现移入 Aiscoo 命名目录。先迁移品牌，再处理插件指南、CLI 与其他下游模块；每组须能单独验证。只移动实现，不改变产品文案、认证身份、存储、业务状态或进程协议。
+
+- 共享品牌和 UI 品牌的现有 `./xwork-brand`、`./aiscoo-brand` 包导出键及精确 target 均保持不变；旧 target 转发至一个新目录实现。新旧导入的对象、组件和函数引用必须相同，原有所有命名导出和类型仍可用。
+- 品牌数据 `packages/shared/src/xwork-brand/brand.json` 是构建器、安装器和历史启动脚本直接读取的唯一事实来源。UI `packages/ui/src/xwork/brand/assets` 仍供桌面、Web、分享页和图标生成器直接使用。两处旧资源路径保留，迁移不复制事实源或更改这些调用。
+- 插件指南 RPC descriptor 保持 `xwork-plugin-guides`；CLI 的 `xwork/plugins/guideSource`、`xwork/workspace/streamText` 和 `xwork/workspace/textDelta` 保持不变。公开的 `xwork*` 协议属性保留，新的 `aiscoo*` 属性只追加并映射到相同字符串。
+- 架构别名必须将 `cli-xwork`、`xwork-startup-context`、`xwork-plugin-guides-{protocol,cli,service,ui}`、`xwork-brand` 和 `xwork-brand-ui` 与对应 Aiscoo ID 映射到唯一模块；依赖校验、公开入口、owner、分层规则和未知 ID 检查均不放宽。共享架构清单的既有内容只追加；不复制模块或重新排序。
+- 旧 CLI `test:xwork`、`posttest`、`scripts/xcode/start-local.py` 和 `scripts/xcode/启动 XCode.command` 保持可用；新增 Aiscoo 命名入口转发到同一实现。指向本仓历史脚本的桌面符号链接必须解析到正确脚本并保留退出码；当前机器上已失效、指向另一旧 checkout 的绝对链接不由本迁移修改。`docs/xcode/upstream-sync-log.md` 始终是唯一受保护历史记录，不移动、不修改。
+- release 的 Host 和客户端使用 `xwork-plugin-guides`；一个未发布开发快照曾使用 `aiscoo-plugin-guides`。两者不自动互通，需以一致版本重启该快照；不重试有副作用的 `generate`。
+
+验证先覆盖新旧包导出、共享对象及类型、CLI 和 Host 的 wire、全部架构别名和非法依赖、分支策略与 pre-push、历史启动路径；实施后执行相关定向测试及根类型检查、Lint 和架构检查。任何不能同时保持行为、完整兼容和共享清单只追加的部分暂停，保留可审阅证据。
 
 ## 深度盘点与实施清单
 

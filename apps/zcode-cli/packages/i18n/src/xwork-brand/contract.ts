@@ -1,5 +1,2 @@
-import type { ZCodeCopy } from "../types.js";
-
-/** 下游展示装配：只处理自有静态模板；版本、错误、路径和账号等插值原样保留。 */
-export type BrandCliCopy = (copy: ZCodeCopy) => ZCodeCopy;
-export { PRODUCT_NAME, PRODUCT_WORDMARK, brandProductText } from "@zcode/shared/xwork-brand";
+// XCODE: 旧路径转发到唯一 Aiscoo 实现，保留已有调用。
+export * from "../aiscoo-brand/contract.js";
