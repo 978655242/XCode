@@ -4286,7 +4286,7 @@ scripts/xcode/branch-policy.test.mjs
 
 ## 预演与验收限制
 
-`git merge-tree --write-tree --name-only HEAD upstream/main` 退出 0，无冲突。根类型、Lint、完整架构、CLI/Web/Desktop 构建与定向回归结果见同步记录；原生 198/198、独立 Vitest 63 文件 496/496，推送使用真实 hook。6 个正式场景 fixture 校验通过，路径问题的 4 个场景有修前失败/修后通过证据；不将 fixture 校验计作真实 Electron 复跑。
+`git merge-tree --write-tree --name-only HEAD upstream/main` 退出 0，无冲突。根类型、Lint、完整架构、CLI/Web/Desktop 构建与定向回归结果见同步记录；原生 198/198、独立 Vitest 63 文件 496/496。完整手工门禁已通过；首轮推送未生成 Husky 启动文件，自动 hook 证据在补齐后由末轮实际推送提供，不能把此前推送成功计作自动门禁通过。6 个正式场景 fixture 校验通过，路径问题的 4 个场景有修前失败/修后通过证据；不将 fixture 校验计作真实 Electron 复跑。
 
 Electron 44 真实上下文、周期详情、handoff、升级展示、模型能力、法律入口及头像场景通过；模型设置串行正常退出，无独立摘要。钥匙串 development/seed 两轮 15 秒超时未通过；未放宽安全存储或超时，底层原因未确证。工程 affected 选中 157/157 时按合同明确跳过；私有远控队列不存在时明确跳过。尚未完成 Windows/Linux、真实用户完整冷恢复与手机实机 E2E。许可检查通过，仍有既有 19 项材料需发布前复核。
 
