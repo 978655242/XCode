@@ -162,7 +162,8 @@ modules:
       domain: .
     owner: product
   - id: cli-brand
-    roots: [apps/zcode-cli/packages/i18n/src/xwork-brand, apps/zcode-cli/packages/i18n/src/aiscoo-brand]
+    roots:
+      [apps/zcode-cli/packages/i18n/src/xwork-brand, apps/zcode-cli/packages/i18n/src/aiscoo-brand]
     managed: true
     requires: [zcode-cli, xwork-brand]
     publicEntrypoints:
