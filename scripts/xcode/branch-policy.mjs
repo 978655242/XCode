@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// XWork 分支规范的机器校验，规则来源：docs/xcode/BRANCHING.md。
+// XWork 分支规范的机器校验，规则来源：docs/aiscoo/BRANCHING.md。
 // 子命令：
 //   pr            CI 校验 PR（env: BASE_REF, HEAD_REF, HEAD_SHA）
 //   push          本地 pre-push hook，stdin 为 git 传入的 ref 列表
@@ -229,6 +229,6 @@ const errors = await command();
 if (errors.length > 0) {
   const prefix = process.env.GITHUB_ACTIONS ? "::error::" : "✗ ";
   for (const error of errors) console.error(`${prefix}${error}`);
-  console.error("规范：docs/xcode/BRANCHING.md");
+  console.error("规范：docs/aiscoo/BRANCHING.md");
   process.exitCode = 1;
 }

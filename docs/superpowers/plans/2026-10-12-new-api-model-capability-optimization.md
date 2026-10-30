@@ -8,7 +8,7 @@
 
 **Tech Stack:** 仓库固定 Node 24.14.0、pnpm 10.33.2；TypeScript、Zod、现有受限 CEL/JSON Merge Patch、React/Electron、现有 Host/RPC/V4 协议；New API Go 1.25.1、GORM、现有管理员 JsonEditor 与 Bun/Vitest。
 
-**Spec:** [客户端规格 §5.2.1](../../xcode/specs/new-api-integration.md#521-服务端能力声明与思考控制一致性)、[原版模型设置呈现](../../xcode/specs/new-api-model-settings-ui.md)、[唯一 HTTP/metadata canonical spec §7](../../../../new-api/docs/specs/xcode-integration.md#7-管理员模型元数据)。本计划是既有集成的增量，不重跑或重写 T01–T10、U01–U04 的实施清单，也不替代 G1–G5 正式发布验收。
+**Spec:** [客户端规格 §5.2.1](../../aiscoo/specs/new-api-integration.md#521-服务端能力声明与思考控制一致性)、[原版模型设置呈现](../../aiscoo/specs/new-api-model-settings-ui.md)、[唯一 HTTP/metadata canonical spec §7](../../../../new-api/docs/specs/xcode-integration.md#7-管理员模型元数据)。本计划是既有集成的增量，不重跑或重写 T01–T10、U01–U04 的实施清单，也不替代 G1–G5 正式发布验收。
 
 状态：2026-10-12 **仅完成规格补充与计划制定，M01–M05 均待实施/验收**。本文未授权提交、推送、业务数据库写入、现有服务重启或收费推理。
 
@@ -76,7 +76,7 @@
 | M02  | XCode：`packages/provider/src/resolver.ts`；`packages/provider-node/src/legacy-reasoning-level.ts`；`packages/services/test/newApiSelectionCutover.test.ts`、`newApiRegistry.test.ts`                                                                                                                                                                                                                                                                                                                               | 托管配置优先级、固定入口、严格档位选择                                            |
 | M03  | XCode：`packages/provider/src/resolver.ts`、`registry.ts`、`registry-service.ts`；`packages/shared/src/zcode-protocol/index.ts`；`packages/services/src/model-provider/accountProviderRequestAuthService.ts`、`zcode-agent/zcodeAgentService.ts`；CLI `bootstrap/src/app/process-provider-registry-runtime.ts`、`provider-registry-model-runtime.ts`、`zcode-protocol/account-provider-config.ts`、`server-types.ts`、`zcode-protocol-entrypoint.ts`；`newApiRegistryOwner.test.ts`、`newApiWorkerBoundary.test.ts` | Native 授权身份与能力 revision 分离、应用确认、sendText 放行与撤销安全            |
 | M04  | Create：XCode `packages/desktop/test/newApiModelCapabilitiesElectron.mjs`；Modify：`runNewApiElectronSmokes.mjs`、`newApiWorkerBoundary.test.ts`；仅发现真实缺陷时修改原 Composer/SDK adapter 或现有 SDK patch                                                                                                                                                                                                                                                                                                      | 原版界面交互与真实 SDK/relay 工具往返                                             |
-| M05  | XCode：`docs/xcode/new-api-integration-runbook.md`；New API：指定模型的既有管理员配置；实际涉及的两仓源码/构建                                                                                                                                                                                                                                                                                                                                                                                                      | 授权后的定向配置应用、真实部署与逐档验收                                          |
+| M05  | XCode：`docs/aiscoo/new-api-integration-runbook.md`；New API：指定模型的既有管理员配置；实际涉及的两仓源码/构建                                                                                                                                                                                                                                                                                                                                                                                                     | 授权后的定向配置应用、真实部署与逐档验收                                          |
 
 依赖顺序：M01 → M02 → M03 → M04 → M05。M02/M03 共享 resolver、M03/M04 共享 Worker 测试，不并发编辑；共享 schema 和接线由一个集成执行者负责。提交/推送不在默认步骤内，获得当轮明确授权后才按任务范围提交。
 
@@ -120,7 +120,7 @@ pnpm architecture:check --changed
 pnpm --dir apps/zcode-cli check
 ```
 
-完整 Node 回归采用 [runbook 当前入口](../../xcode/new-api-integration-runbook.md#回归与验收)，任务前重新核对，不假设统一单测命令。CLI 不在根 typecheck 范围内；CLI 或协议变化后执行 `pnpm prepare:desktop-runtime`，核对实际启动的 Agent 产物，不用旧 bundle 验收。格式检查只针对本任务文件，同时如实记录全仓既有失败。
+完整 Node 回归采用 [runbook 当前入口](../../aiscoo/new-api-integration-runbook.md#回归与验收)，任务前重新核对，不假设统一单测命令。CLI 不在根 typecheck 范围内；CLI 或协议变化后执行 `pnpm prepare:desktop-runtime`，核对实际启动的 Agent 产物，不用旧 bundle 验收。格式检查只针对本任务文件，同时如实记录全仓既有失败。
 
 New API 根的聚焦入口：
 
@@ -213,7 +213,7 @@ go test ./relay/common -run TestApplyParamOverride -count=1
 - [x] 只改服务端候选 values/map，再刷新并验证同一已发布客户端接收新增合法档位；删除已选档位要求重选；在隔离环境验证旧 turn 继续、新 turn 用新配置、撤销仍取消。不能在真实用户会话里制造撤销/耗尽来凑证据。
 - [x] 更新运行手册：每模型供应商来源、配置摘要/前后 revision、实际 origin/产物、各命令/场景结果与缺项。必要回滚只恢复批准的模型配置并刷新，保留新代码安全修复与数据审计，不切回官方 origin；完成后移除临时进程/数据。
 
-执行证据见 [运行手册思考能力段](../../xcode/new-api-integration-runbook.md#2026-10-12-思考能力优化与定向配置候选) 与 `.superpowers/sdd/2026-10-12-new-api-model-capability-optimization/progress.md`。用户选择「继续真实联调」：仅两个 exact models、闲置桌面同版更新、隔离账号/指定实例/SID，最多 20 次且每次 max_tokens≤512；不重启后端、不提交或推送。实际完成 18 次，18 条指定实例 4 消费均 wallet_quota_deducted=0；测试账号经真实密码 step-up 删除，审计保留。完整配置通过管理员原生 PUT 提交/回读，不冒充管理 UI 表单视觉验收。原客户端刷新接收四档；删除/旧 turn/Queue/撤销场景在隔离真实 Host/Worker/Core/Electron 中验证，未在业务账号制造故障。实际暂存 Worker app-server NDJSON 启动/回执验证 exit0，matching fence 未通过时真实 received/applied 不同，status=received，不发模型 HTTP。临时 SDK 驱动的四请求/消费者断言成功后，清理误用 stop API 导致非零退出；真实请求未重复，驱动已移除。18 次供应商消费不是 G1–G5 全矩阵；后端产物缺 VCS provenance、MySQL/Postgres、Windows/Linux、真实官方云与完整资金/发布门禁仍未验收。已有账号 5 条非测试消费及相应计数保留，不回退用户数据。
+执行证据见 [运行手册思考能力段](../../aiscoo/new-api-integration-runbook.md#2026-10-12-思考能力优化与定向配置候选) 与 `.superpowers/sdd/2026-10-12-new-api-model-capability-optimization/progress.md`。用户选择「继续真实联调」：仅两个 exact models、闲置桌面同版更新、隔离账号/指定实例/SID，最多 20 次且每次 max_tokens≤512；不重启后端、不提交或推送。实际完成 18 次，18 条指定实例 4 消费均 wallet_quota_deducted=0；测试账号经真实密码 step-up 删除，审计保留。完整配置通过管理员原生 PUT 提交/回读，不冒充管理 UI 表单视觉验收。原客户端刷新接收四档；删除/旧 turn/Queue/撤销场景在隔离真实 Host/Worker/Core/Electron 中验证，未在业务账号制造故障。实际暂存 Worker app-server NDJSON 启动/回执验证 exit0，matching fence 未通过时真实 received/applied 不同，status=received，不发模型 HTTP。临时 SDK 驱动的四请求/消费者断言成功后，清理误用 stop API 导致非零退出；真实请求未重复，驱动已移除。18 次供应商消费不是 G1–G5 全矩阵；后端产物缺 VCS provenance、MySQL/Postgres、Windows/Linux、真实官方云与完整资金/发布门禁仍未验收。已有账号 5 条非测试消费及相应计数保留，不回退用户数据。
 
 **完成条件：** M01–M04 已通过，所有拟发布模型的真实供应商/渠道已验证；剩余未核实模型明确列出，不能宣称“所有模型已支持”。G1–G5 的资金/官方云/多平台/正式发布门禁仍独立记录。
 

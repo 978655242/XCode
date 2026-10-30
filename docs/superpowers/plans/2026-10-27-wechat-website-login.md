@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go/Gin/GORM，React/TypeScript/TanStack/Zustand，Bun/Vitest，官方 WxLogin；无新依赖。
 
-**Spec:** [微信网站应用登录与自动注册](../../xcode/specs/wechat-website-login.md)
+**Spec:** [微信网站应用登录与自动注册](../../aiscoo/specs/wechat-website-login.md)
 
 **实施状态：** S01/S02 已实现并完成受控验证，工作树保持未提交、未合入、未部署。W10 真实扫码、电脑快捷登录和完整 Host/安全凭据库验收受外部前提阻塞；受控协议验证不替代 W10。
 

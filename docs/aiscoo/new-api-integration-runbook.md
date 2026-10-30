@@ -1,10 +1,10 @@
-# XWork / New API 本机集成运行手册
+# Aiscoo / New API 本机集成运行手册
 
 客户端规则见 [spec](specs/new-api-integration.md)，认证、资金与管理员接口以 [New API canonical spec](../../../new-api/docs/specs/xcode-integration.md) 为唯一来源。实施与发布验收见 [执行计划](../superpowers/plans/2026-10-08-new-api-integration.md)。
 
 ## 本机一键启动（2026-10-19 当前部署）
 
-双击桌面 **`启动 XCode.command`**。入口位于 `scripts/xcode/启动 XCode.command`，只负责补启动或激活现有 XWork Dev；不是 Apple Xcode。需要 Docker Desktop、现有数据库/原生API部署、仓库依赖和已安装 Node24，不自动安装、拉镜像或更新业务构件。
+桌面快捷入口以本机实际文件为准。仓库入口为 **`scripts/aiscoo/启动 Aiscoo.command`**（转发到同一实现）；旧入口 `scripts/xcode/启动 XCode.command` 仍可用。入口只负责补启动或激活现有 Aiscoo Dev；不是 Apple Xcode。需要 Docker Desktop、现有数据库/原生API部署、仓库依赖和已安装 Node24，不自动安装、拉镜像或更新业务构件。
 
 - 当前 API 是既有 launchd 作业 `com.new-api.local-backend`，binary及私密 `.env` 在 `~/Library/Application Support/new-api-local/`；使用现有 `new-api-local-postgres` 的 `127.0.0.1:15433/new_api`。这是已由用户确认复用的原生部署，下面旧容器/SQLite验收段落仅作为历史记录，不是当前启动规格。
 - `NEW_API_BASE_URL` 固定为 `http://127.0.0.1:3001`。binary、配置、plist或数据库身份变化会明确拒绝，不根据“端口能通”接管未知实例；安装清单在 `~/.config/xcode-local/start.json`（0600），不含密钥明文。
@@ -107,7 +107,7 @@ macOS/Windows 使用 Electron `safeStorage`；Linux 的 `basic_text`、无可用
 
 - 管理员在 New API 为用户授予 canonical 的 `xcode` 专用实例。托管 relay key 只消费指定实例；钱包/general/其他订阅不兜底。renew、replace、revoke、reset 通过当前管理员接口及 revision 执行，不在客户端造订单或修改原生账户关系。
 - 客户端模板价格、指定实例、额度单位和 `quota_per_unit` 来自真实 metadata；保持原始十进制字符串。Unlimited 与未知指标明确区分，不把 unknown/null 变成零。
-- 前端仅展示 `account:new-api-openai-chat-completions`，名称为 `XWork`；模型设置、聊天选择和默认候选使用同一可见性规则。Responses/Messages anchor 保留底层协议与历史身份，但不向前端开放；旧选择须手动重选，不自动转换协议。管理员需将供 XWork 使用的模型配置为真实可用的 Chat Completions transport。
+- 前端仅展示 `account:new-api-openai-chat-completions`，名称为 `Aiscoo`；模型设置、聊天选择和默认候选使用同一可见性规则。Responses/Messages anchor 保留底层协议与历史身份，但不向前端开放；旧选择须手动重选，不自动转换协议。管理员需将供 Aiscoo 使用的模型配置为真实可用的 Chat Completions transport。
 - 管理员维护真实 transport、完整 model properties 与 option/CEL maps。Native 本地配置只允许已有模型排序，不能覆盖托管能力、名称或可见性。缺失配置、非法 CEL、禁用模型或授权/catalog revision 不一致均不能获得可执行 ref；问题在目录 issue 投影中显示，不猜供应商默认能力。
 - 旧个人、企业、Start Plan ref 必须手动重选，即使 `model_id` 同名也不自动映射。Native 的 `off/nothink` 等历史值不转换为 `disabled`；未选、已删除或不支持的值保留原选择并要求重选。保留历史消息/ref 与用户自配 Provider/key/模型，不批量改写用户配置。
 - 模型设置现有刷新入口重新读取服务端目录；Renderer 重读 View 不代替 HTTP 刷新。首次后续提交等待 Host→Worker 串行交付的实际 `appliedRevision`；仅收到新目录或 `receivedRevision` 不代表可执行。纯能力更新保留旧 turn 的冻结配置，新 turn 重新绑定；owner/授权或模型资格失效仍取消/拒绝。Host 与 Worker 必须来自同版本产物，不支持旧 Native 鉴权字段兼容。当前私有链路仅本机 worker；远程私有 provisioning 明确 unsupported，原非私有远程功能不删除。
@@ -125,7 +125,7 @@ macOS/Windows 使用 Electron `safeStorage`；Linux 的 `basic_text`、无可用
 
 真实供应商验证共 18 次、每次 `max_tokens=512`：两模型各四档、真实文件工具调用及带历史思考的续轮、各一次流式取消，以及实际 CLI Model runtime/installed SDK 各自的关闭和高档请求。两条流的真实 relay/消费记录均为 `client_gone / context canceled`；非 idle timeout。18 条消费记录全部来自隔离测试账号的指定实例 4，billing_source=subscription、wallet_quota_deducted=0；不把此有限样例写成完整资金门禁。测试授权已撤销，真实密码 step-up 后删除测试账号；旧 control 401、relay 403，消费与审计保留。测试期间另有已有账号 5 条非测试消费，原计数未回退；非目标模型、模板和已有账号/实例/key 的配置未改。
 
-`pnpm prepare:desktop-runtime` 已成功；确认 Main 的 runningAgentSessionCount=0 后正常退出并重启同版桌面。当前 Main/Host 都已重建，暂存 Worker 与实际 CLI dist 的 SHA-256 同为 `a8f559bdc2965a47df3ac09d775d8f667b22d3656f4c79db34a022244e0ce320`。实际暂存 Worker 的 app-server NDJSON 启动/回执 smoke 退出 0：Builtin matching fence 未通过时 receivedRevision 与实际 appliedRevision 不同，status=received，不发模型 HTTP。真实设置刷新后仍只有一个 XWork·Plan 入口，原 Composer 实际接收 disabled/low/high/max，原选择和控件保留。没有在业务会话删除已选档或制造撤销；这些场景由隔离真实 Host/Worker/Core/Electron 回归验证。
+`pnpm prepare:desktop-runtime` 已成功；确认 Main 的 runningAgentSessionCount=0 后正常退出并重启同版桌面。当前 Main/Host 都已重建，暂存 Worker 与实际 CLI dist 的 SHA-256 同为 `a8f559bdc2965a47df3ac09d775d8f667b22d3656f4c79db34a022244e0ce320`。实际暂存 Worker 的 app-server NDJSON 启动/回执 smoke 退出 0：Builtin matching fence 未通过时 receivedRevision 与实际 appliedRevision 不同，status=received，不发模型 HTTP。真实设置刷新后仍只有一个 Aiscoo·Plan 入口，原 Composer 实际接收 disabled/low/high/max，原选择和控件保留。没有在业务会话删除已选档或制造撤销；这些场景由隔离真实 Host/Worker/Core/Electron 回归验证。
 
 后端没有重启或更换产物：仍为 `xwork-upgrade-20261012`，规范 origin `http://127.0.0.1:3001`，原数据挂载与只读 binary 挂载保留；当前 binary SHA-256 `448a595f7218f4394b56419269854f6e0f6ec5020af85a6d64864f8a7936d037`。Go build metadata 未嵌入 VCS revision，不能宣称该产物精确对应当前源码或为 clean release；完整 G1–G5、多数据库及 Windows/Linux 仍未验收。
 
@@ -193,7 +193,7 @@ Marketplace 导入回归通过临时 Git URL 映射克隆本地已提交 fixture
 
 - 发布前核对客户端/后端源码、构建标记、挂载、canonical origin、功能开关和实际 consumer；备份并确认审计保留，使用明确允许的测试数据验证撤销和资金域。
 - 关闭开关不是旧二进制安全回滚：先撤销全部专用客户端 Session/relay key，取消所有有效 xcode 实例，保留 purpose/scope 与资金审计。确认旧代码不能把专用实例/托管 key 当 general/wallet 再部署旧二进制。
-- 切客户端 URL 或去掉 `NEW_API_BASE_URL` 不迁移用户、订阅或秘密，也不允许未归属云凭据被认领。原生 browser Session 与 XCode Session 的撤销语义必须分别检查。
+- 切客户端 URL 或去掉 `NEW_API_BASE_URL` 不迁移用户、订阅或秘密，也不允许未归属云凭据被认领。原生 browser Session 与 Aiscoo Session 的撤销语义必须分别检查。
 - 默认不自动发布、不提交/推送、不重启用户已有服务、不改业务数据库；部署必须有明确授权。PR 目标 `release`，`main` 仍只镜像上游。
 - 2026-10-12 用户明确选择「桌面前端＋3001嵌入页」后，已重建桌面/本机 Agent、New API Web 与 Go embed，并启动 `NEW_API_BASE_URL=http://127.0.0.1:3001 pnpm dev:desktop:prod`。现有 `new-api` 容器保留原配置、会话密钥、数据挂载和端口，实际版本为 `xwork-upgrade-20261012`，加载 `index.3b9adbf597.js`；数据库新增可空 `xcode_display`，完整性检查通过，原 3 个账号、2 个模板、账号额度及订阅记录与升级前一致。真实 Native 页面已验证账号恢复、模板读取、个人/团队切换及主题/语言/字号继承，不替代完整 G1–G5 验收。
 - 本次部署备份位于 `~/ai/new-api-backup-xcode-restart-zv7Pnl/`，包含一致数据库快照、旧二进制和私有容器配置；目录及私有文件已限制权限，禁止提交或对外分享。旧容器保留为停止状态的 `new-api-before-upgrade-zv7Pnl`，不要与新容器同时写入相同数据库。当前模板未配置 `xcode_display`，页面按规格保留原始名称与条款；未改写套餐价格、授权、权益或补造体验/Lite/Pro/Max。

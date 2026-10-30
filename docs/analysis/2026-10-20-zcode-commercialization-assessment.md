@@ -134,7 +134,7 @@ NOTICE 明确共享执行适配器默认不提供 OS 沙箱，CLI `--prompt` 未
 
 优先通过现有 Provider、MCP、Skills、插件和依赖注入扩展；把自有业务保持在独立模块。协议、会话/队列状态和远程恢复链路属于高维护成本区域，需控制改动面。
 
-本地仓库已明确采用 XWork 下游策略，详见 [BRANCHING.md](../xcode/BRANCHING.md)。这证明本地在工程上组织了 fork，不替代第三方授权及实际发行物审核。
+本地仓库已明确采用 XWork 下游策略，详见 [BRANCHING.md](../aiscoo/BRANCHING.md)。这证明本地在工程上组织了 fork，不替代第三方授权及实际发行物审核。
 
 ## 6. 商业策略与验收建议
 

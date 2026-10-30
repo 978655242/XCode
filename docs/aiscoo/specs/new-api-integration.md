@@ -422,7 +422,7 @@ shared `CodingPlanResetStatusSnapshot` 改为有 mode 的联合：原官方窗�
 | X4 官方云     | 独立连接/目录/权益，MCP与闲时任务解除普通Registry耦合                                       | X1，原官方服务                       |
 | X5 联调       | 本机登录→管理员授予→真实Agent→消费→耗尽/撤销，真实 UI和官方云验收                           | 两仓全部切片                         |
 
-在现有 feature 分支实施，遵守 docs/xcode/BRANCHING.md 与仓库架构治理。新增契约放 shared、协调放服务 owner；UI使用现有RPC/hooks。先核对 exported symbol references、复用patterns，再改 union；不加单实现抽象或全局 generic backend framework。
+在现有 feature 分支实施，遵守 docs/aiscoo/BRANCHING.md 与仓库架构治理。新增契约放 shared、协调放服务 owner；UI使用现有RPC/hooks。先核对 exported symbol references、复用patterns，再改 union；不加单实现抽象或全局 generic backend framework。
 
 不修改品牌、发布渠道、项目/作者归属和无关用户配置。数据文案使用项目 i18n。Root srcnode及本机 worker同步一起切换，不建立deprecated alias或默默回官方的过渡层。
 

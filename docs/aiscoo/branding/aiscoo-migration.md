@@ -18,7 +18,7 @@
 
 ## 项目代码与目录命名迁移（待验收）
 
-本次以 `origin/release` 的既有行为为基线，将可迁移的 XWork 下游实现移入 Aiscoo 命名目录。先迁移品牌，再处理插件指南、CLI 与其他下游模块；每组须能单独验证。只移动实现，不改变产品文案、认证身份、存储、业务状态或进程协议。
+本次以 `origin/release` 的既有行为为基线，将可迁移的 Aiscoo 下游实现移入 Aiscoo 命名目录。先迁移品牌，再处理插件指南、CLI 与其他下游模块；每组须能单独验证。只移动实现，不改变产品文案、认证身份、存储、业务状态或进程协议。
 
 - 共享品牌和 UI 品牌的现有 `./xwork-brand`、`./aiscoo-brand` 包导出键及精确 target 均保持不变；旧 target 转发至一个新目录实现。新旧导入的对象、组件和函数引用必须相同，原有所有命名导出和类型仍可用。
 - 品牌数据 `packages/shared/src/xwork-brand/brand.json` 是构建器、安装器和历史启动脚本直接读取的唯一事实来源。UI `packages/ui/src/xwork/brand/assets` 仍供桌面、Web、分享页和图标生成器直接使用。两处旧资源路径保留，迁移不复制事实源或更改这些调用。
@@ -33,8 +33,8 @@
 
 | 范围             | 已确认入口与问题                                                                                     | 实施与验收                                                                             |
 | ---------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| 共享产品名       | 无统一配置；桌面打包、runtime、dev bundle 分别维护 XWork 名称                                        | 增加纯数据配置及展示契约，三个身份入口消费同源值                                       |
-| 全语言界面       | `packages/ui/src/i18n/locales/{en-US,zh-CN}.ts` 有大量 XWork 文案；`IntlProvider` 直接装配词典       | 用下游词典投影装配，保留原词典键与上游默认资源；插值值不转换                           |
+| 共享产品名       | 无统一配置；桌面打包、runtime、dev bundle 分别维护 Aiscoo 名称                                       | 增加纯数据配置及展示契约，三个身份入口消费同源值                                       |
+| 全语言界面       | `packages/ui/src/i18n/locales/{en-US,zh-CN}.ts` 有大量 Aiscoo 文案；`IntlProvider` 直接装配词典      | 用下游词典投影装配，保留原词典键与上游默认资源；插值值不转换                           |
 | 桌面常驻入口     | `App.tsx`、`WindowsTopLeftLogo.tsx` 使用 X 图；原生菜单、托盘、通知、About、授权有分散产品名         | 使用公共品牌组件和 displayName；操作行为、窗口控制不变                                 |
 | 欢迎与登录       | `WelcomeScreen`、`OnboardingWelcomeView`、`RootStartupLoading`、静态 renderer HTML 启动标志          | 使用完整字标或 ai 标志；不依赖网络或文档目录读取资源                                   |
 | 首页空态与套餐   | `ConversationDraftEmptyState` 还有内联 X 与 `xcode-hero-dark.svg`；套餐/供应商入口需区分产品与第三方 | 完整动态 aiscoo 字标独立位于问候语上方；供应商标志保留真实归属                         |
@@ -43,7 +43,7 @@
 | Web 静态资源     | favicon.ico 与 index.html 内联 favicon 并存；启动 SVG 单独维护                                       | 同步内联与文件 favicon、启动图、手机添加主屏幕资源；离线静态加载                       |
 | 系统图标         | desktop/build、public/logo/icons、Linux 多尺寸、dev .app 图标是旧 X                                  | 从最终设计确定性导出 16/24/32/48/64/128/256/512/1024 PNG、ICO、ICNS；保留开发徽标合同  |
 | 安装器与 DMG     | 旧生成器复用已经改过的 X 图标底；安装器包装图和 DMG 字标未使用 Aiscoo                                | 从用户设计原稿生成产品资源；安装器和 DMG 只合成 Aiscoo 标志，不重画字标                |
-| CLI/TUI 与运行时 | welcome/help/banner、TUI 空闲图、授权页面和本地服务提示散落                                          | 通过既有 XWork 扩展/文案装配入口投影产品文本；保留 CLI 命令与协议                      |
+| CLI/TUI 与运行时 | welcome/help/banner、TUI 空闲图、授权页面和本地服务提示散落                                          | 通过既有 Aiscoo 扩展/文案装配入口投影产品文本；保留 CLI 命令与协议                     |
 | 打包发布         | product identity、preview/dev 名称、产物文件名、签名说明与 Linux desktop 展示                        | 用户看到 Aiscoo、Aiscoo Preview、Aiscoo Dev；appId、可执行文件和更新兼容标识保持既有值 |
 | 文档             | 根 README、DESIGN、品牌规范和设计 README 仍指向旧品牌                                                | 更新当前产品入口与本规范；历史设计/上游技术文档保留历史事实                            |
 | 验证与同步       | 现有 Logo、分享、手机品牌、runtime identity、builder 测试                                            | 添加下游品牌回归和打包资源检查，执行相关测试、typecheck、lint、架构与 merge-tree       |
@@ -75,7 +75,7 @@ flowchart LR
 ## 验收场景
 
 1. 桌面及 390px 手机 Web，浅色和深色的登录、启动、欢迎、空态、关于和远控入口显示 Aiscoo 原稿图形，无 X/Z 产品图。字标不被拉伸、裁切或低对比遮蔽；减弱动画偏好受到尊重。
-2. 产品自有的中英文文案、原生菜单、通知和 CLI 帮助显示 Aiscoo。用户输入 `XWork` / `ZCode`、历史会话、路径、URL 和供应商名称原样显示。
+2. 产品自有的中英文文案、原生菜单、通知和 CLI 帮助显示 Aiscoo。用户输入 `Aiscoo` / `ZCode`、历史会话、路径、URL 和供应商名称原样显示。
 3. 生产、Preview、Dev 分别显示 Aiscoo 对应名称；userData/sessionData、协议和更新身份断言仍为原有值。
 4. 全部运行时资源是 Git 中的真实文件，打包配置实际引用；Web/dist 与桌面产物包含相同设计资产，运行时不访问 docs、用户下载目录或 CDN 加载 Logo。ICO/ICNS/PNG 可解码且覆盖现有图标尺寸。
 5. 定向回归测试、`pnpm typecheck`、`pnpm lint`、`pnpm architecture:check --changed` 均报告真实结果；记录修改的上游文件、扩展理由及 `git merge-tree` 结果。未实际运行的跨平台安装器与交互场景明确记录。
@@ -105,7 +105,7 @@ flowchart LR
 
 ### 登录失败根因与真实恢复验证（2026-10-29）
 
-确认根因是运行产物仍使用更名前后未分离的旧启动顺序：故障 Main 在 ready 前以 Aiscoo Dev 初始化 safeStorage，现存密文由 XWork Dev 钥匙串保护，`decryptString` 因身份不匹配而失败；Main 的安全密钥加载失败后，Local Host 的 `oauth.startOAuth` 在联网前被 `XCODE_SECURE_STORAGE_UNAVAILABLE` 拦截。与 Renderer、用户数据目录或账号密码无关。
+确认根因是运行产物仍使用更名前后未分离的旧启动顺序：故障 Main 在 ready 前以 Aiscoo Dev 初始化 safeStorage，现存密文由 Aiscoo Dev 钥匙串保护，`decryptString` 因身份不匹配而失败；Main 的安全密钥加载失败后，Local Host 的 `oauth.startOAuth` 在联网前被 `XCODE_SECURE_STORAGE_UNAVAILABLE` 拦截。与 Renderer、用户数据目录或账号密码无关。
 
 使用同一现存密文和真实 Electron 41.0.3 只读验证：直接 Aiscoo Dev 启动时 `isEncryptionAvailable=true` 但解密失败；XWork Dev→ready→Aiscoo Dev 顺序解密成功，不输出明文。源码已有的兼容处理得到确认，无需更改凭据加载或降级安全存储。完整重建后核对 Main 产物包含两个身份设置阶段，再正常退出无运行任务的旧桌面，沿用同一环境、用户目录和私有后端启动新版 Main／Host。新桌面自动恢复原账号、任务与模型配置，原安全密钥文件的大小、时间与字节保持不变，新启动日志未再出现安全存储不可用错误；没有重新登录、清空凭据或发起模型请求。
 
@@ -126,7 +126,7 @@ Electron 41.0.3 依据：[ready 前钥匙串配置](https://github.com/electron/
 - 桌面／公共 5 个全尺寸 PNG 与原始黑色设计逐字节一致，SHA256 为 `36726244017041e0b57cc6f3ffad93c4374eee81222f9cc22118b813f7cfd10a`。ICNS 最高分辨率解码像素相同，包含 16–1024px 和 Retina；没有新增派生图形、放大参数或修改原稿。38 个原稿、Web 图标、安装器与 DMG 字节不变。资源测试 **9/9 通过**，生成器 `--check` 核对 **44 个输出**一致。
 - 初始对话及品牌、手机、启动、问候语定向回归 **6 文件、47/47 通过**。最终 `pnpm typecheck`、`pnpm lint`、`pnpm architecture:check --changed` 均退出 0；Lint 为 316 warnings、0 errors，架构为 0 violations。桌面 `build:no-runtime-assets` 退出 0，未运行全量 UT。
 - 真实 macOS 隔离 Aiscoo Dev 预览已重启并置前，复用预览专属数据目录。通过界面的「暂时跳过」进入初始对话，没有登录账号或填入密钥。完整白色动态字标在问候语上方独立显示，布局间隔为 24px，两次原生窗口截图确认探头／眼睛动画变化；减少动态效果时动画隐藏、完整静态字标显示。另以真实组件检查 1280px 深色和 390px 浅色布局，无重叠。
-- Dev.app 内 ICNS 与本次黑色资源哈希一致，运行中应用的 AppKit 图标确认为黑色原稿；源码启动时的 `app.dock.setIcon` 使用同一黑色 PNG。当前宿主不允许 Dock 辅助访问，系统整屏截图也不可用，因此未取得 Dock 栏截图。没有重启 Dock 或清理系统图标缓存；原 XWork 进程与原用户数据保持不动。窗口截图保存在被忽略的 `packages/desktop/out/branding-check/`。
+- Dev.app 内 ICNS 与本次黑色资源哈希一致，运行中应用的 AppKit 图标确认为黑色原稿；源码启动时的 `app.dock.setIcon` 使用同一黑色 PNG。当前宿主不允许 Dock 辅助访问，系统整屏截图也不可用，因此未取得 Dock 栏截图。没有重启 Dock 或清理系统图标缓存；原 Aiscoo 进程与原用户数据保持不动。窗口截图保存在被忽略的 `packages/desktop/out/branding-check/`。
 
 ## 实施与验证记录
 

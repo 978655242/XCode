@@ -8,7 +8,7 @@
 
 **Tech Stack:** New API Web 现有 React、TypeScript、TanStack Query/Router、Zustand、Zod、i18next、Vitest/Testing Library；真实浏览器和既有 Electron/CDP；Go Session/AuthFlow 保持现行契约。
 
-**Spec:** [已确认页面规格](../../xcode/specs/new-api-authorization-account-switch.md)；[New API canonical spec](../../../../new-api/docs/specs/xcode-integration.md) §4.2/§6.2。
+**Spec:** [已确认页面规格](../../aiscoo/specs/new-api-authorization-account-switch.md)；[New API canonical spec](../../../../new-api/docs/specs/xcode-integration.md) §4.2/§6.2。
 
 ## Global Constraints
 
@@ -44,8 +44,8 @@
 | `new-api/web/src/features/xcode/authorize.tsx`、`__tests__/authorization.test.tsx` | 页面重排、换号确认、互斥动作/归属、取消终态、一次明确授权及路由行为回归 |
 | `new-api/web/src/routes/__root.tsx`                                                | 跨标签 signed_out 的授权页返回目标；其他路由行为不变                    |
 | `new-api/web/src/i18n/locales/{en,zh,zh-TW,fr,ja,ru,vi}.json`                      | 本页新文案、XWork 展示名与换号影响；仅清理本页淘汰且没有消费者的旧 key  |
-| `XCode/docs/xcode/specs/new-api-authorization-account-switch.md`                   | 本增量 UI/状态规格、A01–A12 验收依据及后续真实证据                      |
-| `XCode/docs/xcode/new-api-integration-runbook.md`                                  | 功能完成后记录入口、浏览器换号影响、实际验证与部署限制                  |
+| `XCode/docs/aiscoo/specs/new-api-authorization-account-switch.md`                   | 本增量 UI/状态规格、A01–A12 验收依据及后续真实证据                      |
+| `XCode/docs/aiscoo/new-api-integration-runbook.md`                                  | 功能完成后记录入口、浏览器换号影响、实际验证与部署限制                  |
 
 已核对：`logout()` 的当前消费者为 `components/sign-out-dialog.tsx`、`features/auth/hooks/use-oauth-login.ts`，并由 `features/auth/index.ts` 导出。2026-10-17 LSP references 确认这些引用；S01 执行时再次查询。它们不改成固定 SID 模式，保留原生普通退出和 OAuth 登录语义。
 
@@ -106,7 +106,7 @@
 
 ## S04：真实浏览器、桌面交付与发布准备
 
-**Files:** 更新客户端本 UI 规格的验证记录和 `docs/xcode/new-api-integration-runbook.md`；不新增测试框架、不修改业务部署配置。
+**Files:** 更新客户端本 UI 规格的验证记录和 `docs/aiscoo/new-api-integration-runbook.md`；不新增测试框架、不修改业务部署配置。
 
 **Interfaces:** 消费 S01–S03 的实际页面/服务；证据区分真实浏览器 UI、真实 Session/PKCE/Host、模拟网络故障及尚未授权的部署。浏览器自动化复用现成工具或 XCode Desktop 已安装的 `playwright-core`，不为几行验收增加依赖。
 
