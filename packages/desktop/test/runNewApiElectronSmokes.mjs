@@ -11,19 +11,24 @@ const { build } = requireServices("esbuild");
 const requireDesktop = createRequire(new URL("../package.json", import.meta.url));
 const electron = requireDesktop("electron");
 const temporary = await mkdtemp(join(tmpdir(), "xwork-native-electron-tests-"));
+const requested = new Set(process.argv.slice(2));
+const fixtures = [
+  "newApiComposerContextElectron",
+  "newApiPeriodDetailsElectron",
+  "newApiWebHandoffElectron",
+  "newApiUpgradePresentationElectron",
+  "newApiModelSettingsElectron",
+  "newApiModelCapabilitiesElectron",
+  // XCODE: 公开法律入口复用独立、无真实账号的 Electron 场景。
+  "newApiLegalLinksElectron",
+  // XCODE: 覆盖真实 Footer 和默认头像在隔离 Electron 中的图片解码。
+  "newApiAccountAvatarElectron",
+];
 try {
-  for (const name of [
-    "newApiComposerContextElectron",
-    "newApiPeriodDetailsElectron",
-    "newApiWebHandoffElectron",
-    "newApiUpgradePresentationElectron",
-    "newApiModelSettingsElectron",
-    "newApiModelCapabilitiesElectron",
-    // XCODE: 公开法律入口复用独立、无真实账号的 Electron 场景。
-    "newApiLegalLinksElectron",
-    // XCODE: 覆盖真实 Footer 和默认头像在隔离 Electron 中的图片解码。
-    "newApiAccountAvatarElectron",
-  ]) {
+  // XCODE: 精确选场景可独立复验，默认仍运行全部；未知名称失败，不能悄悄跳过验收。
+  for (const name of requested)
+    assert.ok(fixtures.includes(name), `Unknown smoke fixture: ${name}`);
+  for (const name of fixtures.filter((fixture) => requested.size === 0 || requested.has(fixture))) {
     const entry = new URL(`./${name}.mjs`, import.meta.url);
     const output = join(temporary, `${name}.mjs`);
     await build({

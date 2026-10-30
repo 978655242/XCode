@@ -2,7 +2,7 @@
 
 流程见 [`BRANCHING.md`](./BRANCHING.md) 第 4 节。每次同步追加一节，最新的在最上面。
 
-已同步到：`upstream/main` @ `3c5b2276`（ZCode v3.16.2）
+已同步到：`upstream/main` @ `a60ba6a7`（ZCode v3.17.1；同步分支已集成，合入 release 以同步 PR 状态为准）
 
 ## 模板
 
@@ -24,7 +24,7 @@
 
 ## 2026-10-30 同步 upstream v3.17.1 (3c5b2276..a60ba6a7)
 
-- 状态：同步分支准备中，验证结果完成后补充；当前已同步基线仍以上方字段为准。
+- 状态：上游与最新 release 已通过 merge commit 集成，待同步 PR 评审；必须使用 Create a merge commit，不能 squash 或 rebase。
 - 同步分支：`sync/upstream-20261030`，从 `origin/release` @ `b5333ac1` 切出；整体合并上游并保留原始 SHA，不 cherry-pick。
 
 | 上游提交   | 说明                                                                                     | 分类（采纳/适配/拒绝） | 备注 / 拒绝原因                                      |
@@ -61,6 +61,16 @@ New API 账号 owner → 已核验会话事件 → Provider 投影 / worker 配�
 - 根 typecheck 最后一个 E2E 返回类型注解已修，最终整体验证待接入最新 release 后执行。真实 Electron 首个上下文场景通过，周期详情旧夹具预期已按规格修正；完整八组及钥匙串验收尚待最终结果。
 - 工程 affected 官方选择 157/157，按上游合同明确跳过，未执行全量工程套件；不将此记为测试通过。许可标识与声明新鲜度检查通过，仍有上游既有 19 项材料需发布前复核。
 - 同步期间 `release` 新增 PR #48（浏览器持有凭据），随后以 merge commit 整合，最终验证和 PR 链接在提交前补齐。
+
+最终整合验证：
+
+- `release` @ `855579e8`（PR #48）已由 merge commit `3d9e5c54` 整合；上游原始提交仍可达。远端 `origin/main` 已快进至 `a60ba6a7`，与 `upstream/main` 完全相同。
+- 根 `pnpm typecheck`、`pnpm lint`（0 errors / 308 warnings）、完整 `pnpm architecture:check`（0 违规）、CLI 34 包 typecheck/rebuild、Web build 与桌面 Main/Host/preload 编译通过。
+- 下游独立 Vitest 63 文件 496/496；完整原生账号回归 198/198、本机启动器 9/9；浏览器启动配置 6/6、真实 Git 推送钩子 15/15。最终套件包含浏览器 owner→Registry→真实 CLI 回环模型请求，未发外部计费请求。
+- 最终测试夹具按新版真实协议适配：Agent 能力协商、Source Server 必填 ROOT 与 glibc 告警继续、手机 Terminal 已开放但 provisioning/source management 仍拒绝；旧失败与修复依据保留，不降低产品断言。
+- `git merge-tree --write-tree --name-only HEAD upstream/main` 退出 0，无冲突。同步总量包含大量原样上游测试退役与工程改动；PR 附完整上游路径清单与实际下游适配理由。
+- Electron 44 真实上下文、周期详情、handoff、升级展示、模型能力、法律入口与头像场景均通过；法律入口覆盖 16 布局 / 32 点击。模型设置在六组串行 runner 中正常退出，但不输出单独摘要。handoff/升级首轮的旧外部路径失败已改为测试专用 `XCODE_NEW_API_SOURCE_DIR`，默认同级 `aiscoo-admin`；真实 bootstrap blob `9548cb4969afb8210af483f4d402a8b6b0b46dc7`。能力场景首轮缺截图目录，准备隔离证据目录后复验通过；未访问真实账号、支付或计费推理。
+- Electron 44 钥匙串 smoke 两轮 development/seed 均在 15 秒内未完成，临时应用日志有 sandbox/启动延迟；未调大超时或修改安全存储策略，该项不宣称通过。尚未执行 Windows/Linux、完整用户数据冷恢复及手机真实设备端到端验收。
 
 单独 cherry-pick 的提交：无。
 
