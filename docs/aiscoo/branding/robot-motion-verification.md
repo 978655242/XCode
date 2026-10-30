@@ -34,17 +34,17 @@ flowchart LR
 
 ## 来源分支历史：10 秒修订自动验证（2026-10-30）
 
-| 历史检查 | 来源记录结果 |
-| --- | --- |
-| freshness、architecture changed | 通过；架构 0 violations |
-| `pnpm typecheck` | 通过，Node 24.14.0 |
-| `pnpm lint` | 退出码 0，0 errors / 319 warnings |
-| 客户端定向 Vitest | 5 文件、66 项通过 |
-| 客户端资源／机器人 Python | 9 + 3 项通过 |
-| 管理端资源 Python／品牌 Vitest | 4 + 5 项通过 |
-| 设计栅格／客户端发布／管理端同步只读检查 | 18 / 44 / 20 项一致 |
-| 该次动效修订前后静态栅格 SHA-256 | 86 / 86 字节一致，未重新导出设计栅格 |
-| 两仓 `git diff --check` | 通过 |
+| 历史检查                                 | 来源记录结果                         |
+| ---------------------------------------- | ------------------------------------ |
+| freshness、architecture changed          | 通过；架构 0 violations              |
+| `pnpm typecheck`                         | 通过，Node 24.14.0                   |
+| `pnpm lint`                              | 退出码 0，0 errors / 319 warnings    |
+| 客户端定向 Vitest                        | 5 文件、66 项通过                    |
+| 客户端资源／机器人 Python                | 9 + 3 项通过                         |
+| 管理端资源 Python／品牌 Vitest           | 4 + 5 项通过                         |
+| 设计栅格／客户端发布／管理端同步只读检查 | 18 / 44 / 20 项一致                  |
+| 该次动效修订前后静态栅格 SHA-256         | 86 / 86 字节一致，未重新导出设计栅格 |
+| 两仓 `git diff --check`                  | 通过                                 |
 
 来源分支记录 87 项定向测试通过，未运行全量测试。其 Web 启动页测试先因只读环境禁止写入 `.vite-temp` 跳过，随后在主会话独立重跑 10/10 通过；管理端 5 项使用 `--configLoader runner`。这些环境与结果仅属于历史阶段。
 
@@ -66,14 +66,14 @@ flowchart LR
 
 固定使用 Node 24.14.0、Pillow 12.1.0 与隔离工作目录依赖。提取前 freshness 通过；依赖就绪后架构基线为 0 violations。以下为本次实际重跑结果：
 
-| 检查 | 本次实际结果 |
-| --- | --- |
-| `python3 -B scripts/aiscoo/robot-motion.test.py` | 5/5 通过，含几何边界、10 秒时间轴、旧入口与完整镜像 |
-| `python3 -B scripts/xcode/aiscoo-assets.test.py` | 9/9 通过，覆盖发布路径、确定性重建、容器、主题与原稿不变 |
-| `python3 -I -B scripts/xcode/generate-icons.py --check` | 44 个生产资源字节一致，只读检查 |
-| `python3 -I -B docs/brand/aiscoo/source/export_rasters.py --check` | 18 个正式设计栅格一致，只读检查 |
-| `python3 -I -B .skill-archive/logo-creator/Aiscoo-Logo-Final/source/export_rasters.py --check` | 18 个镜像设计栅格一致，只读检查 |
-| 正式包与设计工具镜像的相对路径集合及 SHA-256 | 39/39 一致，排除系统与缓存文件 |
+| 检查                                                                                           | 本次实际结果                                             |
+| ---------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `python3 -B scripts/aiscoo/robot-motion.test.py`                                               | 5/5 通过，含几何边界、10 秒时间轴、旧入口与完整镜像      |
+| `python3 -B scripts/xcode/aiscoo-assets.test.py`                                               | 9/9 通过，覆盖发布路径、确定性重建、容器、主题与原稿不变 |
+| `python3 -I -B scripts/xcode/generate-icons.py --check`                                        | 44 个生产资源字节一致，只读检查                          |
+| `python3 -I -B docs/brand/aiscoo/source/export_rasters.py --check`                             | 18 个正式设计栅格一致，只读检查                          |
+| `python3 -I -B .skill-archive/logo-creator/Aiscoo-Logo-Final/source/export_rasters.py --check` | 18 个镜像设计栅格一致，只读检查                          |
+| 正式包与设计工具镜像的相对路径集合及 SHA-256                                                   | 39/39 一致，排除系统与缓存文件                           |
 
 根 `pnpm typecheck`、`pnpm lint` 及提取后架构门禁由主 PR 统一执行和记录。本次未执行浏览器、真实桌面或跨平台安装验收。
 
