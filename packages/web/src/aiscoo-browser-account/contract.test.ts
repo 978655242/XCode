@@ -1,0 +1,37 @@
+import { describe, expect, it } from "vitest";
+import { createBrowserNewApiAccount } from "./index.js";
+import type { BrowserNewApiAccount, BrowserNewApiAccountOptions } from "./contract.js";
+
+describe("browser account public contract", () => {
+  it("starts signed out and exposes OAuth without leaking bundle storage", async () => {
+    const options: BrowserNewApiAccountOptions = {
+      origin: "https://new-api.example.test",
+      browserOrigin: "http://127.0.0.1:5173",
+      localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
+      sessionStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
+      locks: { request: async (_name, run) => run() },
+      fetch: async () => {
+        throw new Error("unexpected network access");
+      },
+    };
+    const account: BrowserNewApiAccount = createBrowserNewApiAccount(options);
+    expect(account.getOwner()).toBeNull();
+    expect(await account.oauth.restoreCachedSessionState()).toEqual({ status: "signed-out" });
+    expect(await account.oauth.getActiveProvider()).toBeNull();
+    expect(await account.oauth.getProviders()).toMatchObject([{ id: "new-api", enabled: true }]);
+    expect(Object.keys(account).sort()).toEqual([
+      "dispose",
+      "getControlCredential",
+      "getOwner",
+      "getRelayCredential",
+      "invalidateCredential",
+      "oauth",
+    ]);
+    await expect(account.oauth.startOAuth("zai")).rejects.toThrow("XCODE_PROVIDER_INVALID");
+    await expect(account.oauth.startOAuthWithPolling("new-api")).rejects.toThrow(
+      "XCODE_PRIVATE_POLLING_UNSUPPORTED",
+    );
+    account.dispose();
+    expect(account.getOwner()).toBeNull();
+  });
+});
