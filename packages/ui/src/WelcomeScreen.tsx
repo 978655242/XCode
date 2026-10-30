@@ -37,11 +37,13 @@ interface WelcomeScreenProps {
   header?: ReactNode;
   // XCODE: 可选信息展示插槽复用既有 provider 投影，未提供时保留原登录页。
   footer?: (providers: readonly OAuthProviderMeta[]) => ReactNode;
+  // XCODE: 产品可隐藏 API key 入口；默认继续提供原登录表单。
+  hideApiKeyLogin?: boolean;
 }
 
 export type LoginCompleteReason = "oauth" | "apiKey" | "skip";
 
-export function WelcomeScreen({ onComplete, header, footer }: WelcomeScreenProps) {
+export function WelcomeScreen({ onComplete, header, footer, hideApiKeyLogin }: WelcomeScreenProps) {
   return (
     <main className="relative flex h-full min-h-dvh items-center justify-center overflow-hidden bg-background px-4 py-6 text-foreground sm:px-6">
       <ThemeHeroVisual className="absolute inset-0" />
@@ -49,7 +51,14 @@ export function WelcomeScreen({ onComplete, header, footer }: WelcomeScreenProps
       <div className="pointer-events-none absolute left-0 top-0 right-0 z-10 flex h-12 items-center [app-region:drag] platform-windows-desktop:right-[134px] platform-linux-desktop:right-[134px]" />
       <DesktopOverlayWindowControls />
       <section className="relative z-10 w-full flex flex-col gap-10 max-w-sm rounded-2xl border border-popover-border bg-background p-8 text-ui-base/relaxed shadow-md sm:p-10">
-        <LoginPanel active onComplete={onComplete} header={header} footer={footer} />
+        {/* XCODE: 透传可选展示配置，默认登录能力保持不变。 */}
+        <LoginPanel
+          active
+          onComplete={onComplete}
+          header={header}
+          footer={footer}
+          hideApiKeyLogin={hideApiKeyLogin}
+        />
       </section>
     </main>
   );
@@ -61,6 +70,8 @@ interface LoginPanelProps {
   header?: ReactNode;
   // XCODE: 信息插槽消费已有投影，不创建第二个登录状态。
   footer?: (providers: readonly OAuthProviderMeta[]) => ReactNode;
+  // XCODE: 与欢迎页同一展示开关，直接使用 LoginPanel 时保持默认入口。
+  hideApiKeyLogin?: boolean;
 }
 
 interface ActiveLoginEntryAttempt {
@@ -82,7 +93,13 @@ export function shouldCompleteLoginFromExistingUser(params: {
   return params.hasUser && !params.attempt;
 }
 
-export function LoginPanel({ active, onComplete, header, footer }: LoginPanelProps) {
+export function LoginPanel({
+  active,
+  onComplete,
+  header,
+  footer,
+  hideApiKeyLogin,
+}: LoginPanelProps) {
   const { intl } = useZCodeIntl();
   const {
     startLogin,
@@ -357,17 +374,20 @@ export function LoginPanel({ active, onComplete, header, footer }: LoginPanelPro
                     <LoginOAuthRegionTag providerId={provider.id} />
                   </Button>
                 ))}
-                <Button
-                  variant="outline"
-                  className="h-10 w-full text-ui-base"
-                  size="lg"
-                  data-testid={TID_LOGIN_USE_API_KEY_BUTTON}
-                  onClick={() => {
-                    setLoginMode("apiKey");
-                  }}
-                >
-                  {intl.formatMessage({ id: "login.useApiKey" })}
-                </Button>
+                {/* XCODE: 产品登录页隐藏此入口，未注入开关时原表单仍可访问。 */}
+                {!hideApiKeyLogin && (
+                  <Button
+                    variant="outline"
+                    className="h-10 w-full text-ui-base"
+                    size="lg"
+                    data-testid={TID_LOGIN_USE_API_KEY_BUTTON}
+                    onClick={() => {
+                      setLoginMode("apiKey");
+                    }}
+                  >
+                    {intl.formatMessage({ id: "login.useApiKey" })}
+                  </Button>
+                )}
               </div>
             ) : null}
           </div>

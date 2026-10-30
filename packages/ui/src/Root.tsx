@@ -1523,6 +1523,7 @@ function RootInner({
         {requestSecurityBridgeNode}
         {remoteConnectionDialog}
         {directoryBrowserDialog}
+        {/* XCODE: 产品登录页只保留账号入口，组件默认行为留给未注入配置的调用方。 */}
         <WelcomeScreen
           onComplete={handleWelcomeScreenComplete}
           header={<AiscooLoginHeader />}
@@ -1532,6 +1533,7 @@ function RootInner({
               ? (providers) => <AiscooLegalLinks providers={providers} placement="login" />
               : undefined
           }
+          hideApiKeyLogin
         />
       </RootShell>
     );
