@@ -119,28 +119,28 @@ Main 与 Host 使用同一有效环境配置：开发 `.env`/`.env.local` 与进
 
 ### 4.1.1 桌面法律信息（2026-10-29 已批准）
 
-- 桌面设置 → 通用底部常驻“法律信息”区，复用 `SettingsGroupCard`、`SettingsRow`、`Button`，显示“用户协议”“隐私政策”和法定运营主体“杭州艾思酷国际贸易有限公司”。登录面板的登录按钮下提供同一组纯信息链接及运营主体，中英界面均可读；未登录同样可打开。无需新增勾选、自动同意、首次启动弹窗或本地协议正文。
-- 唯一 URL 来源是 Local Host 已验证的 `NewApiClient.origin`（来自当前 `NEW_API_BASE_URL`，开发预期 `http://127.0.0.1:3001`）。`new-api` adapter 在 `OAuthProviderMeta` 上追加可选公开 `legalLinks: { userAgreementUrl, privacyPolicyUrl }`，固定同源 `/user-agreement` 与 `/privacy-policy`，不含 query、fragment、凭据、state、handoff、token，也不为取得链接读取 Session 或发起网络请求。
-- 继续通过 `IOAuthService.getProviders()` 与 `useOAuth` 投影元数据；登录面板直接复用本次 hook 的 providers，设置区使用同一 hook。UI 扩展放在独立 XWork managed 模块，上游只添加两个最小挂载点和可选元数据类型。运营主体属于现有 `aiscoo-brand` 配置；本地化文案只追加到现有中英字典。
-- 链接仅经 `usePlatform().openExternal` 打开。UI 只接受启用的 `new-api` 元数据、同一合法 origin 和精确的两个公开路径；缺失、不完整或不安全 metadata 时隐藏整个入口，不默认跳官方链接。未配置私有 provider 的原路径保持原样。
-- 正文与生效/版本信息由 New API 后端页面维护，桌面不缓存全文、不参与认证、PKCE、会话、套餐或计费。没有额外状态 owner、持久化或登录副作用；公开列表的异步读取沿用现有 hook 生命周期，点击只使用当前渲染的已验证链接。
+- 桌面登录面板的登录操作下方，以及设置 → 通用底部展示“用户协议”“隐私政策”和法定运营主体“杭州艾思酷国际贸易有限公司”；未登录也可访问。中文和英文均显示原样中文主体，不新增勾选、同意步骤、弹窗或本地协议正文。
+- Local Host 的 `NewApiProviderAdapter` 从已验证的 `NewApiClient.origin` 生成 `OAuthProviderMeta` 的可选 `legalLinks`，只包含同源 `/user-agreement` 和 `/privacy-policy`；不读取会话、访问网络、创建 handoff 或附带 query、fragment、凭据和认证参数。正文及版本由 New API 公开页面维护。
+- 登录面板使用已有 `useOAuth` providers 投影，经可选的通用展示插槽装配下游模块。通用设置经可选插槽装配相同扩展，读取本窗口 Local Host 的 OAuth 服务；远程 workspace 的服务不能替换该来源。各入口只在桌面启用，普通 Web、手机远控、API Key 和无可选 metadata 的原有业务行为保持原样。
+- 扩展仅接受已启用的 `new-api` 完整 metadata、同一合法 HTTPS 或 loopback HTTP origin 及精确公开路径；缺失、不完整、跨源、含认证参数或其他路径时隐藏全部法律入口，不使用默认地址。点击经 `IPlatformService.openExternal` 打开；不改变用户内容、OAuth、PKCE、会话、套餐、支付或自定义 Provider。
+- 运营主体属于既有唯一 `xwork-brand/brand.json`，PR #38 的 `@zcode/shared/xwork-brand` 与 `@zcode/shared/aiscoo-brand` 两个出口共享该数据。法律界面独立为 `aiscoo/legal` managed 模块；中英文本只追加到现有字典。
 
 ```mermaid
 sequenceDiagram
     participant H as Local Host / NewApiProviderAdapter
-    participant O as IOAuthService / 公开 providers
-    participant U as useOAuth / 当前界面投影
-    participant P as Platform
+    participant O as IOAuthService.getProviders
+    participant U as 桌面现有 useOAuth 投影
+    participant P as IPlatformService
     participant W as New API 公开法律页
-    H->>O: 已验证 origin 生成无凭据 legalLinks
-    U->>O: getProviders（无需登录）
-    O-->>U: 可选公开 metadata
-    U->>U: 校验同源、精确路径、无查询或片段
+    H->>O: 用已验证 origin 生成可选公开 metadata
+    U->>O: 读取 providers（无需登录）
+    O-->>U: 返回 legalLinks 或无 metadata
+    U->>U: 验证启用、同源、精确路径和无参数
     U->>P: 用户点击后 openExternal
-    P->>W: 打开 user-agreement 或 privacy-policy
+    P->>W: 打开公开协议或隐私政策
 ```
 
-验收：先 RED 后 GREEN 覆盖 HTTPS / loopback 自定义端口、未登录取得 metadata 且不访问凭据/网络、两个入口和中英文运营主体、按钮下方/通用底部位置、缺失/禁用 metadata、跨源/非公开路径/携带 state/handoff/token 或片段时不打开。真实 Electron 定向场景检查 Zai Light / Zai Dark、中文/英文、窄宽布局及点击；不可运行时记录真实环境原因。执行根 `pnpm typecheck`、`pnpm lint`、`pnpm architecture:check --changed` 和定向测试，区分既有问题与本次新增失败。
+验收：覆盖 HTTPS／loopback 与自定义端口、未登录读取 metadata 无凭据及网络、登录和设置位置、中英文主体、普通 Web／远控及缺失 metadata 的原行为、跨源／非公开路径／带 state、handoff、token、fragment 或 credentials 的拒绝；桌面远程 workspace 设置仍使用 Local Host。隔离 Electron 场景覆盖浅深主题、窄宽布局与点击，且不访问真实账号或后端；验证与部署的限制必须分别报告。
 
 ### 4.2 安全持久化与恢复
 

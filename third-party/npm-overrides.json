@@ -479,14 +479,6 @@
     "evidence": "The package does not declare a license field; its license contains the MIT grant and copyright notice."
   },
   {
-    "package": "keyv@4.5.4",
-    "file": "third-party/upstream/6f7e6eae2a2afbaa67b266650f7342e7bf8e82cb57f6ab98148b3d6e0fb4450a.txt",
-    "sha256": "6f7e6eae2a2afbaa67b266650f7342e7bf8e82cb57f6ab98148b3d6e0fb4450a",
-    "source": "https://registry.npmjs.org/keyv/4.5.4",
-    "evidenceKind": "publisher-license-identifier-and-standard-terms",
-    "license": "MIT"
-  },
-  {
     "package": "@arms/rum-browser@0.1.8",
     "file": "third-party/upstream/2c976d327b293bd74c257cd53e9b4ecef97a06b1651baa3b24327c97192cb3de.txt",
     "sha256": "2c976d327b293bd74c257cd53e9b4ecef97a06b1651baa3b24327c97192cb3de",
@@ -541,41 +533,23 @@
     "source": "https://raw.githubusercontent.com/rrweb-io/rrweb/%40rrweb%2Futils%402.0.0/LICENSE"
   },
   {
-    "package": "@multiavatar/multiavatar@1.0.7",
-    "file": "third-party/upstream/cryptojs-3.1.2-LICENSE.txt",
-    "sha256": "6718c0ad644b5e025b9fc6580636b12244eafc727a237a3ddf2da656441a1863",
-    "source": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/crypto-js/wiki/License.wiki (CryptoJS v3.1.2 bundled in @multiavatar/multiavatar@1.0.7)",
-    "evidence": "Supplemental original BSD-3-Clause terms for bundled CryptoJS v3.1.2. The npm package carries its copyright header and license URL but omits the full CryptoJS terms; Multiavatar's own LICENSE is collected separately and remains MULTIAVATAR LICENSE v1.0, with package metadata SEE LICENSE IN LICENSE.",
+    "package": "@electron-internal/extract-zip@1.0.5",
+    "repo": "electron/extract-zip",
+    "refs": [
+      "b83e459fd04c53b0a1c8438a6792df8f64be47fc"
+    ],
+    "file": "third-party/upstream/d8a3a14c4ea44385e299f072db9e8a73994e2ff2b344ea5ae5a39c09f11cc984.txt",
+    "sha256": "d8a3a14c4ea44385e299f072db9e8a73994e2ff2b344ea5ae5a39c09f11cc984",
+    "source": "https://registry.npmjs.org/@electron-internal%2fextract-zip/1.0.5",
+    "evidenceKind": "publisher-license-identifier-and-standard-terms",
+    "license": "BSD-2-Clause",
     "reviewEvidence": {
-      "checkedOn": "2026-10-29",
-      "approvedUse": "Account default avatars as an ancillary feature of a commercial application; no repackaged or rebranded design library and no similar or competing avatar product/service.",
-      "npmArchive": "https://registry.npmjs.org/@multiavatar/multiavatar/-/multiavatar-1.0.7.tgz",
-      "npmArchiveSha256": "4ab4a4469aad79bce0096d65c8834a22377e372d1ca54b60df639c410c180f64",
-      "npmIntegrity": "sha512-Yg9Uw57bmlErsWL0CSv4d6D4ZqVBE00OZmYr9MRgygoXZdboNtsEI6FbBRw1AY8l88Sm1ARcyojtlm2uwUn0Zg==",
-      "packageMetadataFile": "third-party/upstream/multiavatar-1.0.7-package.json",
-      "packageMetadataSha256": "bcdca308e34f5526299715ce1217f3f129ea4bf760893f9d7150d247f215a09d",
-      "multiavatarLicenseFile": "third-party/upstream/multiavatar-1.0.7-LICENSE.txt",
-      "multiavatarLicenseSha256": "39f19f0d872c650261c399ced4bb621f8d3a79352a1cee8af44a00433fd47cf2",
-      "cryptojsVersion": "3.1.2",
-      "cryptojsLicense": "BSD-3-Clause",
-      "cryptojsRevision": "7e09961c6174bb23912d95e42fec340f38babdb0",
-      "cryptojsMetadataSource": "https://raw.githubusercontent.com/brix/crypto-js/7e09961c6174bb23912d95e42fec340f38babdb0/package.json",
-      "cryptojsMetadataFile": "third-party/upstream/cryptojs-3.1.2-package.json",
-      "cryptojsMetadataSha256": "c8d161440629ea606c73b49e360fbda55c00f99fb65913500cf8e2118d0f637e",
-      "cryptojsRollupSource": "https://raw.githubusercontent.com/brix/crypto-js/7e09961c6174bb23912d95e42fec340f38babdb0/build/rollups/sha256.js",
-      "cryptojsRollupSha256": "f7bfb9a64082e0371de86c3b3ed83e05f22be1eac3190d73736298f2f0ec8425",
-      "cryptojsBundledMember": "multiavatar.js",
-      "cryptojsBundledMemberSha256": "e6a7d07ce746b8abcda00470b46aba07a69107e440eb25822e6df42df6d61227",
-      "cryptojsComparison": "The complete CryptoJS copyright header and SHA-256 rollup at lines 674-688 match the tagged upstream rollup after removing whitespace only.",
-      "cryptojsWhitespaceStrippedSha256": "f00b16d8ea4eaba201b8118589ef7da4869968da99f39faf0d71c19e5d62e184"
+      "checkedOn": "2026-10-20",
+      "result": "The versioned npm archive and exact gitHead source tree contain no standalone LICENSE or copyright notice. The publisher BSD-2-Clause identifier and fixed SPDX standard terms are preserved; upstream authorization/copyright material is still required to close this review.",
+      "npmArchiveSha256": "939b4462974f8fa1b339dd4f420c62787ddf06903cc9c61f1f0661f096f5370b",
+      "sourceRevision": "b83e459fd04c53b0a1c8438a6792df8f64be47fc",
+      "sourceTreeUrl": "https://api.github.com/repos/electron/extract-zip/git/trees/b83e459fd04c53b0a1c8438a6792df8f64be47fc?recursive=1",
+      "upstreamLicenseFiles": []
     }
-  },
-  {
-    "package": "@lobehub/icons-static-svg@1.95.1",
-    "file": "third-party/upstream/lobehub-icons-static-svg-1.95.1-LICENSE.txt",
-    "sha256": "add9d7531d1b21646317a8958e38fc727506fa39d24bdecb44154d943c82753a",
-    "source": "https://raw.githubusercontent.com/lobehub/lobe-icons/49a2130df7bfa5eb1b088261bff20a37e2967789/LICENSE",
-    "referenceRevision": "49a2130df7bfa5eb1b088261bff20a37e2967789",
-    "evidence": "The installed package declares MIT and its README links to the repository LICENSE, but the npm archive omits that file. Retrieved the complete original notice at npm 1.95.1 gitHead; packages/static-svg/package.json at that revision also declares the exact package name and version. This restores the existing package material required by the complete notices generator without changing classification or unresolved reviews."
   }
 ]

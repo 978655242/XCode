@@ -3,11 +3,11 @@
 // CLI Prefix Section Builder
 // ============================================================
 
-import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import type { ContextSection } from "../types.js";
 import { estimateTokens } from "../utils.js";
 
-const CLI_PREFIX_PROMPT = `You are ${PRODUCT_NAME}, an interactive coding agent`;
+const CLI_PREFIX_PROMPT = `You are ${PRODUCT_NAME}, an interactive agent`;
 
 export function buildCliPrefixSection(): ContextSection {
   const content = CLI_PREFIX_PROMPT;

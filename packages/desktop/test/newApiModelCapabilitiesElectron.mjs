@@ -19,7 +19,7 @@ const providerTrigger = '[data-testid="composer-provider-trigger"]';
 assert.ok(process.argv[2], "Launch this fixture with runNewApiElectronSmokes.mjs");
 
 async function run() {
-  const temporary = await mkdtemp(join(process.argv[2], "aiscoo-model-capabilities-electron-"));
+  const temporary = await mkdtemp(join(process.argv[2], "xwork-model-capabilities-electron-"));
   app.setPath("userData", join(temporary, "profile"));
   let win, vite, host;
   let exitCode = 0;
@@ -309,7 +309,7 @@ window.appearance("light","zh-CN");
       "new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))).then(()=>Promise.all(document.body.getAnimations({subtree:true}).filter(animation=>animation.effect?.getTiming().iterations!==Infinity).map(animation=>animation.finished.catch(()=>{}))))",
     );
     await writeFile(
-      join(tmpdir(), "aiscoo-model-picker-selectable.png"),
+      join(tmpdir(), "xwork-model-picker-selectable.png"),
       (await win.webContents.capturePage()).toPNG(),
     );
     await closeMenus();

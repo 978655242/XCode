@@ -5,8 +5,6 @@ export interface ProductBrand {
   readonly previewName: string;
   readonly desktopName: string;
   readonly sourceDirectory: string;
-  /** 法定运营主体原名；不经过产品展示名替换。 */
-  readonly legalOperatorName: string;
   readonly desktopIcon: Readonly<{
     theme: "light" | "dark";
     markScale: number;
@@ -19,7 +17,7 @@ export interface ProductBrand {
   }>;
 }
 
-export const PRODUCT_BRAND: Readonly<ProductBrand>;
+export const PRODUCT_BRAND: Readonly<ProductBrand & { legalOperatorName: string }>;
 export const PRODUCT_NAME: string;
 export const PRODUCT_WORDMARK: string;
 /** Only for product-owned static templates, before user values are interpolated. */

@@ -16,6 +16,7 @@ import {
 import {
   TID_LOGIN_USE_API_KEY_BUTTON,
   TID_OAUTH_CANCEL,
+  TID_OAUTH_COPY_LOGIN_LINK,
   TID_OAUTH_ERROR,
   TID_OAUTH_LOGIN_BUTTON,
   testId,
@@ -30,18 +31,21 @@ import { renderOAuthProviderIcon } from "./lib/oauthProviderIcon.js";
 import { ThemeHeroVisual } from "./openWorkspacePageThemeHero.js";
 import { useZCodeStore } from "./store/StoreProvider.js";
 import { DesktopOverlayWindowControls } from "@/DesktopOverlayWindowControls.js";
-// XCODE: 纯信息链接复用当前 provider 投影，不增加登录状态或授权步骤。
-import { AiscooLegalLinks } from "@/aiscoo/legal/index.js";
+import { toast } from "@/components/ui/toast.js";
 
 interface WelcomeScreenProps {
   onComplete: (reason: LoginCompleteReason) => void | Promise<void>;
   // XCODE: 下游可装配纯展示头部，未提供时保留上游默认布局。
   header?: ReactNode;
+  // XCODE: 可选信息展示插槽复用既有 provider 投影，未提供时保留原登录页。
+  footer?: (providers: readonly OAuthProviderMeta[]) => ReactNode;
+  // XCODE: 产品可隐藏 API key 入口；默认继续提供原登录表单。
+  hideApiKeyLogin?: boolean;
 }
 
 export type LoginCompleteReason = "oauth" | "apiKey" | "skip";
 
-export function WelcomeScreen({ onComplete, header }: WelcomeScreenProps) {
+export function WelcomeScreen({ onComplete, header, footer, hideApiKeyLogin }: WelcomeScreenProps) {
   return (
     <main className="relative flex h-full min-h-dvh items-center justify-center overflow-hidden bg-background px-4 py-6 text-foreground sm:px-6">
       <ThemeHeroVisual className="absolute inset-0" />
@@ -49,7 +53,14 @@ export function WelcomeScreen({ onComplete, header }: WelcomeScreenProps) {
       <div className="pointer-events-none absolute left-0 top-0 right-0 z-10 flex h-12 items-center [app-region:drag] platform-windows-desktop:right-[134px] platform-linux-desktop:right-[134px]" />
       <DesktopOverlayWindowControls />
       <section className="relative z-10 w-full flex flex-col gap-10 max-w-sm rounded-2xl border border-popover-border bg-background p-8 text-ui-base/relaxed shadow-md sm:p-10">
-        <LoginPanel active onComplete={onComplete} header={header} />
+        {/* XCODE: 透传可选展示配置，默认登录能力保持不变。 */}
+        <LoginPanel
+          active
+          onComplete={onComplete}
+          header={header}
+          footer={footer}
+          hideApiKeyLogin={hideApiKeyLogin}
+        />
       </section>
     </main>
   );
@@ -59,6 +70,10 @@ interface LoginPanelProps {
   active: boolean;
   onComplete: (reason: LoginCompleteReason) => void | Promise<void>;
   header?: ReactNode;
+  // XCODE: 信息插槽消费已有投影，不创建第二个登录状态。
+  footer?: (providers: readonly OAuthProviderMeta[]) => ReactNode;
+  // XCODE: 与欢迎页同一展示开关，直接使用 LoginPanel 时保持默认入口。
+  hideApiKeyLogin?: boolean;
 }
 
 interface ActiveLoginEntryAttempt {
@@ -80,7 +95,13 @@ export function shouldCompleteLoginFromExistingUser(params: {
   return params.hasUser && !params.attempt;
 }
 
-export function LoginPanel({ active, onComplete, header }: LoginPanelProps) {
+export function LoginPanel({
+  active,
+  onComplete,
+  header,
+  footer,
+  hideApiKeyLogin,
+}: LoginPanelProps) {
   const { intl } = useZCodeIntl();
   const {
     startLogin,
@@ -91,6 +112,7 @@ export function LoginPanel({ active, onComplete, header }: LoginPanelProps) {
     providers,
     loadingProviders,
     pendingProvider,
+    authorizeUrl,
     refreshProviders,
   } = useOAuth();
   const user = useZCodeStore((s) => s.user);
@@ -259,6 +281,20 @@ export function LoginPanel({ active, onComplete, header }: LoginPanelProps) {
     setLoginMode("providers");
   }, []);
 
+  const handleCopyLoginLink = useCallback(async () => {
+    if (!authorizeUrl || typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      toast(intl.formatMessage({ id: "login.oauth.copyLinkFailed" }));
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(authorizeUrl);
+      toast(intl.formatMessage({ id: "login.oauth.copyLinkSuccess" }));
+    } catch {
+      toast(intl.formatMessage({ id: "login.oauth.copyLinkFailed" }));
+    }
+  }, [authorizeUrl, intl]);
+
   useEffect(() => {
     if (active) {
       wasActiveRef.current = true;
@@ -355,17 +391,20 @@ export function LoginPanel({ active, onComplete, header }: LoginPanelProps) {
                     <LoginOAuthRegionTag providerId={provider.id} />
                   </Button>
                 ))}
-                <Button
-                  variant="outline"
-                  className="h-10 w-full text-ui-base"
-                  size="lg"
-                  data-testid={TID_LOGIN_USE_API_KEY_BUTTON}
-                  onClick={() => {
-                    setLoginMode("apiKey");
-                  }}
-                >
-                  {intl.formatMessage({ id: "login.useApiKey" })}
-                </Button>
+                {/* XCODE: 产品登录页隐藏此入口，未注入开关时原表单仍可访问。 */}
+                {!hideApiKeyLogin && (
+                  <Button
+                    variant="outline"
+                    className="h-10 w-full text-ui-base"
+                    size="lg"
+                    data-testid={TID_LOGIN_USE_API_KEY_BUTTON}
+                    onClick={() => {
+                      setLoginMode("apiKey");
+                    }}
+                  >
+                    {intl.formatMessage({ id: "login.useApiKey" })}
+                  </Button>
+                )}
               </div>
             ) : null}
           </div>
@@ -408,6 +447,19 @@ export function LoginPanel({ active, onComplete, header }: LoginPanelProps) {
             >
               {intl.formatMessage({ id: "login.oauth.cancel" })}
             </Button>
+            {authorizeUrl ? (
+              <div className="flex items-center justify-center gap-1 text-center text-ui-sm text-foreground-subtle">
+                <span>{intl.formatMessage({ id: "login.oauth.browserNotOpened" })}</span>
+                <button
+                  type="button"
+                  className="font-medium text-brand underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  data-testid={TID_OAUTH_COPY_LOGIN_LINK}
+                  onClick={() => void handleCopyLoginLink()}
+                >
+                  {intl.formatMessage({ id: "login.oauth.copyLoginLink" })}
+                </button>
+              </div>
+            ) : null}
           </div>
         )}
 
@@ -463,8 +515,8 @@ export function LoginPanel({ active, onComplete, header }: LoginPanelProps) {
             </Button>
           </div>
         )}
-        {/* XCODE: 公开法律链接常驻操作区底部，不受等待或失败状态影响。 */}
-        <AiscooLegalLinks providers={providers} placement="login" />
+        {/* XCODE: 可选信息展示不改变等待、失败或 API Key 流程。 */}
+        {footer?.(providers)}
       </div>
     </>
   );

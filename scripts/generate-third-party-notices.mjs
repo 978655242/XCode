@@ -15,7 +15,11 @@ export async function generateThirdPartyNotices(root = repositoryRoot) {
     return bytes;
   };
   const readJson = async (file) => JSON.parse(await readInput(file));
-  const overrides = await readJson("third-party/npm-overrides.json");
+  // XCODE: 下游补充材料放在独立清单，上游 npm-overrides.json 保持原样。
+  const overrides = [
+    ...(await readJson("third-party/npm-overrides.json")),
+    ...(await readJson("third-party/aiscoo-npm-overrides.json")),
+  ];
   const copied = await readJson("third-party/copied-components.json");
   const embedded = await readJson("third-party/embedded-components.json");
   const runtimes = await readJson("third-party/runtime/sources.json");

@@ -52,8 +52,12 @@ async function runElectron() {
     await import("../../services/src/oauth/providers/newApiProviderAdapter.ts");
   assert.ok(process.argv[2], "Launch this fixture with Node or the Native smoke runner");
   const temporary = await mkdtemp(join(process.argv[2], "aiscoo-legal-"));
-  const evidence = resolve(root, ".zcode/legal-validation");
+  // 每次验收独占证据目录，不覆盖原仓库或其他 worktree 的截图。
+  const evidenceRoot = resolve(root, "packages/desktop/.e2e-artifacts");
+  await mkdir(evidenceRoot, { recursive: true });
+  const evidence = await mkdtemp(join(evidenceRoot, "legal-validation-"));
   app.setPath("userData", join(temporary, "profile"));
+  app.setPath("sessionData", join(temporary, "sessions"));
   let win, vite;
   let exitCode = 0;
   let stage = "compile";
@@ -75,7 +79,8 @@ import {flushSync} from "react-dom";
 import {ServiceProvider} from "./packages/ui/src/hooks/useServices.tsx";
 import {PlatformProvider} from "./packages/ui/src/hooks/usePlatform.tsx";
 import {StoreProvider} from "./packages/ui/src/store/StoreProvider.tsx";
-import {AiscooIntlProvider, AiscooLoginHeader} from "./packages/ui/src/aiscoo/brand/index.ts";
+import {AiscooIntlProvider, AiscooLoginHeader} from "./packages/ui/src/xwork/brand/index.ts";
+import {AiscooLegalLinks, AiscooLegalSettings} from "./packages/ui/src/aiscoo/legal/index.ts";
 import {TooltipProvider} from "./packages/ui/src/components/ui/tooltip.tsx";
 import {WelcomeScreen} from "./packages/ui/src/WelcomeScreen.tsx";
 import {GeneralSectionContent} from "./packages/ui/src/settingsPageHelpers.tsx";
@@ -104,7 +109,7 @@ function Scene(){
  const [scene,setScene]=useState({page:"login",locale:"zh-CN",available:true});
  state.change=next=>flushSync(()=>{providers=next.available===false?[{...native,legalLinks:undefined}]:[native];applyTheme(next.theme??"zai-light");setScene(next)});
  return <AiscooIntlProvider key={scene.locale} initialLocale={scene.locale}><TooltipProvider>
- {scene.page==="login"?<WelcomeScreen key={String(scene.available)} header={<AiscooLoginHeader/>} onComplete={()=>state.authCalls.push("complete")}/>:<main className="min-h-dvh bg-background p-4 text-foreground"><GeneralSectionContent key={String(scene.available)} {...general}/></main>}
+ {scene.page==="login"?<WelcomeScreen key={String(scene.available)} header={<AiscooLoginHeader/>} footer={items=><AiscooLegalLinks providers={items} placement="login"/>} onComplete={()=>state.authCalls.push("complete")}/>:<main className="min-h-dvh bg-background p-4 text-foreground"><GeneralSectionContent key={String(scene.available)} {...general} footer={<AiscooLegalSettings/>}/></main>}
  </TooltipProvider></AiscooIntlProvider>;
 }
 window.addEventListener("error",event=>state.errors.push(event.message));
@@ -130,7 +135,7 @@ createRoot(document.getElementById("root")).render(<ServiceProvider services={se
     await writeFile(join(temporary, "renderer.js"), renderer.outputFiles[0].text);
     await writeFile(
       join(temporary, "index.html"),
-      `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/@fs${root}/packages/ui/src/styles.css"><link rel="stylesheet" href="/@fs${root}/packages/ui/src/aiscoo/brand/brand.css"></head><body><div id="root"></div><script type="module" src="/renderer.js"></script></body></html>`,
+      `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/@fs${root}/packages/ui/src/styles.css"><link rel="stylesheet" href="/@fs${root}/packages/ui/src/xwork/brand/brand.css"></head><body><div id="root"></div><script type="module" src="/renderer.js"></script></body></html>`,
     );
     stage = "start isolated Vite";
     const { createServer } = await import(requireDesktop.resolve("vite"));
@@ -212,7 +217,7 @@ createRoot(document.getElementById("root")).render(<ServiceProvider services={se
  const entry=document.querySelector('[data-aiscoo-legal]');entry.scrollIntoView({block:'center'});
  const r=entry.getBoundingClientRect(), links=Array.from(entry.querySelectorAll('a'));
  const login=document.querySelector('[data-testid="oauth-login-button-new-api"]');
- return{placement:entry.dataset.xworkLegal,text:entry.innerText,width:innerWidth,left:r.left,right:r.right,
+ return{placement:entry.dataset.aiscooLegal,text:entry.innerText,width:innerWidth,left:r.left,right:r.right,
  links:links.map(a=>{const b=a.getBoundingClientRect(),s=getComputedStyle(a);return{href:a.href,color:s.color,left:b.left,right:b.right,top:b.top,bottom:b.bottom}}),
  afterLogin:!login||Boolean(login.compareDocumentPosition(entry)&Node.DOCUMENT_POSITION_FOLLOWING),
  last:entry.parentElement.lastElementChild===entry};})()`);

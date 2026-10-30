@@ -8,7 +8,7 @@ import type { GlobalOptions } from "@zcode/shared-types";
 import type { DynamicWorkflowMode } from "@zcode/shared";
 import { parseSlashCommand } from "./command-center.js";
 // XCODE: XWork Zen Plan 命令经组合层接入，上游命令中心原样委托。
-import { createTuiZenCommandDeps, createAiscooCommandCenter } from "./aiscoo/index.js";
+import { createTuiZenCommandDeps, createXworkCommandCenter } from "./xwork/index.js";
 import type { CommandCenterApp } from "./command-center.js";
 import { resolveDisplayLocale } from "./locale.js";
 import { createCliHeadlessBrowserRuntime } from "./headless-browser.js";
@@ -248,7 +248,7 @@ export function createTuiSubmitPrompt(
     return modeState.current;
   };
 
-  const commandCenter = createAiscooCommandCenter({
+  const commandCenter = createXworkCommandCenter({
     forkApp: async (targetCheckpointId) => {
       const activeApp = await getApp();
       const result = await activeApp.forkFromCheckpoint?.({ targetCheckpointId });

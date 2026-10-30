@@ -983,6 +983,7 @@ describe("Team Plan 设置与使用统计 E2E", () => {
       const teamLabel = locale === "zh-CN" ? "团队" : "Team";
       // XCODE: 原生 tooltip 会接管 title；按独立套餐容器验证徽标，不绑定内部标签。
       await profileTrigger.click();
+      // 侧栏提示已移到延迟 Tooltip，不再保留原生 title；限定套餐容器读取可见文字。
       const badge = $('[data-testid="profile-menu-plan"]');
       await badge.waitForDisplayed({ timeout: 30000 });
       await expect(badge).toHaveText(teamLabel);

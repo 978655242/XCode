@@ -20,5 +20,5 @@ export function useProfileAvatarFallback(
   defaultFallback: ReactNode,
 ): ReactNode {
   const renderFallback = useContext(ProfileAvatarFallbackContext);
-  return user && renderFallback ? renderFallback(user) : defaultFallback;
+  return user && renderFallback ? (renderFallback(user) ?? defaultFallback) : defaultFallback;
 }

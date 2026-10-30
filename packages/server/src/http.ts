@@ -1,7 +1,8 @@
 /* eslint-disable max-lines -- HTTP、WebSocket 与静态资源路由集中注册，保持同一鉴权顺序。 */
 import { randomUUID } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
-import { hostname, userInfo } from "node:os";
+import { hostname } from "node:os";
+import { resolveServerOsUser } from "@zcode/shared/node";
 import * as nodePath from "node:path";
 import { basename, extname, resolve } from "node:path";
 import { Hono, type Context } from "hono";
@@ -16,6 +17,8 @@ import {
   ChannelClient,
   LoggingChannelServer,
   type ISocket,
+  type IChannelClient,
+  type IDisposable,
 } from "@zcode/rpc";
 import type { TopicResourcePeers } from "@zcode/services/node";
 import { TOPIC_RESOURCE_RELAY_CHANNEL } from "@zcode/shared";
@@ -92,6 +95,8 @@ function setupChannelServer(
   clientMode: "desktop-continuous" | "web-remote-replayable",
   workspaceIdentityMapper?: SourceServerWorkspaceIdentityMapper,
   resourcePeers?: TopicResourcePeers,
+  // XCODE: 普通 Web 可装配窄的反向服务，不提升现有 clientMode 权限。
+  browserPeer?: (client: IChannelClient) => IDisposable & { ready?: Promise<void> },
 ) {
   const socket = wrapWebSocket(ws);
   const protocol = new SocketProtocol(socket);
@@ -103,7 +108,24 @@ function setupChannelServer(
     : loggedServer;
   const agentService = services.getOptional(IZCodeAgentService);
   const reverseClient =
-    clientMode === "desktop-continuous" && resourcePeers ? new ChannelClient(protocol) : undefined;
+    (clientMode === "desktop-continuous" && resourcePeers) || browserPeer
+      ? new ChannelClient(protocol)
+      : undefined;
+  // XCODE: 单一浏览器 attachment 的准入失败只关闭本连接；不借用已有账号。
+  let browserAttachment: IDisposable | undefined;
+  try {
+    const attachment = reverseClient && browserPeer?.(reverseClient);
+    browserAttachment = attachment;
+    void attachment?.ready?.catch(() => {
+      attachment.dispose();
+      ws.close(1008, "Browser account is unavailable");
+    });
+  } catch {
+    reverseClient?.dispose();
+    rawServer.dispose();
+    ws.close(1008, "Browser account is already attached");
+    return;
+  }
   const peer = reverseClient
     ? resourcePeers?.attach(reverseClient.getChannel(TOPIC_RESOURCE_RELAY_CHANNEL))
     : undefined;
@@ -132,6 +154,7 @@ function setupChannelServer(
   }
   services.exposeOnChannelServer(server, overrides);
   socket.onClose(() => {
+    browserAttachment?.dispose();
     peer?.dispose();
     reverseClient?.dispose();
     void connectionScope?.dispose();
@@ -152,6 +175,9 @@ export interface HttpServerOptions {
   spaFallback?: boolean;
   staticRoot?: string;
   workspaces?: ServerRemoteWorkspaceInfo[];
+  // XCODE: 可选入口策略与反向 RPC 装配，未提供时保留原 HTTP/WS 行为。
+  acceptRequest?: (request: Request) => boolean;
+  attachBrowserPeer?: (client: IChannelClient) => IDisposable & { ready?: Promise<void> };
 }
 
 function readTrimmedEnv(name: string): string | undefined {
@@ -190,12 +216,13 @@ function createServerInfo(options: HttpServerOptions): ServerRemoteInfo {
     workspaces: resolveServerWorkspaces(options),
     compatibility: ZCODE_COMPATIBILITY_MANIFEST,
     migration: { failedPathCount: options.migrationFailedPathCount ?? 0 },
-    identity: { osUser: userInfo().username, hostname: hostname() },
+    identity: { osUser: resolveServerOsUser(), hostname: hostname() },
     capabilities: {
       desktopContinuous: true,
       websocketRpc: true,
       ...(options.virtualProjects ? { virtualProjects: true } : {}),
       processResourceTelemetry: true,
+      remoteConversationTelemetry: true,
     },
   });
 }
@@ -348,6 +375,13 @@ export function createHttpServer(
   const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
   const hostCapabilities = createHostCapabilityStore();
 
+  // XCODE: 入口提供的请求边界在所有 API、upgrade 和静态路由之前执行。
+  if (options.acceptRequest) {
+    app.use("*", async (c, next) => {
+      if (!options.acceptRequest!(c.req.raw)) return c.json({ error: "Forbidden" }, 403);
+      await next();
+    });
+  }
   const authToken = options.authToken?.trim();
   if (authToken) {
     app.use("*", async (c, next) => {
@@ -375,6 +409,8 @@ export function createHttpServer(
           services,
           "web-remote-replayable",
           options.workspaceIdentityMapper,
+          undefined,
+          options.attachBrowserPeer,
         );
       },
     })),

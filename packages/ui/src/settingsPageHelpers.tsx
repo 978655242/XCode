@@ -13,7 +13,7 @@ import {
   TID_SETTINGS_TOOL_SEARCH_SELECT,
   TID_SETTINGS_TOOL_SEARCH_OPTION,
 } from "@zcode/shared/test-ids";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, type ReactNode } from "react";
 import type { IPlatformService } from "@zcode/shared";
 import {
   TID_SETTINGS_LOCALE_SELECT_ITEM,
@@ -34,8 +34,6 @@ import { SettingsBadge, SettingsGroupCard, SettingsRow } from "@/settings/Settin
 import { DataBaseDirControl } from "@/settings/DataBaseDirControl.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useOptionalServices } from "@/hooks/useServices.js";
-// XCODE: 法律入口独立扩展，通用设置只保留底部挂载点。
-import { AiscooLegalSettings } from "@/aiscoo/legal/index.js";
 import { ProactiveSuggestionsSetting } from "@/settings/ProactiveSuggestionsSetting.js";
 import { DynamicWorkflowModeSetting } from "@/settings/DynamicWorkflowModeSetting.js";
 import { normalizeInterfaceMode, type InterfaceMode } from "@/lib/interfaceMode.js";
@@ -191,6 +189,7 @@ export function GeneralSectionContent({
   onAskUserQuestionAutoResolutionEnabledChange = async () => {},
   onModelIoFullRetentionEnabledChange = async () => {},
   onOpenOnboardingDialog,
+  footer,
 }: {
   localePreference: LocalePreference;
   interfaceMode?: InterfaceMode;
@@ -263,6 +262,8 @@ export function GeneralSectionContent({
   onAskUserQuestionAutoResolutionEnabledChange?: (enabled: boolean) => Promise<void>;
   onModelIoFullRetentionEnabledChange?: (enabled: boolean) => Promise<void>;
   onOpenOnboardingDialog: () => void;
+  // XCODE: 由平台装配可选底部内容，未提供时保持原设置行为。
+  footer?: ReactNode;
 }) {
   const { intl } = useZCodeIntl();
   const hasServices = Boolean(useOptionalServices());
@@ -982,8 +983,8 @@ export function GeneralSectionContent({
           }
         />
       </SettingsGroupCard>
-      {/* XCODE: 未登录可访问的桌面法律信息；元数据与打开动作由扩展负责。 */}
-      {isDesktop ? <AiscooLegalSettings /> : null}
+      {/* XCODE: 独立扩展可在通用设置底部提供信息。 */}
+      {footer}
     </div>
   );
 }

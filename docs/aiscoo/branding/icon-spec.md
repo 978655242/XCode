@@ -2,7 +2,7 @@
 
 使用用户设计并已提交的 [Aiscoo 设计包](../../brand/aiscoo/README.md)。产品显示名为 `Aiscoo`，几何完整字标为小写 `aiscoo`，图形标志为设计包的 `ai`。最终黑白方案取代旧 XWork 断笔 X；历史 XWork/ZCode 图形不再作为本产品标志。不修改供应商 ZAI/BigModel 及其他第三方标志。
 
-品牌事实由 `packages/shared/src/aiscoo-brand/brand.json` 维护，展示契约通过 `@zcode/shared/aiscoo-brand` 提供。UI 静态资源与公开组件位于 `packages/ui/src/aiscoo/brand/`，原生桌面资源位于 `packages/desktop/build/`，Web 图标位于 `packages/web/public/`，公共图标位于 `public/logo/icons/`。全部资源随源码和构建产物分发；运行时不读取设计文档或网络 Logo。
+品牌事实由 `packages/shared/src/xwork-brand/brand.json` 维护，展示契约通过 `@zcode/shared/xwork-brand` 提供。UI 静态资源与公开组件位于 `packages/ui/src/xwork/brand/`，原生桌面资源位于 `packages/desktop/build/`，Web 图标位于 `packages/web/public/`，公共图标位于 `public/logo/icons/`。全部资源随源码和构建产物分发；运行时不读取设计文档或网络 Logo。
 
 ## 图形与主题
 
@@ -46,7 +46,7 @@ sequenceDiagram
 
 ## 生成与验证
 
-从仓库根目录运行 `python3 scripts/aiscoo/generate-icons.py`，从已提交设计原稿重新生成生产资源；生成结果不依赖旧 runtime 图片，重复执行应输出相同文件。生成环境使用 Python 3、Pillow **12.1.0** 和 workspace 锁定的 `@napi-rs/canvas` **0.1.100**，不使用系统字体。`python3 scripts/aiscoo/generate-icons.py --check` 比较生成字节而不写文件；`--output-root` 支持隔离输出。Web-share 通过现有 `publicDir` 复用 Web 图标，避免第二套资源。
+从仓库根目录运行 `python3 scripts/xcode/generate-icons.py`，从已提交设计原稿重新生成生产资源；生成结果不依赖旧 runtime 图片，重复执行应输出相同文件。生成环境使用 Python 3、Pillow **12.1.0** 和 workspace 锁定的 `@napi-rs/canvas` **0.1.100**，不使用系统字体。`python3 scripts/xcode/generate-icons.py --check` 比较生成字节而不写文件；`--output-root` 支持隔离输出。Web-share 通过现有 `publicDir` 复用 Web 图标，避免第二套资源。
 
 PNG 覆盖 16/24/32/48/64/128/256/512/1024 尺寸，ICO 包含现有各尺寸，ICNS 覆盖 Retina。
 

@@ -52,18 +52,17 @@ function bundle(): SharedContextImportCommitBundle {
   };
 }
 
-test("actual SQLite import rolls back session, context and provenance when owner changes during repository awaits", async () => {
+test("actual SQLite import rolls back session, context and provenance when owner is revoked before commit", async () => {
   const store = await createSqliteSessionStore({ dbPath: ":memory:" });
   const input = bundle();
   let owner = "A";
+  let checks = 0;
   input.assertCurrent = () => {
+    // XCODE: 上游 repository 写入已同步化；第二次 fence 在实际写完、commit 前撤销，验证事务原子回滚。
+    if (++checks === 2) owner = "B";
     if (owner !== "A") throw new Error("captured import owner changed");
   };
   try {
-    // XCODE: 第一次准入仍为 A；真实 saveMessage 的 await 让出执行权后才切 B。
-    queueMicrotask(() => {
-      owner = "B";
-    });
     await assert.rejects(
       store.commitSharedContextImportBundle(input),
       /captured import owner changed/,

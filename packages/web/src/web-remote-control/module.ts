@@ -9,8 +9,8 @@ export const webRemoteControlModule = {
     "ui",
     "web",
     "web-remote-relay",
-    "aiscoo-brand-ui",
-    "aiscoo-brand",
+    "xwork-brand-ui",
+    "xwork-brand",
   ],
   provides: ["web-remote-control"],
   publicEntrypoints: [

@@ -45,7 +45,7 @@ for (const promotion of ["manual", "auto"] as const) {
     `${promotion} Core queue promotion preserves removed low and exposes model_creation failure without another HTTP request`,
     { timeout: 30_000 },
     async (t) => {
-      const directory = await mkdtemp(join(tmpdir(), "aiscoo-native-queued-capability-"));
+      const directory = await mkdtemp(join(tmpdir(), "xwork-native-queued-capability-"));
       const workspace = join(directory, "workspace");
       const storage = join(directory, "storage");
       const userConfigPath = join(directory, "config.json");

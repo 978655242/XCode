@@ -24,7 +24,7 @@ import { app, BrowserWindow, dialog, session, shell } from "electron";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 // XCODE: Endpoint 窗口的自有文案读取共享品牌，用户地址不参与品牌投影。
-import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import { showAboutDialog } from "./about.js";
 import { checkForUpdateMenuClick } from "./autoUpdater.js";
 import { resolveCuaOsSupport } from "./cuaOsSupport.js";
@@ -506,6 +506,8 @@ export async function executeDesktopCommand(options: {
   zcodeEndpointEnvBaseOrigin?: string | null;
   credentialsDir: string;
   currentApplicationLocale: Locale;
+  /** 远控诊断：向已配对手机拉取日志并导出（窗口 id 为命令来源窗口）。 */
+  pullMobileLogs?: (windowId: number | undefined) => Promise<unknown>;
 }) {
   const targetWindow = resolveTargetWindow(options.senderWindow);
   options.logger.info(
@@ -621,6 +623,9 @@ export async function executeDesktopCommand(options: {
       return;
     case DesktopCommandIds.ExportLogs:
       await exportLogs();
+      return;
+    case DesktopCommandIds.PullMobileLogs:
+      await options.pullMobileLogs?.(targetWindow?.id);
       return;
     case DesktopCommandIds.ToggleDevTools:
       targetWindow?.webContents.toggleDevTools();

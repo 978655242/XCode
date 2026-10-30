@@ -8,7 +8,8 @@ import { GeneralSectionContent } from "@/settingsPageHelpers.js";
 import { LoginPanel } from "@/WelcomeScreen.js";
 import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import { ServiceProvider } from "@/hooks/useServices.js";
-import { AiscooLegalLinks } from "./index.js";
+import { useRemoteWorkspaceSessionStore } from "@/store/remoteWorkspaceSessionStore.js";
+import { AiscooLegalLinks, AiscooLegalSettings } from "./index.js";
 
 const mocks = vi.hoisted(() => ({
   getProviders: vi.fn<() => Promise<OAuthProviderMeta[]>>(),
@@ -120,11 +121,18 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe("XWork public legal links", () => {
+describe("Aiscoo public legal links", () => {
   it.each(["zh-CN", "en-US"] as const)(
     "opens exact public URLs while signed out in %s without starting authorization",
     async (locale) => {
-      mount(createElement(LoginPanel, { active: true, onComplete: vi.fn() }), locale);
+      mount(
+        createElement(LoginPanel, {
+          active: true,
+          onComplete: vi.fn(),
+          footer: (providers) => createElement(AiscooLegalLinks, { providers, placement: "login" }),
+        }),
+        locale,
+      );
       const agreement = await screen.findByRole("link", {
         name: locale === "zh-CN" ? "用户协议" : "User Agreement",
       });
@@ -155,7 +163,12 @@ describe("XWork public legal links", () => {
   );
 
   it("keeps legal information at the bottom of desktop General settings without requiring a user", async () => {
-    mount(createElement(GeneralSectionContent, generalProps));
+    mount(
+      createElement(GeneralSectionContent, {
+        ...generalProps,
+        footer: createElement(AiscooLegalSettings),
+      }),
+    );
     const region = await screen.findByRole("region", { name: "法律信息" });
     expect(region.parentElement?.lastElementChild).toBe(region);
     expect(within(region).getByText("杭州艾思酷国际贸易有限公司")).toBeTruthy();
@@ -164,10 +177,39 @@ describe("XWork public legal links", () => {
     expect(mocks.startOAuth).not.toHaveBeenCalled();
   });
 
-  it("does not mount the desktop General extension on ordinary web", () => {
+  it("leaves the default login and General UI unchanged when no extension is supplied", async () => {
+    mount(createElement(LoginPanel, { active: true, onComplete: vi.fn() }));
+    await screen.findByTestId("oauth-login-button-new-api");
+    expect(screen.queryByRole("link", { name: "用户协议" })).toBeNull();
+    cleanup();
+    mocks.getProviders.mockClear();
     mount(createElement(GeneralSectionContent, { ...generalProps, isDesktop: false }));
     expect(screen.queryByRole("region", { name: "法律信息" })).toBeNull();
     expect(mocks.getProviders).not.toHaveBeenCalled();
+  });
+
+  it("reads desktop legal information from the base host even in a remote workspace", async () => {
+    const remoteGetProviders = vi.fn(async () => [{ ...native, legalLinks: undefined }]);
+    const remoteServices = {
+      oauthService: { ...mocks, getProviders: remoteGetProviders },
+    } as unknown as typeof services;
+    useRemoteWorkspaceSessionStore.getState().registerBaseServices(services);
+    try {
+      render(
+        createElement(ServiceProvider, {
+          services: remoteServices,
+          children: createElement(ZCodeIntlProvider, {
+            initialLocale: "zh-CN",
+            children: createElement(AiscooLegalSettings),
+          }),
+        }),
+      );
+      expect(await screen.findByRole("link", { name: "用户协议" })).toBeTruthy();
+      expect(mocks.getProviders).toHaveBeenCalled();
+      expect(remoteGetProviders).not.toHaveBeenCalled();
+    } finally {
+      useRemoteWorkspaceSessionStore.setState({ baseServices: null });
+    }
   });
 
   it.each([
@@ -209,8 +251,31 @@ describe("XWork public legal links", () => {
     expect(mocks.openExternal).not.toHaveBeenCalled();
   });
 
+  it.each(["https://legal.example:8443", "http://[::1]:43001"])(
+    "accepts a complete public page pair from %s",
+    (configuredOrigin) => {
+      mount(
+        createElement(AiscooLegalLinks, {
+          providers: [
+            {
+              ...native,
+              legalLinks: {
+                userAgreementUrl: `${configuredOrigin}/user-agreement`,
+                privacyPolicyUrl: `${configuredOrigin}/privacy-policy`,
+              },
+            },
+          ],
+          placement: "login",
+        }),
+      );
+      expect(screen.getAllByRole("link")).toHaveLength(2);
+    },
+  );
+
   it("removes stale legal information when the rendered provider is no longer configured", async () => {
-    const view = mount(createElement(AiscooLegalLinks, { providers: [native], placement: "login" }));
+    const view = mount(
+      createElement(AiscooLegalLinks, { providers: [native], placement: "login" }),
+    );
     expect(screen.getAllByRole("link")).toHaveLength(2);
     view.rerender(
       createElement(ServiceProvider, {

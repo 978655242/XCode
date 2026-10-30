@@ -4,10 +4,10 @@ Aiscoo 是基于智谱开源项目 [zai-org/ZCode](https://github.com/zai-org/ZC
 
 ## 1. 远端约定
 
-| 远端       | 地址                                 | 用途             |
-| ---------- | ------------------------------------ | ---------------- |
-| `origin`   | `git@github.com:978655242/aiscoo.git` | Aiscoo 产品仓库   |
-| `upstream` | `git@github.com:zai-org/ZCode.git`   | ZCode 上游，只读 |
+| 远端       | 地址                                  | 用途             |
+| ---------- | ------------------------------------- | ---------------- |
+| `origin`   | `git@github.com:978655242/aiscoo.git` | Aiscoo 产品仓库  |
+| `upstream` | `git@github.com:zai-org/ZCode.git`    | ZCode 上游，只读 |
 
 首次克隆后执行：
 
@@ -39,15 +39,15 @@ gitGraph
   merge sync/upstream-20261101 id: "sync PR merge commit"
 ```
 
-| 分支                       | 来源            | 规则                                                                                            |
-| -------------------------- | --------------- | ----------------------------------------------------------------------------------------------- |
+| 分支                       | 来源            | 规则                                                                                             |
+| -------------------------- | --------------- | ------------------------------------------------------------------------------------------------ |
 | `main`                     | `upstream/main` | 上游纯镜像。只允许 fast-forward 到 `upstream/main`，禁止提交任何 Aiscoo 改动。                   |
 | `release`                  | —               | Aiscoo 产品主干，GitHub 默认分支。接受功能/修复 PR 与 `sync/upstream-*` 同步 PR，禁止直接 push。 |
-| `feature/<简述>`           | `release`       | 新功能。                                                                                        |
-| `fix/<简述>`               | `release`       | 缺陷修复。                                                                                      |
-| `chore/<简述>`             | `release`       | 工程杂项。                                                                                      |
-| `hotfix/<版本>-<简述>`     | 发布 tag        | 线上紧急修复，合回 `release`。                                                                  |
-| `sync/upstream-<YYYYMMDD>` | `release`       | 上游同步专用，见第 4 节。                                                                       |
+| `feature/<简述>`           | `release`       | 新功能。                                                                                         |
+| `fix/<简述>`               | `release`       | 缺陷修复。                                                                                       |
+| `chore/<简述>`             | `release`       | 工程杂项。                                                                                       |
+| `hotfix/<版本>-<简述>`     | 发布 tag        | 线上紧急修复，合回 `release`。                                                                   |
+| `sync/upstream-<YYYYMMDD>` | `release`       | 上游同步专用，见第 4 节。                                                                        |
 
 规则：
 
@@ -95,13 +95,16 @@ comm -12 <(git diff --name-only release...main | sort) \
          <(git diff --name-only main...release | sort)
 ```
 
-逐个提交分类，结果写入 [`upstream-sync-log.md`](./upstream-sync-log.md)：
+逐个提交分类，结果写入 [上游同步记录](../xcode/upstream-sync-log.md)：
+
+- 同步记录固定在 `docs/xcode/upstream-sync-log.md`：同步 PR 必须更新并保留该文件；普通 PR 不得新增、修改、删除或移动它。
+- PR 策略与合并后巡检必须识别移动前的路径，即使 Git 启用了重命名检测；普通 PR 未改动记录时应通过，同步 PR 仍须包含新上游提交并以 merge commit 合入。
 
 | 分类 | 判断标准                                       | 处理                          |
 | ---- | ---------------------------------------------- | ----------------------------- |
 | 采纳 | Bug 修复、安全修复、性能、依赖升级、通用新功能 | 随合并进入                    |
-| 适配 | 有价值但与 XCode 定制冲突                      | 合并后在同步分支内改造        |
-| 拒绝 | 与 XCode 产品方向冲突、或依赖 ZCode 专有服务   | 合并后 `git revert`，记录原因 |
+| 适配 | 有价值但与 Aiscoo 定制冲突                     | 合并后在同步分支内改造        |
+| 拒绝 | 与 Aiscoo 产品方向冲突、或依赖 ZCode 专有服务  | 合并后 `git revert`，记录原因 |
 
 安全修复一律采纳，不得以“暂不需要”为由拒绝。
 
@@ -120,7 +123,7 @@ gh pr create --base release --title "sync: upstream ZCode <版本>"
 要求：
 
 - 默认整体 merge `main`，不要从上游 cherry-pick。cherry-pick 会生成新 SHA，下次 merge 时同一改动会再次冲突。只有紧急安全修复来不及完整同步时才允许 cherry-pick（`git cherry-pick -x`），并在同步记录中登记，下次完整同步时核对。
-- 冲突解决必须说明取舍：保留 XCode 行为、采用上游行为或二者融合。不确定时在 PR 中 @ 相关功能负责人。
+- 冲突解决必须说明取舍：保留 Aiscoo 行为、采用上游行为或二者融合。不确定时在 PR 中 @ 相关功能负责人。
 - 同步 PR 只包含上游合并、冲突解决、拒绝项 revert 和必要适配，禁止夹带新功能。
 - 在同步 PR 内更新 `upstream-sync-log.md`（含“已同步到”字段）；CI 会拒绝未更新记录的同步 PR，也拒绝功能 PR 修改该文件。
 - 合并时必须选择 Create a merge commit，并通过必需的 `policy`、`verify` 检查。需要较大产品改造时，同步合入后在 `release` 上另开 `fix/` PR。
@@ -155,10 +158,10 @@ gh pr create --base release --title "sync: upstream ZCode <版本>"
 | ------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GitHub 规则集 | `release`                                                  | 直接 push、force push、删除分支；未通过 `policy`/`verify` 的 PR 不能合并；禁用 Rebase merge。                                                                                                                         |
 | GitHub 规则集 | `main`                                                     | force push、删除分支；仅仓库管理员可更新（用于快进上游）。                                                                                                                                                            |
-| CI `policy`   | `.github/workflows/aiscoo-pr.yml`                           | PR 不指向 `release`；分支名不合规；功能分支夹带上游提交；同步分支不含当前 `origin/release`、未先快进 `main` 或未更新同步记录；功能 PR 修改同步记录。                                                                  |
-| CI `verify`   | `.github/workflows/aiscoo-pr.yml`                           | `pnpm lint`、`pnpm typecheck`、`pnpm architecture:check` 失败；PR 改动文件未格式化（同步 PR 跳过；`release` 上本就未格式化的文件跳过并列出，避免为追加几行整份重排上游文件，见 `scripts/aiscoo/format-changed.mjs`）。 |
-| 合并后巡检    | `.github/workflows/aiscoo-main-guard.yml`                   | `release` 上的同步内容被 squash 合并（事后告警）；每日检查 `main` 是否偏离上游，并在 Actions Summary 列出待同步到 `release` 的上游提交。                                                                              |
-| 本地 pre-push | `.husky/pre-push` → `scripts/aiscoo/branch-policy.mjs push` | 推送已存在的 `release`（仅放行首次创建）、推送含非上游提交的 `main`、分支名不合规；随后执行 `pnpm verify:pre-push`。`pnpm install` 后自动生效。                                                                       |
+| CI `policy`   | `.github/workflows/xcode-pr.yml`                           | PR 不指向 `release`；分支名不合规；功能分支夹带上游提交；同步分支不含当前 `origin/release`、未先快进 `main` 或未更新同步记录；功能 PR 修改同步记录。                                                                  |
+| CI `verify`   | `.github/workflows/xcode-pr.yml`                           | `pnpm lint`、`pnpm typecheck`、`pnpm architecture:check` 失败；PR 改动文件未格式化（同步 PR 跳过；`release` 上本就未格式化的文件跳过并列出，避免为追加几行整份重排上游文件，见 `scripts/xcode/format-changed.mjs`）。 |
+| 合并后巡检    | `.github/workflows/xcode-main-guard.yml`                   | `release` 上的同步内容被 squash 合并（事后告警）；每日检查 `main` 是否偏离上游，并在 Actions Summary 列出待同步到 `release` 的上游提交。                                                                              |
+| 本地 pre-push | `.husky/pre-push` → `scripts/xcode/branch-policy.mjs push` | 推送已存在的 `release`（仅放行首次创建）、推送含非上游提交的 `main`、分支名不合规；随后执行 `pnpm verify:pre-push`。`pnpm install` 后自动生效。                                                                       |
 
 - `policy`、`verify` 是规则集中的必需检查名，修改 workflow 的 job 名必须同步修改规则集。
 - 规则集、巡检告警只能由仓库管理员处理；禁止为绕过检查而临时关闭规则集或使用 `--no-verify`。

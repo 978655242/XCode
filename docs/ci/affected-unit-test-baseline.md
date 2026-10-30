@@ -1,12 +1,12 @@
-# Push 前 affected 单测比较基线
+# 架构检查比较基线
 
-v3.16.1 使用上游新版 `scripts/affected-unit-tests/scope.mjs` 解析比较范围，由 Vitest 官方选择关联测试。旧的默认分支候选 helper 只保留上游架构检查仍在使用的接口，不再承担 affected 范围解析。
+App affected 单测入口已按[测试规格](../testing/unit-test-quality.md)退役；工程 affected 由 `scripts/engineering-tests/scope.mjs` 使用 Vitest 官方依赖图选择，保留显式基线、remote SHA 与工作区检查语义。
 
-- 显式 `--base`、`ZCODE_AFFECTED_TEST_BASE`、`ZCODE_PRE_PUSH_BASE` 按此顺序优先，覆盖 hook 提供的远端基线。
-- 已存在远端分支使用远端 SHA；重写历史后改用双方 merge-base。
-- 首次推送没有远端 SHA：所有分支（含 `sync/upstream-*`）统一使用产品主干 `origin/release`，取与 HEAD 的 merge-base；手动 push 范围没有 ref 输入时同样如此。`main` 仅镜像上游，不充当产品测试基线，也不创建 `staging` 别名。
-- 预期集成分支缺失、无公共祖先、推送目标不是 HEAD、工作区有未提交/未跟踪改动时，严格报错；不自动 stash、不猜测其他分支、不退回全量来掩盖配置问题。
-- 配置或公共依赖令 Vitest 选中整个根套件时，按上游规则明确提示“未执行测试”后成功退出；它不构成测试通过的证据，完整验证需另外执行 `pnpm test:unit`。
-- XWork 保留的 `node:test` 用例继续由既有 `test:unit:node` 独立执行，并在根 Vitest 中排除；不能误扫、漏跑或与上游已迁入 Vitest 的测试重复执行。
+<!-- XCODE: Aiscoo 产品主干为 release，main 只镜像上游。 -->
 
-架构检查保留上游独立的显式/CI/remote SHA/upstream 选择顺序。没有这些基线时，其默认候选在 XWork 优先 `origin/release`，再沿用上游候选；不以镜像 `main` 误算产品历史差异。affected 首推仍采用上述按分支角色严格选择的规则，不借架构检查的宽松 fallback 掩盖缺失远端。
+- 首次推送所有工作分支（含 `sync/upstream-*`）时，工程 affected 使用 `origin/release` 与 HEAD 的 merge-base；没有有效 upstream 的手动 push 同样如此。缺少集成分支或无共同祖先时严格失败，不创建 staging 别名。
+- 架构检查的默认分支选择函数位于 `scripts/architecture/default-branch.mjs`，优先 `origin/release`，随后保留上游 `origin/staging`、`origin/HEAD`、`origin/main`、`origin/master`、`main`、`master` 候选。显式、CI、push remote SHA 和 upstream 的优先级不变。
+- 工程 affected 选中整个 engineering 套件时明确报告跳过并退出 0；这不代表测试通过。日常只运行受影响文件，显式全量使用 `pnpm test:engineering`。
+- Aiscoo 专属回归使用独立 `pnpm test:aiscoo <文件>` 与 `pnpm test:unit:node`，不加入上游 engineering 清单，不恢复已退役 App 单测入口。
+
+详细推送合同见 [pre-push 说明](../testing/pre-push-hook.md)。

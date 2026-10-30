@@ -11,7 +11,7 @@ import {
   pluginGuideSourceSchema,
   pluginGuideStreamTextParamsSchema,
   pluginGuideTextDeltaSchema,
-} from "@zcode/shared/aiscoo-plugin-guides";
+} from "@zcode/shared/xwork-plugin-guides";
 import type { ZCodeProtocolClient } from "../../zcode-agent/zcodeProtocolClient.js";
 import type { ZCodeAgentWorkspaceTarget } from "../../zcode-agent/zcodeAgent.js";
 import { createServiceLogger } from "../../logger/serviceLogger.js";
@@ -57,7 +57,7 @@ export function createPluginGuideAgentExtension(dependencies: Dependencies) {
       );
       try {
         return await client.request(
-          zcodeProtocolMethods.aiscooPluginGuideSource,
+          zcodeProtocolMethods.xworkPluginGuideSource,
           pluginGuideSourceParamsSchema.parse({
             workspace: dependencies.buildWorkspaceRef(target),
             pluginName: target.pluginName,

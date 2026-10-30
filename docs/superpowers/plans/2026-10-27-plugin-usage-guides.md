@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, React, current AI Elements/house UI, existing RPC descriptors and protocol notifications, Node async files and file locks, Zod, Vitest and actual Electron/browser smoke.
 
-**Spec:** `docs/xcode/specs/plugin-usage-guides.md`
+**Spec:** `docs/aiscoo/specs/plugin-usage-guides.md`
 
 ## Global constraints
 
@@ -35,7 +35,7 @@
 - `packages/services/src/xwork-plugin-guides/`: typed service contract, prompt/output domain, Host operation owner and atomic filesystem repository; additive service registration and remote proxy.
 - `packages/ui/src/xwork/plugin-guides/`: reader, guide interaction panel and service projection hook; injected through the common detail composition point.
 - Existing shared method/notification registry, package export maps, service descriptor/accessor/node/proxy registries, CLI server switch, detail props/callers and locale catalogs: minimal additions.
-- `architecture-policy.xwork.yaml`: only new XWork module registrations. `docs/xcode/specs/plugin-usage-guides.md`: product source of truth and final verification evidence.
+- `architecture-policy.xwork.yaml`: only new XWork module registrations. `docs/aiscoo/specs/plugin-usage-guides.md`: product source of truth and final verification evidence.
 
 ### Task 1: Typed document and operation contract
 
@@ -129,4 +129,4 @@ The following 23 modified paths exist in upstream. New implementation modules an
 | `packages/ui/src/settings/PluginStorePage.tsx`                      | Compose the XWork wrapper at the existing common detail render point used by marketplace surfaces.                                                           |
 | `packages/ui/src/settings/PluginsSection.tsx`                       | Compose the same wrapper and explicitly pass the resolved management Host's guide service, including `null` when unavailable.                                |
 
-Final verification, E2E history and known environment/accounting limits are recorded in `docs/xcode/specs/plugin-usage-guides.md`.
+Final verification, E2E history and known environment/accounting limits are recorded in `docs/aiscoo/specs/plugin-usage-guides.md`.

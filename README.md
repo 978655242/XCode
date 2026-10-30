@@ -17,6 +17,7 @@ Aiscoo 是基于上游 ZCode 的 AI 编程工作台，提供桌面应用、浏�
 
 ## 更新
 
+- **2026-10-30**：同步上游 ZCode v3.17.1 版本。
 - **2026-10-21**：同步上游 ZCode v3.16.2 版本（上游更新日期：2026-10-19）。
 - **2026-10-19**：同步上游 ZCode v3.16.1 版本（上游更新日期：2026-10-16）。
 - 2026-10-18：同步上游 ZCode v3.15.1 版本（上游更新日期：2026-10-10）。
@@ -26,7 +27,7 @@ Aiscoo 是基于上游 ZCode 的 AI 编程工作台，提供桌面应用、浏�
 
 产品显示名为 **Aiscoo**，完整几何字标为小写 **aiscoo**。用户设计原稿位于 [docs/brand/aiscoo](docs/brand/aiscoo/README.md)，运行时 SVG、PNG、ICO、ICNS 均包含在代码库和应用构建资源中。品牌入口、兼容范围与验收清单见 [Aiscoo 品牌迁移](docs/aiscoo/branding/aiscoo-migration.md)。
 
-重新生成运行时图标：`python3 scripts/aiscoo/generate-icons.py`。CLI 的 `zcode` 命令和已有用户数据目录保持兼容。
+重新生成运行时图标：`python3 scripts/xcode/generate-icons.py`。CLI 的 `zcode` 命令和已有用户数据目录保持兼容。
 
 ## 初始化
 

@@ -1,4 +1,6 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
+import { brandProductText } from "./xwork-brand/runtime.js";
+
 export interface DefaultPluginMarketplace {
   id: string;
   source: string;
@@ -34,6 +36,7 @@ export const DEFAULT_ENABLED_OFFICIAL_PLUGIN_IDS: ReadonlySet<string> = new Set(
   // visualize（交互视图）随 UI 插件合入时 CLI 定义已标 defaultEnabled，但这里漏加，
   // Settings 会把它当成默认关闭，与 CLI 实际启用状态不一致。
   "visualize@zcode-plugins-official",
+  "zcode-site@zcode-plugins-official",
   // 电脑控制回退为默认关闭，故 computer-use 不在此名单内。
   // 该集合必须与 official-plugin-definitions.ts 里标了 defaultEnabled 的插件逐一对应，
   // bootstrap 的「Settings 默认启用集合与 CLI 的官方插件声明一致」单测机械对照两者。
@@ -46,7 +49,9 @@ export const DEFAULT_PLUGIN_MARKETPLACES: DefaultPluginMarketplace[] = [
     id: ZCODE_OFFICIAL_PLUGIN_MARKETPLACE_ID,
     source: "https://cdn-zcode.z.ai/zcode/official-plugin/marketplace.json",
     name: ZCODE_OFFICIAL_PLUGIN_MARKETPLACE_ID,
-    description: "Official XWork plugins marketplace: built-in and community plugins for XWork.",
+    description: brandProductText(
+      "Official XWork plugins marketplace: built-in and community plugins for XWork.",
+    ),
     pluginCount: 0,
   },
   {

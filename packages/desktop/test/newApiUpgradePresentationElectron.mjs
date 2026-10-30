@@ -18,14 +18,18 @@ import { createViewerHarness } from "./newApiUpgradeViewerHarness.mjs";
 import { runUpgradeZoomMatrix } from "./newApiUpgradeZoomMatrix.mjs";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
-const webRoot = resolve(root, "../new-api/web");
+// XCODE: 与 handoff smoke 共用受审后端来源，品牌迁名不再落到不存在的旧目录。
+const webRoot = resolve(
+  process.env.XCODE_NEW_API_SOURCE_DIR?.trim() || resolve(root, "../aiscoo-admin"),
+  "web",
+);
 const requireDesktop = createRequire(new URL("../package.json", import.meta.url));
 const requireRoot = createRequire(new URL("../../../package.json", import.meta.url));
 
 assert.ok(process.argv[2], "Launch this fixture with runNewApiElectronSmokes.mjs");
 
 async function run() {
-  const temporary = await mkdtemp(join(process.argv[2], "aiscoo-upgrade-electron-"));
+  const temporary = await mkdtemp(join(process.argv[2], "xwork-upgrade-electron-"));
   app.setPath("userData", join(temporary, "profile"));
   let win, vite, fixture, fixtureOrigin;
   const counters = { writes: 0 };
@@ -45,6 +49,14 @@ async function run() {
     let ownerGeneration = 1;
     let currentUser = 0;
     if (!liveSeed) {
+      // XCODE: 缺失真实 dist 时在挂载 guest 前报来源错误，不把 404 空页误报 viewerContentMissing。
+      const entryPath = resolve(webRoot, "dist/index.html");
+      await readFile(entryPath, "utf8").catch((cause) => {
+        throw new Error(
+          `Native upgrade dist unavailable: ${entryPath}; set XCODE_NEW_API_SOURCE_DIR`,
+          { cause },
+        );
+      });
       fixture = createUpgradeFixtureServer({ webRoot, counters });
       fixture.state.viewer = fixtureView();
       fixtureOrigin = await fixture.start();

@@ -5,12 +5,12 @@ import { join } from "node:path";
 
 declare module "vitest" {
   export interface ProvidedContext {
-    aiscooUnitTestRoot: string;
+    xcodeUnitTestRoot: string;
   }
 }
 
 // XCODE: 每份用例在导入服务前获得独立 HOME，数据库与备份均不能落到用户目录。
-const testHome = await mkdtemp(join(inject("aiscooUnitTestRoot"), "home-"));
+const testHome = await mkdtemp(join(inject("xcodeUnitTestRoot"), "home-"));
 process.env.HOME = testHome;
 process.env.USERPROFILE = testHome;
 

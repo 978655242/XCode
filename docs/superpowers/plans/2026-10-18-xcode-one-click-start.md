@@ -4,7 +4,7 @@
 
 **Goal:** 双击 `~/Desktop/启动 XCode.command`，补启动现有数据库及原生 New API，启动或激活本仓库 XWork 桌面，保留原用户和数据。
 
-**Architecture:** Python 标准库薄入口负责互斥、固定部署身份和启动预检；原生 API 复用既有 `com.aiscoo-admin.local-backend`，桌面复用现有 Node/pnpm 开发链路并按需由 launchd 驻留。数据库仍使用精确的现有 `new-api-local-postgres` 容器，不创建数据库或重新启用旧 API 容器。
+**Architecture:** Python 标准库薄入口负责互斥、固定部署身份和启动预检；原生 API 复用既有 `com.new-api.local-backend`，桌面复用现有 Node/pnpm 开发链路并按需由 launchd 驻留。数据库仍使用精确的现有 `new-api-local-postgres` 容器，不创建数据库或重新启用旧 API 容器。
 
 **Tech Stack:** macOS、Python 3 标准库、launchd、Docker Desktop（仅承载既有数据库依赖）、已安装 Node 24.18.0 / pnpm 10.33.2、现有 Electron 开发入口。
 
@@ -35,7 +35,7 @@
 ## 1. 当前已批准部署与接口
 
 - 桌面入口：`~/Desktop/启动 XCode.command`，链接到 `scripts/xcode/启动 XCode.command`。
-- 原生 API：`~/Library/Application Support/aiscoo-admin-local/aiscoo-admin`，私密配置为同目录 `.env`，由既有 `com.aiscoo-admin.local-backend` 监督。API 原生部署、PostgreSQL 迁移均为其他任务的变更；用户确认本启动器复用它们。
+- 原生 API：`~/Library/Application Support/new-api-local/new-api`，私密配置为同目录 `.env`，由既有 `com.new-api.local-backend` 监督。API 原生部署、PostgreSQL 迁移均为其他任务的变更；用户确认本启动器复用它们。
 - 数据库：现有 `new-api-local-postgres`，仅 `127.0.0.1:15433`；固定内容绑定 image、挂载集合、端口、Cmd、entrypoint、网络及权限，不自动创建替代库。
 - 旧 `new-api` 容器保留为停止备份，restart policy 已设为 `no`，避免 Docker 启动数据库时自动带起旧 API；没有删除容器或旧数据。
 - 桌面：真实 `XWork Dev.app`，不是 Apple Xcode。main/Host/Agent、Vite 和原用户目录沿用既有标准开发链路。
@@ -50,7 +50,7 @@
 | `scripts/xcode/start-local.py`                         | 新建     | 固定运行身份、互斥、数据库/API/桌面补启动、正确实例激活            |
 | `scripts/xcode/start-local.test.py`                    | 新建     | 真实锁/进程/套接字及信任边界回归                                   |
 | `scripts/xcode/启动 XCode.command`                     | 新建     | 可执行 Terminal/Finder 入口，固定工具 PATH                         |
-| `docs/xcode/new-api-integration-runbook.md`            | 更新     | 使用方法、日志、当前原生部署和退出边界                             |
+| `docs/aiscoo/new-api-integration-runbook.md`           | 更新     | 使用方法、日志、当前原生部署和退出边界                             |
 | `~/.config/xcode-local/start.json`                     | 本机0600 | 工具绝对路径、必要桌面环境、原生三文件指纹及数据库身份；父目录0700 |
 | `~/Library/LaunchAgents/com.xwork.local-desktop.plist` | 本机0600 | 按需调用既有开发入口，不登录自启或自动重启                         |
 | `~/.local/share/xcode-local/`                          | 本机0700 | 锁与0600的 desktop.log，无凭据副本                                 |

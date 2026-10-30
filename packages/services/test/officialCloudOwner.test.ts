@@ -1435,12 +1435,23 @@ for (const operation of ["sync", "retake", "settle"] as const) {
           wakes++;
         },
       });
-      const pending = service.runSyncCycle();
+      // XCODE: 上游已禁止轮询自动补号；保留迟到换号回归，改由真实手动 Continue 触发取号。
+      if (operation === "retake") {
+        await repo.setPaused(task.offPeakTaskId, true, {
+          now: 100,
+          assertCurrent: await client.captureOwnerFence(),
+        });
+      }
+      const pending = operation === "retake"
+        ? service.continueTask(task.offPeakTaskId)
+        : service.runSyncCycle();
+      const outcome = Promise.allSettled([pending]);
       await arrived.promise;
+      const beforeOperation = operation === "retake" ? await repo.list() : before;
       f.setOwner(ownerB);
       release.resolve();
-      await pending;
-      assert.deepEqual(await repo.list(), before);
+      await outcome;
+      assert.deepEqual(await repo.list(), beforeOperation);
       assert.equal(publications, 0);
       assert.equal(wakes, 0);
       service.disposeAll();

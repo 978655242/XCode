@@ -9,7 +9,7 @@ import {
   type PluginGuideDocument,
   type PluginGuideSource,
   type PluginGuideTarget,
-} from "@zcode/shared/aiscoo-plugin-guides";
+} from "@zcode/shared/xwork-plugin-guides";
 import { atomicWriteText, withAtomicFileLock } from "../../fs/atomicFileUtils.js";
 import type { PluginGuideRepository } from "../contract.js";
 

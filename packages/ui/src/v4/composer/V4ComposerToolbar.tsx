@@ -1,6 +1,6 @@
 /* oxlint-disable eslint(max-lines) -- V4ComposerToolbar 汇聚模型/思考深度/context usage 三件套；继续拆分会打散工具条热键与模型目录 memo 的共享状态。 */
 // XCODE: 套餐展示模板统一品牌，模型来源和标识不变。
-import { brandProductText } from "@zcode/shared/aiscoo-brand";
+import { brandProductText } from "@zcode/shared/xwork-brand";
 /**
  * V4 composer 工具条。
  *
@@ -455,6 +455,7 @@ function V4ComposerModelControlsImpl({
   modelSelectionState = MODEL_SELECTION_LOADING_STATE,
   modelSelectionReload,
   modelSelectionRefresh,
+  sessionId,
   provider,
   draftMode = false,
   draftConfig,
@@ -1326,6 +1327,8 @@ function V4ComposerModelControlsImpl({
   // 模型留空是正常的待选择状态，包括已有会话；不能因为没有已选模型隐藏重选入口。
   // 有可选组时正常显示；无组但有「管理模型」入口时也显示，避免用户零模型入口。
   const modelMenuVisible = modelSelectGroups.length > 0 || showManageModelsAction;
+  // 配置恢复不是用户改选：未知时不显示“选择模型”，首次恢复不播放新旧标签滚动。
+  const sessionConfigPending = sessionId !== null && draftConfig?.mode === undefined;
   useToolbarShortcutBindings({
     hasAnyOption: Boolean(modelOption) || Boolean(thoughtOption),
     toolbarDisabled: disabled || recoveryPending || connectionSwitch.pending,
@@ -1424,11 +1427,16 @@ function V4ComposerModelControlsImpl({
         </Button>
       ) : modelMenuVisible ? (
         <ModelConfigSelect
-          key={workspaceIdentity?.trim() || workspacePath}
+          key={JSON.stringify([
+            workspaceIdentity?.trim() || workspacePath,
+            sessionId,
+            sessionConfigPending,
+          ])}
           modelGroups={modelSelectGroups}
           contentAlign="center"
           normalizedValue={normalizedModelValue}
-          triggerLabel={modelTriggerLabel}
+          // XCODE: 保留新版恢复占位和标签切换时序，同时展示 Aiscoo 目录图标。
+          triggerLabel={sessionConfigPending && !effectiveConfig?.model ? "" : modelTriggerLabel}
           triggerIcon={selectedModelItem?.icon}
           composerOptions={composerOptions}
           showManageModelsAction={showManageModelsAction}

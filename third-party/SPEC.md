@@ -22,15 +22,6 @@
   - 内部应用独有且不随产品分发的依赖（当前为 `apps/dev-docs` 的 `elkjs`，按 EPL-2.0 使用）。
   - 其余 LGPL/GPL/EPL 等仍按类别阻断。
 - 开源导出树的工作区与锁文件不同于闭源，其声明与 inventory 由导出流程在开源依赖树上重新生成，不沿用闭源声明。
-- 文档查看器随包分发的 `@fontsource/noto-sans-sc@5.3.1` 单独按精确包名、版本与 `OFL-1.1` 许可登记；其他字体、版本或许可仍阻断。构建原样复制字体分片，并将随包版权及完整许可写入插件 `THIRD_PARTY_NOTICES.txt`。该记录不将 OFL 加入通用宽松许可名单，也不关闭其他材料缺口。
-
-## XWork 账号默认头像的精确许可复核
-
-- 仅复核 `@multiavatar/multiavatar@1.0.7` 且原始 `package.json.license` 严格等于 `SEE LICENSE IN LICENSE` 的发布包；专用许可为 `MULTIAVATAR LICENSE v1.0`，不得标为 MIT，也不将 `SEE LICENSE IN ...` 加入通用 allowlist。包名、版本或原始许可值变化时，必须重新核验。
-- 使用范围仅限商业应用中账号默认头像这一附加功能。不得将现有头像设计集重打包、改名为另一产品，或使用这些设计制作相似或竞争的头像产品/服务；账号头像不得成为独立销售的图库产品。
-- 复核谓词由 `scripts/aiscoo/multiavatar-license.mjs` 独立维护，经 `scripts/license-identifiers.mjs` 导出，在 `scripts/licenses.mjs check` 以扫描到的原始包元数据调用；通用分类器和既有复核规则保持原行为。
-- npm 归档的原始 LICENSE、包元数据及内嵌 CryptoJS v3.1.2 的原始 BSD-3-Clause 条款保存在 `third-party/upstream/`，来源与哈希见 `npm-overrides.json` 和本目录 README。该版 CryptoJS 的版权头与官方 3.1.2 SHA-256 rollup 去掉空白后相同；不得套用其他版本的 MIT 许可。现有生成器读取实装 Multiavatar LICENSE，并通过精确包的 override 附上 CryptoJS 原文。
-- 验收覆盖精确三元组通过、其他包/版本/许可（含大小写、空白和 license 对象）拒绝，以及实际门禁仍阻断未复核的 `SEE LICENSE IN LICENSE`。声明保留两套原文，不关闭原有 `reviewRequired` 缺口。
 
 ## 开发、构建与校验边界
 

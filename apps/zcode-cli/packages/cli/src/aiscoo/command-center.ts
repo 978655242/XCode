@@ -7,7 +7,7 @@ import { recordSlashCommandInHistory } from "../command-center/history.js";
 import { emitLoginAuthorizeMessage } from "../command-center/login-flow.js";
 import { parseSlashCommand } from "../command-center/slash-commands.js";
 import type { CommandCenterDeps } from "../command-center/types.js";
-import type { AiscooZenCommandDeps } from "./contract.js";
+import type { XworkZenCommandDeps } from "./contract.js";
 
 
 export function buildZenLoginItem(locale?: string): TuiSelectionItem {
@@ -33,9 +33,9 @@ export function buildZenLoginItem(locale?: string): TuiSelectionItem {
 }
 
 /** zen 未配置（未设 NEW_API_BASE_URL）时传 undefined，行为与上游完全一致。 */
-export function createAiscooCommandCenter(
+export function createXworkCommandCenter(
   deps: CommandCenterDeps,
-  zen: AiscooZenCommandDeps | undefined,
+  zen: XworkZenCommandDeps | undefined,
 ): TuiSubmitPrompt {
   const upstream = createCommandCenter(deps);
   if (!zen) return upstream;

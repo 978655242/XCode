@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { HostResponseTypes } from "@zcode/shared";
-import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import type {
   BrowserBackendDescriptor,
   BrowserClientMode,
@@ -21,6 +21,7 @@ export interface BrowserExecuteRequestMessage {
   requestId: string;
   browserId: string;
   browserGeneration: number;
+  controlScopeId?: string;
   sessionId: string;
   turnId?: string;
   workspaceKey: string;
@@ -99,6 +100,7 @@ export interface BrowserControlMainBridge {
     requestId?: string;
     browserId?: string;
     browserGeneration?: number;
+    controlScopeId?: string;
     sessionId: string;
     turnId?: string;
     workspaceKey?: string;
@@ -115,6 +117,7 @@ export interface BrowserControlMainBridge {
 }
 
 export function createBrowserControlMainBridge(deps: {
+  getBackendIdentity: () => { id: string; generation: number } | undefined;
   postToMain: (message: BrowserExecuteRequestMessage) => void;
   timeoutMs?: number;
   materializeRecording?(input: {
@@ -128,16 +131,13 @@ export function createBrowserControlMainBridge(deps: {
 }): BrowserControlMainBridge {
   const pending = new Map<string, PendingEntry>();
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const browserId = `iab:${randomUUID()}`;
-  const browserGeneration = Date.now();
+  // 资源位于 Main；Host 重建不能另造代次并遗忘旧资源。
   const deletePendingIfCurrent = (requestId: string, entry: PendingEntry): boolean => {
     if (pending.get(requestId) !== entry) return false;
     pending.delete(requestId);
     return true;
   };
-  const descriptor: BrowserBackendDescriptor = {
-    id: browserId,
-    generation: browserGeneration,
+  const descriptor: Omit<BrowserBackendDescriptor, "id" | "generation"> = {
     type: "iab",
     // XCODE: 浏览器控制能力描述采用产品展示名，不修改控制协议。
     name: `${PRODUCT_NAME} In-app Browser`,
@@ -165,18 +165,21 @@ export function createBrowserControlMainBridge(deps: {
     },
     metadata: {
       provider: "zcode-desktop-iab",
+      controlScopes: "1",
     },
   };
 
   return {
     async list(): Promise<BrowserBackendDescriptor[]> {
-      return [descriptor];
+      const identity = deps.getBackendIdentity();
+      return identity ? [{ ...descriptor, ...identity }] : [];
     },
 
     async execute({
       requestId: inputRequestId,
       browserId: requestedBrowserId,
       browserGeneration: requestedBrowserGeneration,
+      controlScopeId,
       sessionId,
       turnId,
       workspaceKey = sessionId,
@@ -187,29 +190,19 @@ export function createBrowserControlMainBridge(deps: {
       sessionContext = "live",
       command,
     }): Promise<BrowserCommandResult> {
-      if (requestedBrowserId && requestedBrowserId !== browserId) {
+      const identity = deps.getBackendIdentity();
+      if (!identity)
         return {
           ok: false,
-          error: {
-            code: "backend_unavailable",
-            message: `browser backend '${requestedBrowserId}' is no longer available`,
-          },
           elapsedMs: 0,
+          ...(command.method === "openScope" && controlScopeId
+            ? { scope: { id: controlScopeId, state: "rejected" as const } }
+            : {}),
+          error: { code: "backend_unavailable", message: "browser owner is not initialized" },
         };
-      }
-      if (
-        requestedBrowserGeneration !== undefined &&
-        requestedBrowserGeneration !== browserGeneration
-      ) {
-        return {
-          ok: false,
-          error: {
-            code: "backend_unavailable",
-            message: `browser backend '${browserId}' generation ${requestedBrowserGeneration} is stale`,
-          },
-          elapsedMs: 0,
-        };
-      }
+      // 身份是否过期、旧 scope 是否存在由 Main 判断；桥只携带原身份转发。
+      const browserId = requestedBrowserId ?? identity.id;
+      const browserGeneration = requestedBrowserGeneration ?? identity.generation;
       const requestId = inputRequestId ?? randomUUID();
       if (pending.has(requestId)) {
         // requestId 是结果与 Promise 的 correlation key。覆盖同 key entry
@@ -251,6 +244,7 @@ export function createBrowserControlMainBridge(deps: {
               requestId: cancelRequestId,
               browserId,
               browserGeneration,
+              controlScopeId,
               sessionId,
               turnId,
               workspaceKey,
@@ -293,6 +287,7 @@ export function createBrowserControlMainBridge(deps: {
             requestId,
             browserId,
             browserGeneration,
+            controlScopeId,
             sessionId,
             turnId,
             workspaceKey,

@@ -21,16 +21,34 @@ export async function prepareWebRemoteControlSessionEventsFixture(options: {
   credentialsFile: string;
   settingsFile: string;
   workspacePath: string;
-  serveCurrentWeb?: boolean;
+  webUrl?: string;
+  mobilePush?: boolean;
 }): Promise<() => Promise<void>> {
   const relay = await createFakeRelayV2({
     users: { "mock-token": "zcode-e2e-user" },
     onHttp: (call) => {
+      if (options.mobilePush && call.path === "/api/v1/remote/notification/status")
+        return {
+          status: 200,
+          body: {
+            code: 0,
+            data: { protocol_version: 1, event_transport: "http", status: "available" },
+          },
+        };
+      if (options.mobilePush && call.path === "/__e2e/push")
+        return {
+          status: 200,
+          body: {
+            messages: relay.messages,
+            queries: relay.httpCalls.filter((x) => x.path === "/api/v1/remote/notification/status")
+              .length,
+          },
+        };
       if (call.path.startsWith("/api/v1/remote/")) return;
       // 完整工作区会读取推荐场景；配置对象不能冒充场景数组，否则真实首页渲染会崩溃。
       if (call.path === "/api/v1/client/scenes")
         return { status: 200, body: { code: 0, msg: "", data: [] } };
-      if (options.serveCurrentWeb && !call.path.includes("config"))
+      if (options.webUrl && !call.path.includes("config"))
         return {
           status: 503,
           body: { code: 503, msg: "not configured in mobile file-navigation fixture" },
@@ -46,7 +64,7 @@ export async function prepareWebRemoteControlSessionEventsFixture(options: {
   });
   const envPatch = {
     // 账号后台请求也必须走 loopback；合成凭据发到默认业务 API 会触发401并提前登出。
-    ...(options.serveCurrentWeb ? { VITE_ZCODE_E2E_STORE_BRIDGE: "1" } : {}),
+    ...(options.webUrl ? { VITE_ZCODE_E2E_STORE_BRIDGE: "1" } : {}),
     ZAI_BUSINESS_BASE_URL: relay.httpUrl,
     ZCODE_E2E_REMOTE_AUTH_GATE_URL: relay.httpUrl,
     ZCODE_BASE_URL: relay.httpUrl,
@@ -98,11 +116,11 @@ export async function prepareWebRemoteControlSessionEventsFixture(options: {
     }
   }
   try {
-    if (options.serveCurrentWeb) {
+    if (options.webUrl) {
       webCacheDirectory = await mkdtemp(join(tmpdir(), "zcode-web-remote-vite-"));
       web = fork(
         resolve(import.meta.dirname, "../fixtures/web-remote-control-frontend.mjs"),
-        [webCacheDirectory],
+        [webCacheDirectory, new URL(options.webUrl).port || "5173"],
         {
           cwd: resolve(import.meta.dirname, "../../../../../packages/web"),
           env: { ...process.env, NO_COLOR: "1" },
@@ -130,7 +148,10 @@ export async function prepareWebRemoteControlSessionEventsFixture(options: {
         if (message.type === "stage" && message.phase) webPhase = message.phase;
       });
       const origin = await ready.promise;
-      process.env.ZCODE_WEB_REMOTE_CONTROL_URL = `${origin}/remote/v4`;
+      process.env.ZCODE_WEB_REMOTE_CONTROL_URL = new URL(
+        new URL(options.webUrl).pathname,
+        origin,
+      ).href;
     }
     await writeFile(
       options.credentialsFile,
@@ -143,7 +164,9 @@ export async function prepareWebRemoteControlSessionEventsFixture(options: {
       JSON.stringify({
         ...settings,
         zcodeEndpointOrigin: relay.httpUrl,
-        webRemoteControlLastEnabledContext: { workspacePath: options.workspacePath },
+        webRemoteControlLastEnabledContext: options.mobilePush
+          ? undefined
+          : { workspacePath: options.workspacePath },
       }),
     );
     return close;

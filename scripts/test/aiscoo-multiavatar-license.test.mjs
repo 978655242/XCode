@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
-import { isReviewedMultiavatarLicense } from "../license-identifiers.mjs";
+import { isReviewedMultiavatarLicense } from "../aiscoo/multiavatar-license.mjs";
 
 test("账号头像专用许可仅接受已核验的 Multiavatar 精确三元组", () => {
   const avatar = {
@@ -41,7 +41,11 @@ test("实际门禁读取原始 Multiavatar 标识且保持其他 SEE LICENSE 包
   t.after(() => rm(root, { recursive: true, force: true }));
   const scripts = join(root, "scripts");
   await mkdir(join(scripts, "aiscoo"), { recursive: true });
-  for (const file of ["licenses.mjs", "license-identifiers.mjs", "aiscoo/multiavatar-license.mjs"]) {
+  for (const file of [
+    "licenses.mjs",
+    "license-identifiers.mjs",
+    "aiscoo/multiavatar-license.mjs",
+  ]) {
     await copyFile(new URL(`../${file}`, import.meta.url), join(scripts, file));
   }
   // 隔离安装图和声明 IO，只运行真实门禁与复核代码，避免测试改写工作区依赖。

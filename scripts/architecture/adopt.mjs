@@ -4,7 +4,7 @@
  * 设计目的：unmanaged-new-file 规则要求新代码必须落在 managed 模块内，那么"登记一个模块"
  * 必须比"绕过规则"更便宜。本命令一次完成：
  *   1. 从实际 import 反推 requires（可与 --requires 合并）
- *   2. 生成缺失的五件套骨架（module.ts / contract.ts / contract.example.ts / contract.test.ts / CONTRACT.md）
+ *   2. 生成缺失的四件套骨架（module.ts / contract.ts / contract.example.ts / CONTRACT.md）
  *   3. 在 architecture-policy.yaml 登记（保留注释；已存在则置 managed: true，不重复添加）
  */
 import { promises as fs } from "node:fs";
@@ -21,13 +21,7 @@ import {
 } from "./policy.mjs";
 import { loadWorkspace } from "./resolver.mjs";
 
-const ARTIFACTS = [
-  "module.ts",
-  "contract.ts",
-  "contract.example.ts",
-  "contract.test.ts",
-  "CONTRACT.md",
-];
+const ARTIFACTS = ["module.ts", "contract.ts", "contract.example.ts", "CONTRACT.md"];
 
 function camel(id) {
   return id.replace(/[-_](\w)/g, (_, c) => c.toUpperCase());
@@ -66,17 +60,6 @@ export function example${name[0].toUpperCase() + name.slice(1)}(_contract: ${nam
   // TODO(${id}): 展示最常见的一次完整调用。
 }
 `,
-    "contract.test.ts": `import { describe, expect, it } from "vitest";
-
-import { ${name}Module } from "./module.js";
-
-// 契约测试只 import contract 与 module，不知道实现是谁；同一份测试应同时跑真实现与跨进程代理。
-describe("${id} contract", () => {
-  it("declares its module manifest", () => {
-    expect(${name}Module.id).toBe("${id}");
-  });
-});
-`,
     "CONTRACT.md": `# ${id}
 
 一页以内。只写类型与测试表达不了的三样：模块存在的意图、不变量、与其它模块的交集在哪个 hook 点处理。
@@ -99,15 +82,20 @@ export async function adoptModule({
 }) {
   if (!id || !/^[a-z][a-z0-9-]*$/.test(id)) throw new Error(`模块 id 非法: ${id}`);
   if (!Array.isArray(roots) || roots.length === 0) throw new Error("必须提供至少一个 --root");
+  // XCODE: 先拒绝已有别名，避免不存在的 root 掩盖重复身份。
+  const currentPolicy = await loadPolicy(cwd);
+  if (Object.hasOwn(currentPolicy.aliases, id)) {
+    throw new Error(`模块 id ${id} 是 ${currentPolicy.aliases[id]} 的别名，不能重复登记`);
+  }
   const absoluteRoots = roots.map((root) => path.resolve(cwd, root));
   for (const root of absoluteRoots) {
     const stat = await fs.stat(root).catch(() => null);
     if (!stat?.isDirectory()) throw new Error(`root 不是目录: ${root}`);
   }
 
-  // XCODE: 存在 architecture-policy.aiscoo.yaml 时，上游 YAML 没有的模块登记到扩展文件，避免重复登记并保持上游 YAML 原样。
+  // XCODE: 存在 architecture-policy.xwork.yaml 时，上游 YAML 没有的模块登记到扩展文件，避免重复登记并保持上游 YAML 原样。
   const upstreamPath = path.join(cwd, "architecture-policy.yaml");
-  const extensionPath = path.join(cwd, "architecture-policy.aiscoo.yaml");
+  const extensionPath = path.join(cwd, "architecture-policy.xwork.yaml");
   const upstreamDoc = parseDocument(await fs.readFile(upstreamPath, "utf8"));
   const inUpstream = upstreamDoc.get("modules")?.items?.some((item) => item.get?.("id") === id);
   const useExtension = !inUpstream && (await fs.stat(extensionPath).catch(() => null)) !== null;
@@ -124,7 +112,6 @@ export async function adoptModule({
   ];
 
   // 先用"假设已登记"的策略视图反推 requires，避免新模块的文件被算成它所在的 legacy 模块。
-  const currentPolicy = await loadPolicy(cwd);
   const virtualModule = {
     id,
     roots: absoluteRoots,

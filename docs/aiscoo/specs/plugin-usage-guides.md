@@ -113,7 +113,7 @@ sequenceDiagram
 
 ## 实际开发进程故障回归（2026-10-27）
 
-用户截图中的 `Channel name 'aiscoo-plugin-guides' timed out after 1000ms` 来自已运行数日的旧 Host；Renderer 已热更新，新服务尚未注册。服务端日志确认 `Unknown channel`，与模型响应速度无关。确认普通会话运行数为 0 后，通过既有正常重启命令加载新 Host；新进程日志确认频道注册及 `read` 成功，没有放大 RPC 超时或伪造降级路径。
+用户截图中的 `Channel name 'xwork-plugin-guides' timed out after 1000ms` 来自已运行数日的旧 Host；Renderer 已热更新，新服务尚未注册。服务端日志确认 `Unknown channel`，与模型响应速度无关。确认普通会话运行数为 0 后，通过既有正常重启命令加载新 Host；新进程日志确认频道注册及 `read` 成功，没有放大 RPC 超时或伪造降级路径。
 
 继续通过真实配置验收时发现两项模型执行问题：
 

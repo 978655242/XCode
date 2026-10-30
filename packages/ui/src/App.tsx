@@ -51,7 +51,7 @@ import {
 import { runWorkspaceVisibleCommand } from "@/lib/workspaceVisibleCommand.js";
 import { ZCODE_PRODUCT_DOCS_URL } from "@/lib/productDocs.js";
 // XCODE: 应用图标从下游品牌入口选择，供应商标志与身份保持独立。
-import { AISCOO_ASSET_URLS } from "@/aiscoo/brand/index.js";
+import { AISCOO_ASSET_URLS } from "@/xwork/brand/index.js";
 import { resolveTheme } from "@/useTheme.js";
 import { WorkspaceShellLayout } from "@/app-shell/WorkspaceShellLayout.js";
 import { useAppChromeState } from "@/app-shell/useAppChromeState.js";
@@ -660,9 +660,13 @@ export function App({
     (state: ConversationFindMatchState) => {
       setConversationFindMatchCount(state.matchCount);
       if (state.activeIndex !== undefined) {
-        setConversationFindState((current) =>
-          changeTaskFindSelection(current, current.query, state.activeIndex ?? -1),
-        );
+        setConversationFindState((current) => {
+          const activeIndex = state.activeIndex ?? -1;
+          // 消息索引随流式帧反复回报相同命中；被动回报没有导航意图，不能让整个 App 跟着更新。
+          return current.activeIndex === activeIndex
+            ? current
+            : changeTaskFindSelection(current, current.query, activeIndex);
+        });
       }
     },
     [],

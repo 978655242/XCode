@@ -32,7 +32,7 @@ import { AddMarketplaceSourceDialog } from "@/settings/AddMarketplaceSourceDialo
 import { PluginStoreListView, type PluginStoreSegment } from "@/settings/PluginStoreListView.js";
 import { PluginStoreAdvancedSection } from "@/settings/PluginStoreDetailView.js";
 // XCODE: 使用独立包装组合说明阅读页，保留市场详情和原有操作。
-import { AiscooPluginStoreDetailView } from "@/aiscoo/plugin-guides/index.js";
+import { XWorkPluginStoreDetailView } from "@/xwork/plugin-guides/index.js";
 import { PluginStoreSourcesDialog } from "@/settings/PluginStoreSourcesDialog.js";
 import type { PluginStoreActions } from "@/settings/PluginStoreCard.js";
 import {
@@ -552,7 +552,8 @@ export function PluginStorePage({
       ) : null}
       {view === "detail" ? (
         <Button variant="ghost" data-testid="plugin-store-detail-back" onClick={backToStore}>
-          {intl.formatMessage({ id: "settings.plugins.store.browseAll" })}
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          {intl.formatMessage({ id: "settings.plugins.store.back" })}
         </Button>
       ) : null}
       {view === "store" ? (
@@ -632,9 +633,9 @@ export function PluginStorePage({
             />
             <Button
               type="button"
-              variant="secondary"
+              variant="default"
               size="lg"
-              className="font-medium"
+              className="font-normal"
               data-testid="plugin-store-manage-open"
               onClick={() => setView("manage")}
             >
@@ -655,13 +656,20 @@ export function PluginStorePage({
 
       {view === "manage" ? (
         <div data-testid="plugin-store-manage" className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              data-testid="plugin-store-manage-back"
+              aria-label={intl.formatMessage({ id: "project.back" })}
+              onClick={backToStore}
+            >
+              <ArrowLeft className="size-4" aria-hidden="true" />
+            </Button>
             <h1 className="text-ui-xl font-semibold">
               {intl.formatMessage({ id: "settings.plugins.store.manageInstalled" })}
             </h1>
-            <Button variant="outline" data-testid="plugin-store-browse-all" onClick={backToStore}>
-              {intl.formatMessage({ id: "settings.plugins.store.browseAll" })}
-            </Button>
           </div>
           <PluginsSection
             mode="market"
@@ -695,7 +703,7 @@ export function PluginStorePage({
           />
         </div>
       ) : view === "detail" && detailItem ? (
-        <AiscooPluginStoreDetailView
+        <XWorkPluginStoreDetailView
           workspacePath={workspacePath}
           workspaceIdentity={workspaceIdentity}
           remoteSessionId={remoteSessionId}

@@ -12,6 +12,7 @@ import { NewApiClient, NewApiClientError } from "../../new-api/newApiClient.js";
 // XCODE: 私有目的 adapter 不实现官方 OAuthTokenSet 接口，避免通过 Renderer 暴露主账号密钥。
 export class NewApiProviderAdapter {
   readonly providerId = NEW_API_PROVIDER_ID;
+  // XCODE: 公开页面由已验证的同一 origin 生成，不访问会话或创建授权。
   get meta(): OAuthProviderMeta {
     return {
       id: NEW_API_PROVIDER_ID,

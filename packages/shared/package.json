@@ -6,7 +6,9 @@
     "#src/*": "./src/*"
   },
   "exports": {
-    "./aiscoo-brand": "./src/aiscoo-brand/runtime.js",
+    "./xwork-brand": "./src/xwork-brand/runtime.js",
+    "./aiscoo-brand": "./src/xwork-brand/runtime.js",
+    "./xwork-plugin-guides": "./src/xwork-plugin-guides/index.ts",
     "./aiscoo-plugin-guides": "./src/aiscoo-plugin-guides/index.ts",
     ".": "./src/index.ts",
     "./runtime-env": "./src/runtimeEnv.ts",
@@ -35,7 +37,10 @@
     "./gen-ui": "./src/gen-ui/index.ts",
     "./testing/fake-relay-v2": "./test/fixtures/fake-relay-v2.ts",
     "./request-security": "./src/request-security-edition/index.ts",
-    "./web-remote-relay": "./src/web-remote-relay/index.ts"
+    "./web-remote-relay": "./src/web-remote-relay/index.ts",
+    "./conversation-telemetry": "./src/conversation-telemetry/index.ts",
+    "./conversation-telemetry/messageTelemetry": "./src/conversation-telemetry/messageTelemetry.ts",
+    "./conversation-telemetry/providerTelemetryIdentity": "./src/conversation-telemetry/providerTelemetryIdentity.ts"
   },
   "scripts": {
     "lint": "oxlint",

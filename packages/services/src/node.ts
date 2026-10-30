@@ -1,6 +1,6 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 // XCODE: 仅本地静态状态模板消费共享品牌，Helper 返回值和用户错误原样插入。
-import { brandProductText } from "@zcode/shared/aiscoo-brand";
+import { brandProductText } from "@zcode/shared/xwork-brand";
 import {
   createRemoteProjectService,
   IRemoteProjectService,
@@ -14,6 +14,7 @@ export {
   prepareRemoteServerConnection,
 } from "#src/remote-projects/index.js";
 import {
+  createProjectDataPort,
   createProjectService,
   createTaskAutoArchiveScheduler,
   IProjectService,
@@ -25,7 +26,7 @@ import { getZCodeDataRootDir as projectDataRoot } from "#src/paths.js";
 import { createTaskGroupService, ITaskGroupService, groupTaskKey } from "#src/task-groups/index.js";
 import { IGenUiService } from "./gen-ui/contract.js";
 import { createGenUiService } from "./gen-ui/node.js";
-import { channelReplyHostRequestSchema, channelReplyResultSchema } from "@zcode/shared";
+// import { channelReplyHostRequestSchema, channelReplyResultSchema } from "@zcode/shared";
 /* eslint-disable max-lines -- host process 服务注册和启动装配需要集中维护，拆散后会更难追踪依赖注入顺序 */
 // Node.js service implementations — NOT safe to import in browser code
 import { randomBytes } from "node:crypto";
@@ -42,6 +43,16 @@ import type { NewApiOwner } from "@zcode/shared";
 import type { OfficialCloudConnectionHost } from "./official-mcp/officialCloudConnectionService.js";
 import { NewApiClient } from "./new-api/newApiClient.js";
 import { NewApiAccountService } from "./new-api/newApiAccountService.js";
+
+// XCODE: 宿主可注入浏览器凭据权威；现有目录、请求鉴权与 Worker 同步继续复用同一装配。
+export type NewApiAccountAuthority = Pick<
+  NewApiAccountService,
+  "oauth" | "getOwner" | "isCurrent" | "withControlSession" | "getRelayCredential"
+>;
+export interface NewApiAccountAuthorityFactory {
+  origin: string;
+  create(onOwnerChanged: (owner: NewApiOwner | null) => Promise<void>): NewApiAccountAuthority;
+}
 import { NewApiSessionRepo } from "./new-api/newApiSessionRepo.js";
 import { NewApiProviderAdapter } from "./oauth/providers/newApiProviderAdapter.js";
 import { createNewApiAccountProviderResolver } from "./new-api/newApiAccountProviderResolution.js";
@@ -60,7 +71,7 @@ import {
 import {
   buildLocalMediaPreviewUrl,
   type DynamicWorkflowMode,
-  type ProviderProvisioningTrigger,
+  type ProviderProvisioningSourceTrigger,
 } from "@zcode/shared";
 
 export {
@@ -122,6 +133,12 @@ export type {
   FsFaultRuleConfig,
   InjectedFsFaultError,
 } from "./fs/fsFaultInjection.js";
+// config.json 多写入方共用的「严格读取 + 写前重读 + 原子替换（0600）」（主进程 MCP 设置页也用）。
+export {
+  JsonObjectFileUnreadableError,
+  readJsonObjectFileForUpdate,
+  updateJsonObjectFile,
+} from "./fs/atomicFileUtils.js";
 export {
   setDataBaseDir,
   getDataBaseDir,
@@ -301,6 +318,8 @@ export { createClientConfigService } from "./client-config/clientConfigService.j
 export { createClientScenesService } from "./client-scenes/clientScenesService.js";
 export { createSkillsService } from "./skills/skillsService.js";
 export { createSkillSyncService } from "./skill-sync/skillSyncService.js";
+export { createDeviceSyncStateService, createUserConfigSyncService } from "./data-sync/node.js";
+export { createHostProviderProvisioningStatus } from "./provider-provisioning-status/node.js";
 export { createMcpSyncService } from "./mcp-sync/mcpSyncService.js";
 export { createPluginSyncService } from "./plugin-sync/pluginSyncService.js";
 export { createPluginsService } from "./plugins/pluginsService.js";
@@ -423,11 +442,13 @@ import { ISkillsService } from "./skills/skills.js";
 import { ISkillSyncService } from "./skill-sync/skillSync.js";
 import { IMcpSyncService } from "./mcp-sync/mcpSync.js";
 import { IPluginSyncService } from "./plugin-sync/pluginSync.js";
+import { IUserConfigSyncService } from "./data-sync/contract.js";
+import { createUserConfigSyncService } from "./data-sync/userConfigSyncService.js";
 import { IPluginsService } from "./plugins/plugins.js";
 import { IPluginManagementService } from "./plugins/pluginManagement.js";
 // XCODE: 独立插件说明服务由当前 Host 持有。
-import { IPluginGuideService } from "./aiscoo-plugin-guides/contract.js";
-import { createNodePluginGuideService } from "./aiscoo-plugin-guides/node.js";
+import { IPluginGuideService } from "./xwork-plugin-guides/contract.js";
+import { createNodePluginGuideService } from "./xwork-plugin-guides/node.js";
 import { ISubagentsService } from "./subagents/subagents.js";
 import { ICommandsService } from "./commands/commands.js";
 import { IHooksService } from "./hooks/hooks.js";
@@ -442,6 +463,7 @@ import type { WorkspaceFileSearchFilter } from "./file/workspaceFileMentionFilte
 import { createGitService } from "./git/gitService.js";
 import { GitCommitMessageGenerator } from "./git/gitCommitMessageGenerator.js";
 import { createGitCheckpointService } from "./git/gitCheckpointService.js";
+import { getWorkspaceCheckpointDirectory } from "./git/repo/gitCheckpointStore.js";
 import { createSystemService } from "./system/systemService.js";
 import { createTerminalService } from "./terminal/terminalService.js";
 import {
@@ -572,6 +594,7 @@ import {
 import { ensureAppCaCert } from "./runtime-tools/appCaCert.js";
 import { buildHelperOpenArgs, isCuaLocalDevelopmentRuntime } from "@zcode/zcode-cua/broker/server";
 import { createServiceLogger, type ServiceLogger } from "#src/logger/serviceLogger.js";
+import { ensureTelemetryDeviceMid } from "#src/telemetry/telemetryCore.js";
 import { IOffPeakTaskService } from "./session/offPeakTask.js";
 import type { HighspeedMockScenario } from "@zcode/shared";
 import { IHighspeedCardService } from "./highspeed/highspeedCard.js";
@@ -1235,6 +1258,8 @@ export function createLocalServices(options: {
   resolveClientLanguage?: () => string | undefined;
   /** Desktop Host 请求 Main 登记 Agent 已授权的精确本地视频路径。 */
   authorizeLocalMediaPreviewPath?: (path: string) => Promise<string>;
+  /** XCODE: 可选凭据权威由入口注入，默认仍由桌面账号实现持有。 */
+  newApiAccountAuthority?: NewApiAccountAuthorityFactory;
   /** XCODE: Host-only非秘密分区生命周期；Main负责关闭/清理WebView。 */
   onNewApiOwnerChanged?: (owner: NewApiOwner | null) => void | Promise<void>;
   /** Host-only opaque admission projection for the separate scheduler; never contains credentials. */
@@ -1287,9 +1312,7 @@ export function createLocalServices(options: {
   /** HTTP Server 只有在调用方明确配置认证时才暴露跨 Environment Provisioning target。 */
   providerProvisioningTargetEnabled?: boolean;
   /** Desktop Host 私有通知；只在 Source 成功持久化后请求 Main 调度远端镜像。 */
-  onProviderProvisioningSourceChanged?: (
-    trigger: Exclude<ProviderProvisioningTrigger, "environment-online">,
-  ) => void;
+  onProviderProvisioningSourceChanged?: (trigger: ProviderProvisioningSourceTrigger) => void;
   serviceAuthorityMode?: ServiceAuthorityMode;
   /** 可信 Server Core 注入，区分物理持库 Host 与历史 workspace canonical route。 */
   projectStorageHostId?: string;
@@ -1415,47 +1438,54 @@ export function createLocalServices(options: {
   });
   // XCODE: 仅显式本机 origin 启用私有组合；原 Web/远程和未配置宿主保留独立身份。
   const newApiOrigin =
-    options.serviceAuthorityMode === "desktop-local"
+    // XCODE: 入口显式注入时复用相同 anchors，未注入保留原桌面 gate。
+    options.newApiAccountAuthority?.origin ??
+    (options.serviceAuthorityMode === "desktop-local"
       ? process.env.NEW_API_BASE_URL?.trim()
-      : undefined;
+      : undefined);
   const newApiClient = newApiOrigin
     ? new NewApiClient(newApiOrigin, { fetch: hostApiNetworkTransport.fetch })
     : null;
-  const nativeAccount: NewApiAccountService | null = newApiClient
-    ? new NewApiAccountService({
+  const onNewApiOwnerChanged = async (owner: NewApiOwner | null) => {
+    invalidatePluginUiAccounts?.();
+    accountProviderConfigSource.invalidateNative(true);
+    officialCloudHost?.onPrimaryOwnerChanged(owner);
+    await options.onNewApiOwnerChanged?.(owner);
+    // XCODE: 身份落盘锁内只失效；控制读可能撤销/refresh，不能等待它回入同一锁。
+    void providerRuntime
+      .start()
+      .then(async () => {
+        await providerRuntime.registryService.refresh("native-owner-invalidated");
+        await accountProviderConfigSource.refresh("native-owner-changed");
+        await providerRuntime.registryService.refresh("native-owner-changed");
+      })
+      .catch(() => {
+        // 目录503不撤销已确认身份；同步清空的旧目录仍不可执行。
+        providerConfigLog.warn(undefined, "Private catalog unavailable after owner change");
+      });
+  };
+  // XCODE: 只替换凭据权威；下游既有目录/请求 resolver 仍使用同一窄接口。
+  const nativeAccount: NewApiAccountAuthority | null = newApiClient
+    ? (options.newApiAccountAuthority?.create(onNewApiOwnerChanged) ??
+      new NewApiAccountService({
         adapter: new NewApiProviderAdapter(newApiClient),
         repo: new NewApiSessionRepo(newApiClient.origin),
-        onOwnerChanged: async (owner) => {
-          invalidatePluginUiAccounts?.();
-          accountProviderConfigSource.invalidateNative(true);
-          officialCloudHost?.onPrimaryOwnerChanged(owner);
-          await options.onNewApiOwnerChanged?.(owner);
-          // XCODE: 身份落盘锁内只失效；控制读可能撤销/refresh，不能等待它回入同一锁。
-          void providerRuntime
-            .start()
-            .then(async () => {
-              await providerRuntime.registryService.refresh("native-owner-invalidated");
-              await accountProviderConfigSource.refresh("native-owner-changed");
-              await providerRuntime.registryService.refresh("native-owner-changed");
-            })
-            .catch(() => {
-              // 目录503不撤销已确认身份；同步清空的旧目录仍不可执行。
-              providerConfigLog.warn(undefined, "Private catalog unavailable after owner change");
-            });
-        },
-      })
+        onOwnerChanged: onNewApiOwnerChanged,
+      }))
     : null;
-  const officialCloudHost: OfficialCloudConnectionHost | null = nativeAccount
-    ? createOfficialCloudConnectionHost({
-        account: nativeAccount,
-        apiClient,
-        zcodeBuiltinFilePath: options.zcodeBuiltinProviderConfigFilePath,
-        onDidChange: async () => {
-          await accountProviderConfigSource.refresh("official-cloud-owner-changed");
-          await providerRuntime.registryService.refresh("official-cloud-owner-changed");
-        },
-      })
-    : null;
+  const officialCloudHost: OfficialCloudConnectionHost | null =
+    // XCODE: 浏览器主账号不隐式读取桌面独立官方连接的安全凭据。
+    nativeAccount && !options.newApiAccountAuthority
+      ? createOfficialCloudConnectionHost({
+          account: nativeAccount,
+          apiClient,
+          zcodeBuiltinFilePath: options.zcodeBuiltinProviderConfigFilePath,
+          onDidChange: async () => {
+            await accountProviderConfigSource.refresh("official-cloud-owner-changed");
+            await providerRuntime.registryService.refresh("official-cloud-owner-changed");
+          },
+        })
+      : null;
   const systemService = createSystemService();
   // onboarding 资格与任务列表共用同一份全局 tasks-index；repo 懒加载数据库，提前构造不会
   // 增加启动 I/O，后续 session syncer 也继续复用这一实例。
@@ -1663,22 +1693,36 @@ export function createLocalServices(options: {
     }),
   } satisfies Parameters<typeof createAccountProviderConfigSource>[0];
   const accountProviderConfigSource =
-    nativeAccount && newApiClient && officialCloudHost
+    nativeAccount && newApiClient
       ? new AccountProviderService({
           configSource: providerConfigRuntime.configService,
           resolve: createNewApiAccountProviderResolver({
             account: nativeAccount,
             client: newApiClient,
-            resolveOfficial: createOfficialCloudAccountProviderResolver(officialCloudHost),
+            // XCODE: 独立官方连接只在原桌面装配存在。
+            resolveOfficial: officialCloudHost
+              ? createOfficialCloudAccountProviderResolver(officialCloudHost)
+              : undefined,
           }),
         })
       : createAccountProviderConfigSource(legacyAccountProviderSourceOptions);
   const accountRequestAuthService = createAccountRequestAuthService(
-    nativeAccount && officialCloudHost
+    nativeAccount
       ? createNewApiAccountRequestAuthResolver({
           account: nativeAccount,
           accountSource: accountProviderConfigSource,
-          official: createOfficialCloudAccountRequestAuthResolver(officialCloudHost),
+          // XCODE: 浏览器没有独立官方连接时明确不可用，不借用遗留身份。
+          official: officialCloudHost
+            ? createOfficialCloudAccountRequestAuthResolver(officialCloudHost)
+            : {
+                resolveAccessCurrent: async () => null,
+                assertCurrent: async () => {
+                  throw new Error("official_cloud_connection_required");
+                },
+                resolveCurrent: async () => {
+                  throw new Error("official_cloud_connection_required");
+                },
+              },
         })
       : legacyAccountRequestAuthResolver,
   );
@@ -1786,6 +1830,7 @@ export function createLocalServices(options: {
   const mcpSyncService = createMcpSyncService({
     // mcp/list 的 host 消费点收拢到 mcpSync 服务；真实状态检查仍在 agent 进程。
     listMcpServerStatuses: (params) => zcodeAgentService.listMcpServerStatuses(params),
+    setWorkspaceMcpTrust: (params) => zcodeAgentService.setWorkspaceMcpTrust(params),
   });
   const pluginSyncService = createPluginSyncService();
   const pluginUiAccounts = createPluginUiAccountBindings({
@@ -1991,10 +2036,15 @@ export function createLocalServices(options: {
     // Helper 启动参数统一由 buildHelperOpenArgs 构造，避免多处手写导致漏传或漂移。
     // 设置页只读权限探测不承载 PiP，不传 --launcher-pid 和 --pip-mode；
     // exit-log 使用 .settings.exit.log。新增参数应定义在 HelperLaunchSpec 中供调用方共用。
+    // ghostCursorOverlay 必须传：overlay 是进程级开关，Helper 常驻，设置页先拉起后
+    // 真实 CUA 动作会复用同一进程 —— 漏传则整轮操作没有虚拟光标（2026-10-27 本机实测，
+    // 第 6 次 argv 漏传，见 docs/cua/producer/ghost-cursor-revival-and-polish.md §0）。
+    // PiP 不同：它依赖 --launcher-pid 的生命周期绑定，按原设计仍不传。
     const args = buildHelperOpenArgs({
       appPath,
       socketPath,
       exitLogPath: `${socketPath}.settings.exit.log`,
+      ghostCursorOverlay: true,
       ...(isCuaLocalDevelopmentRuntime(process.env)
         ? { allowUnsignedLauncherLocalDev: true, allowExternalBrokerClientLocalDev: true }
         : {}),
@@ -2267,14 +2317,14 @@ export function createLocalServices(options: {
   const codingPlanSubscriptionService = createCodingPlanSubscriptionService({
     apiClient,
     credentialService,
-    ...(nativeAccount && newApiClient && officialCloudHost
+    ...(nativeAccount && newApiClient
       ? {
           native: {
             account: nativeAccount,
             client: newApiClient,
             authorizeWebHandoff: options.authorizeNewApiPlanWebHandoff,
           },
-          officialCloudHost,
+          officialCloudHost: officialCloudHost ?? undefined,
         }
       : {}),
     ...(resolveDynamicWorkflowUserMode ? { resolveDynamicWorkflowUserMode } : {}),
@@ -2338,6 +2388,23 @@ export function createLocalServices(options: {
     repository: () => taskIndexRepo.getProjectRepository(),
     workspaceDirectory: join(projectDataRoot(), "workspace"),
     afterChange: publishProjectChange,
+    // zcodeAgentService 在下方创建；端口只在命令执行时取用它。
+    data: {
+      repository: () => taskIndexRepo.getProjectDataRepository(),
+      port: createProjectDataPort({
+        agent: {
+          measure: (params) => {
+            if (!zcodeAgentService.measureSessionData) throw new Error("project.data-unavailable");
+            return zcodeAgentService.measureSessionData(params);
+          },
+          purge: (params) => {
+            if (!zcodeAgentService.purgeSessionData) throw new Error("project.data-unavailable");
+            return zcodeAgentService.purgeSessionData(params);
+          },
+        },
+        checkpointDirectory: (workspacePath) => getWorkspaceCheckpointDirectory(workspacePath),
+      }),
+    },
   });
   const taskGroupService = createTaskGroupService({
     database: () => taskIndexRepo.getOrganizationDatabase(),
@@ -2373,16 +2440,22 @@ export function createLocalServices(options: {
     workspaceIdentity: undefined,
   });
   const zcodeAgentService = createZCodeAgentService({
+    useSharedTaskRuntime: async (target) => {
+      if (options?.projectStorageHostId && options.projectStorageHostId !== "local") return false;
+      return !(await taskIndexRepo.getProjectRepository()).hasProjectWorkspace(target);
+    },
     prepareProjectExecution,
     prepareSessionCreation: async (target, assertCurrentSync) => {
       const repository = await taskIndexRepo.getProjectRepository();
       // XCODE: 等待存储就绪期间可能换号；同步预留写入前复核准入 owner，不留下旧身份预留行。
       assertCurrentSync?.();
-      return repository.reserveCreatedTask({
+      const prepared = repository.reserveCreatedTask({
         task: { ...target, taskId: target.sessionId },
         projectId: target.projectId,
+        creationCommand: target.creationCommand,
         additionalDirectories: target.additionalDirectories,
-      }).additionalDirectories;
+      });
+      return { sessionId: prepared.taskId, additionalDirectories: prepared.additionalDirectories };
     },
     resolveSessionDirectories: async (target) =>
       (await projectService.resolveSessionDirectories({ ...target, taskId: target.sessionId }))
@@ -2391,6 +2464,8 @@ export function createLocalServices(options: {
       ? { accountProviderConfigSource: agentAccountProviderConfigSource }
       : {}),
     accountRequestAuthService,
+    readRequestVerificationConfig: () =>
+      codingPlanSubscriptionService.getRequestVerificationConfig(),
     ...(modelSelectionReadinessSource ? { modelSelectionReadinessSource } : {}),
     authorizeLocalMediaPreviewPath: options?.authorizeLocalMediaPreviewPath,
     ...offPeakToolWiring,
@@ -2416,20 +2491,21 @@ export function createLocalServices(options: {
     // browser-use：host→main 执行桥透传给 agent service 的 onRequest browserExecute 路由。
     browserControlExecutor: options?.browserControlExecutor,
     // 机器人凭据只归属于授权 Host；远端独立服务不能借用本机配置扩大读取范围。
-    channelReplyExecutor: async (value) => {
-      const request = channelReplyHostRequestSchema.parse(value);
-      if (
-        options?.topicResourceRelayChannel &&
-        (isDesktopAttachedRemote || request.remoteSessionId)
-      )
-        return channelReplyResultSchema.parse(
-          await options.topicResourceRelayChannel(request).call("reply", request),
-        );
-      if (isDesktopAttachedRemote) throw new Error("Desktop channel reply peer unavailable");
-      const bots = services.getOptional(IBotsService);
-      if (!bots?.replyToChannel) throw new Error("Bot channel reply unavailable");
-      return bots.replyToChannel(request);
-    },
+    // 渠道工具等待插件入口接入，仅停用默认发送接线，保留完整实现。
+    // channelReplyExecutor: async (value) => {
+    //   const request = channelReplyHostRequestSchema.parse(value);
+    //   if (
+    //     options?.topicResourceRelayChannel &&
+    //     (isDesktopAttachedRemote || request.remoteSessionId)
+    //   )
+    //     return channelReplyResultSchema.parse(
+    //       await options.topicResourceRelayChannel(request).call("reply", request),
+    //     );
+    //   if (isDesktopAttachedRemote) throw new Error("Desktop channel reply peer unavailable");
+    //   const bots = services.getOptional(IBotsService);
+    //   if (!bots?.replyToChannel) throw new Error("Bot channel reply unavailable");
+    //   return bots.replyToChannel(request);
+    // },
     topicResourceExecutor: async (request, signal) => {
       if (
         options?.topicResourceRelayChannel &&
@@ -2499,8 +2575,6 @@ export function createLocalServices(options: {
     // 覆盖模型 API / MCP / Bash 出口流量并信任用户显式配置的证书；改动后下次启动 agent 生效。
     resolveSpawnEnv: async (context) => {
       const [settings] = await Promise.all([settingService.get(), providerRuntime.start()]);
-      // 本地 Host 准备解析快照；远程 CLI 继续由自己的文件 loader 读取和迁移配置。
-      if (!isDesktopAttachedRemote) await subagentsService.prepareRuntimeState(context);
       const agentNetwork =
         isDesktopAttachedRemote && options?.remoteAgentNetwork
           ? options.remoteAgentNetwork
@@ -2576,7 +2650,10 @@ export function createLocalServices(options: {
       };
     },
     ...(!isDesktopAttachedRemote
-      ? { readSubagentRuntimeConfig: subagentsService.readRuntimeConfig }
+      ? {
+          prepareRuntimeWorkspace: subagentsService.prepareRuntimeState,
+          readSubagentRuntimeConfig: subagentsService.readRuntimeConfig,
+        }
       : {}),
     ...(isDesktopAttachedRemote
       ? { sessionRuntimePreferencesAuthority: "external" as const }
@@ -2892,8 +2969,11 @@ export function createLocalServices(options: {
         credentialService,
         zcodeAgentService,
         officialMcpCredentialSource,
-        ...(nativeAccount && newApiClient && officialCloudHost
-          ? { native: { account: nativeAccount, client: newApiClient }, officialCloudHost }
+        ...(nativeAccount && newApiClient
+          ? {
+              native: { account: nativeAccount, client: newApiClient },
+              officialCloudHost: officialCloudHost ?? undefined,
+            }
           : {}),
       }),
     )
@@ -3135,6 +3215,8 @@ export function createLocalServices(options: {
     // 合并 MCP/Plugin Management 服务装配时误删了 plugin-sync 注册，
     // RemoteServiceAccess 仍会请求该频道，导致本地候选枚举超时、远端同步无法开始。
     .register(IPluginSyncService, pluginSyncService)
+    // 数据同步：子智能体 / 命令 / 钩子共用的用户配置同步通道，本机与远端 Host 都经此注册。
+    .register(IUserConfigSyncService, createUserConfigSyncService())
     .register(IPluginsService, createPluginsService({ isDesktopRuntime: true }))
     // 设置页插件管理薄服务——plugins/* 旧协议词的 host 侧唯一消费点。
     .register(
@@ -3453,7 +3535,10 @@ export async function migrateApplicationStorage(
   }
 }
 
-export { bindRemoteProjectIdentities } from "#src/project/index.js";
+export {
+  bindRemoteProjectIdentities,
+  createRemoteIdentityRegistrationCache,
+} from "#src/project/index.js";
 
 export { startupStorage } from "#src/startup-storage/index.js";
 
@@ -3465,11 +3550,24 @@ export async function createServerHostServices(options: {
   sourceServerId: string;
   zcodeBuiltinProviderConfigFilePath: string;
   providerProvisioningTargetEnabled?: boolean;
+  // XCODE: 独立 Web 入口只注入凭据权威，服务与存储身份装配保持原路径。
+  newApiAccountAuthority?: NewApiAccountAuthorityFactory;
 }) {
   const projectStorageHostId = remoteHostIdFromWorkspaceIdentity(
     buildServerRemoteWorkspaceIdentity({ serverId: options.sourceServerId, workspacePath: "/" }),
   );
   if (!projectStorageHostId) throw new Error("Invalid Source Server storage identity");
+  // Bug 原因：billing/balance 把 X-Device-Mid 当必填，而独立 Server 主机没有 Desktop main 写设备身份，
+  // buildZCodeSourceHeaders() 又只读不生成。原修复只放在旧 stdio entry，SSH/WSL/Docker 的 Core 与
+  // Lite HTTP 入口共用本装配却没有确保，首次 Start Plan 权益查询返回 400，Start 模型被判为不可用。
+  // 收口到本装配，所有独立 Server 入口在创建 services 前得到本机自己的 deviceMid；失败只告警、不阻断启动、不伪造 ID。
+  await ensureTelemetryDeviceMid().catch((error: unknown) => {
+    createServiceLogger("server-host").warn(
+      undefined,
+      "deviceMid 初始化失败，ZCode endpoint 请求将不带 X-Device-Mid:",
+      error instanceof Error ? error.message : String(error),
+    );
+  });
   await migrateApplicationStorage(await createSettingService().get(), projectStorageHostId);
   const workspaceAliasRepo = new SourceServerWorkspaceAliasRepo();
   const workspaceIdentityMapper = new SourceServerWorkspaceIdentityMapper();
@@ -3490,6 +3588,8 @@ export async function createServerHostServices(options: {
   const services = createLocalServices({
     zcodeBuiltinProviderConfigFilePath: options.zcodeBuiltinProviderConfigFilePath,
     providerProvisioningTargetEnabled: options.providerProvisioningTargetEnabled,
+    // XCODE: 可选替代凭据来源不修改默认 standalone-server 的权限模式。
+    newApiAccountAuthority: options.newApiAccountAuthority,
     serviceAuthorityMode: "standalone-server",
     topicResourceRelayChannel: options.topicResourceRelayChannel,
     projectStorageHostId,

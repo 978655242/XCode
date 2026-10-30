@@ -7,7 +7,7 @@ import {
   PLUGIN_GUIDE_MAX_SOURCE_FILES,
   pluginGuideSourceSchema,
   type PluginGuideSource,
-} from "@zcode/shared/aiscoo-plugin-guides";
+} from "@zcode/shared/xwork-plugin-guides";
 import {
   ensureMarketplaceManifestAvailable,
   listInstalledPluginRecords,

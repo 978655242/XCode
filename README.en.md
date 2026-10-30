@@ -17,6 +17,7 @@ Aiscoo is an AI coding workspace based on upstream ZCode, with desktop, browser,
 
 ## Updates
 
+- **2026-10-30**: Synced upstream ZCode v3.17.1.
 - **2026-10-21**: Synced upstream ZCode v3.16.2 (upstream update: 2026-10-19).
 - **2026-10-19**: Synced upstream ZCode v3.16.1 (upstream update: 2026-10-16).
 - 2026-10-18: Synced upstream ZCode v3.15.1 (upstream update: 2026-10-10).
@@ -26,7 +27,7 @@ Aiscoo is an AI coding workspace based on upstream ZCode, with desktop, browser,
 
 The product name is **Aiscoo**, with the lowercase **aiscoo** geometric wordmark. The [original design package](docs/brand/aiscoo/README.md) and all runtime SVG, PNG, ICO and ICNS assets are included in the repository. See the [branding inventory and acceptance checklist](docs/aiscoo/branding/aiscoo-migration.md) for integration and compatibility details.
 
-Run `python3 scripts/aiscoo/generate-icons.py` to regenerate runtime icons. The `zcode` command and existing user data locations remain compatible.
+Run `python3 scripts/xcode/generate-icons.py` to regenerate runtime icons. The `zcode` command and existing user data locations remain compatible.
 
 ## Setup
 

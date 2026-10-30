@@ -133,7 +133,7 @@ CTP-05 仍保留账号全部用量来源及未选中 Team tab 断言，不通过
 
 以下用例来自上游接口与入口变化的静态分类，包括 `runtimeStatus` / `sessionEnded`、归档删除入口、`EnterPlanMode` 工具卡和 Recent v2。部分分类尚未逐项在纯上游运行验证，不表示每个失败都已确认是上游缺陷。Aiscoo 暂时撤回这批适配；上游更新后需定向复测，再从跳过清单移除。
 
-- 正式用例（11 个）：列在 `packages/desktop/scripts/aiscoo-upstream-broken-specs.mjs`，默认全量跳过。用 `--spec` 定向运行时仍会执行，可用来复核上游是否已修复。上游修复后从清单删除。
+- 正式用例（11 个）：列在 `packages/desktop/scripts/xwork-upstream-broken-specs.mjs`，默认全量跳过。用 `--spec` 定向运行时仍会执行，可用来复核上游是否已修复。上游修复后从清单删除。
 - manual-review 用例（77 个）：默认全量不执行，不另行排除。
 
 加权全量分片通过 `ZCODE_E2E_SPEC` 分配用例时，由父 runner 设置 `XWORK_E2E_SPEC_ORIGIN=shard`；它是内部任务分配，仍须执行默认排除。用户直接指定 `--spec` 或 `ZCODE_E2E_SPEC` 时保留定向复核能力。

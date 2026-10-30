@@ -40,7 +40,14 @@ async function launchStandalone() {
         js: `import { createRequire as smokeCreateRequire } from "node:module"; const require = smokeCreateRequire(${JSON.stringify(new URL("../package.json", import.meta.url).href)});`,
       },
     });
-    const env = { ...process.env, TMPDIR: temporary, TMP: temporary, TEMP: temporary };
+    // XCODE: profile 使用临时目录，证据使用父进程临时根，避免随 profile 一起删除。
+    const env = {
+      ...process.env,
+      TMPDIR: temporary,
+      TMP: temporary,
+      TEMP: temporary,
+      XCODE_AVATAR_SMOKE_EVIDENCE: process.env.XCODE_AVATAR_SMOKE_EVIDENCE ?? tmpdir(),
+    };
     delete env.ELECTRON_RUN_AS_NODE;
     const child = spawn(requireDesktop("electron"), [output, temporary], {
       env,
@@ -64,9 +71,10 @@ async function runElectron() {
   const { app, BrowserWindow } = await import("electron");
   assert.ok(process.argv[2], "Launch with Node or runNewApiElectronSmokes.mjs");
   const temporary = await mkdtemp(join(process.argv[2], "aiscoo-account-avatar-"));
-  const evidenceDirectory = resolve(
-    process.env.XCODE_AVATAR_SMOKE_EVIDENCE ?? "/tmp/aiscoo-multiavatar-validation",
-  );
+  // XCODE: 每次运行建立独立证据目录，不覆盖既有验收文件。
+  const evidenceRoot = resolve(process.env.XCODE_AVATAR_SMOKE_EVIDENCE ?? tmpdir());
+  await mkdir(evidenceRoot, { recursive: true });
+  const evidenceDirectory = await mkdtemp(join(evidenceRoot, "aiscoo-avatar-evidence-"));
   app.setPath("userData", join(temporary, "profile"));
   let win, vite;
   let exitCode = 0;
@@ -86,7 +94,7 @@ import React, { useLayoutEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { WorkspaceSidebarFooter } from "./packages/ui/src/WorkspaceSidebarFooter.tsx";
-import { AiscooAccountAvatarProvider } from "./packages/ui/src/aiscoo/account-avatar/index.ts";
+import { createAiscooAccountAvatarRoot } from "./packages/ui/src/xwork/account-avatar/index.ts";
 import { ServiceProvider } from "./packages/ui/src/hooks/useServices.tsx";
 import { PlatformProvider } from "./packages/ui/src/hooks/usePlatform.tsx";
 import { StoreProvider, useZCodeStore } from "./packages/ui/src/store/StoreProvider.tsx";
@@ -106,7 +114,14 @@ const native = mapNewApiEntitlement({
 }, providerId);
 const broadcast = { onMessage: () => ({ dispose() {} }), send: async () => {} };
 window.avatarSmoke = { entitlementCalls: [] };
-const services = { broadcastService: broadcast, settingService: { get: async () => ({}) },
+let activeProvider = "new-api";
+const oauthListeners = new Set();
+const oauthService = {
+  getProviders: async () => [{ id: "new-api" }],
+  getActiveProvider: async () => activeProvider,
+  onDidChangeSession: listener => { oauthListeners.add(listener); return { dispose: () => oauthListeners.delete(listener) }; }
+};
+const services = { oauthService, broadcastService: broadcast, settingService: { get: async () => ({}) },
   usageStatsService: { getEntitlementSnapshot: async request => {
     window.avatarSmoke.entitlementCalls.push(request.preferredProviderId);
     if (request.accountAccess?.type !== "new-api-account") throw new Error("Unexpected official entitlement request");
@@ -131,17 +146,22 @@ function Scene() {
     if (Object.hasOwn(next, "user")) setUser(next.user);
     if (Object.hasOwn(next, "restoring")) setRestoring(next.restoring);
     if (Object.hasOwn(next, "injected")) setInjected(next.injected);
+    if (Object.hasOwn(next, "activeProvider")) {
+      activeProvider = next.activeProvider;
+      for (const listener of oauthListeners) listener(activeProvider === "new-api" ? "signed-in" : "signed-out");
+    }
     if (next.theme) { applyTheme(next.theme); setTheme(next.theme); }
     if (next.sidebarWidth) setSidebarWidth(next.sidebarWidth);
   });
-  const footer = <WorkspaceSidebarFooter theme={theme} localeMenuValue="en-US" onLocaleChange={() => {}} onThemeChange={() => {}}
-    onSettingsButtonClick={() => {}} onLogin={() => {}} onLogout={user ? () => {} : undefined} user={user} isDesktop />;
+  const footerProps = { theme, localeMenuValue: "en-US", onLocaleChange: () => {}, onThemeChange: () => {},
+    onSettingsButtonClick: () => {}, onLogin: () => {}, onLogout: user ? () => {} : undefined, user, isDesktop: true };
   return <main style={{ display: "flex", width: "100%", height: "100%", background: "var(--color-background)" }}>
     <aside style={{ width: sidebarWidth, maxWidth: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "var(--color-sidebar)" }}>
-      {injected ? <AiscooAccountAvatarProvider>{footer}</AiscooAccountAvatarProvider> : footer}
+      {injected ? <WrappedFooter services={services} {...footerProps} /> : <WorkspaceSidebarFooter {...footerProps} />}
     </aside>
   </main>;
 }
+const WrappedFooter = createAiscooAccountAvatarRoot(WorkspaceSidebarFooter);
 window.avatarSmoke.ready = providerConnection.ready.then(() => {
   applyTheme("zai-light");
   flushSync(() => renderer.render(<ServiceProvider services={services}><PlatformProvider platform={platform}>
@@ -405,6 +425,36 @@ window.avatarSmoke.ready = providerConnection.ready.then(() => {
     await waitForAvatar("generated");
     assert.equal((await avatar()).src, generatedA.src);
 
+    stage = "other provider and missing identity fallback";
+    for (const user of [
+      { id: "bigmodel-customer", username: "bigmodel", displayName: "BigModel" },
+      { id: "zai-user", username: "zai", displayName: "Zai" },
+      { id: "unknown", username: "user", displayName: "User" },
+    ]) {
+      await change({ user });
+      await waitFor(
+        `document.querySelector(${JSON.stringify(trigger)})?.querySelector('[data-slot="avatar-fallback"]')?.textContent === ${JSON.stringify(user.displayName[0])}`,
+      );
+      assert.equal(await avatar(), null);
+    }
+    await change({ user: { id: "", username: "user", displayName: "User" } });
+    await waitFor(
+      `document.querySelector(${JSON.stringify(trigger)})?.querySelector('[data-slot="avatar-fallback"] .lucide-user')`,
+    );
+    assert.equal(await avatar(), null);
+    await change({ user: userA });
+    await waitForAvatar("generated");
+
+    stage = "official numeric identity and delayed provider verification";
+    await change({ user: userA, activeProvider: "zai" });
+    await waitFor(
+      `document.querySelector(${JSON.stringify(trigger)})?.querySelector('[data-slot="avatar-fallback"]')?.textContent === 'A'`,
+    );
+    assert.equal(await avatar(), null);
+    await change({ activeProvider: "new-api" });
+    await waitForAvatar("generated");
+    assert.equal((await avatar()).src, generatedA.src);
+
     stage = "upstream default without avatar provider";
     await change({ injected: false });
     await waitFor(
@@ -519,6 +569,9 @@ window.avatarSmoke.ready = providerConnection.ready.then(() => {
       brokenAndBlankAvatarFallback: true,
       renameAndAccountSwitchStable: true,
       authRestoreAndSignedOutIconsUnchanged: true,
+      otherProviderFallbackUnchanged: true,
+      officialNumericProviderFallbackUnchanged: true,
+      missingIdentityNeutralIcon: true,
       withoutProviderInitialUnchanged: true,
       rendererReloadStable: true,
       noExternalRequests: true,

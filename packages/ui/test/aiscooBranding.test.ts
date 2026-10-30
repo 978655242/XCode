@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
-import { AiscooIntlProvider as ZCodeIntlProvider } from "@/aiscoo/brand/index.js";
+import { AiscooIntlProvider as ZCodeIntlProvider } from "@/xwork/brand/index.js";
 import { ZCodeAboutLogo, ZCodeWordmarkLogo } from "@/components/ui/ZCodeAboutLogo.js";
 import { WindowsTopLeftLogo } from "@/WindowsTopLeftLogo.js";
 import { normalizeZCodeUiError } from "@/lib/zcodeUiError.js";
@@ -11,6 +11,10 @@ import type { ConversationTransport } from "@/v4/transport.js";
 import { copyHighspeedCardImage } from "@/highspeed/highspeedShare.js";
 import { resolveSkillDisplayDescription } from "@/lib/builtinSkillI18n.js";
 import { ConversationDraftEmptyState } from "@/v4/ConversationDraftEmptyState.js";
+import { OccupationOnboardingVisual } from "@/onboarding/OccupationOnboardingVisual.js";
+import { PlatformProvider } from "@/hooks/usePlatform.js";
+import { StoreContext } from "@/store/StoreProvider.js";
+import { createStore } from "zustand/vanilla";
 
 function CatalogSample() {
   const { intl } = useZCodeIntl();
@@ -93,7 +97,9 @@ describe("Aiscoo 下游品牌接线", () => {
       const html = renderToStaticMarkup(
         createElement(ZCodeIntlProvider, {
           initialLocale: "zh-CN",
-          children: createElement(ConversationDraftEmptyState, { compactForRemoteControl }),
+          children: createElement(ConversationDraftEmptyState, {
+            compactForRemoteControl,
+          }),
         }),
       );
       expect(html).toContain('data-v4-draft-brand="true"');
@@ -106,6 +112,26 @@ describe("Aiscoo 下游品牌接线", () => {
       expect(html).not.toContain("-translate-y-1/2");
     },
   );
+
+  it("新版职业引导通过既有启动徽标展示 Aiscoo，迁移页无需恢复旧欢迎组件", () => {
+    const html = renderToStaticMarkup(
+      createElement(PlatformProvider, {
+        platform: {} as never,
+        children: createElement(ZCodeIntlProvider, {
+          initialLocale: "en-US",
+          // 此 SSR 回归只需已有主题投影；完整 StoreProvider 初始化会写浏览器 DOM。
+          children: createElement(StoreContext.Provider, {
+            value: createStore(() => ({ theme: "zai-light" })) as never,
+            children: createElement(OccupationOnboardingVisual),
+          }),
+        }),
+      }),
+    );
+    expect(html).toContain('data-aiscoo-brand="mark"');
+    expect(html).not.toContain('data-aiscoo-brand="startup"');
+    expect(html).toContain("Simple, Fast");
+    expect(html).not.toContain("Welcome to ZCode");
+  });
 
   it("旧组件入口集中使用 ai 和完整 aiscoo 字标，窗口可读品牌统一", () => {
     expect(renderToStaticMarkup(createElement(ZCodeAboutLogo))).toContain(
@@ -122,7 +148,12 @@ describe("Aiscoo 下游品牌接线", () => {
   it("高速导出图内嵌原稿，无旧 Z 字形与品牌，标签插值不转换", async () => {
     let result: Blob | undefined;
     await copyHighspeedCardImage(
-      { outputTokens: 120_000, durationMs: 600_000, regularTps: 20, highspeedTps: 100 },
+      {
+        outputTokens: 120_000,
+        durationMs: 600_000,
+        regularTps: 20,
+        highspeedTps: 100,
+      },
       async (blob) => {
         result = blob;
       },
@@ -158,7 +189,11 @@ describe("Aiscoo 下游品牌接线", () => {
       .fn()
       .mockRejectedValueOnce(new Error(message))
       .mockResolvedValue({
-        ack: { subscriptionId: "sub-new", mode: "snapshot", logEpoch: "epoch-1" },
+        ack: {
+          subscriptionId: "sub-new",
+          mode: "snapshot",
+          logEpoch: "epoch-1",
+        },
       });
     const transport = {
       subscribe,

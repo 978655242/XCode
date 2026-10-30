@@ -847,6 +847,19 @@ test("allows skill-only official plugins when SEA runtime assets are required", 
     // skill-creator 用作带可执行 hook 的内容插件载体，真实插件是否带 hook 不影响此契约。
     await writeTestFile(root, "packages/skill-creator-plugin/hooks/hooks.json", "{}");
     await writeTestFile(root, "packages/skill-creator-plugin/hooks/run-hook.cmd", "");
+    await writeTestFile(root, "packages/zcode-guide-plugin/.zcode-plugin/plugin.json", "{}");
+    await writeTestFile(
+      root,
+      "packages/zcode-guide-plugin/skills/zcode-configuration-guide/SKILL.md",
+      "",
+    );
+    await writeTestFile(root, "packages/zcode-site-plugin/.zcode-plugin/plugin.json", "{}");
+    await writeTestFile(root, "packages/zcode-site-plugin/scripts/zcode-site.mjs", "");
+    await writeTestFile(root, "packages/zcode-site-plugin/skills/site-deploy/SKILL.md", "");
+    await writeTestFile(root, "packages/zcode-site-plugin/scripts/stage.mjs", "");
+    // 0.4.0 起带 Sites 面板：插件自己构建的 server 与面板页面是必需运行时产物。
+    await writeTestFile(root, "packages/zcode-site-plugin/dist/server.mjs", "");
+    await writeTestFile(root, "packages/zcode-site-plugin/dist/ui/panel.html", "");
 
     const { manifest } = await collectSeaOfficialPluginAssets({
       requireRuntime: true,

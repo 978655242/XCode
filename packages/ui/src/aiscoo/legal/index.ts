@@ -4,7 +4,8 @@ import { PRODUCT_BRAND } from "@zcode/shared/aiscoo-brand";
 import { Button } from "@/components/ui/button.js";
 import { useOAuth } from "@/hooks/useOAuth.js";
 import { usePlatform } from "@/hooks/usePlatform.js";
-import { useOptionalServices } from "@/hooks/useServices.js";
+import { ServiceProvider } from "@/hooks/useServices.js";
+import { useOptionalBaseWorkspaceServices } from "@/hooks/useWorkspaceServices.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { SettingsGroupCard, SettingsRow } from "@/settings/SettingsPageParts.js";
 import type { NewApiLegalLinks, AiscooLegalLinksProps } from "./contract.js";
@@ -112,8 +113,10 @@ function LegalSettingsContent() {
   return createElement(AiscooLegalLinks, { providers, placement: "settings" });
 }
 
-/** 沿用通用设置的可选服务 context，独立组件测试和普通无服务渲染保持原样。 */
+/** 远程工作区会覆盖当前 context；法律信息仍读取窗口本机 Host 的公开配置。 */
 export function AiscooLegalSettings() {
-  const services = useOptionalServices();
-  return services ? createElement(LegalSettingsContent) : null;
+  const services = useOptionalBaseWorkspaceServices();
+  return services
+    ? createElement(ServiceProvider, { services, children: createElement(LegalSettingsContent) })
+    : null;
 }

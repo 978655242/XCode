@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { exampleProfileAvatar } from "./contract.example.js";
-import { useProfileAvatarFallback } from "./index.js";
+import { ProfileAvatarFallbackProvider, useProfileAvatarFallback } from "./index.js";
 
 const user: UserInfo = { id: "42", username: "ada", displayName: "Ada" };
 
@@ -14,6 +14,16 @@ function Consumer(props: { user: UserInfo | null }) {
 describe("profile avatar fallback extension", () => {
   it("preserves the caller fallback when the extension is absent", () => {
     expect(renderToStaticMarkup(createElement(Consumer, { user }))).toBe("<div>A</div>");
+  });
+
+  it("preserves the caller fallback when the renderer declines an identity", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProfileAvatarFallbackProvider, {
+        renderFallback: () => null,
+        children: createElement(Consumer, { user }),
+      }),
+    );
+    expect(html).toBe("<div>A</div>");
   });
 
   it("uses the supplied renderer only for a signed-in user", () => {

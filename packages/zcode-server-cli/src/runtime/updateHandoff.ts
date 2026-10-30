@@ -1,15 +1,13 @@
 // XCODE: 自有 daemon 提示只插入共享展示名，更新身份与启动命令不变。
-import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
 import { createServiceLogger } from "@zcode/services/node";
 import { runtimeIdentitySchema, type ReleaseManifest, type RuntimeIdentity } from "../contracts.js";
 import { requestControl } from "../ipc/controlClient.js";
-import { DataRootLock } from "./lock.js";
 import type { ServerLayout } from "./paths.js";
 import { ReleaseManager } from "./releaseManager.js";
-import { waitForServerStopped } from "./shutdownWait.js";
-import { readPersistedStatusDetailed } from "./statusSnapshot.js";
+import { stopSupervisorAndWait } from "./shutdownWait.js";
 import type { UpdateDaemonHandoff } from "./updateCommand.js";
 
 const DAEMON_START_TIMEOUT_MS = 45_000;
@@ -85,21 +83,6 @@ async function runDaemonLauncher(
       resolve({ exitCode, signal, stdout, stderr });
     });
   });
-}
-
-async function stopDaemon(layout: ServerLayout): Promise<void> {
-  const persisted = await readPersistedStatusDetailed(layout);
-  if (persisted.state === "invalid" || persisted.state === "unreadable") {
-    throw new Error("Cannot verify daemon status before update handoff");
-  }
-  const baselineUpdatedAt = persisted.status?.updatedAt ?? 0;
-  const lock = await new DataRootLock(layout.lockFile).inspect();
-  if (lock.state === "invalid" || lock.state === "unreadable") {
-    throw new Error("Cannot verify daemon lock before update handoff");
-  }
-  if (lock.state === "missing" || lock.state === "stale") return;
-  await requestControl(layout.controlEndpoint, { command: "stop" });
-  await waitForServerStopped(layout, baselineUpdatedAt, true);
 }
 
 async function startDaemon(layout: ServerLayout, release: ReleaseManifest): Promise<void> {
@@ -178,7 +161,7 @@ async function rollbackHandoff(
 
 export function createUpdateDaemonHandoff(
   boundary: UpdateHandoffProcessBoundary = {
-    stopDaemon,
+    stopDaemon: (layout) => stopSupervisorAndWait(layout, "update handoff"),
     startDaemon,
     readRuntimeIdentity,
   },

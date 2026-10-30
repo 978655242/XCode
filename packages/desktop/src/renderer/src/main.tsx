@@ -1,6 +1,6 @@
 /* eslint-disable max-lines -- Desktop renderer bridge 聚合平台、远端 attachment 与启动编排契约。 */
 import { DatabaseStartupAdmission } from "./databaseStartupAdmission.js";
-import { initializeDesktopLocalTtft } from "./localTtftBootstrap.js";
+import { initializeDesktopLocalTtft } from "./local-ttft/contract.js";
 import { createRoot } from "react-dom/client";
 import { useEffect } from "react";
 import {
@@ -17,18 +17,17 @@ import {
   setReactErrorArmsReporter,
 } from "@zcode/ui";
 // XCODE: 独立公开子路径组合归属水合，保留原 UI 根导出边界。
-import { createAiscooRoot } from "@zcode/ui/aiscoo-startup-context";
-// XCODE: 默认用户头像通过独立包装装配，不改变上游登录资料。
-import { createAiscooAccountAvatarRoot } from "@zcode/ui/aiscoo-account-avatar";
+import { createXWorkRoot } from "@zcode/ui/xwork-startup-context";
+// XCODE: 默认头像通过产品包装注入，不改变原有认证资料。
+import { createAiscooAccountAvatarRoot } from "@zcode/ui/xwork-account-avatar";
 // XCODE: 应用装配点使用下游品牌词典；上游 Provider 默认资源不改写。
-import { AiscooIntlProvider as ZCodeIntlProvider } from "@zcode/ui/aiscoo-brand";
+import { AiscooIntlProvider as ZCodeIntlProvider } from "@zcode/ui/xwork-brand";
 import "@zcode/ui/styles.css";
 import { connectViaMessagePort, createMessagePortServiceConnection } from "@zcode/client";
 import {
   InternalChannels,
   databaseStartupStateSchema,
   type DatabaseStartupControl,
-  collectTelemetryRendererContext,
   parseLaunchMarks,
   LAUNCH_MARKS_QUERY_KEY,
   type LaunchMarks,
@@ -36,7 +35,6 @@ import {
 } from "@zcode/shared";
 import type { Locale } from "@zcode/shared";
 import type { IServiceAccessor } from "@zcode/services";
-import { syncAppTelemetryContext } from "../appTelemetryBridge.js";
 import { createDesktopPlatform } from "./desktopPlatform.js";
 import { startPerformanceTimelineCleanup } from "./performanceTimelineCleanup.js";
 import { initializeDesktopUserActionTrace } from "./userActionTraceBootstrap.js";
@@ -49,8 +47,8 @@ import {
 } from "./remoteWorkspaceServicePortBridge.js";
 
 // XCODE: 入口注入上游组件，冷启动只水合归属，不制造 New Task 意图。
-// XCODE: 组合已有启动包装与默认头像，Root 的公开 props 不变。
-const Root: typeof UpstreamRoot = createAiscooAccountAvatarRoot(createAiscooRoot(UpstreamRoot));
+// XCODE: 与已有启动包装组合，保持 Root 的 props 和所有者不变。
+const Root: typeof UpstreamRoot = createAiscooAccountAvatarRoot(createXWorkRoot(UpstreamRoot));
 
 type DesktopRendererImportMetaEnv = {
   VITE_ZCODE_E2E_STORE_BRIDGE?: string;
@@ -329,18 +327,12 @@ function initializeBusinessRoot(port: MessagePort): void {
   appInitialized = true;
   const services = connectViaMessagePort(port, {
     sourceServerManagementService: true,
+    deviceSyncStateService: true,
   });
   baseServicesForRemoteSessions = services;
   registerBaseWorkspaceServices(services);
   flushPendingRemoteWorkspaceServicePorts();
   const settingService = supportsSettings ? services.settingService : undefined;
-
-  syncAppTelemetryContext({
-    bridge: {
-      syncTelemetryContext: (context) => window.zcode.syncTelemetryContext(context),
-    },
-    createRendererContext: collectTelemetryRendererContext,
-  });
 
   // 初始化稳定的设备 ID，确保所有 hook 在首次渲染前就使用正确的值
   setStreamClientId(desktopPlatform.getDeviceId());

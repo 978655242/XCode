@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 // XCODE: 保留启动页入口与阻塞态语义，图形及动效交给下游品牌模块。
-import { AiscooStartupLogoBadge } from "@/aiscoo/brand/index.js";
+import { AiscooStartupLogoBadge } from "@/xwork/brand/index.js";
 export {
   AiscooStartupLogo as ZCodeStartupLogo,
   AiscooStartupLogoBadge as ZCodeStartupLogoBadge,
-} from "@/aiscoo/brand/index.js";
+} from "@/xwork/brand/index.js";
 
 interface RootStartupLoadingProps {
   label: string;

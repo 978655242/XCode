@@ -1,13 +1,13 @@
-## Aiscoo 通用功能：扩展优先、不改上游（最高原则）
+## XWork 通用功能：扩展优先、不改上游（最高原则）
 
 - 迭代通用功能（上游 ZCode 已具备、Aiscoo 也在使用的基础能力，如登录认证、Provider/模型、会话存储、CLI/TUI、配置、插件/MCP/hooks、i18n、桌面/Host、远程链路）时，必须先读 `docs/aiscoo/UPSTREAM-EXTENSION.md`。该文件优先级高于其他实现文档。
 - 顺序：先复用上游已有能力，再通过扩展点（新文件/模块、注册表、依赖注入、配置、插件、包装）叠加，最后才允许最小化修改上游文件。不改写上游函数实现，不改上游默认行为，共享清单只追加。
 - 涉及通用功能的 PR 必须列出被修改的上游文件并说明理由，用 `git merge-tree` 和 `upstream/main` 预演合并，结果写进 PR 描述。
 
-## Aiscoo 分支与上游同步（必须遵守）
+## XWork 分支与上游同步（必须遵守）
 
 - 本仓库是 ZCode 的下游产品 Aiscoo。分支、PR、上游同步规则见 `docs/aiscoo/BRANCHING.md`，开工前必读。
-- 所有分支（含上游同步 `sync/upstream-*`）从 `release` 切出，PR 目标为 `release`；同步 PR 必须用 merge commit；`main` 仅镜像上游 ZCode，禁止提交 Aiscoo 改动。
+- 所有分支（含上游同步 `sync/upstream-*`）从 `release` 切出，PR 目标为 `release`；同步 PR 必须用 merge commit；`main` 仅镜像上游 ZCode，禁止提交 XWork 改动。
 - 不得不修改上游文件时，按 `docs/aiscoo/UPSTREAM-EXTENSION.md` 第 5 节保持最小改动，并加 `// XCODE: <原因>` 注释；严格 JSON、生成文件等不能写注释的格式，改在 PR 描述中逐条说明。
 
 ## 核心原则
@@ -23,20 +23,23 @@
 
 以下命令从仓库根目录执行：
 
-| 用途             | 命令                                                 |
-| ---------------- | ---------------------------------------------------- |
-| 类型检查         | `pnpm typecheck`                                     |
-| Lint             | `pnpm lint` / `pnpm lint:fix`                        |
-| 格式检查         | `pnpm fmt:check`                                     |
-| 桌面开发         | `pnpm dev:desktop`                                   |
-| Web 开发         | `pnpm dev:web`                                       |
-| 提交前检查       | `pnpm verify:pre-push`（Lint、架构检查与受影响单测） |
-| 架构检查         | `pnpm architecture:check --changed`                  |
-| 模块阅读包       | `pnpm architecture:context <module-id>`              |
-| 未使用依赖与导出 | `pnpm knip`                                          |
-| 导出引用查询     | `pnpm dep:refs --list-exports <file>`                |
+| 用途             | 命令                                                      |
+| ---------------- | --------------------------------------------------------- |
+| 类型检查         | `pnpm typecheck`                                          |
+| Lint             | `pnpm lint` / `pnpm lint:fix`                             |
+| 格式检查         | `pnpm fmt:check`                                          |
+| 桌面开发         | `pnpm dev:desktop`                                        |
+| Web 开发         | `pnpm dev:web`                                            |
+| 提交前检查       | `pnpm verify:pre-push`（工作区、Lint、schema 与架构检查） |
+| 架构检查         | `pnpm architecture:check --changed`                       |
+| 模块阅读包       | `pnpm architecture:context <module-id>`                   |
+| 未使用依赖与导出 | `pnpm knip`                                               |
+| 导出引用查询     | `pnpm dep:refs --list-exports <file>`                     |
 
-affected 使用 Vitest 官方选择，只运行选中的根 UT；选中整个套件时说明并跳过 UT，成功退出，不因此阻止 Push；不替代 CLI 测试或桌面 E2E。全量使用 `pnpm test` / `pnpm test:unit`，仅在用户明确要求时调用。范围与输出合同见 [pre-push 说明](docs/testing/pre-push-hook.md)。
+App 业务单测已退役，不新增或恢复 App 业务单测 test/spec 或 `contract.test.ts`；保留 CLI、CUA、E2E、浏览器验收和工程门禁测试。工程 Vitest 使用 `pnpm test:engineering <文件>`，push 自动运行 `pnpm test:engineering:affected --scope push`，CLI/CUA 使用各包独立入口，不默认全量。范围见 [测试规格](docs/testing/unit-test-quality.md)，推送合同见 [pre-push 说明](docs/testing/pre-push-hook.md)。
+
+<!-- XCODE: 保留已批准的 Aiscoo 扩展回归，不恢复上游已退役的 App 套件。 -->
+Aiscoo 的既有品牌、New API 与归属隔离回归使用独立 `pnpm test:aiscoo <文件>` 显式清单及 `pnpm test:unit:node`；它们不加入上游工程测试清单，按对应下游变更执行并进入 Aiscoo CI。
 
 测试入口以目标包当前的 `package.json` 和实际测试文件为准，不假定存在统一的单测或 E2E 命令。
 
@@ -53,7 +56,7 @@ affected 使用 Vitest 官方选择，只运行选中的根 UT；选中整个套
 
 - 代码改动使用 `.agents/skills/architecture-governance/SKILL.md`，先运行架构检查，再读取目标模块的受控上下文。
 - 避免重复状态和多条写入路径。明确唯一所有者、接口、依赖方向、事件顺序与幂等边界，不能用超时掩盖同步问题。
-- 有行为改动时先补充对应测试；交互改动需要 E2E 场景。检查测试与实现是否一致，并实际执行可用的验证。未执行或环境受限时如实说明。
+- App 行为改动先更新 spec，确定 E2E、浏览器验收或可重复运行时场景；交互改动先维护 E2E 再改实现。工程工具、CLI/CUA 先补其回归测试。实际执行必要验证，未执行或环境受限时如实说明。
 - 修复 bug 时用中文注释说明原因和修复依据。发现设计缺陷时先与用户对齐，不不断增加兜底分支。
 - PR 描述须说明背景、设计意图与修改前后行为；包含 bugfix 时逐项说明触发场景、根因证据、修复机制及回归验证，并尽量关联已有工单链接。未确认的根因或引入提交如实标注，不根据模块或时间接近推断归因。
 - 涉及状态、时序、远端或异步同步的方案，用图展示所有者及事件顺序。
