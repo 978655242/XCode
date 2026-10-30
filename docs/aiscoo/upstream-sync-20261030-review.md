@@ -4,7 +4,7 @@
 
 ## 口径与数量
 
-使用 `git diff --no-renames --name-only --diff-filter=MD origin/release...HEAD`，对照 `upstream/main` 的路径与 blob。改名按旧路径删除、新路径新增处理。本 PR 原有路径修改或删除共 **4245** 个：现存上游 **1924** 个（原样采纳 1723、保留差异 201），旧上游已退役且本 PR 同样删除 2288 个、仅留已有下游回归 11 个、其余为下游原有路径 22 个。新增路径不混入 MD 口径。
+使用 `git diff --no-renames --name-only --diff-filter=MD origin/release...HEAD`，对照 `upstream/main` 的路径与 blob。改名按旧路径删除、新路径新增处理。本 PR 原有路径修改或删除共 **4246** 个：现存上游 **1924** 个（原样采纳 1723、保留差异 201），旧上游已退役且本 PR 同样删除 2288 个、仅留已有下游回归 11 个、其余为下游原有路径 23 个。新增路径不混入 MD 口径。
 
 上游发布包含大量测试退役、工程清单与模块变动；原样采纳和删除不应算作 Aiscoo 改写上游。以下每个保留差异文件分别说明继承内容、同步适配及入口限制。代码可注释处沿用 `// XCODE:`；严格 JSON、锁文件和生成物不能加注释，理由在本表逐项列出。
 
@@ -4265,6 +4265,7 @@ apps/zcode-cli/packages/core/tests/aiscoo-brand-context.test.ts
 docs/aiscoo/branding/aiscoo-migration.md
 docs/aiscoo/new-api-integration-runbook.md
 docs/xcode/upstream-sync-log.md
+packages/desktop/scripts/devElectronAppBundle.test.mjs
 packages/desktop/test/e2e/fixtures/web-remote-control-frontend.mjs
 packages/desktop/test/newApiPeriodDetailsElectron.mjs
 packages/desktop/test/newApiUpgradePresentationElectron.mjs
@@ -4286,7 +4287,7 @@ scripts/xcode/branch-policy.test.mjs
 
 ## 预演与验收限制
 
-`git merge-tree --write-tree --name-only HEAD upstream/main` 退出 0，无冲突。根类型、Lint、完整架构、CLI/Web/Desktop 构建与定向回归结果见同步记录；原生 198/198、独立 Vitest 63 文件 496/496。完整手工门禁已通过；首轮推送未生成 Husky 启动文件，自动 hook 证据在补齐后由末轮实际推送提供，不能把此前推送成功计作自动门禁通过。6 个正式场景 fixture 校验通过，路径问题的 4 个场景有修前失败/修后通过证据；不将 fixture 校验计作真实 Electron 复跑。
+`git merge-tree --write-tree --name-only HEAD upstream/main` 退出 0，无冲突。根类型、Lint、完整架构、CLI/Web/Desktop 构建与定向回归结果见同步记录；原生 198/198、独立 Vitest 63 文件 496/496。完整手工门禁已通过；首轮推送未生成 Husky 启动文件，补齐后提交 `21818899` 的实际 push 完整 hook 已退出 0，包含原生 198/198 与独立 Vitest 496/496；该次工程选择 0/157，整批同步选择 157/157 时按合同跳过，不能混称执行通过。Linux 首轮原生 197/198 的唯一失败为合成 bundle 调用宿主 codesign；既有下游 `devElectronAppBundle.test.mjs` 已改用原 signApp 注入点并补资源就绪及调用次数断言，未修改生产签名，修后 Linux 结果以 PR 最新 verify 为准。6 个正式场景 fixture 校验通过，路径问题的 4 个场景有修前失败/修后通过证据；不将 fixture 校验计作真实 Electron 复跑。
 
 Electron 44 真实上下文、周期详情、handoff、升级展示、模型能力、法律入口及头像场景通过；模型设置串行正常退出，无独立摘要。钥匙串 development/seed 两轮 15 秒超时未通过；未放宽安全存储或超时，底层原因未确证。工程 affected 选中 157/157 时按合同明确跳过；私有远控队列不存在时明确跳过。尚未完成 Windows/Linux、真实用户完整冷恢复与手机实机 E2E。许可检查通过，仍有既有 19 项材料需发布前复核。
 
