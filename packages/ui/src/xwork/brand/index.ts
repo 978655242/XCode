@@ -247,6 +247,12 @@ function aiscooMessageCatalog(messages: Record<string, string>): Record<string, 
   if (messages["login.description"] === "连接账号，开始使用 XWork") {
     catalog["login.description"] = "连接账号，开始使用";
   }
+  // 产品主登录按钮不展示后端名称；其他供应商模板与身份保持不变。
+  if (messages["login.oauth.button.native"] === "登录 New API") {
+    catalog["login.oauth.button.native"] = "登录";
+  } else if (messages["login.oauth.button.native"] === "Sign in to New API") {
+    catalog["login.oauth.button.native"] = "Sign in";
+  }
   return catalog;
 }
 

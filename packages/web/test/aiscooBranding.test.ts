@@ -1,7 +1,10 @@
+// @vitest-environment jsdom
+
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { getWebAuthCopy } from "../src/auth/webAuthLocale.js";
+import { WebLoginPage } from "../src/auth/WebLoginPage.js";
 import {
   WebRemoteControlBrand,
   WebRemoteControlDeviceListPage,
@@ -36,6 +39,17 @@ describe("Aiscoo Web 展示接线", () => {
     expect(copy.brand).toBe("Aiscoo");
     expect(copy.loginAction.zai).toContain("Z.ai");
     expect(copy.loginAction.bigmodel).toContain("BigModel");
+    const previousLanguage = document.documentElement.lang;
+    try {
+      document.documentElement.lang = locale;
+      const login = renderToStaticMarkup(createElement(WebLoginPage, { onLogin: () => {} }));
+      expect(login).toContain(copy.loginAction.zai);
+      expect(login).toContain(copy.loginAction.bigmodel);
+      expect(login).toContain(copy.loginRegion.zai);
+      expect(login).toContain(copy.loginRegion.bigmodel);
+    } finally {
+      document.documentElement.lang = previousLanguage;
+    }
     const failure = resolveWebRemoteControlScreenCopy({ reason: "desktop-disconnected" }, locale);
     expect(failure.nextSteps[0]).toContain("Aiscoo");
     const brand = renderToStaticMarkup(
