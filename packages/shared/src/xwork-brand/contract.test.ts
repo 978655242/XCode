@@ -8,6 +8,13 @@ import {
 } from "./contract.js";
 
 describe("Aiscoo product branding contract", () => {
+  it("keeps legacy and current package entrypoints on the same brand owner", async () => {
+    const legacy = await import("@zcode/shared/xwork-brand");
+    const current = await import("@zcode/shared/aiscoo-brand");
+    expect(current.PRODUCT_BRAND).toBe(legacy.PRODUCT_BRAND);
+    expect(current.brandProductText).toBe(legacy.brandProductText);
+  });
+
   it("provides display variants without declaring a new storage identity", () => {
     expect(PRODUCT_NAME).toBe("Aiscoo");
     expect(PRODUCT_WORDMARK).toBe("aiscoo");

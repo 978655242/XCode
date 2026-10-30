@@ -18,7 +18,8 @@
     "./styles.css": "./src/styles.css",
     "./replay": "./src/replay.ts",
     "./xwork-startup-context": "./src/xwork/startup-context/index.ts",
-    "./xwork-brand": "./src/xwork/brand/index.ts"
+    "./xwork-brand": "./src/xwork/brand/index.ts",
+    "./aiscoo-brand": "./src/xwork/brand/index.ts"
   },
   "scripts": {
     "lint": "oxlint",

@@ -1,4 +1,6 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
+import { brandProductText } from "./xwork-brand/runtime.js";
+
 export interface DefaultPluginMarketplace {
   id: string;
   source: string;
@@ -46,7 +48,9 @@ export const DEFAULT_PLUGIN_MARKETPLACES: DefaultPluginMarketplace[] = [
     id: ZCODE_OFFICIAL_PLUGIN_MARKETPLACE_ID,
     source: "https://cdn-zcode.z.ai/zcode/official-plugin/marketplace.json",
     name: ZCODE_OFFICIAL_PLUGIN_MARKETPLACE_ID,
-    description: "Official XWork plugins marketplace: built-in and community plugins for XWork.",
+    description: brandProductText(
+      "Official XWork plugins marketplace: built-in and community plugins for XWork.",
+    ),
     pluginCount: 0,
   },
   {

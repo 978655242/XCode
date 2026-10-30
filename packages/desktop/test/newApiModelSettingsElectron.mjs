@@ -229,7 +229,19 @@ mount("zh-CN");
     const change = (next) =>
       win.webContents.executeJavaScript(`window.setScene(${JSON.stringify(next)})`);
     const body = () => win.webContents.executeJavaScript("document.body.innerText");
+    // 修复：套餐详情已展示剩余百分比，原始额度文案断言无法验证当前界面或迟到结果。
+    const meter = '[data-native-plan-detail="true"] [role="progressbar"][aria-label="每月剩余"]';
+    const remaining = () =>
+      win.webContents.executeJavaScript(
+        `document.querySelector(${JSON.stringify(meter)})?.getAttribute("aria-valuenow") ?? null`,
+      );
+    const waitForRemaining = (value) =>
+      waitFor(
+        `document.querySelector(${JSON.stringify(meter)})?.getAttribute("aria-valuenow") === ${JSON.stringify(String(value))}`,
+      );
     await waitFor('document.body.innerText.includes("未开通，开通后启用")');
+    assert.match(await body(), /Aiscoo Zen/);
+    assert.doesNotMatch(await body(), /XWork Zen/);
     assert.match(await body(), /¥98\.00/);
     const teamDisabled = await win.webContents.executeJavaScript(
       '[...document.querySelectorAll("button")].find(e=>e.textContent.includes("团队套餐")).disabled',
@@ -237,7 +249,8 @@ mount("zh-CN");
     assert.equal(teamDisabled, true);
     await change({ status: "active", userId: "A", connected: true });
     await waitFor('document.body.innerText.includes("Fixture Plan A")');
-    assert.match(await body(), /已用 40 · 总额 100 · 剩余 60 quota/);
+    await waitForRemaining(60);
+    assert.match(await body(), /剩余额度[\s\S]*60%/);
     for (const [status, label] of [
       ["exhausted", "额度已耗尽"],
       ["expired", "授权已过期"],
@@ -269,19 +282,19 @@ mount("zh-CN");
     await change({ status: "active", userId: "B", connected: true, hold: true, used: "45" });
     await waitFor('document.body.innerText.includes("查询中")');
     await change({ status: "active", userId: "B", connected: true, used: "70" });
-    await waitFor('document.body.innerText.includes("已用 70")');
+    await waitForRemaining(30);
     heldRead();
     await win.webContents.executeJavaScript(
       "new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))",
     );
-    assert.doesNotMatch(await body(), /已用 45/);
+    assert.equal(await remaining(), "30");
     await win.webContents.executeJavaScript(
       'window.nativeSettingsSmoke.scene({status:"active",userId:"B",connected:true,used:"72"})',
     );
     await win.webContents.executeJavaScript("window.refreshPlans()");
-    await waitFor('document.body.innerText.includes("已用 72")');
+    await waitForRemaining(28);
     const firstLogoutFrame = await change({ status: "unassigned", userId: "B", connected: false });
-    assert.doesNotMatch(firstLogoutFrame, /Fixture Plan B|已用 72|¥98\.00/);
+    assert.doesNotMatch(firstLogoutFrame, /Fixture Plan B|28%|¥98\.00/);
     await waitFor('document.body.innerText.includes("未登录")');
     await change({ status: "active", userId: "B", connected: true });
     await waitFor('document.body.innerText.includes("Fixture Plan B")');

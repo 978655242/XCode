@@ -5,6 +5,7 @@ import {
   ProviderConfigMap,
 } from "@zcode/provider";
 import { NEW_API_MODEL_PROVIDER_IDS, normalizeNewApiOrigin } from "@zcode/shared";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 
 /** Local anchors survive CDN changes; only the explicit Host origin owns their routes. */
 export function createNewApiProviderAnchors(origin: string): ProviderConfigMap {
@@ -12,8 +13,9 @@ export function createNewApiProviderAnchors(origin: string): ProviderConfigMap {
   return new ProviderConfigMap(
     Object.entries(NEW_API_MODEL_PROVIDER_IDS).map(([apiType, providerId]) => ({
       providerId,
-      // XCODE: 模型设置中的托管提供商统一显示为 XWork Zen。
-      providerName: apiType === "openai-chat-completions" ? "XWork Zen" : `New API · ${apiType}`,
+      // XCODE: 托管套餐显示名称来自统一品牌配置，不改变 Provider 身份。
+      providerName:
+        apiType === "openai-chat-completions" ? `${PRODUCT_NAME} Zen` : `New API · ${apiType}`,
       config: new ProviderConfig({
         group: "new-api-family",
         // XCODE: 前端仅开放 Chat Completions，保留其他协议的历史身份但不自动迁移。
