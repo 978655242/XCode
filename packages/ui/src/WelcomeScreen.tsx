@@ -35,11 +35,13 @@ interface WelcomeScreenProps {
   onComplete: (reason: LoginCompleteReason) => void | Promise<void>;
   // XCODE: 下游可装配纯展示头部，未提供时保留上游默认布局。
   header?: ReactNode;
+  // XCODE: 可选信息展示插槽复用既有 provider 投影，未提供时保留原登录页。
+  footer?: (providers: readonly OAuthProviderMeta[]) => ReactNode;
 }
 
 export type LoginCompleteReason = "oauth" | "apiKey" | "skip";
 
-export function WelcomeScreen({ onComplete, header }: WelcomeScreenProps) {
+export function WelcomeScreen({ onComplete, header, footer }: WelcomeScreenProps) {
   return (
     <main className="relative flex h-full min-h-dvh items-center justify-center overflow-hidden bg-background px-4 py-6 text-foreground sm:px-6">
       <ThemeHeroVisual className="absolute inset-0" />
@@ -47,7 +49,7 @@ export function WelcomeScreen({ onComplete, header }: WelcomeScreenProps) {
       <div className="pointer-events-none absolute left-0 top-0 right-0 z-10 flex h-12 items-center [app-region:drag] platform-windows-desktop:right-[134px] platform-linux-desktop:right-[134px]" />
       <DesktopOverlayWindowControls />
       <section className="relative z-10 w-full flex flex-col gap-10 max-w-sm rounded-2xl border border-popover-border bg-background p-8 text-ui-base/relaxed shadow-md sm:p-10">
-        <LoginPanel active onComplete={onComplete} header={header} />
+        <LoginPanel active onComplete={onComplete} header={header} footer={footer} />
       </section>
     </main>
   );
@@ -57,6 +59,8 @@ interface LoginPanelProps {
   active: boolean;
   onComplete: (reason: LoginCompleteReason) => void | Promise<void>;
   header?: ReactNode;
+  // XCODE: 信息插槽消费已有投影，不创建第二个登录状态。
+  footer?: (providers: readonly OAuthProviderMeta[]) => ReactNode;
 }
 
 interface ActiveLoginEntryAttempt {
@@ -78,7 +82,7 @@ export function shouldCompleteLoginFromExistingUser(params: {
   return params.hasUser && !params.attempt;
 }
 
-export function LoginPanel({ active, onComplete, header }: LoginPanelProps) {
+export function LoginPanel({ active, onComplete, header, footer }: LoginPanelProps) {
   const { intl } = useZCodeIntl();
   const {
     startLogin,
@@ -461,6 +465,8 @@ export function LoginPanel({ active, onComplete, header }: LoginPanelProps) {
             </Button>
           </div>
         )}
+        {/* XCODE: 可选信息展示不改变等待、失败或 API Key 流程。 */}
+        {footer?.(providers)}
       </div>
     </>
   );

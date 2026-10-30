@@ -117,6 +117,31 @@ Main 与 Host 使用同一有效环境配置：开发 `.env`/`.env.local` 与进
 
 浏览器授权页的账户切换遵循 [已确认页面规格](new-api-authorization-account-switch.md)：显示当前真实账户并提供“使用其他账户”，明确告知同源后台登录态会改变；仅退出确认时的浏览器 SID，重新登录后仍须主动授权，不延长原 AuthFlow。此增量于 2026-10-17 完成设计确认与实施计划编写，尚未实施或部署；不新增独立授权会话、不改变本节 PKCE 和桌面凭据边界。
 
+### 4.1.1 桌面法律信息（2026-10-29 已批准）
+
+- 桌面登录面板的登录操作下方，以及设置 → 通用底部展示“用户协议”“隐私政策”和法定运营主体“杭州艾思酷国际贸易有限公司”；未登录也可访问。中文和英文均显示原样中文主体，不新增勾选、同意步骤、弹窗或本地协议正文。
+- Local Host 的 `NewApiProviderAdapter` 从已验证的 `NewApiClient.origin` 生成 `OAuthProviderMeta` 的可选 `legalLinks`，只包含同源 `/user-agreement` 和 `/privacy-policy`；不读取会话、访问网络、创建 handoff 或附带 query、fragment、凭据和认证参数。正文及版本由 New API 公开页面维护。
+- 登录面板使用已有 `useOAuth` providers 投影，经可选的通用展示插槽装配下游模块。通用设置经可选插槽装配相同扩展，读取本窗口 Local Host 的 OAuth 服务；远程 workspace 的服务不能替换该来源。各入口只在桌面启用，普通 Web、手机远控、API Key 和无可选 metadata 的原有业务行为保持原样。
+- 扩展仅接受已启用的 `new-api` 完整 metadata、同一合法 HTTPS 或 loopback HTTP origin 及精确公开路径；缺失、不完整、跨源、含认证参数或其他路径时隐藏全部法律入口，不使用默认地址。点击经 `IPlatformService.openExternal` 打开；不改变用户内容、OAuth、PKCE、会话、套餐、支付或自定义 Provider。
+- 运营主体属于既有唯一 `xwork-brand/brand.json`，PR #38 的 `@zcode/shared/xwork-brand` 与 `@zcode/shared/aiscoo-brand` 两个出口共享该数据。法律界面独立为 `aiscoo/legal` managed 模块；中英文本只追加到现有字典。
+
+```mermaid
+sequenceDiagram
+    participant H as Local Host / NewApiProviderAdapter
+    participant O as IOAuthService.getProviders
+    participant U as 桌面现有 useOAuth 投影
+    participant P as IPlatformService
+    participant W as New API 公开法律页
+    H->>O: 用已验证 origin 生成可选公开 metadata
+    U->>O: 读取 providers（无需登录）
+    O-->>U: 返回 legalLinks 或无 metadata
+    U->>U: 验证启用、同源、精确路径和无参数
+    U->>P: 用户点击后 openExternal
+    P->>W: 打开公开协议或隐私政策
+```
+
+验收：覆盖 HTTPS／loopback 与自定义端口、未登录读取 metadata 无凭据及网络、登录和设置位置、中英文主体、普通 Web／远控及缺失 metadata 的原行为、跨源／非公开路径／带 state、handoff、token、fragment 或 credentials 的拒绝；桌面远程 workspace 设置仍使用 Local Host。隔离 Electron 场景覆盖浅深主题、窄宽布局与点击，且不访问真实账号或后端；验证与部署的限制必须分别报告。
+
 ### 4.2 安全持久化与恢复
 
 安全凭据域按 `new-api:<origin-key>:<user-id>:<sid>` 命名，保存 control、refresh、relay 的类型/expiry。origin-key 是规范化 origin 的稳定非秘密标识；不能同用户名不同服务器复用 token。
