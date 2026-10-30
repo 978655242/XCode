@@ -17,7 +17,7 @@ import { createNewApiProviderAnchors, createNodeModelSelectionFacade } from "@zc
 import { resolveNewApiAccountProviders } from "../src/new-api/newApiAccountProviderResolution.js";
 import { owner, catalog, entitlements, modelConfig } from "./newApiRegistryFixtures.js";
 
-test("XWork selects only Chat Completions and requires reselect for hidden or old official refs", () => {
+test("Aiscoo selects only Chat Completions and requires reselect for hidden or old official refs", () => {
   const { facade, registry, snapshot } = nativeSelectionFixture();
   const selection = {
     providerId: "account:new-api-openai-chat-completions",
@@ -133,7 +133,7 @@ function nativeSelectionFixture(
   return { facade, registry, snapshot };
 }
 
-test("Native personal overlays cannot hide or rename XWork or expose hidden transports", () => {
+test("Native personal overlays cannot hide or rename Aiscoo or expose hidden transports", () => {
   const personal = new ProviderConfigMap([
     {
       providerId: "account:new-api-openai-chat-completions",
@@ -157,7 +157,7 @@ test("Native personal overlays cannot hide or rename XWork or expose hidden tran
       view.providers.map((provider) => provider.providerId),
       ["account:new-api-openai-chat-completions"],
     );
-    assert.notEqual(view.providers[0]!.providerName, "Local renamed provider");
+    assert.equal(view.providers[0]!.providerName, "Aiscoo Zen");
   }
 });
 

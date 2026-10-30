@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -390,6 +390,18 @@ test("materialized and refreshed CDN config keep the three explicit-origin local
   try {
     const first = await runtime.configService.read();
     assert.equal(first.zcodeBuiltinProviders.keys().length, 3);
+    assert.equal(
+      first.zcodeBuiltinProviders.getRule("account:new-api-openai-chat-completions")?.providerName,
+      "Aiscoo Zen",
+    );
+    const materialized = JSON.parse(await readFile(builtin, "utf8"));
+    assert.equal(
+      materialized.config.providerConfigRules.providerRules.find(
+        (rule: { providerId: string }) =>
+          rule.providerId === "account:new-api-openai-chat-completions",
+      ).providerName,
+      "Aiscoo Zen",
+    );
     assert.equal(
       first.zcodeBuiltinProviders.get("account:new-api-anthropic-messages")?.api?.baseUrl,
       owner.origin,
