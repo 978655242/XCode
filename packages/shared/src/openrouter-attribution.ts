@@ -1,6 +1,8 @@
-// XCODE: 产品展示归因统一为 XWork，保留来源请求头键与协议。
+// XCODE: 产品展示归因使用统一品牌，保留来源请求头键与协议。
+import { PRODUCT_NAME } from "./aiscoo-brand/runtime.js";
+
 export const OPENROUTER_ATTRIBUTION_HEADERS = {
-  "X-OpenRouter-Title": "XWork",
+  "X-OpenRouter-Title": PRODUCT_NAME,
   "X-OpenRouter-Categories": "programming-app",
 } as const;
 

@@ -212,7 +212,7 @@ createRoot(document.getElementById("root")).render(<ServiceProvider services={se
  const entry=document.querySelector('[data-aiscoo-legal]');entry.scrollIntoView({block:'center'});
  const r=entry.getBoundingClientRect(), links=Array.from(entry.querySelectorAll('a'));
  const login=document.querySelector('[data-testid="oauth-login-button-new-api"]');
- return{placement:entry.dataset.xworkLegal,text:entry.innerText,width:innerWidth,left:r.left,right:r.right,
+ return{placement:entry.dataset.aiscooLegal,text:entry.innerText,width:innerWidth,left:r.left,right:r.right,
  links:links.map(a=>{const b=a.getBoundingClientRect(),s=getComputedStyle(a);return{href:a.href,color:s.color,left:b.left,right:b.right,top:b.top,bottom:b.bottom}}),
  afterLogin:!login||Boolean(login.compareDocumentPosition(entry)&Node.DOCUMENT_POSITION_FOLLOWING),
  last:entry.parentElement.lastElementChild===entry};})()`);

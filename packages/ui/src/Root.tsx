@@ -48,7 +48,7 @@ import { CodingPlanUpgradeDialogProvider } from "@/settings/CodingPlanUpgradeDia
 import { RewardsProvider } from "@/rewards/RewardsProvider.js";
 import { WelcomeScreen, type LoginCompleteReason } from "@/WelcomeScreen.js";
 // XCODE: 品牌登录头通过可选插槽装配，原登录页默认头部保持上游语义。
-import { AiscooLoginHeader } from "@/aiscoo/brand/index.js";
+import { AiscooLoginHeader, resolveAiscooOAuthWaitingDisplayNames } from "@/aiscoo/brand/index.js";
 import { setDefaultFileDisplayBasePath } from "@/lib/fileDisplay.js";
 import { readRendererLaunchTimings, shouldReportLaunchToInput } from "@/lib/launchToInputReport.js";
 import { reportUiLaunchToInput } from "@/lib/uiPerfArmsTelemetry.js";
@@ -84,6 +84,10 @@ import { consumeZcodeJwtInvalidRestartMarker } from "@/root/zcodeJwtInvalidResta
 import { useDesktopNativeThemeSync } from "@/root/useDesktopNativeThemeSync.js";
 import { useRootPlatformEffects } from "@/root/useRootPlatformEffects.js";
 import { useRootWorkspaceActions } from "@/root/useRootWorkspaceActions.js";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog.js";
+import { useAlertDialog } from "@/hooks/useAlertDialog.js";
+// XCODE: 平台可选择退出处理器，Root 只装配现有 OAuth 生命周期扩展。
+import type { OAuthLifecyclePlatform } from "@/oauth-lifecycle/contract.js";
 import { useBotBroadcastEffects } from "@/root/useBotBroadcastEffects.js";
 import { registerBaseWorkspaceServices } from "@/store/remoteWorkspaceSessionStore.js";
 import type { RootProps } from "@/root/types.js";
@@ -681,6 +685,18 @@ function RootInner({
   const handleReauthenticationRequired = useCallback(() => {
     setWelcomeScreenOpenReason("session-expired");
   }, []);
+  const requestLogoutConfirmation = useConfirmDialog();
+  const requestLogoutAlert = useAlertDialog();
+  // XCODE: 不注入扩展的平台保留原桌面退出流程。
+  const logoutOverride = (platform as OAuthLifecyclePlatform).oauthLifecycle?.createLogout?.({
+    oauthService: services.oauthService,
+    intl,
+    requestConfirmation: requestLogoutConfirmation,
+    requestAlert: requestLogoutAlert,
+    setUser,
+    setOAuthError,
+    refreshProviderState,
+  });
   const {
     setWorkspaceActionError,
     startDraftInWorkspace,
@@ -711,6 +727,7 @@ function RootInner({
     updateAppSettings,
     setOAuthError,
     setUser,
+    logoutOverride,
     onProviderFamilyDomainClearedAfterLogout: () => {
       setWelcomeScreenOpenReason("logout-provider-required");
     },
@@ -1521,7 +1538,13 @@ function RootInner({
         {requestSecurityBridgeNode}
         {remoteConnectionDialog}
         {directoryBrowserDialog}
-        <WelcomeScreen onComplete={handleWelcomeScreenComplete} header={<AiscooLoginHeader />} />
+        <WelcomeScreen
+          onComplete={handleWelcomeScreenComplete}
+          header={<AiscooLoginHeader />}
+          hideApiKeyLogin
+          // XCODE: 各端授权等待提示统一显示品牌名，provider ID 和认证流程不变。
+          oauthWaitingDisplayNames={resolveAiscooOAuthWaitingDisplayNames()}
+        />
       </RootShell>
     );
   }

@@ -40,6 +40,8 @@ import {
 import { AccountProviderService, validateModelSelectionOptions } from "@zcode/provider";
 import type { NewApiOwner } from "@zcode/shared";
 import type { OfficialCloudConnectionHost } from "./official-mcp/officialCloudConnectionService.js";
+// XCODE: Host 只接收扩展模块提供的经校验隔离配置。
+import { prepareLocalWebHostConfiguration } from "./local-web-new-api/index.js";
 import { NewApiClient } from "./new-api/newApiClient.js";
 import { NewApiAccountService } from "./new-api/newApiAccountService.js";
 import { NewApiSessionRepo } from "./new-api/newApiSessionRepo.js";
@@ -149,6 +151,9 @@ export {
   createSettingServiceWithMigrations,
 } from "./setting/settingService.js";
 export { createCredentialService } from "./credential/credentialService.js";
+// XCODE: 独立 Web 仅通过显式工厂注入私有账户，不改变其他 Host 默认行为。
+export { createLocalWebNewApiAccountFactory } from "./local-web-new-api/index.js";
+export type { LocalWebNewApiAccountFactory } from "./local-web-new-api/contract.js";
 export { NewApiClient, NewApiClientError } from "./new-api/newApiClient.js";
 export { NewApiAccountService } from "./new-api/newApiAccountService.js";
 export { NewApiSessionRepo } from "./new-api/newApiSessionRepo.js";
@@ -1291,6 +1296,8 @@ export function createLocalServices(options: {
     trigger: Exclude<ProviderProvisioningTrigger, "environment-online">,
   ) => void;
   serviceAuthorityMode?: ServiceAuthorityMode;
+  // XCODE: 显式注入本机 Web 私有账号工厂；缺省保持上游宿主行为。
+  newApiAccountFactory?: import("./local-web-new-api/contract.js").LocalWebNewApiAccountFactory;
   /** 可信 Server Core 注入，区分物理持库 Host 与历史 workspace canonical route。 */
   projectStorageHostId?: string;
   sourceServerWorkspaceService?: ISourceServerWorkspaceService;
@@ -1372,8 +1379,14 @@ export function createLocalServices(options: {
     });
   let invalidateProjectTokens = () => {};
   let invalidatePluginUiAccounts: (() => void) | undefined;
+  // XCODE: Host 在装配任何凭据服务前接入经扩展模块校验的可选配置。
+  const hostConfig = prepareLocalWebHostConfiguration(
+    options.newApiAccountFactory,
+    options.serviceAuthorityMode,
+  );
   const provisioningOAuthKeys = new Set<string>(PROVIDER_PROVISIONING_OAUTH_CREDENTIAL_KEYS);
   const credentialService = createCredentialService({
+    ...hostConfig?.credentialStore,
     onDidMutate: ({ key }) => {
       if (key === "oauth:active_provider" || /^oauth:[^:]+:user_info$/.test(key))
         invalidatePluginUiAccounts?.();
@@ -1418,37 +1431,49 @@ export function createLocalServices(options: {
     options.serviceAuthorityMode === "desktop-local"
       ? process.env.NEW_API_BASE_URL?.trim()
       : undefined;
-  const newApiClient = newApiOrigin
-    ? new NewApiClient(newApiOrigin, { fetch: hostApiNetworkTransport.fetch })
-    : null;
-  const nativeAccount: NewApiAccountService | null = newApiClient
-    ? new NewApiAccountService({
-        adapter: new NewApiProviderAdapter(newApiClient),
-        repo: new NewApiSessionRepo(newApiClient.origin),
-        onOwnerChanged: async (owner) => {
-          invalidatePluginUiAccounts?.();
-          accountProviderConfigSource.invalidateNative(true);
-          officialCloudHost?.onPrimaryOwnerChanged(owner);
-          await options.onNewApiOwnerChanged?.(owner);
-          // XCODE: 身份落盘锁内只失效；控制读可能撤销/refresh，不能等待它回入同一锁。
-          void providerRuntime
-            .start()
-            .then(async () => {
-              await providerRuntime.registryService.refresh("native-owner-invalidated");
-              await accountProviderConfigSource.refresh("native-owner-changed");
-              await providerRuntime.registryService.refresh("native-owner-changed");
-            })
-            .catch(() => {
-              // 目录503不撤销已确认身份；同步清空的旧目录仍不可执行。
-              providerConfigLog.warn(undefined, "Private catalog unavailable after owner change");
-            });
-        },
+  const onNativeOwnerChanged = async (owner: NewApiOwner | null) => {
+    invalidatePluginUiAccounts?.();
+    accountProviderConfigSource.invalidateNative(true);
+    officialCloudHost?.onPrimaryOwnerChanged(owner);
+    await options.onNewApiOwnerChanged?.(owner);
+    // XCODE: 身份落盘锁内只失效；控制读可能撤销/refresh，不能等待它回入同一锁。
+    void providerRuntime
+      .start()
+      .then(async () => {
+        await providerRuntime.registryService.refresh("native-owner-invalidated");
+        await accountProviderConfigSource.refresh("native-owner-changed");
+        await providerRuntime.registryService.refresh("native-owner-changed");
       })
-    : null;
+      .catch(() => {
+        // 目录503不撤销已确认身份；同步清空的旧目录仍不可执行。
+        providerConfigLog.warn(undefined, "Private catalog unavailable after owner change");
+      });
+  };
+  // XCODE: 账号仍在网络 transport 建立后创建，公共凭据已提前隔离。
+  const localWebAccount = options.newApiAccountFactory?.create({
+    fetch: hostApiNetworkTransport.fetch,
+    onOwnerChanged: onNativeOwnerChanged,
+  });
+  const newApiClient =
+    localWebAccount?.client ??
+    (newApiOrigin
+      ? new NewApiClient(newApiOrigin, { fetch: hostApiNetworkTransport.fetch })
+      : null);
+  const nativeAccount: NewApiAccountService | null =
+    localWebAccount?.account ??
+    (newApiClient
+      ? new NewApiAccountService({
+          adapter: new NewApiProviderAdapter(newApiClient),
+          repo: new NewApiSessionRepo(newApiClient.origin),
+          onOwnerChanged: onNativeOwnerChanged,
+        })
+      : null);
   const officialCloudHost: OfficialCloudConnectionHost | null = nativeAccount
     ? createOfficialCloudConnectionHost({
         account: nativeAccount,
         apiClient,
+        // XCODE: 本机 Web 的官方连接不得读取或覆盖桌面私有凭据。
+        ...(hostConfig ? { store: hostConfig.credentialStore } : {}),
         zcodeBuiltinFilePath: options.zcodeBuiltinProviderConfigFilePath,
         onDidChange: async () => {
           await accountProviderConfigSource.refresh("official-cloud-owner-changed");
@@ -1643,6 +1668,8 @@ export function createLocalServices(options: {
     // 已发布 config.json 保存的是 ZCode 用户配置；清理第三方 ACP 不能移除这条升级路径。
     // Repository 仅在新 Personal 配置不存在时导入，并保留旧文件以便回滚。
     readLegacyProviders: () => readLegacyZCodeConfigProviders(),
+    // XCODE: 可选扩展只覆盖显式配置的 Provider 来源，不改默认路径。
+    ...hostConfig?.providerRuntimeOptions,
   });
   const legacyAccountProviderSourceOptions = {
     configSource: providerConfigRuntime.configService,
@@ -1689,8 +1716,14 @@ export function createLocalServices(options: {
   const providerProvisioningSource = createProviderProvisioningSource({
     personalRepository: providerConfigRuntime.personalRepository,
     settingService,
-    credentialFilePath: resolveCredentialFilePath(resolveAppConfigDir()),
-    personalConfigFilePath: join(resolveAppConfigDir(), PERSONAL_PROVIDER_CONFIG_FILE_NAME),
+    // XCODE: provisioning 直接读文件，必须与 Web 公共凭据共用路径和 cipher。
+    credentialFilePath:
+      hostConfig?.credentialStore.credentialsFile ??
+      resolveCredentialFilePath(resolveAppConfigDir()),
+    ...(hostConfig ? { cipherProvider: hostConfig.credentialStore.cipherProvider } : {}),
+    personalConfigFilePath:
+      hostConfig?.personalFilePath ??
+      join(resolveAppConfigDir(), PERSONAL_PROVIDER_CONFIG_FILE_NAME),
   });
   let offPeakAdmissionGeneration = 0;
   let publishNativeOffPeakOwner: (() => void) | undefined;
@@ -2569,7 +2602,9 @@ export function createLocalServices(options: {
           // Built-in Active 路径按当前 Endpoint 隔离，不能通过同步的固定路径
           // getter 读取；Agent spawn 必须等待本轮 Endpoint Source 完成解析和物化。
           zcodeBuiltinFilePath: await providerConfigRuntime.resolveZCodeBuiltinActiveFilePath(),
-          personalFilePath: join(resolveAppConfigDir(), PERSONAL_PROVIDER_CONFIG_FILE_NAME),
+          personalFilePath:
+            hostConfig?.personalFilePath ??
+            join(resolveAppConfigDir(), PERSONAL_PROVIDER_CONFIG_FILE_NAME),
         }),
         // XCODE: 默认私有origin也必须下发worker，使Host/worker anchors与revision精确一致。
         ...(newApiClient ? { NEW_API_BASE_URL: newApiClient.origin } : {}),
@@ -3221,10 +3256,16 @@ export function createLocalServices(options: {
         accountProviderSource: accountProviderConfigSource,
         credentialService,
         settingService,
-        personalConfigFilePath: join(resolveAppConfigDir(), PERSONAL_PROVIDER_CONFIG_FILE_NAME),
+        personalConfigFilePath:
+          hostConfig?.personalFilePath ??
+          join(resolveAppConfigDir(), PERSONAL_PROVIDER_CONFIG_FILE_NAME),
         stateFilePath: join(resolveAppConfigDir(), "runtime", "provider", "provisioning.json"),
+        // XCODE: 目标端枚举也必须与 Web 凭据库同路径，避免读取桌面 OAuth key。
         listProvisioningCredentialKeys: () =>
-          listProviderProvisioningCredentialKeys(resolveCredentialFilePath(resolveAppConfigDir())),
+          listProviderProvisioningCredentialKeys(
+            hostConfig?.credentialStore.credentialsFile ??
+              resolveCredentialFilePath(resolveAppConfigDir()),
+          ),
       }),
     );
   }
@@ -3465,6 +3506,8 @@ export async function createServerHostServices(options: {
   sourceServerId: string;
   zcodeBuiltinProviderConfigFilePath: string;
   providerProvisioningTargetEnabled?: boolean;
+  // XCODE: 本机 Web 账号为可选 Host-only 扩展，未注入时保持原路径。
+  newApiAccountFactory?: import("./local-web-new-api/contract.js").LocalWebNewApiAccountFactory;
 }) {
   const projectStorageHostId = remoteHostIdFromWorkspaceIdentity(
     buildServerRemoteWorkspaceIdentity({ serverId: options.sourceServerId, workspacePath: "/" }),
@@ -3491,6 +3534,8 @@ export async function createServerHostServices(options: {
     zcodeBuiltinProviderConfigFilePath: options.zcodeBuiltinProviderConfigFilePath,
     providerProvisioningTargetEnabled: options.providerProvisioningTargetEnabled,
     serviceAuthorityMode: "standalone-server",
+    // XCODE: 仅显式启用的本机 Web 装配独立私有 owner。
+    newApiAccountFactory: options.newApiAccountFactory,
     topicResourceRelayChannel: options.topicResourceRelayChannel,
     projectStorageHostId,
     sourceServerWorkspaceService,

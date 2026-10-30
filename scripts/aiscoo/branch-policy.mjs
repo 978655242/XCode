@@ -16,7 +16,8 @@ const run = promisify(execFile);
 // 分支角色：release 是产品主干（接功能 PR 与 sync/upstream-* 同步 PR）；main 是上游纯镜像。
 const TRUNK_BRANCH = "release";
 const MIRROR_BRANCH = "main";
-const SYNC_LOG = "docs/aiscoo/upstream-sync-log.md";
+// 修复原因：同步日志是受保护的历史事实来源，品牌迁移不能改变其路径或重写已有记录。
+const SYNC_LOG = "docs/xcode/upstream-sync-log.md";
 const DEFAULT_UPSTREAM_URL = "https://github.com/zai-org/ZCode.git";
 const UPSTREAM_REF = `refs/remotes/upstream/${MIRROR_BRANCH}`;
 const TRUNK_REF = `refs/remotes/origin/${TRUNK_BRANCH}`;
@@ -80,7 +81,10 @@ async function checkPr() {
   // fork 点：PR 包含的最新上游提交；它之前、目标分支还没有的提交就是本 PR 新引入的上游改动。
   const forkPoint = await git("merge-base", headSha, upstreamRef);
   const upstreamCount = Number(await git("rev-list", "--count", forkPoint, `^${baseRef}`));
-  const changedFiles = lines(await git("diff", "--name-only", `${baseRef}...${headSha}`));
+  // 修复原因：Git 默认重命名检测只输出目标路径，会漏掉被移走的受保护日志。
+  const changedFiles = lines(
+    await git("diff", "--no-renames", "--name-only", `${baseRef}...${headSha}`),
+  );
   const touchesSyncLog = changedFiles.includes(SYNC_LOG);
 
   if (isSync) {
@@ -99,7 +103,10 @@ async function checkPr() {
         `同步分支引入了 ${MIRROR_BRANCH} 镜像中还没有的上游提交。先快进并推送 ${MIRROR_BRANCH}，再从 ${MIRROR_BRANCH} 合并。`,
       );
     }
-    if (!touchesSyncLog) errors.push(`同步 PR 必须更新 ${SYNC_LOG}（分类、冲突取舍、拒绝原因）。`);
+    // 修复原因：删除或移动不能算更新同步记录，否则会破坏唯一历史事实来源。
+    if (!touchesSyncLog || !(await git("ls-tree", "--name-only", headSha, "--", SYNC_LOG))) {
+      errors.push(`同步 PR 必须更新 ${SYNC_LOG}（分类、冲突取舍、拒绝原因）。`);
+    }
   } else {
     if (upstreamCount > 0) {
       errors.push(
@@ -159,7 +166,10 @@ async function guardMerge() {
   for (const commit of commits) {
     const [sha, parents, subject] = commit.split("\t");
     if (parents.split(" ").length > 1) continue;
-    const files = lines(await git("diff-tree", "--no-commit-id", "--name-only", "-r", sha));
+    // 修复原因：即使启用 diff.renames，也要检查日志改名前的路径。
+    const files = lines(
+      await git("diff-tree", "--no-renames", "--no-commit-id", "--name-only", "-r", sha),
+    );
     if (/^sync[:(]/.test(subject) || files.includes(SYNC_LOG)) {
       errors.push(
         `${sha.slice(0, 7)} "${subject}" 是单父提交却包含上游同步内容：同步 PR 被 squash 合并了。` +

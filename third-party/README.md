@@ -117,12 +117,12 @@ Apache-2.0 复制内容中的 148 个已确认改编文件包含文件内来源�
 
 以 [npm 1.0.7 归档](https://registry.npmjs.org/@multiavatar/multiavatar/-/multiavatar-1.0.7.tgz)中的实际字节为准；该归档 SHA-256 为 `4ab4a4469aad79bce0096d65c8834a22377e372d1ca54b60df639c410c180f64`，npm SHA-512 integrity 也已核对。实装包的 LICENSE、package.json、源文件及 ESM/CommonJS 入口与此归档一致。原文快照如下，不运行格式化工具改写：
 
-| 材料 | 来源与 SHA-256 |
-| --- | --- |
-| [Multiavatar 原始许可](upstream/multiavatar-1.0.7-LICENSE.txt) | npm 归档 `package/LICENSE`；`39f19f0d872c650261c399ced4bb621f8d3a79352a1cee8af44a00433fd47cf2`；保留 `2020-2021 (c) Gie Katon`。 |
-| [Multiavatar 原始元数据](upstream/multiavatar-1.0.7-package.json) | npm 归档 `package/package.json`；`bcdca308e34f5526299715ce1217f3f129ea4bf760893f9d7150d247f215a09d`；精确版本与原始许可值均保留。 |
-| [CryptoJS v3.1.2 原始许可](upstream/cryptojs-3.1.2-LICENSE.txt) | [内嵌版权头链接的 Google Code 官方归档](https://storage.googleapis.com/google-code-archive/v2/code.google.com/crypto-js/wiki/License.wiki)；`6718c0ad644b5e025b9fc6580636b12244eafc727a237a3ddf2da656441a1863`；Jeff Mott，2009–2013，BSD-3-Clause。 |
-| [CryptoJS v3.1.2 元数据](upstream/cryptojs-3.1.2-package.json) | [官方 release-3.1.2 固定提交](https://raw.githubusercontent.com/brix/crypto-js/7e09961c6174bb23912d95e42fec340f38babdb0/package.json)；`c8d161440629ea606c73b49e360fbda55c00f99fb65913500cf8e2118d0f637e`；原字段 `New BSD`，不能套用其他版本的 MIT 条款。 |
+| 材料                                                              | 来源与 SHA-256                                                                                                                                                                                                                                             |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Multiavatar 原始许可](upstream/multiavatar-1.0.7-LICENSE.txt)    | npm 归档 `package/LICENSE`；`39f19f0d872c650261c399ced4bb621f8d3a79352a1cee8af44a00433fd47cf2`；保留 `2020-2021 (c) Gie Katon`。                                                                                                                           |
+| [Multiavatar 原始元数据](upstream/multiavatar-1.0.7-package.json) | npm 归档 `package/package.json`；`bcdca308e34f5526299715ce1217f3f129ea4bf760893f9d7150d247f215a09d`；精确版本与原始许可值均保留。                                                                                                                          |
+| [CryptoJS v3.1.2 原始许可](upstream/cryptojs-3.1.2-LICENSE.txt)   | [内嵌版权头链接的 Google Code 官方归档](https://storage.googleapis.com/google-code-archive/v2/code.google.com/crypto-js/wiki/License.wiki)；`6718c0ad644b5e025b9fc6580636b12244eafc727a237a3ddf2da656441a1863`；Jeff Mott，2009–2013，BSD-3-Clause。       |
+| [CryptoJS v3.1.2 元数据](upstream/cryptojs-3.1.2-package.json)    | [官方 release-3.1.2 固定提交](https://raw.githubusercontent.com/brix/crypto-js/7e09961c6174bb23912d95e42fec340f38babdb0/package.json)；`c8d161440629ea606c73b49e360fbda55c00f99fb65913500cf8e2118d0f637e`；原字段 `New BSD`，不能套用其他版本的 MIT 条款。 |
 
 npm 1.0.7 自带完整 Multiavatar LICENSE，但内嵌 CryptoJS 只带版本、版权头和许可链接，未附完整条款。`multiavatar.js` 第 674–688 行的完整 CryptoJS 块与 [3.1.2 官方 SHA-256 rollup](https://raw.githubusercontent.com/brix/crypto-js/7e09961c6174bb23912d95e42fec340f38babdb0/build/rollups/sha256.js)仅有空白差异，去掉空白后的 SHA-256 均为 `f00b16d8ea4eaba201b8118589ef7da4869968da99f39faf0d71c19e5d62e184`。BSD 条款要求分发时保留版权、条件和免责声明，并禁止未经许可使用 CryptoJS/贡献者名称背书。
 

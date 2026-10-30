@@ -5,7 +5,15 @@
  */
 export const pluginSandboxModule = {
   id: "plugin-sandbox",
-  requires: ["desktop", "shared", "mcp-apps-protocol", "gen-ui-protocol", "aiscoo-brand"],
+  // XCODE: 保留历史品牌 ID，并追加指向同一模块的新 ID。
+  requires: [
+    "desktop",
+    "shared",
+    "mcp-apps-protocol",
+    "gen-ui-protocol",
+    "xwork-brand",
+    "aiscoo-brand",
+  ],
   provides: ["plugin-sandbox-registry", "plugin-sandbox-platform"],
   publicEntrypoints: ["index.ts", "contract.ts", "aliasRuntime.ts", "aliasApi.ts"],
 } as const;

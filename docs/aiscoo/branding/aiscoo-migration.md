@@ -70,7 +70,7 @@ flowchart LR
 
 ### 登录页最终视觉与数据目录验证（2026-10-29）
 
-登录页通过 Root 的可选 `header` 插槽装配下游 `AiscooLoginHeader`，保留上游 `LoginPanelHeader` 默认实现和 title／description／children 接口；品牌模块只负责视觉，不引用登录业务组件。产品头部使用完整动态 `aiscoo` 字标，保留 240px 宽及窄屏自适应，移除欢迎标题；中文说明为“连接账号，开始使用”。浅深主题复用原稿的 8 秒动效，系统减少动态效果时显示完整静态字标。真实组件预览验证 320／390px 与桌面布局，未见横向溢出；两次截图确认探头动作变化。登录状态与取消／重试测试及品牌契约合计 14/14 通过，文案调整后的三文件定向测试 36/36 通过。
+登录页通过 Root 的可选 `header` 插槽装配下游 `AiscooLoginHeader`，保留上游 `LoginPanelHeader` 默认实现和 title／description／children 接口；品牌模块只负责视觉，不引用登录业务组件。产品头部使用完整动态 `aiscoo` 字标，保留 240px 宽及窄屏自适应，移除欢迎标题；中文说明为“连接账号，开始使用”。2026-10-30 用户确认：登录页主按钮显示“登录”（不再出现 New API），并移除“使用 API key”入口。入口通过 `WelcomeScreen.hideApiKeyLogin` 可选参数隐藏，文案通过品牌词典投影，上游默认行为和词典保持不变。浅深主题复用原稿的 8 秒动效，系统减少动态效果时显示完整静态字标。真实组件预览验证 320／390px 与桌面布局，未见横向溢出；两次截图确认探头动作变化。登录状态与取消／重试测试及品牌契约合计 14/14 通过，文案调整后的三文件定向测试 36/36 通过。
 
 品牌隔离预览曾显式使用临时数据目录，因此不显示原有会话和自定义模型；这是测试启动参数，不是产品迁移。按用户要求关闭隔离预览后，真实 Aiscoo Dev 复用原 `~/.zcode` 与 `ZCode Dev` Electron 用户目录启动；进程文件句柄确认读取原 `tasks-index.sqlite` 与 CLI `db.sqlite`，任务列表、项目树和模型设置接口均成功返回。没有复制或删除原会话／模型配置。
 
@@ -111,23 +111,23 @@ Electron 41.0.3 依据：[ready 前钥匙串配置](https://github.com/electron/
 
 ### 实际验证结果
 
-| 检查                                                 | 结果                                                                                                                                |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm typecheck`                                     | 最终退出 0；包括 Desktop main/host/remote、Web、UI、services/shared 与 CUA                                                          |
-| `pnpm lint`                                          | 最终退出 0，316 warnings、0 errors；未把存量警告写为零告警                                                                          |
-| `pnpm architecture:check --changed`                  | 最终退出 0，0 violations、0 baseline、0 new                                                                                         |
-| CLI `typecheck` / `lint`                             | 均退出 0，使用根工具 PATH；保留 Node 版本差异提示                                                                                   |
-| UI/Web 定向回归                                      | 18 文件 **188 通过**；包含原有三份上游品牌断言，未机械改写                                                                          |
-| services/server/shared 定向回归                      | 27 个不重复文件 **627 通过、1 跳过**；新增三文件 29 项品牌／内容保真／恢复分类测试均通过                                            |
-| native/CLI/Server 定向回归                           | **390 通过**：native/server 167、取消恢复 83、core/context 52、i18n 6、TUI 39、Zen 9、Dev bundle 1、CLI 消费者及构建 33             |
-| shared 品牌契约                                      | 3/3 通过，覆盖用户插值、技术引用、原词典和重复投影                                                                                  |
+| 检查                                                  | 结果                                                                                                                                |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm typecheck`                                      | 最终退出 0；包括 Desktop main/host/remote、Web、UI、services/shared 与 CUA                                                          |
+| `pnpm lint`                                           | 最终退出 0，316 warnings、0 errors；未把存量警告写为零告警                                                                          |
+| `pnpm architecture:check --changed`                   | 最终退出 0，0 violations、0 baseline、0 new                                                                                         |
+| CLI `typecheck` / `lint`                              | 均退出 0，使用根工具 PATH；保留 Node 版本差异提示                                                                                   |
+| UI/Web 定向回归                                       | 18 文件 **188 通过**；包含原有三份上游品牌断言，未机械改写                                                                          |
+| services/server/shared 定向回归                       | 27 个不重复文件 **627 通过、1 跳过**；新增三文件 29 项品牌／内容保真／恢复分类测试均通过                                            |
+| native/CLI/Server 定向回归                            | **390 通过**：native/server 167、取消恢复 83、core/context 52、i18n 6、TUI 39、Zen 9、Dev bundle 1、CLI 消费者及构建 33             |
+| shared 品牌契约                                       | 3/3 通过，覆盖用户插值、技术引用、原词典和重复投影                                                                                  |
 | `python3 -B scripts/aiscoo/aiscoo-assets.test.py`     | 5/5 通过；隔离输出、重复 SHA、污染重建、尺寸/容器与原稿几何                                                                         |
 | `python3 -B scripts/aiscoo/generate-icons.py --check` | 44 个资源逐字节一致                                                                                                                 |
-| Web / Web-share 生产 build                           | 均退出 0，Logo 随 Vite 静态资源打包；保留原有 chunk 大小提示                                                                        |
-| CLI `build` / `build:desktop-agent`                  | 均退出 0；生成的 CLI `--help` 实际显示 Aiscoo                                                                                       |
-| Desktop `build:no-runtime-assets`                    | 最终退出 0；main 含 Aiscoo 常量和内嵌 About SVG                                                                                     |
-| 格式与空白                                           | 对 235 个可格式化改动执行基线感知检查；只格式化新文件和原已规范的文件，11 个基线未格式化文件按仓库规则保留；`git diff --check` 通过 |
-| 上游预演                                             | 刷新 upstream 后，HEAD 与包含未提交改动的临时 tree 两次 `git merge-tree` 均退出 0，无冲突；见下方逐文件记录                         |
+| Web / Web-share 生产 build                            | 均退出 0，Logo 随 Vite 静态资源打包；保留原有 chunk 大小提示                                                                        |
+| CLI `build` / `build:desktop-agent`                   | 均退出 0；生成的 CLI `--help` 实际显示 Aiscoo                                                                                       |
+| Desktop `build:no-runtime-assets`                     | 最终退出 0；main 含 Aiscoo 常量和内嵌 About SVG                                                                                     |
+| 格式与空白                                            | 对 235 个可格式化改动执行基线感知检查；只格式化新文件和原已规范的文件，11 个基线未格式化文件按仓库规则保留；`git diff --check` 通过 |
+| 上游预演                                              | 刷新 upstream 后，HEAD 与包含未提交改动的临时 tree 两次 `git merge-tree` 均退出 0，无冲突；见下方逐文件记录                         |
 
 测试矩阵按领域报告，可能存在跨组共同消费者，不将其相加为全仓独立用例总数。没有运行用户未要求的全量 UT。
 
@@ -165,6 +165,18 @@ Electron 41.0.3 依据：[ready 前钥匙串配置](https://github.com/electron/
 Keychain 历史身份（ready 前 XWork/XWork Preview/XWork Dev）、appId 与可执行文件名、`@zcode/*` 包域、`~/.zcode` 数据目录与持久化 key、`xwork-cli` OAuth client id、`xcode-v*` 发布 tag、`XCODE_*` 环境变量、434 处 `// XCODE:` 上游修改标记、i18n 词典与 `brandProductText` 的投影前 "XWork" 字面量（运行时投影为 Aiscoo 显示）。上游 vendored 文档（docs/electron、docs/webdriverio、docs/superpowers/plans）中的 Apple Xcode 指代与历史计划记录不改。
 
 验证要求：`pnpm typecheck`、`pnpm lint`、`pnpm architecture:check --changed`、`scripts/aiscoo` 脚本测试（branch-policy、format-changed、architecture-policy-aiscoo、multiavatar-license）与品牌/头像/插件指南定向回归；真实结果记录在对应 PR。
+
+### 已有公开入口兼容
+
+项目命名迁移保留 `origin/release` 已有的公开入口与脚本：`@zcode/services/xwork-plugin-guides`、`@zcode/shared/xwork-plugin-guides`、`@zcode/shared/xwork-brand`、`@zcode/ui/xwork-brand`、`@zcode/ui/xwork-startup-context`、CLI 的 `test:xwork` 和 `posttest`。原 package export 键及其原目标值保持不变，同时保留 Aiscoo 新入口；旧路径只转发到现有 Aiscoo 实现，品牌数据、插件指南和启动逻辑仍各有一个所有者，不恢复旧模块实现。UI 启动入口同时提供 `createXWorkRoot` 与 `createAiscooRoot`，二者指向同一函数。
+
+验收：新旧公开入口通过真实包解析并提供相同运行时导出及类型；启动函数别名引用相同，CLI 旧脚本保持原内容，新脚本可执行同一套测试且 `posttest` 只执行一次。兼容源码登记在现有模块边界内，不放宽架构检查。旧架构模块 ID 与新 ID 的兼容不在本次实现范围内，现有共享架构清单的替换仍需单独解决。
+
+### 旧品牌残留的展示规则（2026-10-30）
+
+托管 New API Chat Completions 的内置 Provider 名称、产品自己的 OpenRouter 归因以及新建官方插件市场的默认描述使用品牌配置中的 Aiscoo；保留原 Provider ID、服务地址、账号与模型配置、请求头名称及官方市场 ID。已有官方市场记录和用户自定义名称不批量改写。设置页的托管套餐名称在现有导航和详情中保持一致。用户内容、第三方资料与历史记录不替换，兼容身份、协议、旧数据目录及钥匙串不迁移。
+
+验收：检查新生成及现有运行时内置 Provider 配置、设置页详情、OpenRouter 与非 OpenRouter 请求头和官方市场默认值；确认个人配置不能改变托管 Provider 身份与既有模型排序，自定义 Provider 内容不受影响。品牌目录迁移后的历史编译产物不属于源码或持久数据，不自动删除。
 
 ### 启动过渡页 logo dev 破图修复（2026-10-29）
 

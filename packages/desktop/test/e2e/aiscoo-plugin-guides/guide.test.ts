@@ -55,7 +55,7 @@ const question =
 const cancelledQuestion = "GUIDE_CANCELLED_QUESTION: Explain how to check the lifecycle output.";
 const selector = (id: string) => `[data-testid="plugin-guide-${id}"]`;
 
-describe("XWork plugin guide: real Desktop stream and Host persistence", () => {
+describe("Aiscoo plugin guide: real Desktop stream and Host persistence", () => {
   let provider: PluginGuideProvider | undefined;
   let marketplace: PluginLifecycleFixture | undefined;
   const observations: Record<string, unknown> = {};

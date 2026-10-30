@@ -13,7 +13,9 @@
 - 常态静态视觉保持不变；静态 Logo、应用图标和启动页的第一帧都是缩起状态。
 - 系统开启"减少动态效果"时，关闭全部动画（含 bounce），保持中性眼、圆形头部与缩起状态。
 
-`source/anim.py` 是秒时间轴的唯一所有者（`CYCLE = 10.0`），`source/ai.py` 共享几何；生产动画不再经过旧百分比缩放；旧实验预览兼容函数保留。aiscoo 与 aiscoo-admin 两仓的 ai／aiscoo 浅深资源均由同一源生成，UI 只消费资源。
+`docs/brand/aiscoo` 是品牌设计的唯一来源：`source/ai.py` 的 `head()`、`mark()`、`lockup()` 维护共享几何，`source/anim.py` 的 `CSS` 维护秒时间轴（`CYCLE = 10.0`）。aiscoo 与 aiscoo-admin 两仓的 ai／aiscoo 浅深资源均由此生成，UI 只消费资源。
+
+旧实验入口 `build.py`、`q3d.py`、`anim.py`、`ai.py` 和 `oo_preview.py` 继续可运行，输出统一委托给当前品牌；旧文件名仅作兼容，不再生成星光 a、3D 椭圆眼、oo 候选方案或独立的旧周期。`build.wordmark()` 与 `oo_preview.rest_of_word()` 保留正式生成链使用的字母几何，后者仍负责 i／s／c／o／o，不能删除或另行改形。静态输出与减少动态效果时统一收起，动态输出复用同一条 10 秒笑眼弹跳时间轴。
 
 ```mermaid
 flowchart LR
@@ -43,10 +45,23 @@ flowchart LR
 
 `source/` 里是生成上面所有文件的脚本，需要 Python 3。
 
-1. 按所有者修改生成源：`source/ai.py` 维护共享几何（`LETTER_GAP` 为字母间距，`I_STEM_TOP, I_DOT_CY, I_DOT_R` 为 i 的高度和圆点）；`source/anim.py` 以秒定义全部动作时间轴及 `CYCLE = 10.0`，生产动画不再经过旧百分比缩放；旧实验预览兼容函数保留。
+1. 按所有者修改生成源：`source/ai.py` 维护共享几何（`LETTER_GAP` 为字母间距，`I_STEM_TOP, I_DOT_CY, I_DOT_R` 为 i 的高度和圆点）；`source/anim.py` 以秒定义全部动作时间轴及 `CYCLE = 10.0`，全部预览复用当前几何和时间轴。
 2. 在 `source/` 目录下运行 `python3 make.py`。它会直接更新 `logo/`、`logo-animated/`、`splash/`、`mark/svg/` 和 `app-icon/png/` 里的 SVG，并把动效写进 `splash/splash.html`。
 3. 从仓库根目录运行 `python3 -B docs/brand/aiscoo/source/export_rasters.py`，同步 PNG、ICNS、ICO 中的眼睛；需要 Pillow 12.1.0、锁定版本的 `@napi-rs/canvas` 和 macOS `iconutil`。导出保留现有 PNG 的阴影、透明边缘与眼区外像素，`--check` 只检查，`--template-root` 可指定备份设计包。
 4. 运行 `python3 -B scripts/aiscoo/generate-icons.py` 发布客户端资源；在管理端运行 `python3 -I -B electron/sync-brand-assets.py --source-root ../aiscoo` 同步品牌资源，两个命令均支持 `--check`。
 5. 运行 `python3 -B docs/brand/aiscoo/source/build_preview.py` 更新可独立分享的 `preview.html`，包含动态、静态、表情关键帧和小尺寸对照。
 
 本轮已批准的笑眼与整头弹跳之外的设计如需修改，应另行确认并重新导出原稿；`export_rasters.py` 仍仅覆盖既有眼区，常态静态视觉保持不变。
+
+## 设计工具镜像
+
+`.skill-archive/logo-creator/Aiscoo-Logo-Final/` 是本包的完整镜像，包括 source、预览、SVG、PNG、ICNS 与 ICO；所有同名文件必须逐字节一致。修改在 `docs/brand/aiscoo` 完成，归档中的脚本只随包同步，不独立维护设计。历史方案通过 Git 历史查阅，不保留为当前素材。
+
+从仓库根目录同步并验证，命令只触及这个设计包，不恢复 `.skill-archive` 的其他模块：
+
+```bash
+rsync -rc --exclude='__pycache__/' --exclude='*.pyc' --exclude='.DS_Store' docs/brand/aiscoo/ .skill-archive/logo-creator/Aiscoo-Logo-Final/
+python3 -B scripts/aiscoo/robot-motion.test.py
+```
+
+回归测试同时检查旧函数出口、10 秒时间轴、归档文件集合与内容；同步前可加 `rsync` 的 `--dry-run --itemize-changes` 查看将更新的文件。

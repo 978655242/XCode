@@ -51,22 +51,25 @@ modules:
   - id: aiscoo-startup-context
     roots:
       - packages/ui/src/aiscoo/startup-context
+      - packages/ui/src/xwork/startup-context/index.ts
     managed: true
     requires:
       - ui
     publicEntrypoints:
       - packages/ui/src/aiscoo/startup-context/index.ts
       - packages/ui/src/aiscoo/startup-context/contract.ts
+      - packages/ui/src/xwork/startup-context/index.ts
     layers:
       ui: .
     owner: conversation
   - id: aiscoo-plugin-guides-protocol
-    roots: [packages/shared/src/aiscoo-plugin-guides]
+    roots: [packages/shared/src/aiscoo-plugin-guides, packages/shared/src/xwork-plugin-guides/index.ts]
     managed: true
     requires: [shared]
     publicEntrypoints:
       - packages/shared/src/aiscoo-plugin-guides/index.ts
       - packages/shared/src/aiscoo-plugin-guides/contract.ts
+      - packages/shared/src/xwork-plugin-guides/index.ts
     layers: { domain: . }
     owner: plugin
   - id: aiscoo-plugin-guides-cli
@@ -86,13 +89,14 @@ modules:
     layers: { app: . }
     owner: plugin
   - id: aiscoo-plugin-guides-service
-    roots: [packages/services/src/aiscoo-plugin-guides]
+    roots: [packages/services/src/aiscoo-plugin-guides, packages/services/src/xwork-plugin-guides/index.ts]
     managed: true
     requires: [services, shared, rpc, provider, aiscoo-plugin-guides-protocol, aiscoo-brand]
     publicEntrypoints:
       - packages/services/src/aiscoo-plugin-guides/index.ts
       - packages/services/src/aiscoo-plugin-guides/contract.ts
       - packages/services/src/aiscoo-plugin-guides/node.ts
+      - packages/services/src/xwork-plugin-guides/index.ts
     layers:
       contract: contract.ts
       domain: domain
@@ -111,8 +115,12 @@ modules:
     owner: plugin
   # aiscoo-brand：由 architecture:adopt 登记
   - id: aiscoo-brand
+    # XCODE: 共享清单保留的旧 ID 指向此唯一品牌模块。
+    aliases: [xwork-brand]
     roots:
       - packages/shared/src/aiscoo-brand
+      - packages/shared/src/xwork-brand/runtime.js
+      - packages/shared/src/xwork-brand/runtime.d.ts
     managed: true
     requires: []
     publicEntrypoints:
@@ -120,6 +128,8 @@ modules:
       - packages/shared/src/aiscoo-brand/contract.ts
       - packages/shared/src/aiscoo-brand/runtime.js
       - packages/shared/src/aiscoo-brand/runtime.d.ts
+      - packages/shared/src/xwork-brand/runtime.js
+      - packages/shared/src/xwork-brand/runtime.d.ts
     layers:
       domain: .
     owner: product
@@ -133,12 +143,15 @@ modules:
     layers: { domain: . }
     owner: product
   - id: aiscoo-brand-ui
-    roots: [packages/ui/src/aiscoo/brand]
+    # XCODE: 旧 ID 与新 ID 共用此模块的公开入口和边界。
+    aliases: [xwork-brand-ui]
+    roots: [packages/ui/src/aiscoo/brand, packages/ui/src/xwork/brand/index.ts]
     managed: true
     requires: [ui, shared, aiscoo-brand]
     publicEntrypoints:
       - packages/ui/src/aiscoo/brand/index.ts
       - packages/ui/src/aiscoo/brand/contract.ts
+      - packages/ui/src/xwork/brand/index.ts
     layers: { ui: . }
     owner: product
   # profile-avatar：由 architecture:adopt 登记
@@ -180,3 +193,44 @@ modules:
     layers:
       ui: .
     owner: product
+  # aiscoo-local-web：由 architecture:adopt 登记
+  - id: aiscoo-local-web
+    roots:
+      - packages/server/src/aiscoo-local-web
+    managed: true
+    requires: []
+    publicEntrypoints:
+      - packages/server/src/aiscoo-local-web/index.ts
+      - packages/server/src/aiscoo-local-web/contract.ts
+    layers:
+      adapters: .
+    owner: local-web
+  # local-web-new-api：由 architecture:adopt 登记
+  - id: local-web-new-api
+    roots:
+      - packages/services/src/local-web-new-api
+    managed: true
+    requires: [services, shared, zcode-cli, cli-zen-auth]
+    publicEntrypoints:
+      - packages/services/src/local-web-new-api/index.ts
+      - packages/services/src/local-web-new-api/contract.ts
+    layers:
+      adapters: .
+    owner: aiscoo
+  - id: ui-oauth-lifecycle
+    roots: [packages/ui/src/oauth-lifecycle]
+    managed: true
+    requires: [shared, rpc]
+    publicEntrypoints:
+      - packages/ui/src/oauth-lifecycle/contract.ts
+    layers: { contract: . }
+    owner: account
+  - id: aiscoo-local-web-oauth-ui
+    roots: [packages/ui/src/aiscoo/local-web-oauth]
+    managed: true
+    requires: [ui, shared, rpc, ui-oauth-lifecycle]
+    publicEntrypoints:
+      - packages/ui/src/aiscoo/local-web-oauth/index.ts
+      - packages/ui/src/aiscoo/local-web-oauth/contract.ts
+    layers: { ui: . }
+    owner: local-web

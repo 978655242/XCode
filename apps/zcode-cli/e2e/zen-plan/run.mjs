@@ -1,4 +1,4 @@
-// XWork Zen Plan 完整端到端验收：真实 Go New API（隔离实例）+ 真实 Chrome + 真实 CLI 构建产物 + 真实 PTY TUI。
+// Aiscoo Zen Plan 完整端到端验收：真实 Go New API（隔离实例）+ 真实 Chrome + 真实 CLI 构建产物 + 真实 PTY TUI。
 // 用法：node run.mjs --backend <new-api binary> [--case=<name>]...
 import { access, constants, readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
@@ -114,9 +114,9 @@ const cases = {
       await tui.type("/login");
       await tui.waitFor("Set up a Coding Plan provider");
       await tui.key("enter");
-      await tui.waitFor("> XWork Zen Plan");
+      await tui.waitFor("> Aiscoo Zen Plan");
       await tui.key("enter");
-      await tui.waitFor("Waiting for XWork Zen Plan authorization");
+      await tui.waitFor("Waiting for Aiscoo Zen Plan authorization");
       // 屏幕折行随端口/state 长度变化；以 TUI 交给平台浏览器命令的原始 URL 为准，并核对屏幕也展示了同一 URL。
       const url = await device.waitForOpenedUrl();
       const shown = await tui.authorizeUrl();
@@ -126,7 +126,7 @@ const cases = {
       const authorization = await authorizeInBrowser(session, url, { account: context.accounts.bob });
       await session.close();
       check(authorization.callbackStatus === 200, `browser delivered the loopback callback (status ${authorization.callbackStatus})`);
-      await tui.waitFor(/Signed in to XWork Zen Plan as \S+\. Select a Zen model with \/model\./, 30_000, { inHistory: true });
+      await tui.waitFor(/Signed in to Aiscoo Zen Plan as \S+\. Select a Zen model with \/model\./, 30_000, { inHistory: true });
       await tui.type("/model");
       await tui.key("enter");
       await tui.waitFor(ACCEPTANCE_MODEL_ID, 20_000);
@@ -139,7 +139,7 @@ const cases = {
       await tui.waitFor(ACCEPTANCE_MARKER, 60_000, { inHistory: true });
       await tui.type("/logout zen");
       await tui.key("enter");
-      await tui.waitFor("Signed out of XWork Zen Plan.", 30_000, { inHistory: true });
+      await tui.waitFor("Signed out of Aiscoo Zen Plan.", 30_000, { inHistory: true });
       check(activeSessions(context.backend, "bob", "xwork-cli").length === 0, "TUI logout revoked bob's CLI SID");
     } finally {
       await tui.close();
@@ -155,9 +155,9 @@ const cases = {
       await tui.type("/login");
       await tui.waitFor("Set up a Coding Plan provider");
       await tui.key("enter");
-      await tui.waitFor("> XWork Zen Plan");
+      await tui.waitFor("> Aiscoo Zen Plan");
       await tui.key("enter");
-      await tui.waitFor("Waiting for XWork Zen Plan authorization");
+      await tui.waitFor("Waiting for Aiscoo Zen Plan authorization");
       const url = await device.waitForOpenedUrl();
       await tui.key("escape");
       await tui.waitFor("Choose a login or API key setup method.");
@@ -166,7 +166,7 @@ const cases = {
       await sleep(3000);
       await session.close();
       check(activeSessions(context.backend, "carol", "xwork-cli").length === 0, "late authorization after Esc leaves no active CLI SID");
-      check(!(await tui.screen()).includes("Signed in to XWork Zen Plan"), "TUI does not report success after cancel");
+      check(!(await tui.screen()).includes("Signed in to Aiscoo Zen Plan"), "TUI does not report success after cancel");
     } finally {
       await tui.close();
     }

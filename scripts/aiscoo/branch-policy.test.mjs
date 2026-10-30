@@ -1,8 +1,17 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -35,11 +44,12 @@ function repository(t) {
     return result.stdout.trim();
   }
   git(["init", "--quiet", "--initial-branch=main", "--template="]);
+  git(["config", "diff.renames", "true"]);
   const emptyTree = git(["mktree"], "");
-  function logTree(content) {
+  function logTree(content, directory = "xcode") {
     const blob = git(["hash-object", "-w", "--stdin"], content);
-    const aiscoo = git(["mktree"], `100644 blob ${blob}\tupstream-sync-log.md\n`);
-    const docs = git(["mktree"], `040000 tree ${aiscoo}\taiscoo\n`);
+    const log = git(["mktree"], `100644 blob ${blob}\tupstream-sync-log.md\n`);
+    const docs = git(["mktree"], `040000 tree ${log}\t${directory}\n`);
     return git(["mktree"], `040000 tree ${docs}\tdocs\n`);
   }
   function commit(parents, subject, tree = emptyTree) {
@@ -49,9 +59,10 @@ function repository(t) {
     git(["update-ref", name, sha]);
   }
   const root = commit([], "root");
-  const release = commit([root], "product change");
+  const baseTree = logTree("Existing sync record\n");
+  const release = commit([root], "product change", baseTree);
   const upstream = commit([root], "upstream change");
-  const tree = logTree("Upstream change\n");
+  const tree = logTree("Existing sync record\nUpstream change\n");
   ref("refs/heads/main", upstream);
   ref("refs/remotes/origin/main", upstream);
   ref("refs/remotes/origin/release", release);
@@ -71,7 +82,20 @@ function repository(t) {
   function sync(syncTree = tree) {
     return commit([release, upstream], "sync: merge upstream", syncTree);
   }
-  return { commit, ref, run, pr, sync, root, release, upstream, tree, emptyTree };
+  return {
+    commit,
+    ref,
+    run,
+    pr,
+    sync,
+    logTree,
+    root,
+    release,
+    upstream,
+    tree,
+    baseTree,
+    emptyTree,
+  };
 }
 
 function accepts(result) {
@@ -83,11 +107,39 @@ function rejects(result, reason) {
   assert.match(result.stderr, reason);
 }
 
+test("the historical sync log keeps working relative documentation links", () => {
+  const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
+  const logPath = join(repoRoot, "docs/xcode/upstream-sync-log.md");
+  const log = readFileSync(logPath, "utf8");
+  const links = [...log.matchAll(/\]\((\.\.?\/[^)#]+)(?:#[^)]*)?\)/g)].map((match) =>
+    fileURLToPath(
+      new URL(match[1], new URL("../../docs/xcode/upstream-sync-log.md", import.meta.url)),
+    ),
+  );
+  assert.ok(links.length > 0);
+  for (const target of links) assert.ok(existsSync(target), `missing historical link: ${target}`);
+  assert.equal(existsSync(join(repoRoot, "docs/aiscoo/upstream-sync-log.md")), false);
+});
+
 test("upstream sync merges into release with mirror and sync-log requirements", (t) => {
   const repo = repository(t);
   accepts(repo.pr(repo.sync(), "sync/upstream-20261019"));
   rejects(repo.pr(repo.sync(), "sync/upstream-20261019", "main"), /必须是 release/);
-  rejects(repo.pr(repo.sync(repo.emptyTree), "sync/upstream-20261019"), /必须更新/);
+  rejects(
+    repo.pr(repo.sync(repo.baseTree), "sync/upstream-20261019"),
+    /必须更新.*docs\/xcode\/upstream-sync-log\.md/,
+  );
+  rejects(
+    repo.pr(repo.sync(repo.emptyTree), "sync/upstream-20261019"),
+    /必须更新.*docs\/xcode\/upstream-sync-log\.md/,
+  );
+  rejects(
+    repo.pr(
+      repo.sync(repo.logTree("Existing sync record\nUpstream change\n", "aiscoo")),
+      "sync/upstream-20261019",
+    ),
+    /必须更新.*docs\/xcode\/upstream-sync-log\.md/,
+  );
   rejects(repo.pr(repo.release, "sync/upstream-20261019"), /没有引入新的上游/);
   rejects(
     repo.pr(
@@ -103,9 +155,24 @@ test("upstream sync merges into release with mirror and sync-log requirements", 
 test("ordinary branches cannot carry upstream history, edit the sync log or target main", (t) => {
   const repo = repository(t);
   rejects(repo.pr(repo.sync(), "feature/sneak-upstream"), /尚未进入 release 的上游/);
-  accepts(repo.pr(repo.commit([repo.release], "feat: product"), "feature/product"));
+  accepts(repo.pr(repo.commit([repo.release], "feat: product", repo.baseTree), "feature/product"));
   rejects(
     repo.pr(repo.commit([repo.release], "docs: log", repo.tree), "fix/log"),
+    /docs\/xcode\/upstream-sync-log\.md.*只能在上游同步 PR/,
+  );
+  rejects(
+    repo.pr(repo.commit([repo.release], "docs: delete log", repo.emptyTree), "fix/log"),
+    /只能在上游同步 PR/,
+  );
+  rejects(
+    repo.pr(
+      repo.commit(
+        [repo.release],
+        "docs: move log",
+        repo.logTree("Existing sync record\n", "aiscoo"),
+      ),
+      "fix/log",
+    ),
     /只能在上游同步 PR/,
   );
   rejects(
@@ -128,9 +195,114 @@ test("push validates branch names and protects release and main", (t) => {
   accepts(push("main", repo.root, repo.upstream));
 });
 
-test("merge guard rejects squashed synchronization and accepts merge commits", (t) => {
+test("pre-push executes policy and forwards refs to verification on a real Git push", (t) => {
+  if (process.platform === "win32") {
+    t.skip("Git hook fixture uses a POSIX shell executable");
+    return;
+  }
+  const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
+  const root = mkdtempSync(join(tmpdir(), "aiscoo-pre-push-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const remote = join(root, "remote.git");
+  const working = join(root, "working");
+  const marker = join(root, "verify-input");
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([key]) => !key.startsWith("GIT_") && !key.startsWith("ZCODE_") && key !== "HUSKY",
+    ),
+  );
+  Object.assign(env, {
+    HOME: root,
+    XDG_CONFIG_HOME: join(root, "config"),
+    GIT_CONFIG_NOSYSTEM: "1",
+    GIT_CONFIG_GLOBAL: "/dev/null",
+    GIT_AUTHOR_NAME: "Branch policy test",
+    GIT_AUTHOR_EMAIL: "policy@example.invalid",
+    GIT_COMMITTER_NAME: "Branch policy test",
+    GIT_COMMITTER_EMAIL: "policy@example.invalid",
+    GIT_TERMINAL_PROMPT: "0",
+    PATH: `${dirname(process.execPath)}:${process.env.PATH}`,
+    VERIFY_MARKER: marker,
+  });
+  mkdirSync(working);
+  function git(cwd, ...args) {
+    const result = spawnSync("git", args, { cwd, env, encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr || result.error?.message);
+    return result.stdout.trim();
+  }
+  git(root, "init", "--bare", "--quiet", "--template=", remote);
+  git(working, "init", "--quiet", "--initial-branch=fix/product", "--template=");
+  mkdirSync(join(working, ".husky/_"), { recursive: true });
+  mkdirSync(join(working, "scripts/aiscoo"), { recursive: true });
+  mkdirSync(join(working, "node_modules/.bin"), { recursive: true });
+  copyFileSync(join(repoRoot, ".husky/pre-push"), join(working, ".husky/pre-push"));
+  copyFileSync(policy, join(working, "scripts/aiscoo/branch-policy.mjs"));
+  const hook = join(working, ".husky/_/pre-push");
+  // CI 的 policy job 未安装依赖；按 Husky 的 sh -e 语义执行真实 hook，不依赖 node_modules。
+  writeFileSync(
+    hook,
+    '#!/usr/bin/env sh\nPATH="node_modules/.bin:$PATH"\nexport PATH\nexec sh -e "$(dirname "$0")/../pre-push" "$@"\n',
+  );
+  chmodSync(hook, 0o755);
+  const pnpm = join(working, "node_modules/.bin/pnpm");
+  writeFileSync(
+    pnpm,
+    '#!/usr/bin/env sh\n[ "$1" = run ] && [ "$2" = verify:pre-push ] || exit 90\nprintf "%s" "$ZCODE_PRE_PUSH_STDIN" > "$VERIFY_MARKER"\nexit "${VERIFY_EXIT:-0}"\n',
+  );
+  chmodSync(pnpm, 0o755);
+  git(working, "config", "core.hooksPath", ".husky/_");
+  writeFileSync(join(working, "product.txt"), "base\n");
+  git(working, "add", "product.txt");
+  git(working, "commit", "--quiet", "-m", "base");
+  const base = git(working, "rev-parse", "HEAD");
+  git(root, "--git-dir", remote, "fetch", "--quiet", working, `${base}:refs/heads/release`);
+  writeFileSync(join(working, "product.txt"), "change\n");
+  git(working, "commit", "--quiet", "-am", "feature");
+  const head = git(working, "rev-parse", "HEAD");
+  const push = (target, overrides = {}) =>
+    spawnSync("git", ["push", remote, `HEAD:refs/heads/${target}`], {
+      cwd: working,
+      env: { ...env, ...overrides },
+      encoding: "utf8",
+    });
+
+  const blocked = push("release");
+  assert.notEqual(blocked.status, 0);
+  assert.match(blocked.stderr, /禁止直接推送/);
+  assert.equal(existsSync(marker), false);
+  assert.equal(git(root, "--git-dir", remote, "rev-parse", "refs/heads/release"), base);
+
+  const failed = push("fix/product", { VERIFY_EXIT: "23" });
+  assert.notEqual(failed.status, 0);
+  assert.equal(readFileSync(marker, "utf8"), `HEAD ${head} refs/heads/fix/product ${zero}`);
+  const missing = spawnSync(
+    "git",
+    ["--git-dir", remote, "show-ref", "--verify", "--quiet", "refs/heads/fix/product"],
+    { env },
+  );
+  assert.equal(missing.status, 1);
+
+  const allowed = push("fix/product");
+  assert.equal(allowed.status, 0, allowed.stderr);
+  assert.equal(readFileSync(marker, "utf8"), `HEAD ${head} refs/heads/fix/product ${zero}`);
+  assert.equal(git(root, "--git-dir", remote, "rev-parse", "refs/heads/fix/product"), head);
+});
+
+test("merge guard rejects squashed synchronization and accepts ordinary and merge commits", (t) => {
   const repo = repository(t);
   accepts(repo.run("guard-merge", { BEFORE: repo.release, AFTER: repo.sync() }));
-  const squash = repo.commit([repo.release], "sync: squashed upstream", repo.tree);
+  const ordinary = repo.commit([repo.release], "feat: product", repo.baseTree);
+  accepts(repo.run("guard-merge", { BEFORE: repo.release, AFTER: ordinary }));
+  const squash = repo.commit([repo.release], "sync: squashed upstream", repo.baseTree);
   rejects(repo.run("guard-merge", { BEFORE: repo.release, AFTER: squash }), /单父提交/);
+  const changedLog = repo.commit([repo.release], "feat: disguised sync", repo.tree);
+  rejects(repo.run("guard-merge", { BEFORE: repo.release, AFTER: changedLog }), /单父提交/);
+  const deletedLog = repo.commit([repo.release], "feat: delete log", repo.emptyTree);
+  rejects(repo.run("guard-merge", { BEFORE: repo.release, AFTER: deletedLog }), /单父提交/);
+  const movedLog = repo.commit(
+    [repo.release],
+    "feat: move log",
+    repo.logTree("Existing sync record\n", "aiscoo"),
+  );
+  rejects(repo.run("guard-merge", { BEFORE: repo.release, AFTER: movedLog }), /单父提交/);
 });

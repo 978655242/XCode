@@ -210,7 +210,9 @@ describe("XWork public legal links", () => {
   });
 
   it("removes stale legal information when the rendered provider is no longer configured", async () => {
-    const view = mount(createElement(AiscooLegalLinks, { providers: [native], placement: "login" }));
+    const view = mount(
+      createElement(AiscooLegalLinks, { providers: [native], placement: "login" }),
+    );
     expect(screen.getAllByRole("link")).toHaveLength(2);
     view.rerender(
       createElement(ServiceProvider, {

@@ -1,12 +1,9 @@
-"""Animated flat 'aiscoo' wordmark: the peeking a pops out, glances around, blinks, eyes the i-dot (which hops), ducks back."""
+"""Canonical seconds-based robot timeline and compatible legacy animation entry points."""
 import re
 from pathlib import Path
-from build import svg, INK, PAPER, wordmark as flat_wordmark
-from q3d import SX, SW, TOP, BOT, HX, HY, HR, GAP
+from build import INK, PAPER
 
 OUT = Path(__file__).parent
-EYES = (31.5, 47.5)
-EY, ERX, ERY = 57, 6.5, 9
 
 CYCLE = 10.0
 
@@ -90,37 +87,24 @@ CSS += """
 
 
 def peeking_a(fg, bg, u):
-    """In the 100-unit mark box. Head is clipped left of the wall, so sliding right = hiding behind it."""
-    r = SW / 2
-    wall = (f'<path d="M{SX} {TOP+r}A{r} {r} 0 0 1 {SX+SW} {TOP+r}V{BOT-2.5}Q{SX+SW} {BOT} {SX+SW-2.5} {BOT}'
-            f'H{SX+2.5}Q{SX} {BOT} {SX} {BOT-2.5}Z" fill="{fg}"/>')
-    eyes = "".join(f'<ellipse class="eye" cx="{x}" cy="{EY}" rx="{ERX}" ry="{ERY}" fill="{bg}"/>' for x in EYES)
-    head = (f'<g class="head"><g class="tilt"><circle cx="{HX}" cy="{HY}" r="{HR}" fill="{fg}"/>'
-            f'<g clip-path="url(#{u}hc)"><g class="eyes">{eyes}</g></g></g></g>')
-    defs = (f'<clipPath id="{u}hide"><rect x="-40" y="-40" width="{SX-GAP+40}" height="180"/></clipPath>'
-            f'<clipPath id="{u}hc"><circle cx="{HX}" cy="{HY}" r="{HR-1}"/></clipPath>')
-    return defs, f'<g clip-path="url(#{u}hide)">{head}</g>{wall}'
+    # 原因：旧实验独立绘制椭圆眼；延迟导入正式几何，避免 ai → anim 的循环依赖。
+    import ai
+    defs, head = ai.head(fg, bg, u, tucked=True)
+    return defs, head + ai.i_only(fg)
 
 
 def animated_lockup(fg, bg, u, pad=40, h=200, with_bg=True):
-    wm, ww = flat_wordmark(fg, "g")
-    wm = re.sub(r'<circle [^>]*/>', '', wm, count=1)                          # original a bowl
-    wm = re.sub(r'<path d="M[0-9.]+ 0V100"[^>]*/>', '', wm, count=1)          # original a stem
-    wm = re.sub(r'</g><path d="M[^"]*Q[^"]*"[^>]*/>', '</g>', wm, count=1)    # sparkle
-    wm = re.sub(r'<circle (cx="[0-9.]+" cy="-19")', r'<circle class="idot" \1', wm, count=1)
-    assert 'class="idot"' in wm
-    s = 100 / 61
-    d, a = peeking_a(fg, bg, u)
-    body = (f'<style>{CSS}</style>'
-            f'<g transform="translate({pad} {(h-100)/2+14})">'
-            f'<g transform="translate({-18*s:.2f} {-TOP*s-2:.2f}) scale({s:.4f})">{a}</g>'
-            f'<g transform="translate(14 0)">{wm}</g></g>')
-    return svg(pad * 2 + ww + 14, h, body, d, bg if with_bg else None)
+    import ai
+    result = ai.lockup(fg, bg, u, animated=True, pad=pad, h=h, tucked=True)
+    if not with_bg:
+        result = re.sub(r'(<defs>.*?</defs>)<rect width="[^"]+" height="[^"]+" fill="[^"]+"/>',
+                        r'\1', result, count=1, flags=re.S)
+    return result
 
 
 def animated_mark(fg, bg, u):
-    d, a = peeking_a(fg, bg, u)
-    return svg(100, 100, f'<style>{CSS}</style><g transform="translate(-4 -6)">{a}</g>', d)
+    import ai
+    return ai.mark(fg, bg, u, animated=True, tucked=True)
 
 
 if __name__ == "__main__":

@@ -230,6 +230,8 @@ mount("zh-CN");
       win.webContents.executeJavaScript(`window.setScene(${JSON.stringify(next)})`);
     const body = () => win.webContents.executeJavaScript("document.body.innerText");
     await waitFor('document.body.innerText.includes("未开通，开通后启用")');
+    assert.match(await body(), /Aiscoo Zen/);
+    assert.doesNotMatch(await body(), /XWork Zen/);
     assert.match(await body(), /¥98\.00/);
     const teamDisabled = await win.webContents.executeJavaScript(
       '[...document.querySelectorAll("button")].find(e=>e.textContent.includes("团队套餐")).disabled',

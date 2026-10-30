@@ -73,6 +73,10 @@ ZCODE_DATA_BASE_DIR="$HOME/.zcode-dev-home" pnpm dev:desktop:test
 
 ### Web Development
 
+For the browser app with an Aiscoo account, start aiscoo-admin and run `pnpm dev:aiscoo:web`, then open `http://127.0.0.1:5174`. This starts no Electron process. The default account service is `http://127.0.0.1:3001`; set `NEW_API_BASE_URL` to use another supported service. If the page port is occupied, set `AISCOO_LOCAL_WEB_PORT` and open the corresponding address. See the [local Web specification](docs/aiscoo/specs/local-web-new-api.md) for details.
+
+The `pnpm dev:web` command below retains the upstream Web development and official-account behavior. Use the Aiscoo entry above when signing in through aiscoo-admin.
+
 Use development mode when editing Web or backend source code:
 
 ```bash
@@ -126,7 +130,7 @@ pnpm --filter @zcode/cli... build
 node apps/zcode-cli/packages/cli/dist/zcode.cjs --help
 ```
 
-This entry runs the Agent CLI directly and does not handle the distribution's `--web` switch. Use `pnpm dev:web` for Web development, or the extracted `bin/zcode.mjs` shown below to test the unified command.
+This entry runs the Agent CLI directly and does not handle the distribution's `--web` switch. Use `pnpm dev:aiscoo:web` for Web development with aiscoo-admin, or the extracted `bin/zcode.mjs` shown below to test the unified command.
 
 ### UI Plugin development
 

@@ -25,9 +25,41 @@ def splash(theme):
     return f'<iframe srcdoc="{html.escape(s, quote=True)}" title="启动页 {theme}"></iframe>'
 
 
+def frozen_frame(name, time, identity, width=120):
+    source = (PKG / name).read_text()
+    # 同一生产 SVG 时间轴冻结在指定时刻；唯一 id 防止裁剪引用串帧。
+    ids = re.findall(r'id="([^"]+)"', source)
+    for original in ids:
+        source = source.replace(f'id="{original}"', f'id="{identity}-{original}"').replace(
+            f'url(#{original})', f'url(#{identity}-{original})')
+    source = source.replace('<style>', '<style>svg[data-frame] *{animation-play-state:paused!important;'
+                            'animation-delay:var(--frame-delay)!important}')
+    return source.replace('<svg ', f'<svg data-frame="{identity}" '
+                          f'style="--frame-delay:-{time}s;width:{width}px;height:auto" ', 1)
+
+
+def expression_frames():
+    return "".join(
+        f'<figure>{frozen_frame("splash/ai-animated-light.svg", time, f"review-{index}")}'
+        f'<figcaption>{time:g}s · {label}</figcaption></figure>'
+        for index, (time, label) in enumerate((
+            (1.5, "侧看"), (1.835, "短眨眼"), (2.976, "看圆点"),
+            (3.52, "蓄力"), (3.82, "腾空笑眼"), (4.10, "落地轻压"),
+            (4.27, "小回弹"), (4.9, "笑眼停留"), (5.7, "恢复常态"), (6.608, "收回"))))
+
+
+def expression_sizes():
+    return "".join(
+        f'<div class="card {"dark" if theme == "dark" else ""}"><div class="sizes">' +
+        "".join(f'<figure>{frozen_frame(f"splash/ai-animated-{theme}.svg", 4.9, f"size-{theme}-{w}", w)}'
+                f'<figcaption>{w}px</figcaption></figure>' for w in (64, 32, 24, 20)) +
+        f'{frozen_frame(f"logo-animated/aiscoo-animated-{theme}.svg", 4.9, f"header-{theme}", 240)}</div></div>'
+        for theme in ("light", "dark"))
+
+
 def sizes(name):
     return "".join(f'<figure>{img(name, f"width:{w}px")}<figcaption>{w}px</figcaption></figure>'
-                   for w in (128, 64, 32, 16))
+                   for w in (128, 64, 32, 20, 16))
 
 
 CSS = """
@@ -46,7 +78,9 @@ h2{margin:0;font-size:15px;color:#121317}
 .card img{display:block;max-width:100%}
 .wide img{width:100%}
 iframe{display:block;width:100%;height:280px;border:0;border-radius:16px;background:#fff}
-.sizes{display:flex;gap:28px;align-items:flex-end;padding:20px}
+.sizes{display:flex;flex-wrap:wrap;justify-content:center;gap:28px;align-items:flex-end;padding:20px}
+.frames{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;background:white;border-radius:16px;padding:16px}
+.frames svg{width:120px;height:120px}
 figure{margin:0;display:grid;justify-items:center;gap:6px}
 figcaption{font-size:12px;color:#9CA3AF}
 table{border-collapse:collapse;background:#fff;border-radius:16px;overflow:hidden;font-size:13px}
@@ -72,11 +106,15 @@ def main():
     page = f"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Aiscoo Logo 预览</title>
 <style>{CSS}</style></head><body><main>
-<header><h1>Aiscoo Logo</h1><p>a 是躲在 i 后面的 AI：探出、张望、看圆点、圆点跳动、眨眼、缩回，8 秒一轮，缩回后停约 3.7 秒。</p></header>
+<header><h1>Aiscoo Logo</h1><p>a 是躲在 i 后面的 AI：探出、张望、短眨眼、看圆点、开心弹跳、笑眼停留、缩回。10 秒一轮，缩回后停约 3.7 秒。</p></header>
 
 <section><h2>应用 Logo · 动效</h2>
 <div class="row"><div class="card wide">{img("logo-animated/aiscoo-animated-light.svg")}</div>
 <div class="card wide dark">{img("logo-animated/aiscoo-animated-dark.svg")}</div></div></section>
+
+<section><h2>表情分镜 · 同一条 10 秒时间轴</h2><div class="frames">{expression_frames()}</div></section>
+
+<section><h2>笑眼 · 小尺寸与 240px 页头</h2><div class="row">{expression_sizes()}</div></section>
 
 <section><h2>启动页</h2><p class="note">首帧和"减少动态效果"时显示收起状态。</p>
 <div class="row">{splash("light")}{splash("dark")}</div></section>

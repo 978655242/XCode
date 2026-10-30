@@ -113,12 +113,15 @@ Share 自己承接页面级纵向滚动，不改变全局 `body/#root { overflow
 滚动之间保持独立。`MessageResponse` 的公开模式由一次性的 `TooltipProvider`、只读外链 handler 和
 citation 清理组成：本地 citation 不泄漏路径，无法匹配公开 artifact 时不渲染协议 directive。
 
-公开分享页顶部固定栏始终保持单行 64px 高度。`ZCode` 品牌、分享标题和继续 CTA 使用同一条连续
-几何轨道；完整 CTA 无法为标题保留最小可见宽度时，切换为保留可访问名称的图标 CTA，再让标题
+公开分享页顶部固定栏始终保持单行 64px 高度。品牌使用 `AiscooWordmark` 渲染静态小写 `aiscoo`
+字标，宽 80px、高度按原稿比例自适应，可访问名称为 Aiscoo；与 `ai` 标志共用浅深 SVG 和胶囊眼造型。
+资源及动态入口的 10 秒笑眼弹跳规则以 [Aiscoo 图标与显示名](aiscoo/branding/icon-spec.md) 为准；本页保持
+静态字标。品牌、分享标题和继续 CTA 使用同一条连续几何轨道；完整 CTA 无法为标题保留最小可见宽度时，
+切换为保留可访问名称的图标 CTA，再让标题
 通过 CSS ellipsis 收缩。完整标题仍保留在可访问名称/`title` 中。`public_readonly` 始终不显示
 CTA；该响应式策略只影响 Web landing page 的展示，不改变 Deep Link、权限或 Desktop/remote 行为。
 
-当分享可继续导入时，正文时间线末尾还显示一个与顶部 CTA 样式和行为一致的“去 ZCode 继续”按钮，
+当分享可继续导入时，正文时间线末尾还显示一个与顶部 CTA 样式和行为一致的“去 Aiscoo 继续”按钮，
 按钮在正文内容栏内水平居中并复用同一个 `zcode://share/import` deep link。点击顶部或底部任一入口
 都进入相同的自动打开提示流程；`public_readonly` 仍不显示任何继续入口。底部按钮属于正文流，
 不能遮挡最后一条分享内容，也不改变分享内容的只读语义。

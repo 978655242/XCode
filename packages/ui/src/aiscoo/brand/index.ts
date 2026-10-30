@@ -1,7 +1,8 @@
 import { createElement, type ReactElement } from "react";
 import { useDraftComposerCentering } from "./useDraftComposerCentering.js";
 import "./brand.css";
-import { brandMessageCatalog, PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
+import { NEW_API_PROVIDER_ID } from "@zcode/shared";
+import { brandMessageCatalog, PRODUCT_NAME, PRODUCT_WORDMARK } from "@zcode/shared/aiscoo-brand";
 import { useZCodeIntl, ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import type {
   AiscooBrandProps,
@@ -247,6 +248,12 @@ function aiscooMessageCatalog(messages: Record<string, string>): Record<string, 
   if (messages["login.description"] === "连接账号，开始使用 XWork") {
     catalog["login.description"] = "连接账号，开始使用";
   }
+  // 登录页只有一个主入口，按钮不再暴露第三方后端名称。
+  if (messages["login.oauth.button.native"] === "登录 New API") {
+    catalog["login.oauth.button.native"] = "登录";
+  } else if (messages["login.oauth.button.native"] === "Sign in to New API") {
+    catalog["login.oauth.button.native"] = "Sign in";
+  }
   return catalog;
 }
 
@@ -255,6 +262,11 @@ export function AiscooIntlProvider(
   props: import("./contract.js").AiscooIntlProviderProps,
 ): ReactElement {
   return createElement(ZCodeIntlProvider, { ...props, catalogTransform: aiscooMessageCatalog });
+}
+
+// 等待提示使用品牌字标名；原平台判断使桌面漏出 New API，仅投影展示名即可覆盖各端。
+export function resolveAiscooOAuthWaitingDisplayNames(): Readonly<Record<string, string>> {
+  return { [NEW_API_PROVIDER_ID]: PRODUCT_WORDMARK };
 }
 
 export { PRODUCT_NAME };

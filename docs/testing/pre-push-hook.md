@@ -3,7 +3,8 @@
 仓库现在通过 Husky 接管 Git 的 `pre-push`。
 
 - 安装依赖后会执行根脚本 `pnpm prepare`，自动完成 Husky 安装。
-- `pre-push` 会执行 `pnpm run verify:pre-push`。
+- `pre-push` 先将 Git 的 ref 列表传给 `scripts/aiscoo/branch-policy.mjs push`；策略通过后，原样传给 `pnpm run verify:pre-push`，任何一步失败都会阻止推送。
+- 回归验收在临时 Git 仓库中执行真实 push，验证受保护分支被拦截、合法分支进入后续验证，并核对 ref 列表及失败退出码。
 - 根 `pnpm test` 现在只跑单测，不再误把桌面端 `packages/desktop/test/e2e` 当成 Vitest 用例。
 - Bugfix：单测脚本里的 E2E exclude glob 必须加引号；否则 shell 会先把 `packages/desktop/test/e2e/**/*.test.ts` 展开成真实文件列表，导致 Vitest 把多余文件当成 filters，同时又被 exclude 排除，最终报 `No test files found` 并阻止 push。
 - `verify:pre-push` 依次执行 lint、架构检查和 push 范围的受影响单测；lint、架构检查、选中测试或脚本自身失败都会阻止 push。

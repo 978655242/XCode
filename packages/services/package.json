@@ -6,6 +6,7 @@
     "#src/*": "./src/*"
   },
   "exports": {
+    "./xwork-plugin-guides": "./src/xwork-plugin-guides/index.ts",
     "./aiscoo-plugin-guides": "./src/aiscoo-plugin-guides/index.ts",
     "./storage-startup": "./src/project-storage/startup-entry.ts",
     ".": "./src/index.ts",
@@ -20,6 +21,7 @@
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.21.1",
     "@larksuiteoapi/node-sdk": "1.64.0",
+    "@zcode/adapters": "workspace:*",
     "@zcode/provider": "workspace:*",
     "@zcode/provider-node": "workspace:*",
     "@zcode/rpc": "workspace:*",

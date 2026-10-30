@@ -303,7 +303,7 @@ GET /api/v1/client/configs   → data.configs.offPeak: { enable_offpeak_task }
 `OffPeakNewTaskEntry` 保留底部固定区的独立宽度约束，但当前不挂载到 New task 首页：横幅使用 `580px` 上限，三列模板按钮
 使用原布局的 `780px` 上限；两者都配合 `w-full` 向窄屏收缩，不依赖
 `@container/conversation` 断点做左右外扩。该宽度规则只作用于闲时入口自身，不得同步改变
-composer、标题、Z 图标或全局组件。
+composer、标题、Aiscoo 空态字标或全局组件；字标以 [Aiscoo 图标与显示名](../aiscoo/branding/icon-spec.md) 为准。
 
 Automations 主视图与备用的 New task 首页模板组件共享远程映射语义，但各自维护展示与 fallback 状态：
 Automations 只展示完整远程目录；首页模板区过滤远程 Customize，按目录顺序最多取前两条普通远程模板，

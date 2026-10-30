@@ -3,6 +3,10 @@
 import hashlib
 from pathlib import Path
 import re
+import shutil
+import subprocess
+import sys
+import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 
@@ -122,6 +126,46 @@ class RobotMotionTests(unittest.TestCase):
                 self.assertIn("height:3.6px", keyframes(css, "blink"))
                 self.assertIn("opacity:1", keyframes(css, "smile"))
         self.assertTrue(all(style == styles[0] for style in styles))
+
+    def test_legacy_generators_cannot_publish_an_old_robot_or_cycle(self):
+        # 原因：旧实验脚本可单独执行，不能在正式品牌升级后重新产出椭圆眼或旧周期。
+        source = ROOT / "docs/brand/aiscoo"
+        expected_css = ET.fromstring((source / "splash/ai-animated-light.svg").read_text()).find(NS + "style").text
+        with tempfile.TemporaryDirectory(prefix="aiscoo-legacy-brand-") as temporary:
+            package = Path(temporary) / "brand"
+            shutil.copytree(source, package, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+            scripts = package / "source"
+            for name in ("build.py", "q3d.py", "anim.py", "ai.py", "oo_preview.py"):
+                result = subprocess.run([sys.executable, "-B", str(scripts / name)],
+                                        cwd=temporary, capture_output=True, text=True, timeout=30)
+                self.assertEqual(result.returncode, 0, name + result.stdout + result.stderr)
+            assets = list(scripts.glob("*.svg"))
+            self.assertGreaterEqual(len(assets), 25)
+            for asset in assets:
+                with self.subTest(legacy_asset=asset.name):
+                    tree = ET.fromstring(asset.read_text())
+                    head = next(el for el in tree.iter() if el.get("class") == "head")
+                    self.assertEqual(head.get("transform"), "translate(21 0)")
+                    eyes = [el for el in head.iter() if el.get("class") == "eye"]
+                    self.assertEqual(len(eyes), 2)
+                    for eye in eyes:
+                        self.assertEqual(eye.tag, NS + "rect")
+                        self.assertEqual((eye.get("width"), eye.get("height")), ("7.4", "17.2"))
+                    self.assertIsNotNone(next((el for el in head.iter() if el.get("class") == "smile"), None))
+                    for style in tree.iter(NS + "style"):
+                        self.assertEqual(style.text, expected_css)
+            self.assertEqual((scripts / "oo-preview.html").read_bytes(), (package / "preview.html").read_bytes())
+            self.assertNotIn("oo 眼睛方案", (scripts / "oo-preview.html").read_text())
+
+    def test_design_archive_is_an_exact_mirror_of_the_canonical_package(self):
+        # 原因：工具归档曾独立保留旧 SVG 和二进制；完整文件集合与字节都须来自正式包。
+        def files(directory):
+            return {str(path.relative_to(directory)): hashlib.sha256(path.read_bytes()).hexdigest()
+                    for path in directory.rglob("*")
+                    if path.is_file() and "__pycache__" not in path.parts
+                    and path.suffix != ".pyc" and path.name != ".DS_Store"}
+        self.assertEqual(files(ROOT / ".skill-archive/logo-creator/Aiscoo-Logo-Final"),
+                         files(ROOT / "docs/brand/aiscoo"))
 
 
 if __name__ == "__main__":

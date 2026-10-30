@@ -1,10 +1,10 @@
-# XWork / New API 本机集成运行手册
+# Aiscoo / New API 本机集成运行手册
 
 客户端规则见 [spec](specs/new-api-integration.md)，认证、资金与管理员接口以 [New API canonical spec](../../../new-api/docs/specs/xcode-integration.md) 为唯一来源。实施与发布验收见 [执行计划](../superpowers/plans/2026-10-08-new-api-integration.md)。
 
 ## 本机一键启动（2026-10-19 当前部署）
 
-双击桌面 **`启动 XCode.command`**。入口位于 `scripts/aiscoo/启动 XCode.command`，只负责补启动或激活现有 XWork Dev；不是 Apple Xcode。需要 Docker Desktop、现有数据库/原生API部署、仓库依赖和已安装 Node24，不自动安装、拉镜像或更新业务构件。
+仓库启动入口为 **`scripts/aiscoo/启动 Aiscoo.command`**，只负责补启动或激活现有 Aiscoo Dev。需要 Docker Desktop、现有数据库/原生 API 部署、仓库依赖和已安装 Node 24，不自动安装、拉镜像或更新业务构件。桌面已有快捷入口的名称以本机实际文件为准。
 
 - 当前 API 是既有 launchd 作业 `com.new-api.local-backend`，binary及私密 `.env` 在 `~/Library/Application Support/new-api-local/`；使用现有 `new-api-local-postgres` 的 `127.0.0.1:15433/new_api`。这是已由用户确认复用的原生部署，下面旧容器/SQLite验收段落仅作为历史记录，不是当前启动规格。
 - 2026-10-29 用户确认升级后，3001 已部署含 aiscoo 授权文案/完整字标的新版，随后按追加要求移除权限下方灰色说明卡片及“应用 / xcode-desktop”行；当前 binary SHA-256 `19e1d14169f8540e27e6d5a34019f21ed241511964f2d94795e2b253beb90628`，启动清单的 binary 哈希同步。原配置、密钥、plist 和数据库连接保留；初次升级三数据库迁移与业务副本重复启动通过，后续卡片移除只重建内嵌前端、后端源码相同。实际前端/字标已回读，status 200、匿名 Me 401、启动错误 0，原列业务行摘要保留；最新回退备份及部署报告在 `~/.local/share/new-api-native/backups/xwork-auth-label-20261029T141718/`，初次升级备份在 `~/.local/share/new-api-native/backups/xwork-auth-20261029T125827/`，详见[授权页规格](specs/new-api-authorization-account-switch.md#2-页面与文案)。
@@ -23,6 +23,7 @@
 
 - Node 版本使用 `mise.toml`，pnpm 使用根 `package.json`。本次验证使用 Node 24.14.0 / pnpm 10.33.2。
 - 只有显式 `NEW_API_BASE_URL` 且本机桌面 Local Host 才启用私有组合，没有默认 3001。Main 安全库、Host 与 scheduler 使用相同 dotenv→已定义 process env 优先级；显式空 process 值遮蔽 dotenv。未配置的原非私有桌面、独立 Web/远程路径保留；已启用后任何认证、目录或资金错误都不回退到原官方身份或钱包。
+- 本机桌面开发环境的 workspace 根 `.env.development.local` 设置了 `NEW_API_BASE_URL=http://127.0.0.1:3001`。该文件被 `.gitignore` 忽略，不进入提交；桌面未打包开发态由 `loadHostProcessEnvFromLocalFiles()` 加载。此变量启用私有主账号，不会覆盖或重写 `.env.development` 里的独立官方服务地址；独立 Web 需按 [本机 Web 规格](specs/local-web-new-api.md) 使用单独的服务端接线。
 - Origin 必须是精确 origin，不能含路径、query、fragment、用户名或密码；HTTP 仅允许 loopback。生产操作员明确设置后端 `XCODE_INTEGRATION_ENABLED`、与客户端完全一致的 `XCODE_PUBLIC_ORIGIN`，并验证实际二进制、挂载及数据库。
 - 不复用 Z.ai/BigModel 的环境变量。它们继续属于独立官方连接；metadata、网页地址和 `server_address` 均不能改变私有 API origin。
 - 现有 3001 服务不能仅凭 `/api/status` 成功判定就绪。2026-10-18 授权页专项已获明确授权并切换真实 Go embed；当前 binary/assets、人工确认门槛和未完成边界见下节生产记录，不能沿用旧隔离报告的“未部署”结论。
@@ -108,7 +109,7 @@ macOS/Windows 使用 Electron `safeStorage`；Linux 的 `basic_text`、无可用
 
 - 管理员在 New API 为用户授予 canonical 的 `xcode` 专用实例。托管 relay key 只消费指定实例；钱包/general/其他订阅不兜底。renew、replace、revoke、reset 通过当前管理员接口及 revision 执行，不在客户端造订单或修改原生账户关系。
 - 客户端模板价格、指定实例、额度单位和 `quota_per_unit` 来自真实 metadata；保持原始十进制字符串。Unlimited 与未知指标明确区分，不把 unknown/null 变成零。
-- 前端仅展示 `account:new-api-openai-chat-completions`，名称为 `XWork`；模型设置、聊天选择和默认候选使用同一可见性规则。Responses/Messages anchor 保留底层协议与历史身份，但不向前端开放；旧选择须手动重选，不自动转换协议。管理员需将供 XWork 使用的模型配置为真实可用的 Chat Completions transport。
+- 前端仅展示 `account:new-api-openai-chat-completions`，名称为 `Aiscoo Zen`；模型设置、聊天选择和默认候选使用同一可见性规则。Responses/Messages anchor 保留底层协议与历史身份，但不向前端开放；旧选择须手动重选，不自动转换协议。管理员需将供 Aiscoo 使用的模型配置为真实可用的 Chat Completions transport。
 - 管理员维护真实 transport、完整 model properties 与 option/CEL maps。Native 本地配置只允许已有模型排序，不能覆盖托管能力、名称或可见性。缺失配置、非法 CEL、禁用模型或授权/catalog revision 不一致均不能获得可执行 ref；问题在目录 issue 投影中显示，不猜供应商默认能力。
 - 旧个人、企业、Start Plan ref 必须手动重选，即使 `model_id` 同名也不自动映射。Native 的 `off/nothink` 等历史值不转换为 `disabled`；未选、已删除或不支持的值保留原选择并要求重选。保留历史消息/ref 与用户自配 Provider/key/模型，不批量改写用户配置。
 - 模型设置现有刷新入口重新读取服务端目录；Renderer 重读 View 不代替 HTTP 刷新。首次后续提交等待 Host→Worker 串行交付的实际 `appliedRevision`；仅收到新目录或 `receivedRevision` 不代表可执行。纯能力更新保留旧 turn 的冻结配置，新 turn 重新绑定；owner/授权或模型资格失效仍取消/拒绝。Host 与 Worker 必须来自同版本产物，不支持旧 Native 鉴权字段兼容。当前私有链路仅本机 worker；远程私有 provisioning 明确 unsupported，原非私有远程功能不删除。

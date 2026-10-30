@@ -8,6 +8,7 @@ import {
   PLUGIN_GUIDE_SECTIONS,
   type PluginGuideLocale,
 } from "@zcode/shared/aiscoo-plugin-guides";
+import { PRODUCT_NAME } from "@zcode/shared/aiscoo-brand";
 
 type Mode = "held" | "complete" | "failure" | "continuation";
 type RequestRecord = { body: Record<string, unknown>; completed: boolean; aborted: boolean };
@@ -149,7 +150,7 @@ export async function startPluginGuideProvider(): Promise<PluginGuideProvider> {
     if (
       body.stream !== true ||
       typeof body.model !== "string" ||
-      !system.includes("plugin usage guides for XWork") ||
+      !system.includes(`plugin usage guides for ${PRODUCT_NAME}`) ||
       !system.includes(PLUGIN_GUIDE_DOCUMENT_START)
     ) {
       response.writeHead(422).end("Expected a streamed plugin guide request");

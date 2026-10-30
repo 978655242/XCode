@@ -125,6 +125,10 @@ export async function adoptModule({
 
   // 先用"假设已登记"的策略视图反推 requires，避免新模块的文件被算成它所在的 legacy 模块。
   const currentPolicy = await loadPolicy(cwd);
+  // XCODE: 别名已属于现有模块；禁止 adopt 写入重复身份或生成空壳后才发现冲突。
+  if (Object.hasOwn(currentPolicy.aliases, id)) {
+    throw new Error(`模块 id ${id} 是 ${currentPolicy.aliases[id]} 的别名，不能重复登记`);
+  }
   const virtualModule = {
     id,
     roots: absoluteRoots,

@@ -9,6 +9,9 @@ export const webRemoteControlModule = {
     "ui",
     "web",
     "web-remote-relay",
+    "xwork-brand-ui",
+    "xwork-brand",
+    // XCODE: 保留历史依赖，追加指向相同品牌契约的新 ID。
     "aiscoo-brand-ui",
     "aiscoo-brand",
   ],

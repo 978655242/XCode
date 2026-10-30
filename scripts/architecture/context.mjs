@@ -1,14 +1,15 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-import { discoverFiles, loadPolicy, moduleForFile, posix } from "./policy.mjs";
+import { canonicalModuleId, discoverFiles, loadPolicy, moduleForFile, posix } from "./policy.mjs";
 
 export async function generateContext({ cwd = process.cwd(), moduleId }) {
   const policy = await loadPolicy(cwd);
-  const module = policy.modules.find((item) => item.id === moduleId);
+  // XCODE: 旧 ID 查询与现有模块指向同一契约，避免阅读包丢失历史依赖。
+  const module = policy.modules.find((item) => item.id === canonicalModuleId(moduleId, policy));
   if (!module) throw new Error(`未知模块: ${moduleId}`);
   const files = await discoverFiles(policy);
-  const moduleFiles = files.filter((file) => moduleForFile(file, policy)?.id === moduleId);
+  const moduleFiles = files.filter((file) => moduleForFile(file, policy)?.id === module.id);
   const manifest = moduleFiles.find((file) => path.basename(file) === "module.ts");
   const contracts = moduleFiles.filter((file) => path.basename(file).startsWith("contract."));
   // CONTRACT.md 不是源码扩展名，不在 discoverFiles 结果里，要按 root 直接探测。
@@ -23,7 +24,9 @@ export async function generateContext({ cwd = process.cwd(), moduleId }) {
     )
   ).filter(Boolean);
   const contractDoc = contractDocs[0];
-  const dependencyContracts = module.requires.flatMap((dependencyId) => {
+  // XCODE: 新旧 ID 同时声明时只内联一次目标契约。
+  const dependencyIds = new Set(module.requires.map((id) => canonicalModuleId(id, policy)));
+  const dependencyContracts = [...dependencyIds].flatMap((dependencyId) => {
     const dependencyFiles = files.filter(
       (file) => moduleForFile(file, policy)?.id === dependencyId,
     );

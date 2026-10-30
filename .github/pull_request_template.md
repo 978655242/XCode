@@ -16,6 +16,6 @@
 - [ ] 通用功能按 `docs/aiscoo/UPSTREAM-EXTENSION.md`：先复用上游能力、再扩展，未改写上游函数实现，共享清单只追加
 - [ ] 已列出本 PR 修改、删除或改名的上游文件及理由（`git diff --no-renames --diff-filter=MD` 对照 `origin/main`），改动处有 `// XCODE: <原因>` 注释（严格 JSON、生成文件等不能写注释的格式，在上述清单中逐条说明），且无无关格式化
 - [ ] `git merge-tree --write-tree --name-only HEAD upstream/main` 预演结果已写入描述，无本 PR 新引入的冲突
-- [ ] 上游同步：已更新 `docs/aiscoo/upstream-sync-log.md`（分类、冲突取舍、拒绝原因）
+- [ ] 上游同步：已更新 `docs/xcode/upstream-sync-log.md`（分类、冲突取舍、拒绝原因）
 
 规范：`docs/aiscoo/UPSTREAM-EXTENSION.md`、`docs/aiscoo/BRANCHING.md`

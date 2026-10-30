@@ -6,7 +6,7 @@ Aiscoo 的只读界面品牌入口。品牌名称由 `@zcode/shared/aiscoo-brand
 
 启动动效使用用户原稿的 startup SVG；减少动态效果时只显示静态 mark。动效与静态图通过现有 motion-reduce 样式类切换，不向静默启动页面注入样式文本。初始对话空态使用完整 animated wordmark 的原稿字标几何和 10 秒自动循环。0–3.36 秒的探出、转眼／转头、眨眼与 i 圆点时刻保持不变，眼神先于轻微转头；3.36–4.50 秒切换笑眼，整头与眼睛一起蓄力纵向压缩 6%、上跳 8.2 头部单位（直径 61 的 13.4%）、落地压缩 5%、小回弹 2.1 头部单位，静止时恢复圆形。4.50–5.30 秒保持笑眼；5.30–5.55 秒恢复中性眼，随后停顿；6.032 秒开始收起，6.224 秒到预备位 x=-3，6.608 秒到收起位 x=21，沿用原轨迹和缓动，跨周期收起休息 3.68 秒。
 
-`docs/brand/aiscoo/source/anim.py` 唯一以秒定义时间轴与 `CYCLE = 10.0`，`source/ai.py` 提供共享几何，生产动画不再经过旧百分比缩放；旧实验预览兼容函数保留。aiscoo 与 aiscoo-admin 两仓的 ai／aiscoo 浅深资源同源生成；SVG 承载动作，UI 只消费资源，不增加 React 状态、鼠标交互或业务事件，原静态／动态展示入口保持不变。`prefers-reduced-motion` 关闭全部动画（含 bounce），保持中性眼、圆形头部与收起姿态。
+`docs/brand/aiscoo/source/anim.py` 唯一以秒定义时间轴与 `CYCLE = 10.0`，`source/ai.py` 提供共享几何，正式与旧预览入口都复用同一时间轴，旧百分比缩放已移除。aiscoo 与 aiscoo-admin 两仓的 ai／aiscoo 浅深资源同源生成；SVG 承载动作，UI 只消费资源，不增加 React 状态、鼠标交互或业务事件，原静态／动态展示入口保持不变。`prefers-reduced-motion` 关闭全部动画（含 bounce），保持中性眼、圆形头部与收起姿态。
 
 ```mermaid
 flowchart LR
@@ -30,5 +30,9 @@ flowchart LR
 ```
 
 `AiscooLoginHeader` 是登录头部的下游展示实现，包含完整动态字标和本地化说明，不渲染欢迎标题。Root 通过 `WelcomeScreen.header` 可选插槽装配；未传插槽时原登录页保留默认头部和完整 title／children 接口。品牌模块不引用或包装登录业务组件，不拥有 OAuth 状态。
+
+Root 同时向 `WelcomeScreen` 传入可选 `hideApiKeyLogin`，隐藏“使用 API key”入口；未传时保留上游默认入口。主按钮文案由 `AiscooIntlProvider` 将 `login.oauth.button.native` 投影为“登录”（英文 “Sign in”），不改原词典。
+
+Root 通过 `oauthWaitingDisplayNames` 装配本模块的等待提示展示名：桌面、本机 Web 及其他 Web 的 `new-api` 均显示共享品牌配置中的小写 `aiscoo`，中文为“等待 aiscoo 完成认证...”，英文为“Waiting for aiscoo authentication...”。取消和登录仍使用原 provider ID，其他 provider 保留原名称；未传映射的上游登录页保留原默认行为。
 
 不新增状态、持久化或 IO。`AiscooIntlProvider` 通过原 Provider 可选 `catalogTransform` 在字典装配及插值前投影静态产品文案；原 Provider 默认词典不变；用户值、供应商名称、协议和路径不在此处重写。

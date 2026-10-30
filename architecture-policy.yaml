@@ -304,7 +304,8 @@ modules:
       - packages/desktop/src/renderer/src/plugin-sandbox
     managed: true
     # XCODE: 原生插件授权文案消费独立品牌契约，不改变沙箱或审批状态所有者。
-    requires: [desktop, shared, mcp-apps-protocol, gen-ui-protocol, aiscoo-brand]
+    # XCODE: 保留历史依赖，并追加新品牌 ID；两者由下游策略映射到同一模块。
+    requires: [desktop, shared, mcp-apps-protocol, gen-ui-protocol, xwork-brand, aiscoo-brand]
     publicEntrypoints:
       [
         packages/desktop/src/host/pluginSandbox/index.ts,
@@ -462,6 +463,8 @@ modules:
     requires:
       - ui
       # XCODE: 下游产品标志通过独立品牌模块提供，保留原有 mobile-ui 边界。
+      - xwork-brand-ui
+      # XCODE: 新旧品牌 ID 指向同一模块，历史清单条目保持不变。
       - aiscoo-brand-ui
     publicEntrypoints:
       - packages/ui/src/components/mobile-ui/index.ts
@@ -519,6 +522,9 @@ modules:
       - web
       - web-remote-relay
       # XCODE: 产品自有静态文案与图片统一使用只读品牌契约。
+      - xwork-brand
+      - xwork-brand-ui
+      # XCODE: 追加新品牌 ID，历史依赖继续由同一模块提供。
       - aiscoo-brand
       - aiscoo-brand-ui
     publicEntrypoints:

@@ -5,6 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- XCODE: 桌面页面标题与应用展示名保持一致。 -->
     <title>Aiscoo</title>
+    <script>
+      // XCODE: 启动壳早于 React；按现有主题偏好绘制首帧，避免系统外观与应用主题不同时闪色。
+      (() => {
+        let saved;
+        try {
+          saved = localStorage.getItem("zcode-theme");
+        } catch {
+          saved = null;
+        }
+        const dark = saved === "system"
+          ? window.matchMedia("(prefers-color-scheme: dark)").matches
+          : !saved || saved === "dark" || saved === "zai-dark";
+        document.documentElement.classList.toggle("dark", dark);
+        document.documentElement.classList.toggle("theme-zai-dark", dark);
+        document.documentElement.classList.toggle("theme-zai-light", !dark);
+      })();
+    </script>
     <style>
       html,
       body,
@@ -30,7 +47,13 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        /* XCODE: 透明窗口会透出系统材质，启动壳使用与 React 阻塞页一致的主题背景。 */
+        background: var(--color-background, #f8f8f8);
         transition: opacity 0.16s ease;
+      }
+
+      html.dark #loading {
+        background: var(--color-background, #161616);
       }
 
       body.zcode-startup-ready #loading {
@@ -53,18 +76,15 @@
       }
 
       .startup-logo { width: 96px; height: 96px; object-fit: contain; }
+      /* XCODE: 根据应用主题类选择图稿，与 React 启动页保持一致。 */
       .aiscoo-startup-dark, .aiscoo-startup-still { display: none; }
-      @media (prefers-color-scheme: dark) {
-        .aiscoo-startup-motion.aiscoo-startup-light { display: none; }
-        .aiscoo-startup-motion.aiscoo-startup-dark { display: block; }
-      }
+      html.dark .aiscoo-startup-motion.aiscoo-startup-light { display: none; }
+      html.dark .aiscoo-startup-motion.aiscoo-startup-dark { display: block; }
       @media (prefers-reduced-motion: reduce) {
         .aiscoo-startup-motion { display: none !important; }
         .aiscoo-startup-still.aiscoo-startup-light { display: block; }
-      }
-      @media (prefers-reduced-motion: reduce) and (prefers-color-scheme: dark) {
-        .aiscoo-startup-still.aiscoo-startup-light { display: none; }
-        .aiscoo-startup-still.aiscoo-startup-dark { display: block; }
+        html.dark .aiscoo-startup-still.aiscoo-startup-light { display: none; }
+        html.dark .aiscoo-startup-still.aiscoo-startup-dark { display: block; }
       }
 
       @keyframes startup-logo-pop {

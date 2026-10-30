@@ -1,4 +1,4 @@
-"""Aiscoo brand assets, following Accio Work's system: heavy black letterform + glowing AI light."""
+"""Shared SVG/letter helpers and legacy filenames delegating to the canonical Aiscoo design."""
 import math
 from pathlib import Path
 
@@ -24,16 +24,10 @@ def sparkle(cx, cy, R, fill, k=0.13):
 
 
 def mark(fg, gid, glow=False, spark_fill=None):
-    """Heavy single-storey 'a'; the counter holds an AI sparkle, a smaller spark rides the stem."""
-    cx, cy, r, sw = 43, 57, 26, 17
-    body = (f'<g fill="none" stroke="{fg}" stroke-width="{sw}" stroke-linecap="round">'
-            f'<circle cx="{cx}" cy="{cy}" r="{r}"/><path d="M{cx+r} {cy-r}V{cy+r+sw/2-0.5}" '
-            f'stroke-linecap="butt"/></g>'
-            f'<rect x="{cx+r-sw/2}" y="{cy-r-sw/2}" width="{sw}" height="{sw}" rx="{sw/2}" fill="{fg}"/>')
-    sf = spark_fill or f"url(#{gid})"
-    halo = f'<g filter="url(#glow)" opacity="0.9">{sparkle(cx, cy, 16, sf)}</g>' if glow else ""
-    spark = sparkle(cx, cy, 16, sf) + sparkle(cx + r + 13, cy - r - 13, 7.5, sf)
-    return halo + body + spark
+    # 原因：旧命令仍可执行；星光 a 只保留在历史记录，当前出口复用正式 ai。
+    import ai
+    from make import inner
+    return inner(ai.mark(fg, INK if fg == PAPER else PAPER, gid, animated=False, tucked=True))
 
 
 # ---------- wordmark: heavy geometric lowercase "aiscoo", i-dot = sparkle ----------
@@ -80,43 +74,30 @@ def svg(w, h, body, defs="", bg=None):
 
 
 def app_icon(dark=False):
-    """macOS 1024 grid: 824 body, ~185 radius, like Accio's white squircle."""
-    top, bot = ("#262A31", "#0E1013") if dark else ("#FFFFFF", "#F1F3F6")
-    fg = PAPER if dark else INK
-    body = ('<g filter="url(#shadow)"><rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/></g>'
-            f'<rect x="100.5" y="100.5" width="823" height="823" rx="184.5" fill="none" '
-            f'stroke="{"#FFFFFF" if dark else "#000000"}" stroke-opacity="{0.1 if dark else 0.06}"/>'
-            f'<g transform="translate(238 226) scale(5.6)">{mark(fg, "g", glow=True)}</g>')
-    defs = grad("g", glow=True) + (
-        f'<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{top}"/>'
-        f'<stop offset="1" stop-color="{bot}"/></linearGradient>'
-        '<filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">'
-        '<feDropShadow dx="0" dy="12" stdDeviation="14" flood-opacity="0.22"/></filter>')
-    return svg(1024, 1024, body, defs)
+    from make import icon
+    return icon(dark)
 
 
 def lockup(fg, bg):
-    wm, ww = wordmark(fg, "g")
-    pad, h = 40, 200
-    return svg(pad * 2 + ww, h, f'<g transform="translate({pad} {(h-100)/2+14})">{wm}</g>', grad("g"), bg)
+    import ai
+    return ai.lockup(fg, bg, "g", animated=False, tucked=True)
 
 
 def tray(fg):
-    """Menu-bar template: solid silhouette, 22pt box."""
-    return svg(100, 100, mark(fg, "g", spark_fill=fg).replace('stroke-width="17"', 'stroke-width="19"'))
+    import ai
+    return ai.mark(fg, PAPER, "g", animated=False, tucked=True)
 
 
 def main():
     (OUT / "icon-light.svg").write_text(app_icon(False))
     (OUT / "icon-dark.svg").write_text(app_icon(True))
-    (OUT / "mark.svg").write_text(svg(100, 100, mark(INK, "g"), grad("g")))
-    (OUT / "mark-white.svg").write_text(svg(100, 100, mark(PAPER, "g"), grad("g")))
-    (OUT / "mark-mono-white.svg").write_text(svg(100, 100, mark(PAPER, "g", spark_fill=PAPER)))
+    (OUT / "mark.svg").write_text(svg(172, 172, mark(INK, "g")))
+    (OUT / "mark-white.svg").write_text(svg(172, 172, mark(PAPER, "g")))
+    (OUT / "mark-mono-white.svg").write_text(svg(172, 172, mark(PAPER, "g", spark_fill=PAPER)))
     (OUT / "tray-template.svg").write_text(tray("#000000"))
     (OUT / "lockup-light.svg").write_text(lockup(INK, PAPER))
     (OUT / "lockup-dark.svg").write_text(lockup(PAPER, "#1C1C1E"))
-    wm, ww = wordmark(INK, "g")
-    (OUT / "wordmark.svg").write_text(svg(ww + 40, 170, f'<g transform="translate(20 52)">{wm}</g>', grad("g")))
+    (OUT / "wordmark.svg").write_text(lockup(INK, PAPER))
 
 
 if __name__ == "__main__":

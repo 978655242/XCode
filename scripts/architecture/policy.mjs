@@ -55,10 +55,29 @@ function validatePolicy(raw, cwd) {
       owner: module.owner ?? null,
     };
   });
+  // XCODE: 历史 ID 归属于唯一现有模块；保留共享清单原条目且不复制模块或放宽边界。
   const moduleIds = new Set(modules.map((module) => module.id));
+  const aliases = Object.create(null);
+  for (const [index, module] of modules.entries()) {
+    const declaredAliases =
+      raw.modules[index].aliases === undefined ? [] : raw.modules[index].aliases;
+    if (!Array.isArray(declaredAliases)) throw new Error(`模块 ${module.id} 的 aliases 必须是数组`);
+    for (const alias of declaredAliases) {
+      if (
+        typeof alias !== "string" ||
+        !alias ||
+        alias.trim() !== alias ||
+        moduleIds.has(alias) ||
+        Object.hasOwn(aliases, alias)
+      ) {
+        throw new Error(`模块 ${module.id} 的别名无效或重复: ${String(alias)}`);
+      }
+      aliases[alias] = module.id;
+    }
+  }
   for (const module of modules) {
     for (const dependency of module.requires) {
-      if (!moduleIds.has(dependency))
+      if (!moduleIds.has(dependency) && !Object.hasOwn(aliases, dependency))
         throw new Error(`模块 ${module.id} 依赖未知模块 ${dependency}`);
     }
   }
@@ -106,7 +125,12 @@ function validatePolicy(raw, cwd) {
     ...exception,
     paths: exception.paths ?? [],
   }));
-  return { version: 1, modules, global, exceptions };
+  return { version: 1, modules, global, exceptions, aliases };
+}
+
+// XCODE: 只有已登记的别名才映射到原模块，未知 ID 保持原值以便现有校验报错。
+export function canonicalModuleId(id, policy) {
+  return policy.aliases[id] ?? id;
 }
 
 export function layerForFile(file, module) {

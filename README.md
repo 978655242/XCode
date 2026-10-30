@@ -77,6 +77,10 @@ ZCODE_DATA_BASE_DIR="$HOME/.zcode-dev-home" pnpm dev:desktop:test
 
 ### Web 开发
 
+本机使用 Aiscoo 账号的浏览器版，请先启动 aiscoo-admin，再运行 `pnpm dev:aiscoo:web`，打开 `http://127.0.0.1:5174`。该入口不启动 Electron；默认账号服务为 `http://127.0.0.1:3001`，可用 `NEW_API_BASE_URL` 指定其他受支持的服务。页面端口被占用时，可设置 `AISCOO_LOCAL_WEB_PORT` 后访问对应地址。详细规则见 [本机 Web 规格](docs/aiscoo/specs/local-web-new-api.md)。
+
+下方 `pnpm dev:web` 保留上游 Web 开发行为，使用原有官方账号配置；需要 aiscoo-admin 登录时请使用上面的 Aiscoo 入口。
+
 修改 Web 或后端源码时，使用开发模式：
 
 ```bash
@@ -130,7 +134,7 @@ pnpm --filter @zcode/cli... build
 node apps/zcode-cli/packages/cli/dist/zcode.cjs --help
 ```
 
-这个入口直接运行 Agent CLI，不经过发行包的 `--web` 分流。开发 Web 用 `pnpm dev:web`；验证统一的 `zcode` 命令，用下方解压后的 `bin/zcode.mjs`。
+这个入口直接运行 Agent CLI，不经过发行包的 `--web` 分流。开发使用 aiscoo-admin 登录的 Web 时用 `pnpm dev:aiscoo:web`；验证统一的 `zcode` 命令，用下方解压后的 `bin/zcode.mjs`。
 
 ### UI Plugin 开发
 

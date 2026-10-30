@@ -22,16 +22,6 @@ def set_i(stem_top, dot_cy, dot_r):
     global I_STEM_TOP, I_DOT_CY, I_DOT_R
     I_STEM_TOP, I_DOT_CY, I_DOT_R = stem_top, dot_cy, dot_r
 
-def _stretch(css):
-    # 原因：oo_preview 导入时仍构造旧实验动效；保留其接口，正式 Logo 直接使用 anim.CSS。
-    def frames(match):
-        return re.sub(r'(\d+(?:\.\d+)?)%',
-                      lambda p: p.group(0) if p.group(1) == "100"
-                      else f"{float(p.group(1)) * 4.8 / 8:g}%", match.group(0))
-    css = re.sub(r'@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}', frames, css)
-    return css.replace("4.8s", "8.0s")
-
-
 # The i stem is the pivot for the tilt: 111% / 100% of the head's box in mark space.
 CSS = BASE_CSS.replace("transform-box:view-box;transform-origin:62px 86px",
                        "transform-box:fill-box;transform-origin:111% 100%")
@@ -133,7 +123,7 @@ def mark(fg, bg, u, animated=True, tucked=False):
 
 if __name__ == "__main__":
     for a, sfx in ((True, "-anim"), (False, "")):
-        (OUT / f"ai-lockup{sfx}-light.svg").write_text(lockup(INK, PAPER, "l", a))
-        (OUT / f"ai-lockup{sfx}-dark.svg").write_text(lockup(PAPER, "#1C1C1E", "d", a))
-        (OUT / f"ai-mark{sfx}.svg").write_text(mark(INK, PAPER, "m", a))
-        (OUT / f"ai-mark{sfx}-white.svg").write_text(mark(PAPER, "#1C1C1E", "w", a))
+        (OUT / f"ai-lockup{sfx}-light.svg").write_text(lockup(INK, PAPER, "l", a, tucked=True))
+        (OUT / f"ai-lockup{sfx}-dark.svg").write_text(lockup(PAPER, "#1C1C1E", "d", a, tucked=True))
+        (OUT / f"ai-mark{sfx}.svg").write_text(mark(INK, PAPER, "m", a, tucked=True))
+        (OUT / f"ai-mark{sfx}-white.svg").write_text(mark(PAPER, "#1C1C1E", "w", a, tucked=True))

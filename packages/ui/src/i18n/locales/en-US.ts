@@ -1421,6 +1421,8 @@ const enUS: Record<string, string> = {
   "login.oauth.regionTag.zai": "Global",
   "login.oauth.regionTag.bigmodel": "CN",
   "login.oauth.waiting": "Waiting for {provider} authentication...",
+  // XCODE: Allow users to open the local Web authorization page when popups are blocked.
+  "login.oauth.openAuthorization": "Open sign-in page",
   "login.oauth.loginFailure": "Login failed, please try again",
   "login.oauth.cancel": "Cancel",
   "login.oauth.retry": "Retry login",
@@ -1459,6 +1461,16 @@ const enUS: Record<string, string> = {
     "The app will restart after disconnecting. You will need to connect your account again.",
   "logout.confirm.ok": "Disconnect and restart",
   "logout.confirm.cancel": "Cancel",
+  // XCODE: Local Web does not restart the desktop or claim an unconfirmed revocation succeeded.
+  "logout.localWeb.confirm.title": "Sign out on this device?",
+  "logout.localWeb.confirm.description":
+    "This removes the local sign-in credentials and attempts to revoke the server session.",
+  "logout.localWeb.confirm.ok": "Sign out",
+  "logout.localWeb.unconfirmed.title": "Signed out on this device",
+  "logout.localWeb.unconfirmed.description": "The server session revocation could not be confirmed.",
+  "logout.localWeb.failed.title": "Sign-out status could not be confirmed",
+  "logout.localWeb.failed.description":
+    "Local credentials or account state may not have been fully cleared. Check before continuing.",
   "sidebar.profile.accountId": "ID: {id}",
   "sidebar.profile.copyUserId": "Click to copy user ID",
   "sidebar.profile.userIdCopied": "User ID copied",
