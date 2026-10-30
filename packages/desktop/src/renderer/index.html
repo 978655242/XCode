@@ -5,6 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- XCODE: 桌面页面标题与应用展示名保持一致。 -->
     <title>Aiscoo</title>
+    <script>
+      // XCODE: 启动壳早于 React；读取现有应用主题，避免系统外观与应用主题不同时闪色。
+      (() => {
+        let saved;
+        try {
+          saved = localStorage.getItem("zcode-theme") || "zai-dark";
+        } catch {
+          saved = "zai-dark";
+        }
+        const dark = saved === "system"
+          ? window.matchMedia("(prefers-color-scheme: dark)").matches
+          : saved === "dark" || saved === "zai-dark";
+        const zai = saved === "system" || saved === "dark" || saved === "light" ||
+          saved === "zai-dark" || saved === "zai-light";
+        document.documentElement.classList.toggle("dark", dark);
+        document.documentElement.classList.toggle("theme-zai-dark", zai && dark);
+        document.documentElement.classList.toggle("theme-zai-light", zai && !dark);
+      })();
+    </script>
     <style>
       html,
       body,
@@ -30,7 +49,13 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        /* XCODE: 透明窗口会透出系统材质；启动壳匹配 React 启动页的主题背景。 */
+        background: var(--color-background, #f8f8f8);
         transition: opacity 0.16s ease;
+      }
+
+      html.dark #loading {
+        background: var(--color-background, #161616);
       }
 
       body.zcode-startup-ready #loading {
@@ -53,18 +78,15 @@
       }
 
       .startup-logo { width: 96px; height: 96px; object-fit: contain; }
+      /* XCODE: Logo 跟随应用主题类，避免与系统主题不同时图稿和背景错配。 */
       .aiscoo-startup-dark, .aiscoo-startup-still { display: none; }
-      @media (prefers-color-scheme: dark) {
-        .aiscoo-startup-motion.aiscoo-startup-light { display: none; }
-        .aiscoo-startup-motion.aiscoo-startup-dark { display: block; }
-      }
+      html.dark .aiscoo-startup-motion.aiscoo-startup-light { display: none; }
+      html.dark .aiscoo-startup-motion.aiscoo-startup-dark { display: block; }
       @media (prefers-reduced-motion: reduce) {
         .aiscoo-startup-motion { display: none !important; }
         .aiscoo-startup-still.aiscoo-startup-light { display: block; }
-      }
-      @media (prefers-reduced-motion: reduce) and (prefers-color-scheme: dark) {
-        .aiscoo-startup-still.aiscoo-startup-light { display: none; }
-        .aiscoo-startup-still.aiscoo-startup-dark { display: block; }
+        html.dark .aiscoo-startup-still.aiscoo-startup-light { display: none; }
+        html.dark .aiscoo-startup-still.aiscoo-startup-dark { display: block; }
       }
 
       @keyframes startup-logo-pop {
@@ -106,12 +128,30 @@
     <div id="loading" class="[app-region:drag]" role="status" aria-busy="true" aria-label="Loading...">
       <div class="startup-logo-shell">
         <!-- XCODE: 桌面启动壳使用随包 ai 动画原稿与减弱动效静态稿。 -->
-        <img src="../../../ui/src/xwork/brand/assets/startup-light.svg" class="startup-logo aiscoo-startup-motion aiscoo-startup-light" alt="" aria-hidden="true" />
-        <img src="../../../ui/src/xwork/brand/assets/startup-dark.svg" class="startup-logo aiscoo-startup-motion aiscoo-startup-dark" alt="" aria-hidden="true" />
-        <img src="../../../ui/src/xwork/brand/assets/mark-light.svg" class="startup-logo aiscoo-startup-still aiscoo-startup-light" alt="" aria-hidden="true" />
-        <img src="../../../ui/src/xwork/brand/assets/mark-dark.svg" class="startup-logo aiscoo-startup-still aiscoo-startup-dark" alt="" aria-hidden="true" />
+        <!-- XCODE: 静态 src 在 Vite dev 中会落入 SPA fallback 返回 HTML；模块 ?url 导入使开发和生产均加载同一图稿。 -->
+        <img data-startup-asset="startup-light" class="startup-logo aiscoo-startup-motion aiscoo-startup-light" alt="" aria-hidden="true" />
+        <img data-startup-asset="startup-dark" class="startup-logo aiscoo-startup-motion aiscoo-startup-dark" alt="" aria-hidden="true" />
+        <img data-startup-asset="mark-light" class="startup-logo aiscoo-startup-still aiscoo-startup-light" alt="" aria-hidden="true" />
+        <img data-startup-asset="mark-dark" class="startup-logo aiscoo-startup-still aiscoo-startup-dark" alt="" aria-hidden="true" />
       </div>
     </div>
+    <script type="module">
+      import startupLightUrl from "../../../ui/src/xwork/brand/assets/startup-light.svg?url";
+      import startupDarkUrl from "../../../ui/src/xwork/brand/assets/startup-dark.svg?url";
+      import markLightUrl from "../../../ui/src/xwork/brand/assets/mark-light.svg?url";
+      import markDarkUrl from "../../../ui/src/xwork/brand/assets/mark-dark.svg?url";
+      // XCODE: 开发模式下图稿模块与启动完成逻辑分离，资源异常不阻塞更新窗口或启动壳退出。
+      const startupAssetUrls = {
+        "startup-light": startupLightUrl,
+        "startup-dark": startupDarkUrl,
+        "mark-light": markLightUrl,
+        "mark-dark": markDarkUrl,
+      };
+      for (const img of document.querySelectorAll("img[data-startup-asset]")) {
+        const url = startupAssetUrls[img.dataset.startupAsset];
+        if (url) img.src = url;
+      }
+    </script>
     <script type="module">
       const startupLogoShell = document.querySelector(".startup-logo-shell");
       const startupLoading = document.getElementById("loading");
