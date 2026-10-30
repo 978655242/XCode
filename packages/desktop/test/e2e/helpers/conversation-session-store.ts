@@ -35,6 +35,7 @@ export interface TaskStoreSnapshot {
 }
 
 export interface V4ComposerDraftScopeSnapshot {
+  editorStateJson: string | null;
   exists: boolean;
   mode: string | null;
   modelSelection: {
@@ -142,6 +143,7 @@ export function getV4ComposerDraftScopeSnapshot(
       const providerId = typeof selection?.providerId === "string" ? selection.providerId : null;
       const modelId = typeof selection?.modelId === "string" ? selection.modelId : null;
       return {
+        editorStateJson: typeof draft?.editorStateJson === "string" ? draft.editorStateJson : null,
         exists: draft !== null,
         mode: typeof draft?.mode === "string" ? draft.mode : null,
         modelSelection:

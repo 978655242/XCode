@@ -182,7 +182,9 @@ vi.mock("@/lib/rootStartupGate.js", () => ({
   }) => Boolean(isDesktop) && !welcomeScreenOpen && mockShouldBlockRootRender(),
 }));
 
-vi.mock("@/store/StoreProvider.js", () => ({
+vi.mock("@/store/StoreProvider.js", async (importOriginal) => ({
+  // XCODE: 新版 Root 埋点读取同一 StoreContext，保留真实导出以免测试替身遮住扩展。
+  ...(await importOriginal<object>()),
   StoreProvider: ({ children }: { children: unknown }) => children,
   useZCodeStoreWithDefault: () => true,
   useZCodeStore: (selector: (state: unknown) => unknown) =>

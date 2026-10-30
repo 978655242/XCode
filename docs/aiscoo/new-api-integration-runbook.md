@@ -69,6 +69,18 @@ S04 fix round1 曾在真实 CSS640×409 /200% 下确认品牌 masthead 与授权
 
 最终评审补正 Cookie 竞争：固定 SID `logout(expectedSID)` 复用现有 Axios fetch adapter，以 credentials omit 同时隔离请求 Cookie 与响应 Set-Cookie；必须收到匹配目标的既有 `data.revoked_sid` 才认定成功。普通无参数退出/OAuth 保留原行为，不增 Go/HTTP 契约。旧 A Cookie 暂留但 SID 已撤销，不代表仍登录，也不能在迟到响应后删除共享 hint。真实 raw-header proxy 复现旧实现 B Cookie 丢失/refresh401，修正后 B Cookie 保留、冷 reload/refresh200 且 A protected401；真实匿名 success 的清 Cookie 响应被忽略并失败关闭。最终聚焦79、全 Web180文件/2355测试、build:check/typecheck、五文件lint与三文件受保护正文格式通过；Web/Go embed 已重建，最终隔离 backend SHA `da5ad356af59bb4fdab01421049ca90401df91ca6334d4d67cfc329bea1725e8`。见 [最终修正报告](../../.superpowers/sdd/2026-10-17-new-api-authorization-account-switch/final-fix-report.md)，初轮 body-only A05 不再作为 Cookie 证明；未重验桌面/Host 冷恢复，最终定向复审已通过，未部署3001。
 
+## 按场景运行 Electron 验收
+
+`node packages/desktop/test/runNewApiElectronSmokes.mjs` 默认运行全部已有场景，也可追加精确 fixture 名称只复验指定场景，例如 `newApiModelSettingsElectron newApiLegalLinksElectron`；未知名称报错，未选择的场景不算通过。运行时仍使用 runner 自有临时目录与原各场景断言。
+
+Web handoff 与升级页展示场景共用测试环境变量 `XCODE_NEW_API_SOURCE_DIR` 指定受审后端 checkout 根目录；未设置时使用客户端仓库的同级 `aiscoo-admin` 目录，不再读取旧 `new-api` 目录。显式值可为绝对路径或相对启动 cwd 的路径；该变量只选择 fixture 文件来源，不改变 `NEW_API_BASE_URL`、真实服务、账号或构建产物。
+
+Web handoff 在监听端口前异步读取真实 `web/public/xcode-plan-display.js`，缺失或不可读立即失败；bootstrap 计数只在脚本响应成功结束后增加。升级页展示的本地 fixture 使用同一 checkout 的 `web/dist`，启动前检查 `dist/index.html` 可读，仍按真实 head bootstrap 与现有首帧断言验收；显式 `XCODE_UPGRADE_SMOKE_SEED` 的既有 live 场景不读取本地 dist。缺少外部产物时记录环境阻塞，不自动构建后端，不用客户端注入或伪造脚本替代。精确复验入口：
+
+```sh
+XCODE_NEW_API_SOURCE_DIR=../aiscoo-admin node packages/desktop/test/runNewApiElectronSmokes.mjs newApiWebHandoffElectron newApiUpgradePresentationElectron
+```
+
 ## 主账号与独立官方连接
 
 1. 主登录打开 New API 原生认证页面，复用原生注册、密码、2FA/Passkey 流程。桌面只持有 PKCE flow，不保存密码；浏览器会话与专用客户端 Session 分开。

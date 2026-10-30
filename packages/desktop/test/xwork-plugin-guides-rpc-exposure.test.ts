@@ -87,7 +87,7 @@ describe("XWork plugin guide attachment RPC", () => {
   );
 
   it.each(["web-remote-replayable", "desktop-continuous"] as const)(
-    "%s preserves Terminal, provisioning and source management exposure boundaries",
+    "%s exposes Terminal while preserving provisioning and source management boundaries",
     async (clientMode) => {
       const terminalCreate = vi.fn(async () => "terminal");
       const provisioningApply = vi.fn(async () => "provisioning");
@@ -102,8 +102,12 @@ describe("XWork plugin guide attachment RPC", () => {
 
       try {
         exposeWindowHostAttachmentServices({ server, services, clientMode });
+        // XCODE: 新上游及远控规格已开放配对 attachment 的 Terminal；产品说明扩展不得恢复旧限制。
+        await expect(
+          client.getChannel(ITerminalService.channelName).call("create", []),
+        ).resolves.toBe("terminal");
+        expect(terminalCreate).toHaveBeenCalledExactlyOnceWith();
         for (const [descriptor, method, handler, result] of [
-          [ITerminalService, "create", terminalCreate, "terminal"],
           [IProviderProvisioningTargetService, "apply", provisioningApply, "provisioning"],
           [ISourceServerManagementService, "getSnapshot", sourceSnapshot, "source"],
         ] as const) {

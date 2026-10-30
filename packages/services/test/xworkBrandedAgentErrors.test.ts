@@ -5,25 +5,34 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { zcodeProtocolMethods } from "@zcode/shared";
+import { Emitter } from "@zcode/rpc";
+import {
+  zcodeProtocolMethods,
+  zcodeRuntimeCapabilitiesParamsSchema,
+  type ZCodeProtocolMessage,
+} from "@zcode/shared";
 import { setDataBaseDir } from "../src/paths.js";
 import { createZCodeAgentService } from "../src/zcode-agent/zcodeAgentService.js";
+import { ZCodeProtocolClient } from "../src/zcode-agent/zcodeProtocolClient.js";
+import type { ZCodeAgentProcessManager } from "../src/zcode-agent/zcodeAgentProcessManager.js";
 import { ZCodeStdioTransport } from "../src/zcode-agent/zcodeStdioTransport.js";
 
-const { getClient } = vi.hoisted(() => ({ getClient: vi.fn() }));
-vi.mock("../src/zcode-agent/zcodeAgentProcessManager.js", () => ({
-  ZCodeAgentProcessManager: class {
-    getClient = getClient;
-    onRuntimeLifecycle() {
-      return { dispose() {} };
-    }
-    onRuntimeRestarted() {
-      return { dispose() {} };
-    }
-    disposeAll() {}
-  },
+const { getClient } = vi.hoisted(() => ({
+  getClient: vi.fn<ZCodeAgentProcessManager["getClient"]>(),
 }));
+vi.mock("../src/zcode-agent/zcodeAgentProcessManager.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../src/zcode-agent/zcodeAgentProcessManager.js")>();
+  return {
+    ...actual,
+    // XCODE: 继承真实管理器的共享运行时、事件和释放接口，只替换进程获取，避免缺方法提前遮蔽 retry。
+    ZCodeAgentProcessManager: class extends actual.ZCodeAgentProcessManager {
+      override getClient = getClient;
+    },
+  };
+});
 
+const clientCleanup: Array<() => void> = [];
 let directory: string;
 let service: ReturnType<typeof createZCodeAgentService> | undefined;
 beforeEach(async () => {
@@ -34,17 +43,42 @@ beforeEach(async () => {
 afterEach(async () => {
   service?.disposeAll();
   service = undefined;
+  for (const dispose of clientCleanup.splice(0)) dispose();
   setDataBaseDir(null);
   await rm(directory, { recursive: true, force: true });
 });
 function fakeClient(request: ReturnType<typeof vi.fn>) {
-  return {
-    request,
-    transportKind: "stdio",
-    onNotification: () => ({ dispose() {} }),
-    onRequest: () => ({ dispose() {} }),
-    onClose: () => ({ dispose() {} }),
-  };
+  const messages = new Emitter<ZCodeProtocolMessage>();
+  const closes = new Emitter<{ reason?: string }>();
+  const client = new ZCodeProtocolClient({
+    kind: "stdio",
+    onMessage: messages.event,
+    onClose: closes.event,
+    async send(message) {
+      if (!("method" in message) || !("id" in message))
+        throw new Error("Expected protocol request");
+      try {
+        // XCODE: 新版启动能力协商独立于业务请求；仅注入真实 stdio 关闭错误，保留业务 retry 次数断言。
+        if (message.method === zcodeProtocolMethods.runtimeCapabilities) {
+          zcodeRuntimeCapabilitiesParamsSchema.parse(message.params);
+          messages.fire({ id: message.id, result: {} });
+          return;
+        }
+        const result = await request(message.method, message.params);
+        messages.fire({ id: message.id, result });
+      } catch (error) {
+        if (message.method === zcodeProtocolMethods.workspaceReadPresentation) client.dispose();
+        throw error;
+      }
+    },
+    dispose() {},
+  });
+  clientCleanup.push(() => {
+    client.dispose();
+    messages.dispose();
+    closes.dispose();
+  });
+  return client;
 }
 
 describe("branded Agent diagnostic compatibility", () => {
@@ -82,7 +116,7 @@ describe("branded Agent diagnostic compatibility", () => {
     async (brand, kind) => {
       const method =
         kind === "mcp" ? zcodeProtocolMethods.mcpList : zcodeProtocolMethods.pluginsList;
-      const result = kind === "mcp" ? { servers: [] } : { plugins: [] };
+      const result = kind === "mcp" ? { statuses: {} } : { plugins: [], diagnostics: [] };
       const request = vi
         .fn()
         .mockRejectedValueOnce(new Error(`${brand} Protocol request timed out: ${method}`))

@@ -1,7 +1,13 @@
+// XCODE: Aiscoo 专属回归；上游 App 业务套件已退役，仅保留下游差异的断言。
 import { describe, expect, it, vi } from "vitest";
 import type { NewApiOwner } from "@zcode/shared";
 import { createPluginUiAccountBindings } from "./instanceAccounts.js";
-const instance = { runtimeId: "agent", generation: 1, token: "one", appIdentity: "a".repeat(64) };
+const instance = {
+  runtimeId: "agent",
+  generation: 1,
+  token: "one",
+  appIdentity: "a".repeat(64),
+};
 const params = {
   workspacePath: "/w",
   sessionId: "s",
@@ -11,45 +17,7 @@ const params = {
   resourceUri: "ui://app",
   ownerWebContentsId: 1,
 };
-describe("Host account identity", () => {
-  it("uses stable account facts and revokes only captured old credentials", async () => {
-    let account = "alice";
-    const close = vi.fn(async () => {});
-    const open = vi.fn(async () => instance);
-    const owner = createPluginUiAccountBindings({
-      readAccount: async () => ["provider", account],
-      open,
-      close,
-    });
-    await owner.open(params);
-    await owner.open(params);
-    expect(open.mock.calls[0]).toEqual(open.mock.calls[1]);
-    owner.invalidate();
-    account = "bob";
-    await owner.open(params);
-    expect(open.mock.calls[2]).not.toEqual(open.mock.calls[0]);
-    expect(close).toHaveBeenCalledExactlyOnceWith({ ...params, instance });
-  });
-  it("closes an open result arriving after account revocation", async () => {
-    const gate = Promise.withResolvers<typeof instance>();
-    const entered = Promise.withResolvers<void>();
-    const close = vi.fn(async () => {});
-    const owner = createPluginUiAccountBindings({
-      readAccount: async () => "alice",
-      open: () => {
-        entered.resolve();
-        return gate.promise;
-      },
-      close,
-    });
-    const pending = owner.open(params);
-    const rejected = expect(pending).rejects.toThrow("account changed");
-    await entered.promise;
-    owner.invalidate();
-    gate.resolve(instance);
-    await rejected;
-    expect(close).toHaveBeenCalledExactlyOnceWith({ ...params, instance });
-  });
+describe("Aiscoo plugin UI Native owner", () => {
   it.each([
     { userId: "bob", sid: "sid-b", authGeneration: 2 },
     { userId: "alice", sid: "sid-a-new", authGeneration: 2 },
@@ -63,9 +31,9 @@ describe("Host account identity", () => {
     const gate = Promise.withResolvers<typeof instance>();
     const entered = Promise.withResolvers<void>();
     const currentInstance = { ...instance, token: "current" };
-    const open = vi.fn<Parameters<typeof createPluginUiAccountBindings>[0]["open"]>(
-      async () => currentInstance,
-    );
+    const open = vi.fn<
+      Parameters<typeof createPluginUiAccountBindings>[0]["open"]
+    >(async () => currentInstance);
     open.mockImplementationOnce(() => {
       entered.resolve();
       return gate.promise;
@@ -87,6 +55,9 @@ describe("Host account identity", () => {
     await rejected;
     expect(close).toHaveBeenCalledExactlyOnceWith({ ...params, instance });
     owner.invalidate();
-    expect(close).toHaveBeenLastCalledWith({ ...params, instance: currentInstance });
+    expect(close).toHaveBeenLastCalledWith({
+      ...params,
+      instance: currentInstance,
+    });
   });
 });

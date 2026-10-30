@@ -130,10 +130,10 @@ async function assertAboutWindow() {
           const title = await window.webContents.executeJavaScript(
             'document.querySelector("#about-title")?.textContent',
           );
-          // XCODE: 展示名已迁移为 XWork；数据目录仍沿用 ZCode 身份。
+          // XCODE: 展示名已迁移为 Aiscoo；数据目录仍沿用 ZCode 身份。
           return (
             typeof title === "string" &&
-            title.includes("XWork") &&
+            title.includes("Aiscoo") &&
             title.includes(electron.app.getVersion())
           );
         }),
@@ -185,22 +185,23 @@ describe(`问号菜单应用入口（${expectedFlavor}）`, () => {
     await setTheme("zai-light");
     await openMenu();
     const labels = await menuLabels();
-    // XCODE: 帮助菜单“关于”项展示名已迁移为 XWork（titleBar.menu.help.about）。
+    // XCODE: 帮助菜单“关于”项展示名已迁移为 Aiscoo（titleBar.menu.help.about）。
     expect(labels).toEqual([
       "Product docs",
       "User community",
       "Report an issue",
       "Request a feature",
       "Export logs",
+      "Copy device MID",
       "Resource manager",
       ...(production ? ["Check for updates"] : []),
-      "About XWork",
+      "About Aiscoo",
     ]);
     expect(await $$('[role="menu"] [role="separator"]')).toHaveLength(1);
     await browser.saveScreenshot(join(tmpdir(), "zcode-help-export-en-light.png"));
     await assertLogExport("Export logs", "Exporting logs...");
     await openMenu();
-    await $('[role="menuitem"]*=About XWork').click();
+    await $('[role="menuitem"]*=About Aiscoo').click();
     await assertAboutWindow();
   });
 
@@ -296,22 +297,23 @@ describe(`问号菜单应用入口（${expectedFlavor}）`, () => {
     await $(`[data-testid="${TID_SETTINGS_PAGE}"]`).waitForDisplayed();
     await openMenu();
     const labels = await menuLabels();
-    // XCODE: 帮助菜单“关于”项展示名已迁移为 XWork（titleBar.menu.help.about）。
+    // XCODE: 帮助菜单“关于”项展示名已迁移为 Aiscoo（titleBar.menu.help.about）。
     expect(labels).toEqual([
       "产品文档",
       "用户社群",
       "问题上报",
       "给产品提需求",
       "导出日志",
+      "复制设备 MID",
       "资源管理器",
       ...(production ? ["检查更新"] : []),
-      "关于 XWork",
+      "关于 Aiscoo",
     ]);
     expect(await $$('[role="menu"] [role="separator"]')).toHaveLength(1);
     await browser.saveScreenshot(join(tmpdir(), "zcode-help-export-zh-dark.png"));
     await assertLogExport("导出日志", "正在导出日志中");
     await openMenu();
-    await $('[role="menuitem"]*=关于 XWork').click();
+    await $('[role="menuitem"]*=关于 Aiscoo').click();
     await assertAboutWindow();
   });
 });

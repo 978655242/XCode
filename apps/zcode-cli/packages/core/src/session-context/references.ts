@@ -1,7 +1,8 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { type SessionId } from "@zcode/contracts";
 
-const SESSION_REFERENCE_PATTERN = /#(sess_[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)/g;
+// 旧 Host 的 session_ 已进入持久化正文，引用原样透传给读取工具，不能静默丢弃或改写。
+const SESSION_REFERENCE_PATTERN = /#((?:sess|session)_[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)/g;
 
 export function extractSessionReferences(input: string): SessionId[] {
   const unique = new Set<string>();

@@ -1,9 +1,23 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // XCODE: 真实同源 fixture server 保持与内联 harness 完全相同的路由与计数语义。
 export async function createHandoffFixtureServer() {
+  // XCODE: 后端已迁名 aiscoo-admin；测试来源可显式覆盖，缺源在监听前失败，不能把 404 计为首帧证据。
+  const sourceRoot = process.env.XCODE_NEW_API_SOURCE_DIR?.trim();
+  const bootstrapPath = resolve(
+    sourceRoot || fileURLToPath(new URL("../../../../aiscoo-admin/", import.meta.url)),
+    "web/public/xcode-plan-display.js",
+  );
+  const bootstrapSource = await readFile(bootstrapPath, "utf8").catch((cause) => {
+    throw new Error(
+      `Native handoff bootstrap unavailable: ${bootstrapPath}; set XCODE_NEW_API_SOURCE_DIR`,
+      { cause },
+    );
+  });
   const counters = { css: 0, bootstrap: 0, foreign: 0, private: 0 };
   const foreign = createServer((_request, response) => {
     counters.foreign++;
@@ -33,19 +47,12 @@ export async function createHandoffFixtureServer() {
         `<html class="dark" lang="en-US" style="color-scheme:dark;--ui-font-size:14px"><head><script src="/xcode-plan-display.js"></script><link rel="stylesheet" href="/assets/plan.css"></head><body>Assigned plan<img src="${foreignOrigin}/collect?handoff=short-code"></body></html>`,
       );
     } else if (url.pathname === "/xcode-plan-display.js") {
-      counters.bootstrap++;
       response.setHeader("Content-Type", "text/javascript");
-      // XCODE: The real same-origin head artifact must pass Main's resource policy.
-      void readFile(
-        new URL("../../../../new-api/web/public/xcode-plan-display.js", import.meta.url),
-        "utf8",
-      ).then(
-        (source) => response.end(source),
-        () => {
-          response.writeHead(404);
-          response.end();
-        },
-      );
+      // XCODE: 只计真实脚本成功结束的响应；读取失败已在 fixture 启动前暴露。
+      response.once("finish", () => {
+        counters.bootstrap++;
+      });
+      response.end(bootstrapSource);
     } else if (url.pathname === "/api/xcode/v1/web/view") {
       counters.private++;
       response.setHeader("Content-Type", "application/json");

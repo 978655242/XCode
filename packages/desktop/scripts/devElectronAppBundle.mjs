@@ -4,6 +4,7 @@ import {
   cp,
   mkdir,
   readFile,
+  readlink,
   rm,
   stat,
   symlink,
@@ -11,13 +12,30 @@ import {
 } from "node:fs/promises";
 import { dirname, posix } from "node:path";
 import { PRODUCT_BRAND } from "@zcode/shared/xwork-brand";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 
 export const DEV_ELECTRON_PROTOCOL_SCHEME = "zcode";
 // XCODE: 仅迁移开发应用展示名，协议、bundle ID 与缓存根目录保持不变。
 export const DEV_ELECTRON_APP_NAME = PRODUCT_BRAND.developmentName;
 export const DEV_ELECTRON_APP_BUNDLE_ID = "dev.zcode.app.development";
 // 副本布局版本，见 prepareDevElectronAppBundle 中的指纹说明。
-export const DEV_ELECTRON_BUNDLE_FORMAT = 3;
+// XCODE: format 3 的品牌开发缓存未签名；版本升级后必须重建再发布签名指纹。
+export const DEV_ELECTRON_BUNDLE_FORMAT = 4;
+const execFileAsync = promisify(execFile);
+
+async function signDevElectronApp(appPath) {
+  // Electron 42 起通知要求有效签名；原 npm runtime 签名可能不完整，修改身份后也必须重签。
+  // 仅对 ignored 的开发副本做 ad-hoc 签名，正式发布仍走现有证书、公证流程。
+  await execFileAsync("/usr/bin/codesign", [
+    "--deep",
+    "--force",
+    "--sign",
+    "-",
+    "--preserve-metadata=entitlements,flags,runtime",
+    appPath,
+  ]);
+}
 
 function escapeXml(value) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll('"', "&quot;");
@@ -100,6 +118,7 @@ export async function prepareDevElectronAppBundle({
   electronVersion,
   arch,
   rendererUrl,
+  signApp = signDevElectronApp,
 }) {
   const appPath = resolveDevElectronAppBundlePath({ runtimeRoot, electronVersion, arch });
   const infoPlistPath = posix.join(appPath, "Contents", "Info.plist");
@@ -150,25 +169,35 @@ export async function prepareDevElectronAppBundle({
     // 等 macOS 沙箱子进程只允许读本 bundle 目录，顺链接出去会被拦，表现为
     // "icudtl.dat not found in bundle" 然后 "GPU process isn't usable. Goodbye."。
     await cp(electronAppPath, appPath, { recursive: true, verbatimSymlinks: true });
+  }
+
+  // XCODE: 缓存命中仍核对品牌资源；只在字节或入口变化时写入，避免破坏有效签名。
+  const sourceIconPath = posix.join(import.meta.dirname, "../build/icon.icns");
+  const iconPath = posix.join(appPath, "Contents", "Resources", "xcode.icns");
+  const sourceIcon = await readFile(sourceIconPath);
+  const currentIcon = await readFile(iconPath).catch((error) => {
+    if (error.code !== "ENOENT") throw error;
+    return undefined;
+  });
+  const iconChanged = !currentIcon?.equals(sourceIcon);
+  const currentInfoPlist = await readFile(infoPlistPath, "utf8");
+  const patchedInfoPlist = patchDevElectronInfoPlist(currentInfoPlist, rendererUrl);
+  const plistChanged = patchedInfoPlist !== currentInfoPlist;
+  const appEntryChanged = (await readlink(appEntryPath).catch(() => undefined)) !== appSourcePath;
+  if (needsCopy || iconChanged || plistChanged || appEntryChanged) {
+    // XCODE: 先撤销旧指纹，品牌写入和入口修正全部完成后再签名；失败不能复用半成品。
+    await rm(sourceStampPath, { force: true });
+    if (iconChanged) await copyFile(sourceIconPath, iconPath);
+    if (plistChanged) await writeFile(infoPlistPath, patchedInfoPlist, "utf8");
+    // XCODE: LaunchServices 冷启动需 Resources/app 指向源码入口，不能落到 default_app.asar。
+    if (appEntryChanged) {
+      await rm(appEntryPath, { recursive: true, force: true });
+      await symlink(appSourcePath, appEntryPath, "dir");
+    }
+    await signApp(appPath);
     // 指纹最后写：中途失败时下次仍会判定为需要重拷，不会留下半成品缓存。
     if (sourceStamp !== undefined) await writeFile(sourceStampPath, sourceStamp, "utf8");
   }
-
-  // XCODE: 缓存命中也同步展示名与产品图标，不依赖 Electron 二进制变化来刷新 Info.plist。
-  await copyFile(
-    posix.join(import.meta.dirname, "../build/icon.icns"),
-    posix.join(appPath, "Contents", "Resources", "xcode.icns"),
-  );
-  const currentInfoPlist = await readFile(infoPlistPath, "utf8");
-  const patchedInfoPlist = patchDevElectronInfoPlist(currentInfoPlist, rendererUrl);
-  if (patchedInfoPlist !== currentInfoPlist) {
-    await writeFile(infoPlistPath, patchedInfoPlist, "utf8");
-  }
-  // XCODE: LaunchServices 启动 .app 时不会附带开发命令的 "." 参数；没有 Resources/app
-  // Electron 会执行 default_app.asar 并显示欢迎页。用链接复用源码根目录，让协议回调
-  // 与 `Electron .` 启动走同一入口；每次启动重建，避免旧 runtime 缓存继续指向默认壳。
-  await rm(appEntryPath, { recursive: true, force: true });
-  await symlink(appSourcePath, appEntryPath, "dir");
 
   return {
     appPath,

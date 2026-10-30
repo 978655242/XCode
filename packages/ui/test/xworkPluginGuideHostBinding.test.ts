@@ -26,7 +26,8 @@ vi.mock("@/settings/PluginStoreDetailView.js", () => ({
 vi.mock("@/settings/pluginStoreListing.js", () => ({
   resolveItemDisplayName: (item: { name: string }) => item.name,
 }));
-vi.mock("@/xwork/plugin-guides/PluginGuideReader.js", () => ({
+// XCODE: 旧路径仅转发，替身必须挂到唯一实现；保留同 Host 与空来源隔离断言。
+vi.mock("@/aiscoo/plugin-guides/PluginGuideReader.js", () => ({
   PluginGuideReader: (props: { service: unknown; modelHost: PluginGuideModelHost }) => {
     seen.reader.push({ service: props.service, modelHost: props.modelHost });
     return createElement("div", { "data-testid": "reader" });

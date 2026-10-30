@@ -1,7 +1,7 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
 import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import { updatePreparationResultSchema } from "../contracts.js";
-import { requestControl } from "../ipc/controlClient.js";
+import { isControlEndpointUnavailable, requestControl } from "../ipc/controlClient.js";
 import { createServiceLogger } from "@zcode/services/node";
 import { isAbsolute } from "node:path";
 import { currentServerTarget } from "./manifest.js";
@@ -10,6 +10,8 @@ import { ReleaseInstaller } from "./releaseInstaller.js";
 import { ReleaseManager } from "./releaseManager.js";
 import { prepareOnlineUpdate } from "./updatePreparation.js";
 import {
+  compareCompatibilityVersions,
+  SOURCE_SERVER_DOWNGRADE_UNCONFIRMED_ERROR_CODE,
   SOURCE_SERVER_UPDATE_RUNNING_TASKS_ERROR_CODE,
   type SourceServerInstallProgress,
 } from "@zcode/shared";
@@ -38,15 +40,6 @@ function readSingleOption(argv: readonly string[], name: string): string | undef
   return value;
 }
 
-function isControlEndpointUnavailable(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error.code === "ENOENT" || error.code === "ECONNREFUSED" || error.code === "EINVAL")
-  );
-}
-
 function stdout(io: UpdateCliIO, value: unknown): void {
   io.stdout?.write(`${typeof value === "string" ? value : JSON.stringify(value)}\n`);
 }
@@ -65,6 +58,21 @@ function createRunningTaskUpdateGuard(): ControlRequestError {
     "Running tasks require --force for update",
     false,
   );
+}
+
+/** 返回被替换的版本；无法证明方向（首装或非 semver 历史版本）时不视为降级。 */
+function readDowngradedFromVersion(
+  previous: ReleaseManifest | null,
+  target: ReleaseManifest,
+): string | undefined {
+  if (!previous) return undefined;
+  try {
+    return compareCompatibilityVersions(target.version, previous.version) < 0
+      ? previous.version
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 const log = createServiceLogger("server-update-command");
@@ -115,6 +123,18 @@ export async function runLocalArchiveUpdateCommand(
     target: currentServerTarget(),
     onProgress,
   });
+  // 降级只能由用户显式确认。方向在持有 update lock 后按真实 current 判定：Desktop 的
+  // probe 结果可能已过时（其他设备刚升级远端），不能让普通更新把更新的远端静默降级。
+  const downgradedFrom = readDowngradedFromVersion(previous, prepared);
+  if (downgradedFrom && !argv.includes("--allow-downgrade")) {
+    await releaseManager.removePending();
+    throw new ControlRequestError(
+      SOURCE_SERVER_DOWNGRADE_UNCONFIRMED_ERROR_CODE,
+      `Downgrading ZCode Server from ${downgradedFrom} to ${prepared.version} requires --allow-downgrade`,
+      false,
+    );
+  }
+  if (downgradedFrom) await releaseManager.markDowngrade(prepared, downgradedFrom);
   if (daemonOnline) {
     if (!force) {
       const result = updatePreparationResultSchema.parse(

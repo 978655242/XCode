@@ -44,7 +44,36 @@ describe("Aiscoo server display diagnostics", () => {
     },
   );
 
-  it("keeps branded glibc failures in the remote preflight classification", async () => {
+  it("warns with the branded runtime requirement and continues probing older glibc", async () => {
+    // XCODE: 新版探测要求 ROOT 段；缺失会先报输出不完整，无法验证 glibc 只告警、不拒连的上游合同。
+    const backend = backendFor(
+      "__ZCODE_PROBE_PLATFORM__\nLinux\n__ZCODE_PROBE_ARCH__\nx86_64\n" +
+        "__ZCODE_PROBE_ROOT__\n/home/alice/.zcode/server\n__ZCODE_PROBE_KERNEL__\nLinux\n" +
+        "__ZCODE_PROBE_LIBC__\nglibc 2.17\n__ZCODE_PROBE_INSTALLED__\n0\n__ZCODE_PROBE_END__\n",
+    );
+    const adapter = createSourceServerTransportAdapter("ssh", {
+      createBackend: async () => backend,
+    });
+    const onLog = vi.fn();
+    await expect(
+      adapter.probe({ kind: "ssh", host: "example.invalid", username: "alice" }, { onLog }),
+    ).resolves.toEqual({
+      platform: "linux",
+      arch: "x64",
+      installPath: "/home/alice/.zcode/server",
+      installed: false,
+    });
+    expect(onLog).toHaveBeenCalledExactlyOnceWith({
+      phase: "probe",
+      level: "warn",
+      message:
+        "Remote glibc 2.17 is older than glibc 2.28 required by the bundled Aiscoo Source Server runtime. " +
+        "Aiscoo Source Server may fail to start. Continuing installation or connection.",
+    });
+    expect(backend.exec).toHaveBeenCalledWith(expect.stringContaining('"$HOME/.zcode/server"'));
+  });
+
+  it("rejects an incomplete probe before reporting a glibc warning", async () => {
     const backend = backendFor(
       "__ZCODE_PROBE_PLATFORM__\nLinux\n__ZCODE_PROBE_ARCH__\nx86_64\n__ZCODE_PROBE_KERNEL__\nLinux\n" +
         "__ZCODE_PROBE_LIBC__\nglibc 2.17\n__ZCODE_PROBE_INSTALLED__\n0\n__ZCODE_PROBE_END__\n",
@@ -52,13 +81,14 @@ describe("Aiscoo server display diagnostics", () => {
     const adapter = createSourceServerTransportAdapter("ssh", {
       createBackend: async () => backend,
     });
+    const onLog = vi.fn();
     await expect(
-      adapter.probe({ kind: "ssh", host: "example.invalid", username: "alice" }, {}),
+      adapter.probe({ kind: "ssh", host: "example.invalid", username: "alice" }, { onLog }),
     ).rejects.toMatchObject({
       code: "remote-preflight-failed",
-      message: expect.stringContaining("required by Aiscoo Source Server"),
+      message: "Source Server environment probe returned incomplete or invalid output: ROOT",
     });
-    expect(backend.exec).toHaveBeenCalledWith(expect.stringContaining('"$HOME/.zcode/server"'));
+    expect(onLog).not.toHaveBeenCalled();
   });
 
   it("preserves upstream diagnostic text and technical probe markers", async () => {

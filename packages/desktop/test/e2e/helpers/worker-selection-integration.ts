@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
   MutableAccountProviderConfigSource,
@@ -16,17 +16,41 @@ import {
   getDataBaseDir,
   setDataBaseDir,
 } from "@zcode/services/node";
+import type { IModelSelectionService } from "@zcode/services";
 import { BUILTIN_MODEL_PROVIDER_IDS } from "@zcode/shared";
 import { createProjectService } from "../../../../services/src/project/index.js";
 import { TaskIndexRepo } from "../../../../services/src/session/taskIndexRepo.js";
 import { createZCodeTaskIndexSyncer } from "../../../../services/src/zcode-agent/zcodeTaskIndexSyncer.js";
 import { getE2EAppDataPaths } from "./desktop-app.js";
 
+type WorkerSelectionIntegration = {
+  home: string;
+  repo: TaskIndexRepo;
+  projects: Awaited<ReturnType<TaskIndexRepo["getProjectRepository"]>>;
+  workspacePath: string;
+  projectId: string | null;
+  additionalDirectories: string[];
+  projectService: ReturnType<typeof createProjectService>;
+  agent: ReturnType<typeof createZCodeAgentService>;
+  task: ReturnType<typeof createZCodeTaskServiceAdapter>;
+  modelSelectionService: Pick<IModelSelectionService, "getView" | "onDidChange">;
+  selectAccount(providerId: string): Promise<void>;
+  setDeliveryPaused(paused: boolean): Promise<void>;
+  dispose(): Promise<void>;
+};
+
 /** 独立测试 Host + 真实 stdio Worker；仅账号上游和模型 HTTP 使用隔离 fixture。 */
-export async function createWorkerSelectionIntegration() {
+export async function createWorkerSelectionIntegration(
+  directory?: string,
+  options: { workspacePath?: string; cliNodeArgs?: string[] } = {},
+): Promise<WorkerSelectionIntegration> {
   const paths = getE2EAppDataPaths();
-  const home = await mkdtemp(join(paths.homeDir, "worker-selection-host-"));
-  const workspacePath = join(home, "workspace");
+  // XCODE: 显式目录承担冷重开持久回归；默认调用仍独占随机 HOME，空目录复用该轮 E2E HOME。
+  const home =
+    directory === undefined
+      ? await mkdtemp(join(paths.homeDir, "worker-selection-host-"))
+      : join(paths.homeDir, directory);
+  const workspacePath = options.workspacePath ?? join(home, "workspace");
   await mkdir(workspacePath, { recursive: true });
   const previousDataDir = getDataBaseDir();
   setDataBaseDir(home);
@@ -50,6 +74,15 @@ export async function createWorkerSelectionIntegration() {
       zcodeBuiltinFilePath: resolve("../../config/provider/zcode-builtin.json"),
       personalFilePath: join(home, ".zcode/v2/provider_config.json"),
     };
+    // XCODE: 新版账号请求保留 HTTPS endpoint，独立 Worker 也必须经当前隔离代理。
+    const httpProxy = process.env.ZCODE_HTTP_PROXY?.trim();
+    const caCertFile = process.env.ZCODE_AGENT_CA_CERT?.trim();
+    if (!httpProxy || !caCertFile) throw new Error("Worker 选择回归缺少隔离 HTTPS 数据面代理");
+    await mkdir(join(home, ".zcode/cli"), { recursive: true });
+    await writeFile(
+      join(home, ".zcode/cli/config.json"),
+      JSON.stringify({ network: { httpProxy, caCertFile, noProxy: process.env.ZCODE_NO_PROXY } }),
+    );
     const runtime = new NodeProviderRegistryRuntime({
       ...runtimePaths,
       accountSource: source,
@@ -115,11 +148,16 @@ export async function createWorkerSelectionIntegration() {
       prepareSessionCreation: async (target, assertCurrentSync) => {
         const repository = await repo.getProjectRepository();
         assertCurrentSync?.();
-        return repository.reserveCreatedTask({
+        const prepared = repository.reserveCreatedTask({
           task: { ...target, taskId: target.sessionId },
           projectId: target.projectId,
+          creationCommand: target.creationCommand,
           additionalDirectories: target.additionalDirectories,
-        }).additionalDirectories;
+        });
+        return {
+          sessionId: prepared.taskId,
+          additionalDirectories: prepared.additionalDirectories,
+        };
       },
       resolveSessionDirectories: async (target) =>
         (await projectService.resolveSessionDirectories({ ...target, taskId: target.sessionId }))
@@ -127,6 +165,7 @@ export async function createWorkerSelectionIntegration() {
       commandResolver: () => ({
         command: process.execPath,
         args: [
+          ...(options.cliNodeArgs ?? []),
           resolve("../../apps/zcode-cli/packages/cli/dist/zcode.cjs"),
           "app-server",
           "--stdio",
@@ -156,9 +195,10 @@ export async function createWorkerSelectionIntegration() {
           organizationId: "org-team-a",
           projectId: "proj-team-a",
         }),
-        resolveCurrent: async () => ({ apiKey: "e2e-fixture-key" }),
+        resolveCurrent: async () => ({ apiKey: "e2e-fixture-key.synthetic-secret" }),
         assertCurrent: async () => {},
       },
+      readRequestVerificationConfig: async () => null,
     });
     cleanup.push(() => agent.disposeAllAndWait());
     const syncer = createZCodeTaskIndexSyncer({ agentService: agent, taskIndexRepo: repo });
@@ -170,6 +210,8 @@ export async function createWorkerSelectionIntegration() {
     });
     return {
       home,
+      repo,
+      projects,
       ...prepared,
       projectService,
       agent,

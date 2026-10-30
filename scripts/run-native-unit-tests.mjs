@@ -24,6 +24,8 @@ try {
       "packages/services/test/tsconfig.json",
       "--test",
       ...newApiTests,
+      // XCODE: 命令同步的路径安全回归走真实服务入口，独立于已退役 App 单测。
+      "packages/services/test/aiscooCommandDataSyncPathSafety.test.ts",
       "packages/services/test/officialCloudOwner.test.ts",
       "packages/services/test/offPeakExecutionLifetime.test.ts",
       "packages/services/test/conversationShareOperationFence.test.ts",

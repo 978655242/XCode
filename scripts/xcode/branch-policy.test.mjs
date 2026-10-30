@@ -225,6 +225,7 @@ test("real Git pre-push enforces policy, forwards refs and isolates Git environm
   const probe = join(root, "probe");
   const marker = join(root, "verify-input");
   const probeMarker = join(root, "verify-git-dir");
+  const regressionMarker = join(root, "regression-order");
   const env = Object.fromEntries(
     Object.entries(process.env).filter(
       ([key]) =>
@@ -247,6 +248,7 @@ test("real Git pre-push enforces policy, forwards refs and isolates Git environm
     VERIFY_MARKER: marker,
     PROBE_REPO: probe,
     PROBE_MARKER: probeMarker,
+    REGRESSION_MARKER: regressionMarker,
   });
   mkdirSync(working);
   mkdirSync(probe);
@@ -273,7 +275,7 @@ test("real Git pre-push enforces policy, forwards refs and isolates Git environm
   const pnpm = join(working, "node_modules/.bin/pnpm");
   writeFileSync(
     pnpm,
-    '#!/usr/bin/env sh\n[ "$1" = run ] && [ "$2" = verify:pre-push ] || exit 90\nprintf "%s" "$ZCODE_PRE_PUSH_STDIN" > "$VERIFY_MARKER"\ngit -C "$PROBE_REPO" rev-parse --absolute-git-dir > "$PROBE_MARKER" || exit 91\nexit "${VERIFY_EXIT:-0}"\n',
+    '#!/usr/bin/env sh\n[ "$1" = run ] || exit 90\ncase "$2" in\n  verify:pre-push)\n    printf "%s" "$ZCODE_PRE_PUSH_STDIN" > "$VERIFY_MARKER"\n    git -C "$PROBE_REPO" rev-parse --absolute-git-dir > "$PROBE_MARKER" || exit 91\n    exit "${VERIFY_EXIT:-0}"\n    ;;\n  test:unit:node|test:aiscoo)\n    printf "%s\\n" "$2" >> "$REGRESSION_MARKER"\n    exit "${REGRESSION_EXIT:-0}"\n    ;;\n  *) exit 90 ;;\nesac\n',
   );
   chmodSync(pnpm, 0o755);
   git(working, "config", "core.hooksPath", ".husky/_");
@@ -317,8 +319,19 @@ test("real Git pre-push enforces policy, forwards refs and isolates Git environm
   );
   assert.equal(missing.status, 1);
 
+  assert.equal(
+    existsSync(regressionMarker),
+    false,
+    "failed upstream gate must stop downstream runners",
+  );
+  const regressionFailed = push("fix/product", { REGRESSION_EXIT: "24" });
+  assert.notEqual(regressionFailed.status, 0);
+  assert.equal(readFileSync(regressionMarker, "utf8"), "test:unit:node\n");
+  rmSync(regressionMarker);
+
   const allowed = push("fix/product");
   assert.equal(allowed.status, 0, allowed.stderr);
+  assert.equal(readFileSync(regressionMarker, "utf8"), "test:unit:node\ntest:aiscoo\n");
   assert.equal(readFileSync(marker, "utf8"), `HEAD ${head} refs/heads/fix/product ${zero}`);
   assert.equal(git(root, "--git-dir", remote, "rev-parse", "refs/heads/fix/product"), head);
 });

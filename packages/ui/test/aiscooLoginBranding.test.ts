@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { TID_OAUTH_COPY_LOGIN_LINK } from "@zcode/shared/test-ids";
 import type { OAuthProviderMeta } from "@zcode/shared";
 import { AISCOO_ASSET_URLS, AiscooIntlProvider, AiscooLoginHeader } from "@/xwork/brand/index.js";
 import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
@@ -15,6 +16,7 @@ const oauthState = vi.hoisted(() => ({
   ] as OAuthProviderMeta[],
   startLogin: vi.fn(),
   cancel: vi.fn(),
+  authorizeUrl: null as string | null,
 }));
 
 vi.mock("@/hooks/useOAuth.js", () => ({
@@ -27,6 +29,7 @@ vi.mock("@/hooks/useOAuth.js", () => ({
     providers: oauthState.providers,
     loadingProviders: false,
     pendingProvider: oauthState.status === "waiting" ? "new-api" : null,
+    authorizeUrl: oauthState.authorizeUrl,
     refreshProviders: vi.fn(),
   }),
 }));
@@ -57,6 +60,7 @@ vi.mock("@/login/LoginApiKeyForm.js", () => ({
 afterEach(() => {
   cleanup();
   oauthState.status = "idle";
+  oauthState.authorizeUrl = null;
   oauthState.providers = [{ id: "new-api", displayName: "New API", enabled: true, order: 0 }];
   oauthState.startLogin.mockClear();
   oauthState.cancel.mockClear();
@@ -122,7 +126,10 @@ describe("Aiscoo 登录页完整字标", () => {
     render(
       createElement(AiscooIntlProvider, {
         initialLocale: "en-US",
-        children: createElement(WelcomeScreen, { onComplete: vi.fn(), hideApiKeyLogin: true }),
+        children: createElement(WelcomeScreen, {
+          onComplete: vi.fn(),
+          hideApiKeyLogin: true,
+        }),
       }),
     );
     fireEvent.click(screen.getByRole("button", { name: /Connect to Z\.ai/u }));
@@ -137,7 +144,10 @@ describe("Aiscoo 登录页完整字标", () => {
     const renderScreen = () =>
       createElement(AiscooIntlProvider, {
         initialLocale: "zh-CN",
-        children: createElement(WelcomeScreen, { onComplete, hideApiKeyLogin: true }),
+        children: createElement(WelcomeScreen, {
+          onComplete,
+          hideApiKeyLogin: true,
+        }),
       });
     const view = render(renderScreen());
     fireEvent.click(screen.getByTestId("oauth-cancel"));
@@ -147,6 +157,41 @@ describe("Aiscoo 登录页完整字标", () => {
     fireEvent.click(screen.getByRole("button", { name: "重新登录" }));
     expect(oauthState.startLogin).toHaveBeenCalledExactlyOnceWith("new-api", undefined);
     expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it("新版等待页在 Aiscoo 字标下复制当前登录链接，取消后不保留旧链接", async () => {
+    oauthState.status = "waiting";
+    oauthState.authorizeUrl = "https://account.example.test/authorize?state=fixture";
+    const writeText = vi.fn(async () => {});
+    const previousClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    try {
+      const renderScreen = () =>
+        createElement(AiscooIntlProvider, {
+          initialLocale: "zh-CN",
+          children: createElement(WelcomeScreen, {
+            onComplete: vi.fn(),
+            header: createElement(AiscooLoginHeader),
+            hideApiKeyLogin: true,
+          }),
+        });
+      const view = render(renderScreen());
+      expect(screen.getByRole("img", { name: "Aiscoo" })).toBeTruthy();
+      fireEvent.click(screen.getByTestId(TID_OAUTH_COPY_LOGIN_LINK));
+      await waitFor(() =>
+        expect(writeText).toHaveBeenCalledExactlyOnceWith(oauthState.authorizeUrl),
+      );
+      oauthState.status = "idle";
+      oauthState.authorizeUrl = null;
+      view.rerender(renderScreen());
+      expect(screen.queryByTestId(TID_OAUTH_COPY_LOGIN_LINK)).toBeNull();
+    } finally {
+      if (previousClipboard) Object.defineProperty(navigator, "clipboard", previousClipboard);
+      else Reflect.deleteProperty(navigator, "clipboard");
+    }
   });
 
   it.each(["idle", "waiting", "error"] as const)("%s 状态展示可访问的完整主题字标", (status) => {

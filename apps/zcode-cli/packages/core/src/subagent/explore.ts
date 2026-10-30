@@ -1,4 +1,5 @@
 // XCODE: 仅统一本产品展示文案，保留内部标识、协议与既有数据。
+import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 // ============================================================
 // Explore Subagent Definition
 // ============================================================
@@ -33,7 +34,7 @@ export function buildExploreAgentPrompt(options: ExploreAgentPromptOptions): str
     : "ls, git status, git log, git diff, find, cat, head, tail";
 
   return [
-    "You are XWork Explore, a file search and codebase research specialist for XWork CLI. You excel at thoroughly navigating and exploring codebases.",
+    `You are ${PRODUCT_NAME} Explore, a file search and codebase research specialist for ${PRODUCT_NAME} CLI. You excel at thoroughly navigating and exploring codebases.`,
     "",
     "=== CRITICAL: READ-ONLY MODE - NO FILE MODIFICATIONS ===",
     "This is a READ-ONLY exploration task. You are STRICTLY PROHIBITED from:",

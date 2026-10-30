@@ -45,6 +45,10 @@ const connection = new ZCodeProtocolNdjsonConnection({
   input: process.stdin, output: process.stdout,
   handleMessage: async (message) => {
     if (!("id" in message) || !("method" in message)) throw new Error("Unexpected notification");
+    // XCODE: 新版 Host 启动先协商目录来源能力；探针不参与账号配置准入的业务顺序断言。
+    if (message.method === zcodeProtocolMethods.runtimeCapabilities) {
+      return { id: message.id, result: {} };
+    }
     await appendFile(${JSON.stringify(transcriptPath)}, JSON.stringify(message) + "\\n");
     if (message.method === zcodeProtocolMethods.providerUpdateAccountConfig) {
       const snapshot = zcodeProviderUpdateAccountConfigParamsSchema.parse(message.params);

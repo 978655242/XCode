@@ -97,8 +97,10 @@ describe("child entry file", () => {
     const entryPath = join(cwd, ".zcode", "workflow-runs", "dwfrun-1234.mjs");
     expect(spawnCalls[0]!.args).toEqual(["--max-old-space-size=256", entryPath]);
     // 保留是裁决：目录兼作每次 run 实际执行体的存档。
-    // XCODE: 产物已由真实子进程执行，检查留存，不钉展示注释或序列化排版。
-    expect((await stat(entryPath)).isFile()).toBe(true);
+    const text = await readFile(entryPath, "utf8");
+    expect(text).toContain("// zcode dynamic workflow run dwfrun-1234");
+    expect(text).toContain('export const payload = {"lowered":"return __host.args.x;","args":{"x":7},"run":{"id":"dwfrun-1234"},"maxOldSpaceSizeMb":256}');
+    expect(text).toContain("export const start = ");
     // 只由 harness 写一份 `*`，绝不碰项目自己的 .gitignore。
     await expect(
       readFile(join(cwd, ".zcode", "workflow-runs", ".gitignore"), "utf8"),
