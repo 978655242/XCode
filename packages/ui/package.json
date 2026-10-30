@@ -20,7 +20,8 @@
     "./xwork-startup-context": "./src/xwork/startup-context/index.ts",
     "./xwork-brand": "./src/xwork/brand/index.ts",
     "./aiscoo-brand": "./src/xwork/brand/index.ts",
-    "./xwork-account-avatar": "./src/xwork/account-avatar/index.ts"
+    "./xwork-account-avatar": "./src/xwork/account-avatar/index.ts",
+    "./aiscoo-startup-context": "./src/aiscoo/startup-context/index.ts"
   },
   "scripts": {
     "lint": "oxlint",

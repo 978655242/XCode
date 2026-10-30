@@ -1,15 +1,2 @@
-import type { AgentRuntime } from "../runtime.js";
-import type {
-  WorkspaceGenerateTextInput,
-  WorkspaceGenerateTextResult,
-} from "../runtime/methods/workspace-generate-text.js";
-
-export interface WorkspaceModelTextStreamOptions {
-  abortSignal?: AbortSignal;
-  onDelta: (text: string) => void | Promise<void>;
-}
-export type WorkspaceModelTextStream = (
-  runtime: AgentRuntime,
-  input: WorkspaceGenerateTextInput,
-  options: WorkspaceModelTextStreamOptions,
-) => Promise<WorkspaceGenerateTextResult>;
+// XCODE: 旧路径转发到唯一 Aiscoo 实现，保留已有调用。
+export * from "../aiscoo-plugin-guides/contract.js";

@@ -1,3 +1,2 @@
-export { createXWorkRoot } from "./XWorkRoot.js";
-export { restoreDraftContext } from "./restoreDraftContext.js";
-export type { RestoredDraftContext } from "./contract.js";
+// XCODE: 旧路径转发到唯一 Aiscoo 实现，保留已有调用。
+export * from "../../aiscoo/startup-context/index.js";

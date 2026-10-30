@@ -1,8 +1,2 @@
-export {
-  PRODUCT_BRAND,
-  PRODUCT_NAME,
-  PRODUCT_WORDMARK,
-  brandMessageCatalog,
-  brandProductText,
-} from "./runtime.js";
-export type { ProductBrand } from "./runtime.js";
+// XCODE: 旧路径转发到唯一 Aiscoo 实现，保留已有调用。
+export * from "../aiscoo-brand/contract.js";

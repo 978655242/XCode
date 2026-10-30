@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import {
+  canonicalModuleId,
   countPublicMethods,
   discoverFiles,
   importDeclarationsOf,
@@ -38,7 +39,11 @@ export async function checkArchitecture({
   const edges = new Map(files.map((file) => [file, []]));
   const violations = [];
   const manifestRequiresByModule = new Map();
-  const moduleIds = new Set(policy.modules.map((module) => module.id));
+  // XCODE: 别名只影响身份解析，manifest 和策略的原始声明仍逐项比对。
+  const moduleIds = new Set([
+    ...policy.modules.map((module) => module.id),
+    ...Object.keys(policy.aliases),
+  ]);
 
   const today = new Date().toISOString().slice(0, 10);
   for (const exception of policy.exceptions) {
@@ -255,7 +260,8 @@ export async function checkArchitecture({
       }
       if (!targetModule || targetModule.id === module.id) continue;
       const declaredRequires = manifestRequiresByModule.get(module.id) ?? module.requires;
-      if (!declaredRequires.includes(targetModule.id)) {
+      // XCODE: 旧 ID 与新 ID 都仅授权到同一真实模块，仍检查其公开入口。
+      if (!declaredRequires.some((id) => canonicalModuleId(id, policy) === targetModule.id)) {
         violations.push(
           violation({
             cwd,
@@ -320,9 +326,16 @@ export async function checkArchitecture({
       }
     }
   }
-  const scoped = changed
-    ? violations.filter((item) => item.global || changed.has(path.resolve(cwd, item.file)))
-    : violations;
+  // XCODE: 策略变更可影响未修改模块，必须检查全量依赖并保持 baseline 更新范围一致。
+  const policyChanged = changedFiles?.some((file) =>
+    ["architecture-policy.yaml", "architecture-policy.xwork.yaml"].includes(
+      posix(path.relative(cwd, path.resolve(cwd, file))),
+    ),
+  );
+  const scoped =
+    changed && !policyChanged
+      ? violations.filter((item) => item.global || changed.has(path.resolve(cwd, item.file)))
+      : violations;
   const baselineViolations = scoped.filter((item) => baselineFingerprints.has(item.fingerprint));
   const newViolations = scoped.filter((item) => !baselineFingerprints.has(item.fingerprint));
   return {
@@ -331,7 +344,7 @@ export async function checkArchitecture({
     baselineViolations,
     newViolations,
     baseline,
-    changedClosure: changed,
+    changedClosure: policyChanged ? null : changed,
   };
 }
 

@@ -99,6 +99,11 @@ export async function adoptModule({
 }) {
   if (!id || !/^[a-z][a-z0-9-]*$/.test(id)) throw new Error(`模块 id 非法: ${id}`);
   if (!Array.isArray(roots) || roots.length === 0) throw new Error("必须提供至少一个 --root");
+  // XCODE: 先拒绝已有别名，避免不存在的 root 掩盖重复身份。
+  const currentPolicy = await loadPolicy(cwd);
+  if (Object.hasOwn(currentPolicy.aliases, id)) {
+    throw new Error(`模块 id ${id} 是 ${currentPolicy.aliases[id]} 的别名，不能重复登记`);
+  }
   const absoluteRoots = roots.map((root) => path.resolve(cwd, root));
   for (const root of absoluteRoots) {
     const stat = await fs.stat(root).catch(() => null);
@@ -124,7 +129,6 @@ export async function adoptModule({
   ];
 
   // 先用"假设已登记"的策略视图反推 requires，避免新模块的文件被算成它所在的 legacy 模块。
-  const currentPolicy = await loadPolicy(cwd);
   const virtualModule = {
     id,
     roots: absoluteRoots,

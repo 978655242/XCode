@@ -1,12 +1,2 @@
-import type { PluginGuideSource } from "@zcode/shared/xwork-plugin-guides";
-
-export interface ReadPluginGuideSourceInput {
-  storageRoot: string;
-  marketplace: string;
-  name: string;
-  mode: "identity" | "documents";
-  withWriteLock?: <T>(write: () => Promise<T>) => Promise<T>;
-}
-export type ReadPluginGuideSource = (
-  input: ReadPluginGuideSourceInput,
-) => Promise<PluginGuideSource>;
+// XCODE: 旧路径转发到唯一 Aiscoo 实现，保留已有调用。
+export * from "../aiscoo-plugin-guides/contract.js";

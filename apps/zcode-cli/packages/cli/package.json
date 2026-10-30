@@ -26,7 +26,8 @@
     "coverage": "c8 --reporter=text --reporter=html tsx --disable-warning=DEP0205 --test tests/cli.unit.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src",
-    "lint:fix": "oxlint --write src"
+    "lint:fix": "oxlint --write src",
+    "test:aiscoo": "pnpm run test:xwork"
   },
   "dependencies": {
     "@zcode/adapters": "workspace:*",

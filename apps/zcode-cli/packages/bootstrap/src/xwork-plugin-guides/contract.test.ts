@@ -102,6 +102,18 @@ describe("plugin guide stream protocol", () => {
 });
 
 describe("plugin guide transport admission", () => {
+  it("accepts both public spellings on the existing wire methods", async () => {
+    const { isPluginGuideConcurrentMethod } = await import("./dispatch-policy.js");
+    for (const method of [
+      zcodeProtocolMethods.xworkPluginGuideSource,
+      zcodeProtocolMethods.aiscooPluginGuideSource,
+      zcodeProtocolMethods.xworkWorkspaceStreamText,
+      zcodeProtocolMethods.aiscooWorkspaceStreamText,
+    ]) expect(isPluginGuideConcurrentMethod(method)).toBe(true);
+    expect(zcodeProtocolMethods.aiscooPluginGuideSource).toBe("xwork/plugins/guideSource");
+    expect(zcodeProtocolMethods.aiscooWorkspaceStreamText).toBe("xwork/workspace/streamText");
+    expect(zcodeProtocolNotifications.aiscooWorkspaceTextDelta).toBe("xwork/workspace/textDelta");
+  });
   it.each([
     zcodeProtocolMethods.xworkWorkspaceStreamText,
     zcodeProtocolMethods.xworkPluginGuideSource,

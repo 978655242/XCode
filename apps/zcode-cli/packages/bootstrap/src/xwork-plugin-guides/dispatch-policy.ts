@@ -1,8 +1,2 @@
-import { zcodeProtocolMethods } from "@zcode/shared";
-
-export function isPluginGuideConcurrentMethod(method: string): boolean {
-  return (
-    method === zcodeProtocolMethods.xworkPluginGuideSource ||
-    method === zcodeProtocolMethods.xworkWorkspaceStreamText
-  );
-}
+// XCODE: 旧路径转发到唯一 Aiscoo 实现，保留已有调用。
+export * from "../aiscoo-plugin-guides/dispatch-policy.js";
