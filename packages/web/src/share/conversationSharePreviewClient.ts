@@ -64,11 +64,13 @@ export function resolveConversationShareRouteLocale(pathname: string): Locale {
   return /^zh(?:-|$)/iu.test(navigator.language) ? "zh-CN" : "en-US";
 }
 
-export function buildShareImportDeepLink(shareCode: string): string {
+// XCODE: 下游在装配点注入 scheme，未指定仍保留上游 zcode 链接格式。
+export function buildShareImportDeepLink(shareCode: string, scheme = "zcode"): string {
   if (!isSafeConversationShareCode(shareCode)) {
     throw new TypeError("Invalid conversation share code");
   }
-  return `zcode://share/import?code=${encodeURIComponent(shareCode)}`;
+  if (!/^[a-z][a-z0-9+.-]*$/.test(scheme)) throw new TypeError("Invalid desktop scheme");
+  return `${scheme}://share/import?code=${encodeURIComponent(shareCode)}`;
 }
 
 export interface ConversationSharePreviewClientOptions {

@@ -5,18 +5,23 @@ import { spawn } from "node:child_process";
 import type { Locale } from "@zcode/shared";
 import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 
-// XCODE: Finder 服务目录也是用户可见品牌；bundle ID 保持稳定用于安全识别并迁移旧目录。
-const WORKFLOW_NAME = `Open in ${PRODUCT_NAME}.workflow`;
-const LEGACY_WORKFLOW_NAMES = [
-  "Open in ZCode.workflow",
-  "Open in XWork.workflow",
-  "Open in XCode.workflow",
-];
-const WORKFLOW_BUNDLE_ID = "dev.zcode.app.finder-open-workflow";
+import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
+
+// XCODE: 渠道服务独立命名；旧 ZCode bundle ID 无法证明下游归属，Aiscoo 不清理旧服务。
+const desktopIdentity = resolveAiscooDesktopIdentity();
+const workflowProductName = desktopIdentity?.productName ?? PRODUCT_NAME;
+const WORKFLOW_NAME = `Open in ${workflowProductName}.workflow`;
+const LEGACY_WORKFLOW_NAMES = desktopIdentity
+  ? []
+  : ["Open in ZCode.workflow", "Open in XWork.workflow", "Open in XCode.workflow"];
+const WORKFLOW_BUNDLE_ID = desktopIdentity
+  ? `${desktopIdentity.appId}.finder-open-workflow`
+  : "dev.zcode.app.finder-open-workflow";
 const WORKFLOW_VERSION = "5";
 const SERVICES_MENU_LABELS: Record<Locale, string> = {
-  "zh-CN": `在${PRODUCT_NAME}中打开`,
-  "en-US": `Open in ${PRODUCT_NAME}`,
+  // XCODE: Finder 菜单与渠道服务目录保持同一显示名。
+  "zh-CN": `在${workflowProductName}中打开`,
+  "en-US": `Open in ${workflowProductName}`,
 };
 
 const workflowScript = `first=""
@@ -29,7 +34,7 @@ done
 
 if [ -n "$first" ]; then
   encoded=$(/usr/bin/osascript -l JavaScript -e 'function run(argv) { return encodeURIComponent(argv[0]); }' "$first")
-  /usr/bin/open "zcode://workspace/open?path=\${encoded}"
+  /usr/bin/open "${desktopIdentity?.scheme ?? "zcode"}://workspace/open?path=\${encoded}"
 fi
 `;
 

@@ -10,13 +10,30 @@ import {
   type LinuxDeepLinkRegistrationLogger,
 } from "./desktopLinuxXdg.js";
 
-const LINUX_DEEP_LINK_DESKTOP_FILE = "zcode.desktop";
-const LINUX_DEEP_LINK_MIME_TYPE = "x-scheme-handler/zcode";
+import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
+
+// XCODE: desktop 文件、MIME 与图标使用同一渠道配置，不遮蔽上游或其他渠道。
+const desktopIdentity = resolveAiscooDesktopIdentity();
+const LINUX_DEEP_LINK_DESKTOP_FILE = desktopIdentity?.desktopFileName ?? "zcode.desktop";
+const LINUX_DEEP_LINK_MIME_TYPE = `x-scheme-handler/${desktopIdentity?.scheme ?? "zcode"}`;
+const LINUX_APP_ICON_NAME = desktopIdentity?.linuxExecutableName ?? "zcode";
+const LINUX_DESKTOP_CHANNEL_OWNERSHIP_MARKER = desktopIdentity
+  ? `X-Aiscoo-AppId=${desktopIdentity.appId}`
+  : null;
 // XCODE: 新桌面条目展示新品牌；旧 XWork/XCode/ZCode 归属标记继续用于安全清理。
 const LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER = `Comment=${PRODUCT_BRAND.desktopName}`;
 const LEGACY_XWORK_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER = "Comment=XWork Desktop App";
 const LEGACY_XCODE_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER = "Comment=XCode Desktop App";
 const LEGACY_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER = "Comment=ZCode Desktop App";
+// XCODE: Aiscoo 只认本渠道 appId；null 配置沿用全部历史归属标记。
+const LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKERS = LINUX_DESKTOP_CHANNEL_OWNERSHIP_MARKER
+  ? [LINUX_DESKTOP_CHANNEL_OWNERSHIP_MARKER]
+  : [
+      LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER,
+      LEGACY_XWORK_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER,
+      LEGACY_XCODE_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER,
+      LEGACY_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER,
+    ];
 
 type LinuxDesktopEnv = {
   APPIMAGE?: string;
@@ -114,8 +131,9 @@ export function createLinuxDeepLinkDesktopEntry(params: {
   productName?: string;
   iconName?: string;
 }): string {
-  const productName = params.productName ?? PRODUCT_NAME;
-  const iconName = params.iconName ?? "zcode";
+  // XCODE: 显式参数仍可覆盖显示配置，默认按当前渠道生成。
+  const productName = params.productName ?? desktopIdentity?.productName ?? PRODUCT_NAME;
+  const iconName = params.iconName ?? LINUX_APP_ICON_NAME;
   const command = {
     executablePath: params.executablePath,
     args: params.args ?? [],
@@ -124,6 +142,8 @@ export function createLinuxDeepLinkDesktopEntry(params: {
     "[Desktop Entry]",
     `Name=${productName}`,
     LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER,
+    // XCODE: 仅该 appId 的显式归属标记允许清理当前渠道遗留文件。
+    ...(LINUX_DESKTOP_CHANNEL_OWNERSHIP_MARKER ? [LINUX_DESKTOP_CHANNEL_OWNERSHIP_MARKER] : []),
     `Exec=${formatDesktopExec(command)}`,
     "Terminal=false",
     "Type=Application",
@@ -179,12 +199,8 @@ function isOwnedDesktopEntry(path: string): boolean {
     // 避免可清理的遗留条目被误判为用户自定义条目而永久残留。
     return content.split("\n").some((line) => {
       const marker = line.replaceAll("\r", "").trim();
-      return (
-        marker === LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER ||
-        marker === LEGACY_XWORK_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER ||
-        marker === LEGACY_XCODE_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER ||
-        marker === LEGACY_LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKER
-      );
+      // XCODE: 配置归属列表，不凭通用品牌 Comment 清理其他应用。
+      return LINUX_DESKTOP_ENTRY_OWNERSHIP_MARKERS.includes(marker);
     });
   } catch {
     return false;
@@ -332,6 +348,8 @@ export function registerLinuxDeepLinkProtocol(options: RegisterLinuxDeepLinkProt
         dataDir,
         env: options.env,
         iconSourcePath: options.iconSourcePath,
+        // XCODE: entry 与 hicolor 图标同名，只写本渠道文件。
+        iconName: LINUX_APP_ICON_NAME,
         logger: options.logger,
         runCommand,
       });

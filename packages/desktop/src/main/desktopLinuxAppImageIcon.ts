@@ -13,15 +13,9 @@ import {
 const LINUX_APP_ICON_NAME = "zcode";
 const LINUX_APP_ICON_SIZE = "512x512";
 
-function resolveLinuxUserIconFilePath(dataDir: string): string {
-  return join(
-    dataDir,
-    "icons",
-    "hicolor",
-    LINUX_APP_ICON_SIZE,
-    "apps",
-    `${LINUX_APP_ICON_NAME}.png`,
-  );
+// XCODE: 可选图标名隔离渠道，默认路径保持上游 zcode.png。
+function resolveLinuxUserIconFilePath(dataDir: string, iconName = LINUX_APP_ICON_NAME): string {
+  return join(dataDir, "icons", "hicolor", LINUX_APP_ICON_SIZE, "apps", `${iconName}.png`);
 }
 
 function copyFileIfChanged(sourcePath: string, targetPath: string): boolean {
@@ -43,10 +37,12 @@ export function shouldInstallAppImageDesktopIcon(params: {
 export function installLinuxAppImageDesktopIcon(params: {
   dataDir: string;
   iconSourcePath: string;
+  // XCODE: 调用方按身份配置指定图标名，不覆盖其他应用图标。
+  iconName?: string;
   logger: LinuxDeepLinkRegistrationLogger;
   runCommand?: LinuxDesktopCommandRunner;
 }): { iconFilePath: string; installed: boolean; changed: boolean } {
-  const iconFilePath = resolveLinuxUserIconFilePath(params.dataDir);
+  const iconFilePath = resolveLinuxUserIconFilePath(params.dataDir, params.iconName);
   if (!existsSync(params.iconSourcePath)) {
     params.logger.warn("[deep-link] Linux AppImage 图标源文件不存在，跳过用户级图标安装", {
       iconSourcePath: params.iconSourcePath,
@@ -94,6 +90,8 @@ export function installLinuxAppImageDesktopIconBestEffort(params: {
   dataDir: string;
   env?: { APPIMAGE?: string };
   iconSourcePath?: string;
+  // XCODE: 原样转发调用方的渠道图标名。
+  iconName?: string;
   logger: LinuxDeepLinkRegistrationLogger;
   runCommand?: LinuxDesktopCommandRunner;
 }): { iconFilePath: string; installed: boolean; changed: boolean } | null {
@@ -111,6 +109,7 @@ export function installLinuxAppImageDesktopIconBestEffort(params: {
     return installLinuxAppImageDesktopIcon({
       dataDir: params.dataDir,
       iconSourcePath: params.iconSourcePath,
+      iconName: params.iconName,
       logger: params.logger,
       runCommand: params.runCommand,
     });

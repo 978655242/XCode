@@ -36,8 +36,9 @@ function readBootstrapDataBaseDirFromDisk(
   }
 }
 
-export function applyEarlyDataBaseDirBootstrap(): string | null {
-  const dataBaseDir = readBootstrapDataBaseDirFromDisk();
+// XCODE: 可选设置路径让下游隔离数据根，未指定时保留上游原有启动行为。
+export function applyEarlyDataBaseDirBootstrap(settingsFile?: string): string | null {
+  const dataBaseDir = readBootstrapDataBaseDirFromDisk(settingsFile);
   if (dataBaseDir) {
     // 启动早期就把 dataBaseDir 注入进来，避免 logger / crashReporter 先按默认 HOME 建目录，
     // 导致后续再切换到自定义目录时，日志和 crash dump 落在两套路径里。

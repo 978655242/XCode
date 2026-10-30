@@ -12,6 +12,7 @@ import {
   NewApiClientConfigSchema,
   NewApiWebHandoffSchema,
   normalizeNewApiOrigin,
+  isNewApiAuthorizationRedirectUri,
   type NewApiSessionBundle,
   type NewApiMe,
   type NewApiPlans,
@@ -66,6 +67,7 @@ const logoutSchema = z
 
 export class NewApiClient {
   readonly origin: string;
+  readonly redirectUri: string;
   private readonly fetch: typeof globalThis.fetch;
   private readonly now: () => number;
   private readonly bodyAbortAsUnavailable: boolean;
@@ -76,9 +78,15 @@ export class NewApiClient {
       fetch?: typeof globalThis.fetch;
       now?: () => number;
       bodyAbortAsUnavailable?: boolean;
+      redirectUri?: string;
     } = {},
   ) {
     this.origin = normalizeNewApiOrigin(baseUrl);
+    // XCODE: 构造时验证并绑定渠道，避免授权后换码读取不同redirect；未注入保留上游默认。
+    this.redirectUri =
+      dependencies.redirectUri === undefined ? NEW_API_CALLBACK_URI : dependencies.redirectUri;
+    if (!isNewApiAuthorizationRedirectUri(this.redirectUri))
+      throw new NewApiClientError("XCODE_AUTH_REQUEST_INVALID", 400);
     this.fetch = dependencies.fetch ?? globalThis.fetch;
     this.now = dependencies.now ?? Date.now;
     // XCODE: 仅可选本机 Web 期限启用响应体中止分类，桌面保持原行为。
@@ -93,9 +101,9 @@ export class NewApiClient {
   }): Promise<NewApiSessionBundle> {
     const bundle = await this.request("auth/token", NewApiSessionBundleSchema, undefined, {
       grant_type: "authorization_code",
-      // XCODE: 独立 Web 复用严格校验的控制客户端，并绑定该轮回环客户端和地址。
+      // XCODE: 本地 Web 保留该轮回环参数；桌面未覆盖时使用构造绑定的精确渠道回调。
       client_id: input.clientId ?? NEW_API_CLIENT_ID,
-      redirect_uri: input.redirectUri ?? NEW_API_CALLBACK_URI,
+      redirect_uri: input.redirectUri ?? this.redirectUri,
       code: input.code,
       code_verifier: input.codeVerifier,
     });
