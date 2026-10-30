@@ -36,6 +36,10 @@ try {
       "packages/desktop/scripts/devElectronAppBundle.test.mjs",
       "scripts/test/unit-test-isolation.test.mjs",
       "scripts/test/architecture-policy-xwork.test.mjs",
+      // XCODE: 下游桌面身份与数据路径回归进入现有独立门禁。
+      "scripts/test/aiscoo-desktop-packaging-identity.test.mjs",
+      "scripts/test/aiscoo-desktop-data-identity.test.mjs",
+      "scripts/test/aiscoo-desktop-deep-link-identity.test.mjs",
     ],
     {
       cwd,

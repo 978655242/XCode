@@ -165,6 +165,8 @@ import { shouldReportHostConsoleError, stringifyHostLogArg } from "./hostLog.js"
 import { flushHostE2ECoverage } from "./e2eCoverage.js";
 import { runHostShutdownPhases, type HostShutdownResult } from "./hostShutdownPhases.js";
 import { initializeHostApiNetworkTransportOwner } from "./hostInitialization.js";
+// XCODE: Native 回调由构建渠道配置，不用环境变量动态放宽回调地址。
+import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
 import { createHostUncaughtExceptionHandler } from "./hostUncaughtExceptionGuard.js";
 import {
   recordCronRunOutcomeBestEffort,
@@ -3984,6 +3986,8 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
           log: (message, details) => logger.warn(message, details),
           establishOwner: () => {
             const initializedServices = createLocalServices({
+              // XCODE: 仅 Desktop Native 注入精确回调，服务默认与 Web/远端保持原有语义。
+              newApiRedirectUri: resolveAiscooDesktopIdentity()?.oauthRedirectUri,
               reportPluginTelemetryEvent: (event) => {
                 parentPort?.postMessage({
                   type: HostResponseTypes.PluginTelemetry,

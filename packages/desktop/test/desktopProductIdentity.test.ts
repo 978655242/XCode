@@ -25,9 +25,10 @@ describe("desktop product identity", () => {
   it("ZCODE_ENV=test 使用可与生产版并排安装的 Preview 身份", () => {
     expect(resolveDesktopProductIdentity({ ZCODE_ENV: "test" })).toMatchObject({
       flavor: "preview",
-      appId: "dev.zcode.app.preview",
-      linuxExecutableName: "zcode-preview",
-      linuxPackageName: "zcode-preview",
+      // XCODE: 下游导出 profile 使用独立系统身份，上游环境与 Preview 开关语义保留。
+      appId: "dev.aiscoo.app.preview",
+      linuxExecutableName: "aiscoo-preview",
+      linuxPackageName: "aiscoo-preview",
       cuaHelperInstallVariant: "preview",
     });
   });
@@ -79,9 +80,10 @@ describe("desktop product identity", () => {
     );
     expect(desktopProductIdentities.production).toMatchObject({
       flavor: "production",
-      appId: "dev.zcode.app",
-      linuxExecutableName: "zcode",
-      linuxPackageName: "zcode",
+      // XCODE: 正式系统身份由 Aiscoo profile 覆盖，不改变后端环境的选择规则。
+      appId: "dev.aiscoo.app",
+      linuxExecutableName: "aiscoo",
+      linuxPackageName: "aiscoo",
       cuaHelperInstallVariant: null,
     });
   });

@@ -24,7 +24,7 @@ afterEach(async () => {
 });
 
 describe("dev Electron app bundle", () => {
-  it("adds a product identity and zcode URL scheme to the raw Electron plist", () => {
+  it("adds a product identity and isolated development URL scheme to the raw Electron plist", () => {
     const source = `<?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0">
 <dict>
@@ -42,10 +42,10 @@ describe("dev Electron app bundle", () => {
 
     const patched = patchDevElectronInfoPlist(source, rendererUrl);
 
-    // XCODE: 展示品牌独立于持久化身份，开发 bundle 不改协议和应用标识。
+    // XCODE: 开发 bundle 与正式、Preview、上游分别声明独立系统身份，不抢占 zcode。
     expect(DEV_ELECTRON_APP_NAME).toBe("Aiscoo Dev");
-    expect(DEV_ELECTRON_APP_BUNDLE_ID).toBe("dev.zcode.app.development");
-    expect(DEV_ELECTRON_PROTOCOL_SCHEME).toBe("zcode");
+    expect(DEV_ELECTRON_APP_BUNDLE_ID).toBe("dev.aiscoo.app.dev");
+    expect(DEV_ELECTRON_PROTOCOL_SCHEME).toBe("aiscoo-dev");
 
     expect(patched).toContain(`<string>${DEV_ELECTRON_APP_NAME}</string>`);
     expect(patched).toContain(`<string>${DEV_ELECTRON_APP_BUNDLE_ID}</string>`);
@@ -98,8 +98,10 @@ describe("dev Electron app bundle", () => {
         `${outputRoot}/41.0.3-arm64/${DEV_ELECTRON_APP_NAME}.app/Contents/MacOS/Electron`,
       );
       const plist = await readFile(join(result.appPath, "Contents", "Info.plist"), "utf8");
-      expect(plist).toContain("dev.zcode.app.development");
-      expect(plist).toContain("<string>zcode</string>");
+      // XCODE: 只检查合成 Dev 副本，不允许残留上游 scheme。
+      expect(plist).toContain("dev.aiscoo.app.dev");
+      expect(plist).toContain("<string>aiscoo-dev</string>");
+      expect(plist).not.toContain("<string>zcode</string>");
       expect(plist).toContain("<key>CFBundleIconFile</key>");
       expect(plist).toContain("<string>xcode.icns</string>");
       expect(await readFile(join(result.appPath, "Contents", "Resources", "xcode.icns"))).toEqual(

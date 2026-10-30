@@ -11,17 +11,18 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { dirname, posix } from "node:path";
-import { PRODUCT_BRAND } from "@zcode/shared/xwork-brand";
+// XCODE: 开发副本与构建/运行时共用渠道身份，避免抢占上游 zcode 协议。
+import { getAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-export const DEV_ELECTRON_PROTOCOL_SCHEME = "zcode";
-// XCODE: 仅迁移开发应用展示名，协议、bundle ID 与缓存根目录保持不变。
-export const DEV_ELECTRON_APP_NAME = PRODUCT_BRAND.developmentName;
-export const DEV_ELECTRON_APP_BUNDLE_ID = "dev.zcode.app.development";
+const developmentIdentity = getAiscooDesktopIdentity("development");
+export const DEV_ELECTRON_PROTOCOL_SCHEME = developmentIdentity.scheme;
+export const DEV_ELECTRON_APP_NAME = developmentIdentity.productName;
+export const DEV_ELECTRON_APP_BUNDLE_ID = developmentIdentity.appId;
 // 副本布局版本，见 prepareDevElectronAppBundle 中的指纹说明。
-// XCODE: format 3 的品牌开发缓存未签名；版本升级后必须重建再发布签名指纹。
-export const DEV_ELECTRON_BUNDLE_FORMAT = 4;
+// XCODE: format 4 仍声明 zcode；升级后重建为独立 appId/scheme，不能复用旧注册副本。
+export const DEV_ELECTRON_BUNDLE_FORMAT = 5;
 const execFileAsync = promisify(execFile);
 
 async function signDevElectronApp(appPath) {
@@ -53,9 +54,17 @@ function replacePlistString(plist, key, value) {
 }
 
 function appendProtocolDeclaration(plist) {
-  if (plist.includes(`<string>${DEV_ELECTRON_PROTOCOL_SCHEME}</string>`)) {
-    // XCODE: 已注册 scheme 的缓存副本也更新协议展示名，保留原 URL scheme。
-    return replacePlistString(plist, "CFBundleURLName", DEV_ELECTRON_APP_NAME);
+  const protocolDeclaration = `\n\t<key>CFBundleURLTypes</key>\n\t<array>\n\t\t<dict>\n\t\t\t<key>CFBundleURLName</key>\n\t\t\t<string>${DEV_ELECTRON_APP_NAME}</string>\n\t\t\t<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>${DEV_ELECTRON_PROTOCOL_SCHEME}</string>\n\t\t\t</array>\n\t\t</dict>\n\t</array>\n`;
+  // XCODE: 缓存或源 plist 可能保留旧协议；整体替换 URLTypes，确保开发副本只声明自己的 scheme。
+  const protocolTypesPattern =
+    /<key>CFBundleURLTypes<\/key>\s*<array(?:\s*\/>|>(?:\s*<dict>[\s\S]*?<\/dict>\s*)*<\/array>)/gu;
+  if (protocolTypesPattern.test(plist)) {
+    let replaced = false;
+    return plist.replace(protocolTypesPattern, () => {
+      if (replaced) return "";
+      replaced = true;
+      return protocolDeclaration.trim();
+    });
   }
 
   const closingDictIndex = plist.lastIndexOf("</dict>");
@@ -63,7 +72,6 @@ function appendProtocolDeclaration(plist) {
     throw new Error("Dev Electron Info.plist is missing its root dict");
   }
 
-  const protocolDeclaration = `\n\t<key>CFBundleURLTypes</key>\n\t<array>\n\t\t<dict>\n\t\t\t<key>CFBundleURLName</key>\n\t\t\t<string>${DEV_ELECTRON_APP_NAME}</string>\n\t\t\t<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>${DEV_ELECTRON_PROTOCOL_SCHEME}</string>\n\t\t\t</array>\n\t\t</dict>\n\t</array>\n`;
   return `${plist.slice(0, closingDictIndex)}${protocolDeclaration}${plist.slice(closingDictIndex)}`;
 }
 
@@ -91,9 +99,9 @@ function setPlistEnvironmentValue(plist, key, value) {
 }
 
 /**
- * 为 macOS 本地 Dev runtime 写入产品身份和 zcode URL scheme。
- * raw Electron 的 Info.plist 没有 CFBundleURLTypes，系统只能把 zcode 交给
- * com.github.Electron；这里仅修改启动副本，避免污染 node_modules 中的 Electron。
+ * 为 macOS 本地 Dev runtime 写入开发渠道的产品身份和 URL scheme。
+ * raw Electron 的 Info.plist 没有 CFBundleURLTypes；这里仅修改启动副本，
+ * 避免污染 node_modules 中的 Electron，也不声明其他产品或渠道的 scheme。
  */
 export function patchDevElectronInfoPlist(plist, rendererUrl) {
   let patched = replacePlistString(plist, "CFBundleDisplayName", DEV_ELECTRON_APP_NAME);

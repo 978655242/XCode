@@ -94,6 +94,8 @@ export default defineConfig({
       "packages/web/test/aiscooBranding.test.ts",
       "packages/web/test/aiscooStartupLogo.test.ts",
       "packages/zcode-server-cli/test/aiscooBranding.test.ts",
+      "packages/services/test/aiscooNativeRedirect.test.ts",
+      "packages/services/test/aiscooSettingsFilePath.test.ts",
     ],
   },
 });

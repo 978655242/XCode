@@ -1,5 +1,8 @@
-const DEEP_LINK_SCHEME = "zcode";
-const DEEP_LINK_RE = /\bzcode:(?:\/\/|\/)?[^\s"'<>]+/i;
+import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
+
+// XCODE: 编译期渠道只配置协议；未注入时保留上游解析与全部路由规则。
+const DEEP_LINK_SCHEME = resolveAiscooDesktopIdentity()?.scheme ?? "zcode";
+const DEEP_LINK_RE = new RegExp(String.raw`\b${DEEP_LINK_SCHEME}:(?:\/\/|\/)?[^\s"'<>]+`, "i");
 const OAUTH_CALLBACK_HOSTS = new Set(["oauth"]);
 const PAYMENT_CALLBACK_HOST = "payment";
 const WORKSPACE_OPEN_HOST = "workspace";

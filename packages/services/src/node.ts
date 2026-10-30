@@ -1258,6 +1258,8 @@ export function createLocalServices(options: {
   resolveClientLanguage?: () => string | undefined;
   /** Desktop Host 请求 Main 登记 Agent 已授权的精确本地视频路径。 */
   authorizeLocalMediaPreviewPath?: (path: string) => Promise<string>;
+  /** XCODE: Host显式注入精确渠道回调，未注入保留上游zcode默认。 */
+  newApiRedirectUri?: string;
   /** XCODE: 可选凭据权威由入口注入，默认仍由桌面账号实现持有。 */
   newApiAccountAuthority?: NewApiAccountAuthorityFactory;
   /** XCODE: Host-only非秘密分区生命周期；Main负责关闭/清理WebView。 */
@@ -1444,7 +1446,11 @@ export function createLocalServices(options: {
       ? process.env.AISCOO_ADMIN_BASE_URL?.trim()
       : undefined);
   const newApiClient = newApiOrigin
-    ? new NewApiClient(newApiOrigin, { fetch: hostApiNetworkTransport.fetch })
+    ? new NewApiClient(newApiOrigin, {
+        fetch: hostApiNetworkTransport.fetch,
+        // XCODE: 可选接线让授权与换码绑定同一渠道，不在服务层动态选择环境。
+        redirectUri: options.newApiRedirectUri,
+      })
     : null;
   const onNewApiOwnerChanged = async (owner: NewApiOwner | null) => {
     invalidatePluginUiAccounts?.();

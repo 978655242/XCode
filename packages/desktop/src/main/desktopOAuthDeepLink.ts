@@ -21,6 +21,10 @@ import {
 } from "./desktopDeepLinkUrl.js";
 import { PRODUCT_NAME } from "@zcode/shared/xwork-brand";
 import { registerLinuxDeepLinkProtocol } from "./desktopLinuxDeepLinkRegistration.js";
+import { resolveAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
+
+// XCODE: Main 只投影渠道身份，不接管 Host 的 pending/PKCE 或账号状态。
+const desktopIdentity = resolveAiscooDesktopIdentity();
 
 interface DeepLinkWorkspaceGateOptions {
   canOpenWorkspace?: (workspacePath: string) => boolean;
@@ -400,7 +404,11 @@ export function handleDeepLink(
     logger.warn("[deep-link] 未匹配已登记 OAuth 身份或用途，忽略此次回调");
     return false;
   }
-  if (routeTarget.provider === "new-api" && !parseNewApiAuthorizationCallback(url)) {
+  // XCODE: Native 校验与 Host 换码使用同一精确 redirect，未注入采用 parser 的上游默认值。
+  if (
+    routeTarget.provider === "new-api" &&
+    !parseNewApiAuthorizationCallback(url, desktopIdentity?.oauthRedirectUri)
+  ) {
     logger.warn("[deep-link] 拒绝非canonical原生授权回调");
     return false;
   }
@@ -442,7 +450,8 @@ export function registerDeepLinkProtocol(
   },
   options: { iconPath?: string } = {},
 ) {
-  const scheme = "zcode";
+  // XCODE: 每个渠道只声明自己的协议，未注入时继续注册 zcode。
+  const scheme = desktopIdentity?.scheme ?? "zcode";
 
   // 外部 URL 必须位于 -- 后；否则 Windows 引号拆分可把 URL 内容变成 Electron 启动参数。
   // Inspector 早于应用 JS 和单实例锁启动，不能依赖后续 handleDeepLink 校验拦截。

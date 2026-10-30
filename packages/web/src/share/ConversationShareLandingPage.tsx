@@ -11,6 +11,11 @@ import {
 } from "react";
 import { ArrowUpRightIcon, MoonIcon, SunIcon } from "lucide-react";
 import { BIGMODEL_PROVIDER_ID, ZAI_PROVIDER_ID } from "@zcode/shared";
+// XCODE: Web 分享使用 Aiscoo 桌面已登记的渠道协议。
+import {
+  getAiscooDesktopIdentity,
+  resolveAiscooDesktopIdentity,
+} from "@zcode/shared/aiscoo-desktop-identity";
 import type { ConversationSharePreview } from "@zcode/shared";
 // XCODE: 只装配自有分享模板；分享正文、标题和导入 URL 保持原值。
 import { brandProductText, PRODUCT_NAME } from "@zcode/shared/xwork-brand";
@@ -322,7 +327,10 @@ export function ConversationShareLandingPage({
   const [showContinueHelp, setShowContinueHelp] = useState(false);
   const importLink =
     preview.share.access_mode === "public_importable" || preview.share.access_mode === "private"
-      ? buildShareImportDeepLink(shareCode)
+      ? buildShareImportDeepLink(
+          shareCode,
+          (resolveAiscooDesktopIdentity() ?? getAiscooDesktopIdentity("production")).scheme,
+        )
       : null;
   // 结果物数量只统计时间线实际展示的 artifact Row；preview.artifacts 还包含 userInput
   // 附件的下载 manifest，不能直接拿 manifest 数量当作结果物数量。

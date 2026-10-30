@@ -122,12 +122,13 @@ describe("Aiscoo native display and legacy identities", () => {
     );
     expect(JSON.parse(stdout)).toMatchObject({
       productName: "Aiscoo",
-      windowsExecutableName: "XWork",
-      appId: "dev.zcode.app",
+      windowsExecutableName: "Aiscoo",
+      appId: "dev.aiscoo.app",
+      scheme: "aiscoo",
     });
   });
 
-  it("keeps the actual Windows executable names while macOS bundles use the product name", async () => {
+  it("uses Aiscoo channel executable names and macOS bundle names", async () => {
     const require = createRequire(import.meta.url);
     const { AppInfo } = require("app-builder-lib/out/appInfo.js");
     vi.stubEnv("ZCODE_TARGET_OS", "win32");
@@ -143,12 +144,14 @@ describe("Aiscoo native display and legacy identities", () => {
       });
       const mac = new AppInfo(info, undefined, config.mac);
       expect(windows.productName).toBe(flavor === "preview" ? "Aiscoo Preview" : "Aiscoo");
-      expect(windows.productFilename).toBe(flavor === "preview" ? "XWork Preview" : "XWork");
+      expect(windows.productFilename).toBe(flavor === "preview" ? "Aiscoo Preview" : "Aiscoo");
       expect(mac.productFilename).toBe(identity.productName);
-      expect(identity.appId).toBe(flavor === "preview" ? "dev.zcode.app.preview" : "dev.zcode.app");
-      expect(identity.linuxExecutableName).toBe(flavor === "preview" ? "zcode-preview" : "zcode");
+      expect(identity.appId).toBe(
+        flavor === "preview" ? "dev.aiscoo.app.preview" : "dev.aiscoo.app",
+      );
+      expect(identity.linuxExecutableName).toBe(flavor === "preview" ? "aiscoo-preview" : "aiscoo");
     }
-    expect(config.win.executableName).toMatch(/^XWork(?: Preview)?$/);
+    expect(config.win.executableName).toMatch(/^Aiscoo(?: Preview)?$/);
     expect(config.extraMetadata.description).toBe("Aiscoo Desktop App");
     expect(config.extraMetadata.author.name).toBe("Aiscoo");
   });

@@ -91,7 +91,7 @@ describe("Aiscoo Web 展示接线", () => {
   );
 
   it.each(["zh-CN", "en-US"] as const)(
-    "%s 分享自有提示使用新品牌，用户标题与深链不转换",
+    "%s 分享自有提示与打开入口使用 Aiscoo，用户标题保留",
     (locale) => {
       const preview: ConversationSharePreview = {
         schema_version: 1,
@@ -110,7 +110,7 @@ describe("Aiscoo Web 展示接线", () => {
       );
       expect(html).toContain("ZCode XWork user title");
       expect(html).toContain(locale === "zh-CN" ? "去 Aiscoo 继续" : "Continue in Aiscoo");
-      expect(html).toContain('href="zcode://share/import?code=old-key"');
+      expect(html).toContain('href="aiscoo://share/import?code=old-key"');
       expect(html).toContain('data-aiscoo-brand="wordmark"');
       const status = renderToStaticMarkup(
         createElement(ConversationShareLandingStatus, {

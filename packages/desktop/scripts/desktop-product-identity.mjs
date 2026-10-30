@@ -1,5 +1,7 @@
 // XCODE: 此模块也被 main 内联，必须静态导入品牌，不能在产物中读取源码相对路径。
 import { PRODUCT_BRAND as productBrand } from "@zcode/shared/xwork-brand";
+// XCODE: 下游身份只在导出配置处叠加，保留上游默认表与环境选择逻辑。
+import { getAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
 
 /**
  * 构建期开关：为真时安装包使用 Preview 身份，而后端环境仍由 `ZCODE_ENV` 单独决定。
@@ -34,9 +36,10 @@ const PREVIEW_IDENTITY = Object.freeze({
   cuaHelperInstallVariant: "preview",
 });
 
+// XCODE: appId、协议、数据目录与平台文件名统一读取 Aiscoo profile，保留原 flavor/CUA 约定。
 export const desktopProductIdentities = Object.freeze({
-  production: PRODUCTION_IDENTITY,
-  preview: PREVIEW_IDENTITY,
+  production: Object.freeze({ ...PRODUCTION_IDENTITY, ...getAiscooDesktopIdentity("production") }),
+  preview: Object.freeze({ ...PREVIEW_IDENTITY, ...getAiscooDesktopIdentity("preview") }),
 });
 
 function normalizeDesktopZCodeEnv(env) {
