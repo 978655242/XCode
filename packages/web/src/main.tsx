@@ -29,6 +29,8 @@ import {
 } from "@zcode/ui";
 // XCODE: 独立公开子路径组合归属水合，保留原 UI 根导出边界。
 import { createXWorkRoot } from "@zcode/ui/xwork-startup-context";
+// XCODE: Web 与桌面共享本地默认头像，身份仍由原服务持有。
+import { createAiscooAccountAvatarRoot } from "@zcode/ui/xwork-account-avatar";
 // XCODE: 产品入口显式投影词典，原 Provider 默认不变。
 import { AiscooIntlProvider as ZCodeIntlProvider } from "@zcode/ui/xwork-brand";
 import "./styles.css";
@@ -117,7 +119,8 @@ import {
 } from "#src/web-remote-control/views.js";
 
 // XCODE: 入口注入上游组件，沿用手机 replayable 的会话恢复边界。
-const Root: typeof UpstreamRoot = createXWorkRoot(UpstreamRoot);
+// XCODE: 与已有启动包装组合，保持 Root 的 props 和恢复链路不变。
+const Root: typeof UpstreamRoot = createAiscooAccountAvatarRoot(createXWorkRoot(UpstreamRoot));
 
 type RootServices = Parameters<typeof Root>[0]["services"];
 type ServiceMethod = (...args: any[]) => unknown;

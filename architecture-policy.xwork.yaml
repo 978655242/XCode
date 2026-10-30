@@ -151,3 +151,22 @@ modules:
       - packages/ui/src/aiscoo/legal/contract.ts
     layers: { ui: . }
     owner: product
+  # 头像 fallback 插槽与产品派生值分别保持独立所有权。
+  - id: profile-avatar
+    roots: [packages/ui/src/profile-avatar]
+    managed: true
+    requires: [shared]
+    publicEntrypoints:
+      - packages/ui/src/profile-avatar/index.ts
+      - packages/ui/src/profile-avatar/contract.ts
+    layers: { ui: . }
+    owner: account
+  - id: xwork-account-avatar
+    roots: [packages/ui/src/xwork/account-avatar]
+    managed: true
+    requires: [profile-avatar, shared]
+    publicEntrypoints:
+      - packages/ui/src/xwork/account-avatar/index.ts
+      - packages/ui/src/xwork/account-avatar/contract.ts
+    layers: { ui: . }
+    owner: account

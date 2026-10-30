@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "inputHashEncoding": "UTF-8 with CRLF normalized to LF; notice and source snapshot hashes remain byte-exact",
   "scope": "Production dependency union across current workspace projects, copied source/assets and native tools; not a per-installer SBOM or a certification of all licensing obligations.",
-  "noticesSha256": "a762a71f8de6eeb35aacf87f03ee0c903b2871ad87d4ce85e53e8f7f82825d34",
+  "noticesSha256": "1eb4c38ed22bf975f34ec9e47b6a44854b0e6d4a4adca38eef686268e77c1d48",
   "inputs": {
     ".agents/skills/agent-browser/references/authentication.md": "e2c3b0f4a1dc1368dee821f03c000d818a48421d09f3872525dddffe73f2112b",
     ".agents/skills/agent-browser/references/commands.md": "17522fc56d742663f47231ff06c4811abc87e12c7f78e11f94d253ddd540a909",
@@ -225,12 +225,12 @@
     ".agents/skills/react-best-practices/rules/server-serialization.md": "f4c7d68b29c82381baad059c4a7f09e868e71ec9c3115a26ad3ae7d24c0dfe1f",
     ".agents/skills/react-best-practices/SKILL.md": "71ed7794962fa6e803ee83030517b5b93a9f70fbfeb431ec4535c5480a8d8355",
     "apps/dev-docs/package.json": "3830c01890b83081debf6596aceb19734924f43b4dee2111c5ea85584f3e944b",
-    "apps/zcode-cli/package.json": "f4622eb66460133ac75eba76135a022f12078bf7182ecc02379b15a9f7c68615",
-    "apps/zcode-cli/packages/adapters/package.json": "12316ccf002e19a4fbc6536007b2e89ded5704a8f757baeec4dc83d47c0ea345",
+    "apps/zcode-cli/package.json": "deca1c2142dafc03886de5c5a8a75e9271bc7988777e04d917fcd1c17b00fdc1",
+    "apps/zcode-cli/packages/adapters/package.json": "2942173bd6f6b175bdc35eff3b16f4c5f28e68730c2d057f61f2c21f2de84b4c",
     "apps/zcode-cli/packages/android-emulator-plugin/package.json": "96ecaa9ce091e13f7e508b0aed8ab116360b40ba21dc1be78c906b2eebbf5571",
     "apps/zcode-cli/packages/bootstrap/package.json": "554ddd3fc3a017e1bde9af23477d7cff16d4e86b63f3faeda19ce3af7f1edee8",
-    "apps/zcode-cli/packages/browser-use-plugin/package.json": "53a2c64811fbb85a8a88bf22ac2b42dbca7a283e3c83f0ebd24601889223741d",
-    "apps/zcode-cli/packages/cli/package.json": "c7f319da5c9c354b891c2741a119276ab0abeea82c8d1e14585d14661fb1175c",
+    "apps/zcode-cli/packages/browser-use-plugin/package.json": "738fa0e4d4cd555641a68541d577e8a01b883e25dbaa0e4c7a76ec2e04cd5174",
+    "apps/zcode-cli/packages/cli/package.json": "ba09ee87d805c8826eaa1bde7bf8c22f5513c455eac52307044ec563aa4acfc6",
     "apps/zcode-cli/packages/contracts/package.json": "d71e04825072c7407dcc3e1fcca3d8b9221cfac411ea58a024998a57cb579029",
     "apps/zcode-cli/packages/core/package.json": "e70205607c75f7fb51cd1815ff3d411d7ea63bef6a0148f3a698229c30189d32",
     "apps/zcode-cli/packages/core/src/tool/handlers/generated/bash-command-registry.ts": "60fa5acd9f5c357f4e51b1d1e944ee39da92680e4bc5e98dd708f1457fcf612b",
@@ -238,7 +238,7 @@
     "apps/zcode-cli/packages/documents-plugin/package.json": "7ce3663e5e14ff8f4e9c2c456e0e023c1228ca0823518e56073fdc1149389ff7",
     "apps/zcode-cli/packages/dynamic-workflow-runtime/package.json": "700fb16f330bee73cd84d6e1fc8609663faf14ffa2108415e3bfb267ae9bcb3a",
     "apps/zcode-cli/packages/dynamic-workflow/package.json": "9edb746ae170418d81c4431dc16533e814bf3a97e4693a2a94f06b4516151a95",
-    "apps/zcode-cli/packages/i18n/package.json": "cd51fc9cda66d726ab54f9821ff748bc150bf4bd84143bb7c8aa9b712a7e6c61",
+    "apps/zcode-cli/packages/i18n/package.json": "3f8194a3e6ae2ab17462ecd287fad94c803a39368539b7af58ea9d31ffe6185e",
     "apps/zcode-cli/packages/image-search-plugin/package.json": "f59cba2c8890624a2f5164c9e2f68f808021d2958a7f088544c268eddc9a26a5",
     "apps/zcode-cli/packages/ios-simulator-plugin/package.json": "fc38d3f6d88598f2c84aced1dfbbef0682addc54e477500dbe323e829c74217a",
     "apps/zcode-cli/packages/node-repl-host/package.json": "3b8fafd78a122a59eb7941e7ef44f62fbacdc75b344aa5859f814c250f9de4d8",
@@ -433,9 +433,9 @@
     "docs/knip/docs/src/styles/theme-light.css": "e2e85900fd43b5b563f56b9ce7e2a09f07d7420a78e80f0133efffeb8fce2aa0",
     "docs/knip/docs/src/util/post.ts": "6d7c45bd29035a73f1b67d24524760c7e317f367d32216de2c9a240dda7a40d1",
     "docs/knip/docs/tsconfig.json": "662b1f10a5e572b49a45669e4be9ee46c22f987dcf277c204948777b367df1cd",
-    "package.json": "8da0f7bb3892584629dffe32c1b9514cb4841091cda227c8c0cfeb6cfc9ecae5",
+    "package.json": "f8adb058eaad4e49fe2d9299561bc9ce514905ca23c07c84a96047703ac21233",
     "packages/client/package.json": "e76f441549130dc3e5e68072a36b6cb9044e19a6625f1e813f19a4def2b1b689",
-    "packages/desktop/package.json": "1e63b8bd7bcb43da9e29bab8c073de1b6eb7dadeca7eb8aed3529565ea2ca422",
+    "packages/desktop/package.json": "589e49cc279301f951e184711a7ece577c0965d3dd5f9a29dc21840a8bbe0f0f",
     "packages/desktop/src/renderer/public/material-icons/3d.svg": "9527b849f0fba57ca7640e2717b3a19cb5f5e046712cbbd8b75d73af338c68fb",
     "packages/desktop/src/renderer/public/material-icons/abap.svg": "1335bd7eb9a0ed49deb622330d680c2e97731726a7a5eee8e4f46dc1e5db4de4",
     "packages/desktop/src/renderer/public/material-icons/abc.svg": "d1a68020e8f020ef29dca5f94dc8613b7ae8fb5b212d8b1cc23b0f975ac7acda",
@@ -1609,12 +1609,12 @@
     "packages/rpc/src/remote.ts": "a11e072d5df7e1c1ce64814a68f72afc081246b364f0da409b5c9d22bc815957",
     "packages/rpc/src/serialization.ts": "e949418e1cd17cc863c147fc8d1ff15237e1b5f0cb8e3344fd2a9ccfae9d54e7",
     "packages/server/package.json": "a93f2ae701d5a105618b7c71fe645123b7078dff136382854e07389b7eecbbfd",
-    "packages/services/package.json": "08ea06b5adac4515f771daf5068eb33353c59979768eb1eb0c64fc066354a24a",
+    "packages/services/package.json": "418f1563bb040d793203cec97bb4ded1e6485fc0d0579b5ec9e5d4cce7d129fb",
     "packages/share-ui/package.json": "bf4e08759bc010d24d2559aa82a538832bee7c749c07c230158ee8d810cfdf41",
-    "packages/shared/package.json": "75d61b530bda3441611d433007a86ae51283a0637247e179becc6947260430fd",
+    "packages/shared/package.json": "fc5cba8cf3da903e12730765a92e3f1640676c8d9e7d5a269b4620cc671b1df2",
     "packages/shared/src/zcode-protocol-v4/wire-codec.ts": "ac2494a3acc795c809c94ee9393f50271a9c2a0fd33813459e5ab93842ceef75",
     "packages/stream-animate/package.json": "31cb25ed87e64dbcd695bbc932729ac30499107d45f747b96a5c3de832afdc28",
-    "packages/ui/package.json": "06c26cbfcb4eb44a193c4e69eb9cfb8d14a7aee55d243a9c226c424ee1bdd24a",
+    "packages/ui/package.json": "d88c8bfdec6a5e97ee0ac156f25c6ed029b859e5cc3d0f44fd5dbc1dbfaca441",
     "packages/ui/src/components/ai-elements/agent.tsx": "830e7ea9e927de1524851337f1d35bda0e5690e3e4fa307fff854b60006b16c7",
     "packages/ui/src/components/ai-elements/artifact.tsx": "7d73f08864d6280ac86c77d32e56d0e702f8aa6208e5910820139d0fb08ce64c",
     "packages/ui/src/components/ai-elements/attachments.tsx": "7a847ce6c8ac9dc630481a82dd20a5e9e00949bf710a41fea1d32a18123011d8",
@@ -1725,8 +1725,8 @@
     "packages/ui/src/components/ui/toast.tsx": "e8db1fb2da2fec35c99146a75698aa071b354d67c1211c8774145791b96ee51f",
     "packages/ui/src/components/ui/tooltip.tsx": "b385da0f882ef4a44c101051107a670c42f7b347b86ef8ca0dba40369ed34d3b",
     "packages/ui/src/components/ui/usePdfZoomOverlay.ts": "c8c91b003ce2fded32c7a2369dc6eac43aa4b9dc9c830a0f5ceccb21d366b610",
-    "packages/ui/src/components/ui/ZCodeAboutLogo.tsx": "1e5b7c2e8a9dc98a3c597cbe34122521319eaeb89825e4c41641e77715d1407a",
-    "packages/ui/src/lib/builtinSkillI18n.ts": "c4df1dae0eaf5d65cc2cbf28ff162993f0d2bb1c482e8cb52a5e222f7778ab12",
+    "packages/ui/src/components/ui/ZCodeAboutLogo.tsx": "e5e21d8144640b355b96074ec39ddee42cd57b1a6f0c16420f2d17ee5db5f7de",
+    "packages/ui/src/lib/builtinSkillI18n.ts": "26fe6f0e0959edf6bad1f1bb65f9e19c898471eb892438222ecfe3c08cbb5701",
     "packages/ui/src/styles.css": "ae1c3575fa770258bba05afb5a0ebbeda59ecbd8b4cfa9d0355b5fbfd8dcbd8b",
     "packages/web-share/package.json": "4865c14968b96d355c45c2edf612443f79d6d05cfbe433a28374e19b1b0c9d88",
     "packages/web/package.json": "b3170c61d819fe1ab7ed7ebbb3ec9fbacfa1d2c75a32060a263006bac81c4411",
@@ -2876,7 +2876,7 @@
     "packages/web/public/material-icons/zeabur.svg": "8bb7c84934202e9b24842ddb1ca69d316b9d69f1a4f5ebc9bbcce78eb2cea1a7",
     "packages/web/public/material-icons/zig.svg": "37be0ce02cf471b18d86150b3c38e80caa7c16c49a15078e7db6f1f41788d101",
     "packages/web/public/material-icons/zip.svg": "dad79a45f756542d37abd422502ecfbea15720b92ea1c9d80ef0439ab6b9448a",
-    "packages/zcode-cua/package.json": "794687f6e1bf78cc4838e776263908223e2df0a79e15d867a655b112f123ce20",
+    "packages/zcode-cua/package.json": "d5f390af638a31564b7e5c9dee06a0be1f39ea6aaee357996995ecb12853aca3",
     "packages/zcode-server-cli/package.json": "698f659142ac592cddba0e0f9b1ea932a8c1ac7d8ee3d049c5defe2a493b9235",
     "patches/@ai-sdk__anthropic@3.0.81.patch": "d3a7c381eba7f5157f765a0528003af17cf84544911dfb7412c7800168e01c18",
     "patches/@ai-sdk__openai-compatible@2.0.60.patch": "9632fe9d821b3dc20939ae509cc35b968d90d018bbd1d812390718898182a38b",
@@ -2884,11 +2884,12 @@
     "patches/@radix-ui__react-collapsible@1.1.12.patch": "4b7b3781f603e111bb33aef9c4b1694ac9bacd3dff47692606de9876d4631164",
     "patches/vitest@4.1.7.patch": "11fdb66aa985e1d77e68752deeb7c1130ae33c9a4e2968f23aae8adaf8bc9ba0",
     "patches/wdio-electron-service@9.2.1.patch": "52481dae5e76772fcb8c2a9ff42feb3d0e1478e28815a4b975c81b9287e3385f",
-    "pnpm-lock.yaml": "fd40401fa31a01d21fff8e5cf11d816cc225d81f2e11994663c27cdd8fc0a1bd",
+    "pnpm-lock.yaml": "a9014fed2ce531a14254e638de5628c2b9b8442b5c47b08f319383349f62526c",
     "pnpm-workspace.yaml": "ddf4d195a433a1fae0a991462b9b19281435d7055d768d2a2942de8f4aff89f3",
     "scripts/license-texts/Apache-2.0.txt": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "scripts/native-search-tools-config.mjs": "06e9d2b066a22f4bb731fb7356d786b52cf08e20dd6faf91e1a82b167d7462e8",
     "scripts/remote-native-search-tools-config.mjs": "2ddb7054e219ea487596cbdcb83d5c7eac9f239cfe169cfac22e3759d95d7c35",
+    "third-party/aiscoo-npm-overrides.json": "ecd46301990ef2248c199c1e2c4c6869eb3d218811556a7b67377b76edf50b62",
     "third-party/copied-components.json": "c39849cf13ab9660754fcda693b45f6c5f9f91d196789620dba54941a23d3443",
     "third-party/embedded-components.json": "9586ccca15897f56d4ca1d703dffe9e02880fedd766c1dff93f7ac1f52ea891a",
     "third-party/native-search/licenses/00373c9bf56a894b2ed67586596bc1e8b0630cabbaf1ab46c75fc754b6bcd1ce.txt": "00373c9bf56a894b2ed67586596bc1e8b0630cabbaf1ab46c75fc754b6bcd1ce",
@@ -3077,6 +3078,7 @@
     "third-party/upstream/cdab3014d4f69b49dde2b85e81792208c72de613aa6aed7f7a9b5c6609b89670.txt": "cdab3014d4f69b49dde2b85e81792208c72de613aa6aed7f7a9b5c6609b89670",
     "third-party/upstream/cf81859d85e99ff2fad83d51d9dfd85ca5189b23c4442aacf1890c54665d92f4.txt": "cf81859d85e99ff2fad83d51d9dfd85ca5189b23c4442aacf1890c54665d92f4",
     "third-party/upstream/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.txt": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "third-party/upstream/cryptojs-3.1.2-LICENSE.txt": "6718c0ad644b5e025b9fc6580636b12244eafc727a237a3ddf2da656441a1863",
     "third-party/upstream/d65ff929f8a373ea16b21d45d5489557d51389ba6583a5c9959d5487c02ce965.txt": "d65ff929f8a373ea16b21d45d5489557d51389ba6583a5c9959d5487c02ce965",
     "third-party/upstream/da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93.txt": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
     "third-party/upstream/e1cfcc55c325b3f78cf55df9664abaa066e2271dffe8213347d9fccdfbac8f2c.txt": "e1cfcc55c325b3f78cf55df9664abaa066e2271dffe8213347d9fccdfbac8f2c",
@@ -3087,7 +3089,8 @@
     "third-party/upstream/f18c12b8e7daf98d572518b7db133b2dc66a713921dac4825410dd656e0c1a1a.txt": "f18c12b8e7daf98d572518b7db133b2dc66a713921dac4825410dd656e0c1a1a",
     "third-party/upstream/f29b60ea39a2132e3baa98927c2d473b349a54143da44a0c6762b243e6459452.txt": "f29b60ea39a2132e3baa98927c2d473b349a54143da44a0c6762b243e6459452",
     "third-party/upstream/f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af.txt": "f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af",
-    "third-party/upstream/fc7d762e0ebf8720d0a03cf00058aaa3a198347e9651be2f50a25e3b3ec13985.txt": "fc7d762e0ebf8720d0a03cf00058aaa3a198347e9651be2f50a25e3b3ec13985"
+    "third-party/upstream/fc7d762e0ebf8720d0a03cf00058aaa3a198347e9651be2f50a25e3b3ec13985.txt": "fc7d762e0ebf8720d0a03cf00058aaa3a198347e9651be2f50a25e3b3ec13985",
+    "third-party/upstream/lobehub-icons-static-svg-1.95.1-LICENSE.txt": "add9d7531d1b21646317a8958e38fc727506fa39d24bdecb44154d943c82753a"
   },
   "packages": [
     {
@@ -4930,6 +4933,18 @@
       ]
     },
     {
+      "name": "@lobehub/icons-static-svg",
+      "version": "1.95.1",
+      "license": "MIT",
+      "repository": "https://github.com/lobehub/lobe-icons.git",
+      "notices": [
+        {
+          "member": "https://raw.githubusercontent.com/lobehub/lobe-icons/49a2130df7bfa5eb1b088261bff20a37e2967789/LICENSE",
+          "sha256": "add9d7531d1b21646317a8958e38fc727506fa39d24bdecb44154d943c82753a"
+        }
+      ]
+    },
+    {
       "name": "@lydell/node-pty-darwin-arm64",
       "version": "1.2.0-beta.10",
       "license": "MIT",
@@ -5162,6 +5177,26 @@
       ]
     },
     {
+      "name": "@multiavatar/multiavatar",
+      "version": "1.0.7",
+      "license": "SEE LICENSE IN LICENSE",
+      "repository": "https://github.com/multiavatar/Multiavatar.git",
+      "notices": [
+        {
+          "member": "LICENSE",
+          "sha256": "39f19f0d872c650261c399ced4bb621f8d3a79352a1cee8af44a00433fd47cf2"
+        },
+        {
+          "member": "README.md (license section)",
+          "sha256": "dd932dbe989c2bf274805b460dc33c1dc65541f73d38c42b51f3b531137a7c81"
+        },
+        {
+          "member": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/crypto-js/wiki/License.wiki (CryptoJS v3.1.2 bundled in @multiavatar/multiavatar@1.0.7)",
+          "sha256": "6718c0ad644b5e025b9fc6580636b12244eafc727a237a3ddf2da656441a1863"
+        }
+      ]
+    },
+    {
       "name": "@napi-rs/canvas-darwin-arm64",
       "version": "0.1.100",
       "license": "MIT",
@@ -5266,6 +5301,114 @@
         {
           "member": "LICENSE",
           "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6"
+        }
+      ]
+    },
+    {
+      "name": "@napi-rs/keyring-darwin-arm64",
+      "version": "2.1.2",
+      "license": "MIT",
+      "repository": "https://github.com/Brooooooklyn/keyring-node",
+      "notices": [
+        {
+          "member": "LICENSE.third-party.md",
+          "sha256": "91e92b200d6215078af0c69da9d07e3333c3d15e16f36989012e63e0bfc98749"
+        }
+      ]
+    },
+    {
+      "name": "@napi-rs/keyring-darwin-x64",
+      "version": "2.1.2",
+      "license": "MIT",
+      "repository": "https://github.com/Brooooooklyn/keyring-node",
+      "notices": [
+        {
+          "member": "LICENSE.third-party.md",
+          "sha256": "9a7ef11db183cd226800d30889bcc6f8b6596dac14471583b4283b572256efe9"
+        }
+      ]
+    },
+    {
+      "name": "@napi-rs/keyring-linux-arm64-gnu",
+      "version": "2.1.2",
+      "license": "MIT",
+      "repository": "https://github.com/Brooooooklyn/keyring-node",
+      "notices": [
+        {
+          "member": "LICENSE.third-party.md",
+          "sha256": "7e31f56ddc47a7e8c30974772c4bfa1562f275c375dd29e783419396065dfa37"
+        }
+      ]
+    },
+    {
+      "name": "@napi-rs/keyring-linux-arm64-musl",
+      "version": "2.1.2",
+      "license": "MIT",
+      "repository": "https://github.com/Brooooooklyn/keyring-node",
+      "notices": [
+        {
+          "member": "LICENSE.third-party.md",
+          "sha256": "9b5947802e92241beb5d58f7b1199832cea3bdc94f902fdf1f112d80b34f3fed"
+        }
+      ]
+    },
+    {
+      "name": "@napi-rs/keyring-linux-x64-gnu",
+      "version": "2.1.2",
+      "license": "MIT",
+      "repository": "https://github.com/Brooooooklyn/keyring-node",
+      "notices": [
+        {
+          "member": "LICENSE.third-party.md",
+          "sha256": "f5d5938861d065ae52ff874eb7abf43d22b2d2ffa49666dd175c637b8d614a27"
+        }
+      ]
+    },
+    {
+      "name": "@napi-rs/keyring-linux-x64-musl",
+      "version": "2.1.2",
+      "license": "MIT",
+      "repository": "https://github.com/Brooooooklyn/keyring-node",
+      "notices": [
+        {
+          "member": "LICENSE.third-party.md",
+          "sha256": "79ad91e4c1113391cd0e4adecff775bdcf15f371adb89e7d0faf758393f56817"
+        }
+      ]
+    },
+    {
+      "name": "@napi-rs/keyring-win32-arm64-msvc",
+      "version": "2.1.2",
+      "license": "MIT",
+      "repository": "https://github.com/Brooooooklyn/keyring-node",
+      "notices": [
+        {
+          "member": "LICENSE.third-party.md",
+          "sha256": "c3f500ee3f17e44814aa93f80634805b4245533e2831096a9490eb31877ce2e3"
+        }
+      ]
+    },
+    {
+      "name": "@napi-rs/keyring-win32-x64-msvc",
+      "version": "2.1.2",
+      "license": "MIT",
+      "repository": "https://github.com/Brooooooklyn/keyring-node",
+      "notices": [
+        {
+          "member": "LICENSE.third-party.md",
+          "sha256": "7ba6d9c1629dfc7cd6312ea17713214d7a7147f2cb673f6a937588c7d1ec2d93"
+        }
+      ]
+    },
+    {
+      "name": "@napi-rs/keyring",
+      "version": "2.1.2",
+      "license": "MIT",
+      "repository": "https://github.com/Brooooooklyn/keyring-node",
+      "notices": [
+        {
+          "member": "LICENSE",
+          "sha256": "02965ed67e29f871a53f7a7afa593a0ddc8020f86ccce0faaf1aa59215b5269e"
         }
       ]
     },
@@ -10590,6 +10733,10 @@
       "license": "MIT",
       "repository": "https://github.com/electron/electron",
       "notices": [
+        {
+          "member": "dist/LICENSE",
+          "sha256": "5154e165bd6c2cc0cfbcd8916498c7abab0497923bafcd5cb07673fe8480087d"
+        },
         {
           "member": "LICENSE",
           "sha256": "5154e165bd6c2cc0cfbcd8916498c7abab0497923bafcd5cb07673fe8480087d"
@@ -19792,7 +19939,7 @@
         },
         {
           "file": "packages/ui/src/components/ui/ZCodeAboutLogo.tsx",
-          "sha256": "1e5b7c2e8a9dc98a3c597cbe34122521319eaeb89825e4c41641e77715d1407a"
+          "sha256": "e5e21d8144640b355b96074ec39ddee42cd57b1a6f0c16420f2d17ee5db5f7de"
         },
         {
           "file": "packages/ui/src/components/ui/accordion.tsx",
@@ -30315,7 +30462,7 @@
       "files": [
         {
           "file": "packages/ui/src/lib/builtinSkillI18n.ts",
-          "sha256": "c4df1dae0eaf5d65cc2cbf28ff162993f0d2bb1c482e8cb52a5e222f7778ab12"
+          "sha256": "26fe6f0e0959edf6bad1f1bb65f9e19c898471eb892438222ecfe3c08cbb5701"
         },
         {
           "file": "apps/zcode-cli/packages/superpowers-plugin/LICENSE",

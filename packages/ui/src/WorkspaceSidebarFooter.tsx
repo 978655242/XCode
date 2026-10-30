@@ -46,6 +46,8 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { usePlatform } from "@/hooks/usePlatform.js";
+// XCODE: 可选头像插槽由产品入口注入，未装配时保留原来的首字回退。
+import { useProfileAvatarFallback } from "@/profile-avatar/index.js";
 import { useOpenRewards } from "@/rewards/RewardsProvider.js";
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { useShortcutCommandLabel } from "@/shortcuts/useShortcutBindings.js";
@@ -143,7 +145,8 @@ export const WorkspaceSidebarFooter = memo(function WorkspaceSidebarFooterCompon
   const resetZoomShortcutLabel = useShortcutCommandLabel("resetZoom");
   const isRestoringOAuthSession = useZCodeStore((state) => state.isRestoringOAuthSession);
   const profileBadge = getSidebarProfileBadge(user, intl.formatMessage);
-  const avatarFallbackText = getAvatarFallbackText(user);
+  // XCODE: 真实头像加载失败时也复用可选插槽，认证与恢复状态仍由原路径决定。
+  const avatarFallbackText = useProfileAvatarFallback(user, getAvatarFallbackText(user));
   const avatarKey = user?.avatarUrl ?? user?.id ?? "guest";
   const showAuthRestoreLoading = !user && isRestoringOAuthSession;
   const usageSummaryState = useWorkspaceSidebarFooterUsageSummaryState({
