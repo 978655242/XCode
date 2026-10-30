@@ -1,6 +1,6 @@
 import type { OffPeakOwnerFence } from "@zcode/services/node";
 
-let nativeOwnerKeys: readonly string[] | undefined = process.env.NEW_API_BASE_URL?.trim()
+let nativeOwnerKeys: readonly string[] | undefined = process.env.AISCOO_ADMIN_BASE_URL?.trim()
   ? []
   : undefined;
 let nativeAdmissionGeneration = 0;

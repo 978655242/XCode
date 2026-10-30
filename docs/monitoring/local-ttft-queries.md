@@ -69,7 +69,7 @@ pnpm --filter @zcode/desktop test:e2e -- --spec './test/e2e/conversation-session
 `conversation-session-ttft-diagnostics` 自管独占的 localhost:14318 receiver 子进程，不要先启动上面的接收器；端口已被占用时会安全失败，不重置或停止其他进程。exporter 仍须在 Electron 启动前显式配置：
 
 ```sh
-NEW_API_BASE_URL=http://127.0.0.1:3001 \
+AISCOO_ADMIN_BASE_URL=http://127.0.0.1:3001 \
 ZCODE_E2E_MANUAL_REVIEW=1 ZCODE_LOCAL_TTFT_ENABLED=1 \
 OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:14318 \
 E2E_PROVIDER_REPLAY_FIXTURE_PATH=packages/desktop/test/e2e/fixtures/upstream/common.json,packages/desktop/test/e2e/fixtures/upstream/conversation-session/conversation-session-ttft-diagnostics.json \

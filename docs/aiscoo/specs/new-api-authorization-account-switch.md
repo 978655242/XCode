@@ -111,7 +111,7 @@ sequenceDiagram
 
 参考 [Google OpenID Connect](https://developers.google.com/identity/openid-connect/openid-connect#authenticationuriparameters)、[Microsoft 账户选择](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow#request-an-authorization-code)、[GitHub 授权说明](https://docs.github.com/en/apps/oauth-apps/using-oauth-apps/authorizing-oauth-apps) 的交互原则，不把第三方协议参数直接加到本项目。
 
-执行见 [完整实施计划](../../superpowers/plans/2026-10-17-new-api-authorization-account-switch.md)。源码、浏览器验收、真实 Host 联调和业务部署分别记录。没有明确部署授权，不重建/替换 3001 容器、不读写业务库、不代用户退出管理员账号。桌面启动必须显式携带 `NEW_API_BASE_URL=http://127.0.0.1:3001`；本次不修复开发态应用内 relaunch 的独立生命周期问题。
+执行见 [完整实施计划](../../superpowers/plans/2026-10-17-new-api-authorization-account-switch.md)。源码、浏览器验收、真实 Host 联调和业务部署分别记录。没有明确部署授权，不重建/替换 3001 容器、不读写业务库、不代用户退出管理员账号。桌面启动必须显式携带 `AISCOO_ADMIN_BASE_URL=http://127.0.0.1:3001`；本次不修复开发态应用内 relaunch 的独立生命周期问题。
 
 ## 7. 2026-10-18 隔离验收记录
 

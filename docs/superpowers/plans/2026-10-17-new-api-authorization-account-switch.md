@@ -20,7 +20,7 @@
 - 退出失败不能清理当前身份；迟到退出或授权响应不能清理新身份或打开旧 deep link；A→B→A 不复活旧动作。
 - 不增加依赖；复用两仓库各自的主题/语言/组件规则，不把客户端的 `text-ui-*` 强加到 New API。
 - 不改变数据库、用户权限、套餐、模型、额度或支付，不为登录验收调用模型。
-- 桌面启动必须显式携带 `NEW_API_BASE_URL`。已有业务连接使用 `http://127.0.0.1:3001`；隔离验收使用明确配置且与隔离服务完全一致的 loopback origin，禁止裸启动。
+- 桌面启动必须显式携带 `AISCOO_ADMIN_BASE_URL`。已有业务连接使用 `http://127.0.0.1:3001`；隔离验收使用明确配置且与隔离服务完全一致的 loopback origin，禁止裸启动。
 - 当前 XCode 分支 `feature/private-server-technical-design`、New API 分支 `feat/xcode-integration`；执行前重新确认工作区，保留用户改动。客户端 PR 目标 `XCode-main`，禁止在镜像 `main` 提交产品改动。
 - 对上游认证文件保持最小改动；固定 SID 边界使用一行中文原因注释，例如 `// XCODE: 换号只退出已确认的 SID，不能追随刷新后的账户。`；保留既有版权头。
 - 未获另行授权，不提交/推送、不退出用户真实管理员账号、不改业务数据库、不重启/替换 3001 容器。实现与生产部署是两个门禁。
@@ -115,7 +115,7 @@
 - [x] 运行真实授权页 E2E，按规格 A01–A11 逐项记录：A→取消换号、A→B、退出失败、未登录/中断、过期、重复确认、取消授权、非法回调及真双标签事件。真实网络故障/409 用浏览器请求拦截控制时序，清楚标注故障注入，不把合成账户冒充用户业务数据。
 - [x] 真双标签覆盖生产根路由：标签一停留授权页，标签二退出/登录 B；标签一的原 flow 返回目标不丢、新身份不被迟到退出清理，无循环 reload，普通后台页退出行为不变。保留能证明顺序的脱敏记录，不能只对临时假 root route 测试。
 - [x] 视觉/无障碍验收：中文和英文、浅深色、桌面、360/393px、200%缩放、长用户名、键盘 Tab/Enter/Escape 与弹窗焦点恢复。记录实际 viewport/缩放，保存主页面、换号框、B 确认页、失败/过期态截图；按钮可滚动到达不冒充首屏完全可见。
-- [x] 用独立桌面 userData/sessionData/业务根及系统原 HOME 验收 A12。桌面必须显式携带隔离后端 `NEW_API_BASE_URL`，Main/Host/Worker 同版；真实浏览器登录 B 并完成原 PKCE/deep link，观察 Host 主身份/真实 Me 为 B。不要注入假的安全库 key，缺真实 OS keystore 时如实阻塞 A12，不声称已通过。全过程不调用模型，不配置套餐以伪造成功。
+- [x] 用独立桌面 userData/sessionData/业务根及系统原 HOME 验收 A12。桌面必须显式携带隔离后端 `AISCOO_ADMIN_BASE_URL`，Main/Host/Worker 同版；真实浏览器登录 B 并完成原 PKCE/deep link，观察 Host 主身份/真实 Me 为 B。不要注入假的安全库 key，缺真实 OS keystore 时如实阻塞 A12，不声称已通过。全过程不调用模型，不配置套餐以伪造成功。
 - [ ] 在 `new-api/web` 一次性运行 `bun run test`、`bun run typecheck`、`bun run lint`、`bun run copyright:check`、`bun run format:check`。最后一条是现有受保护版权头检查器：会临时格式化整包再恢复快照，只能在没有并发编辑时执行；不支持按文件参数。报告全包现有失败，禁止运行全库 format 修复来顺手改动无关文件。
 - [x] 在 `XCode` 根运行 `pnpm typecheck`、`pnpm lint`；若执行阶段修改客户端代码，按仓库规则先做架构检查/目标模块上下文，并最终执行 `pnpm architecture:check --changed`。当前计划不要求改客户端实现，不因缺少一次 UI 行为而直接改 Host/RPC。
 - [x] 完成一次独立代码/安全评审，修复本范围问题。移除临时浏览器拦截、进程和合成数据，保留脱敏证据；更新 canonical、UI 规格和 runbook 的实际实现/验证状态。没有执行的项目明确写未执行。

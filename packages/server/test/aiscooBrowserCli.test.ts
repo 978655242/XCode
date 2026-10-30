@@ -198,7 +198,7 @@ it("browser QueuePair authority authorizes a real CLI model HTTP request through
       XDG_CACHE_HOME: join(dir, "cache"),
       XDG_DATA_HOME: join(dir, "data"),
       XDG_STATE_HOME: join(dir, "state"),
-      NEW_API_BASE_URL: owner.origin,
+      AISCOO_ADMIN_BASE_URL: owner.origin,
       ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: builtinPath,
       ZCODE_PERSONAL_PROVIDER_CONFIG_FILE: personalPath,
       NO_PROXY: "127.0.0.1,localhost",

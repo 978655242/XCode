@@ -1441,7 +1441,7 @@ export function createLocalServices(options: {
     // XCODE: 入口显式注入时复用相同 anchors，未注入保留原桌面 gate。
     options.newApiAccountAuthority?.origin ??
     (options.serviceAuthorityMode === "desktop-local"
-      ? process.env.NEW_API_BASE_URL?.trim()
+      ? process.env.AISCOO_ADMIN_BASE_URL?.trim()
       : undefined);
   const newApiClient = newApiOrigin
     ? new NewApiClient(newApiOrigin, { fetch: hostApiNetworkTransport.fetch })
@@ -2646,7 +2646,7 @@ export function createLocalServices(options: {
           personalFilePath: join(resolveAppConfigDir(), PERSONAL_PROVIDER_CONFIG_FILE_NAME),
         }),
         // XCODE: 默认私有origin也必须下发worker，使Host/worker anchors与revision精确一致。
-        ...(newApiClient ? { NEW_API_BASE_URL: newApiClient.origin } : {}),
+        ...(newApiClient ? { AISCOO_ADMIN_BASE_URL: newApiClient.origin } : {}),
       };
     },
     ...(!isDesktopAttachedRemote

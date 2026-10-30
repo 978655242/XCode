@@ -61,7 +61,7 @@ async function mergeZenResolution(
 }
 
 /**
- * 启动进程 Provider Registry；独立 CLI 且配置 NEW_API_BASE_URL 时叠加 Zen 账号。
+ * 启动进程 Provider Registry；独立 CLI 且配置 AISCOO_ADMIN_BASE_URL 时叠加 Zen 账号。
  * 未启用 Zen 时直接返回上游结果，Zen 专属字段为 undefined。
  */
 export async function startProcessProviderRegistryRuntime(
@@ -71,7 +71,7 @@ export async function startProcessProviderRegistryRuntime(
   const standalone = options.standalone;
   const zenAccount =
     standalone?.zenAccount ??
-    (standalone && env.NEW_API_BASE_URL?.trim() ? await createZenAccount(env) : undefined);
+    (standalone && env.AISCOO_ADMIN_BASE_URL?.trim() ? await createZenAccount(env) : undefined);
   if (!standalone || !zenAccount) {
     const upstream = await startUpstreamRuntime(env, options);
     return Object.freeze({

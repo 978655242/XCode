@@ -608,7 +608,7 @@ const hostProcessLocalEnv = loadHostProcessEnvFromLocalFiles();
 delete hostProcessLocalEnv.XCODE_PRIVATE_CREDENTIAL_SECRET;
 // XCODE: 与 Host 使用相同 dotenv→process 优先级，避免有私有服务但未加载 OS 加密密钥。
 const nativePrivateMode = Boolean(
-  (process.env.NEW_API_BASE_URL ?? hostProcessLocalEnv.NEW_API_BASE_URL)?.trim(),
+  (process.env.AISCOO_ADMIN_BASE_URL ?? hostProcessLocalEnv.AISCOO_ADMIN_BASE_URL)?.trim(),
 );
 let privateCredentialSecret: string | undefined;
 interface RuntimeProcessEnvPreparation {
