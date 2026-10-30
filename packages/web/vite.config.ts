@@ -7,6 +7,8 @@ import tailwindcss from "@tailwindcss/vite";
 import { pdfJsCMapsPlugin } from "../ui/vite/pdfJsCMapsPlugin.js";
 import { thirdPartyNoticesVitePlugin } from "../../scripts/third-party-notices.mjs";
 import { resolveRemoteFrontendVersion } from "./vite/remoteFrontendVersion.mjs";
+// XCODE: Web 启动图片位于相邻包，dev 会把相对 URL 当成页面路径并返回 HTML；构建时内联原稿可让首屏无需脚本加载。
+import { aiscooStartupLogoPlugin } from "../../scripts/aiscoo/web-startup-logo.mjs";
 // Bugfix: Vite 配置在 Node 加载期执行，不能导入 @zcode/shared 根入口。
 // 根入口包含 NodeNext 风格的源码 re-export，Node 会按真实文件查找 .js 并在 bootstrap 阶段失败。
 import {
@@ -45,7 +47,14 @@ export default defineConfig(({ mode }) => {
   const zaiOAuthClientId = resolveZaiOAuthClientId(endpointEnv);
 
   return {
-    plugins: [pdfJsCMapsPlugin(), react(), tailwindcss(), thirdPartyNoticesVitePlugin()],
+    // XCODE: 仅转换静态启动 Logo，保持上游 Web 入口及运行时逻辑不变。
+    plugins: [
+      aiscooStartupLogoPlugin(),
+      pdfJsCMapsPlugin(),
+      react(),
+      tailwindcss(),
+      thirdPartyNoticesVitePlugin(),
+    ],
     resolve: {
       alias: {
         // 修复 UI 组件库中的 @ 别名解析失败。
