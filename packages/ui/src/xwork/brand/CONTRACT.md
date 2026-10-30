@@ -18,4 +18,6 @@ flowchart LR
 
 `AiscooLoginHeader` 是登录头部的下游展示实现，包含完整动态字标和本地化说明，不渲染欢迎标题。Root 通过 `WelcomeScreen.header` 可选插槽装配；未传插槽时原登录页保留默认头部和完整 title／children 接口。品牌模块不引用或包装登录业务组件，不拥有 OAuth 状态。
 
+共享 Root 的 Aiscoo 登录页通过可选 `hideApiKeyLogin` 隐藏 API key 入口；未提供时保留上游完整入口与表单。品牌词典仅将 New API 按钮模板投影为中文“登录”或英文“Sign in”，其他 provider 名称、等待与认证状态不变。桌面、普通 Web 和已连接远控的共享 Root 遵循此规则；远控连接前的独立 Web 登录页仍提供 Z.ai 和 BigModel 两个账号入口。
+
 不新增状态、持久化或 IO。`AiscooIntlProvider` 通过原 Provider 可选 `catalogTransform` 在字典装配及插值前投影静态产品文案；原 Provider 默认词典不变；用户值、供应商名称、协议和路径不在此处重写。
