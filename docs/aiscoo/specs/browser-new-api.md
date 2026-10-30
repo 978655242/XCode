@@ -58,6 +58,6 @@ sequenceDiagram
 
 1. 从干净 release 安装后直接 typecheck，源码无 CLI dist/keyring 依赖；未启用时现有 Web/远控/分享/桌面相关回归保持通过。
 2. 真实回环假后端 + 浏览器完成授权、callback、恢复、refresh、退出；未知 state/重复 callback/过期尝试拒绝；不触碰真实账号和生产 New API。
-3. 现有目录/权益解析与请求期 resolver 接入，合成模型请求仅到回环假模型接口；凭据不落 Host 文件，不伪造可执行目录。
+3. 现有目录/权益解析与请求期 resolver 接入，合成模型请求仅到回环假模型接口；凭据不落 Host 文件，不伪造可执行目录。真实 CLI 集成回归通过既有 `generateWorkspaceText`、`app-server --stdio` 发出 Chat Completions HTTP 并核对返回文本、模型与用量；该回归需要先构建 CLI，不替代普通聊天 UI 的交互验收。
 4. 账号变更、断连、刷新/读取迟到、第二 attachment 都不会释放旧或错误账号密钥；无身份时目录不可执行。
 5. 必需的 typecheck、lint、架构检查、受影响测试、Web 构建和上游合并预演如实记录。真实部署支持、真实账号及跨平台未验内容单独列出，不以源码检查代替。
