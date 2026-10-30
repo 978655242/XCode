@@ -101,7 +101,7 @@ CLI 新增集中目录 `adapters/src/auth/zen/`（HTTP、回环监听、平台�
 
 ### Task 6: 整体验收与本机安装产物更新
 
-**Files:** spec 的验证记录、`docs/xcode/new-api-integration-runbook.md`；构建产物不提交。隔离测试脚本归入现有测试体系。
+**Files:** spec 的验证记录、`docs/aiscoo/new-api-integration-runbook.md`；构建产物不提交。隔离测试脚本归入现有测试体系。
 
 - [ ] 启动独立 New API 测试实例、私有数据与合成账号，浏览器真实授权到 Node loopback，不改正式监听服务。验证密码/2FA/Passkey 仍沿用既有原生登录，未启用的认证方式不宣称实测。
 - [ ] PTY 驱动真实 TUI：登录、模型列表、取消、重启恢复、退出；两个 CLI 进程交叉刷新与换号。以受控上游验证一轮模型工具调用和取消，避免真实计费。

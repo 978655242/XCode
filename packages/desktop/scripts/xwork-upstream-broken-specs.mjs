@@ -1,7 +1,7 @@
 // XWork 扩展：暂缓维护这些上游正式 spec；部分失效归因来自静态分类，尚未逐项实测。
-// 按 docs/xcode/UPSTREAM-EXTENSION.md §7 撤回测试适配，默认全量跳过；
+// 按 docs/aiscoo/UPSTREAM-EXTENSION.md §7 撤回测试适配，默认全量跳过；
 // 显式 --spec 定向运行仍会执行，便于上游修复后复核。上游修复后从此清单删除。
-// 清单与失效原因见 docs/xcode/e2e-acceptance.md §4。
+// 清单与失效原因见 docs/aiscoo/e2e-acceptance.md §4。
 export const XWORK_UPSTREAM_BROKEN_FORMAL_SPECS = [
   "./test/e2e/conversation-session/conversation-session-assistant-preview-cards.test.ts",
   "./test/e2e/conversation-session/conversation-session-background-bash-output.test.ts",

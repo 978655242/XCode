@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node 24.14.0、pnpm 10.33.2、TypeScript、Zod 4、现有受限 CEL 编译器、Electron、React、现有 RPC 与安全凭据 Repo；服务端依赖现有 New API Go/GORM/Bun。
 
-**Spec:** [客户端设计](../../xcode/specs/new-api-integration.md)；[唯一 HTTP/认证/计费 canonical spec](../../../../new-api/docs/specs/xcode-integration.md)；[升级页视觉恢复规格](../../xcode/specs/new-api-upgrade-ui.md)。本文原 T01–T10 实施 XCode，New API N1–N4 是有真实证据的前置交付；本次明确新增跨仓 U01–U04，仅恢复升级 UI 及所需展示元数据，不扩展资金、支付或企业业务。
+**Spec:** [客户端设计](../../aiscoo/specs/new-api-integration.md)；[唯一 HTTP/认证/计费 canonical spec](../../../../new-api/docs/specs/xcode-integration.md)；[升级页视觉恢复规格](../../aiscoo/specs/new-api-upgrade-ui.md)。本文原 T01–T10 实施 XCode，New API N1–N4 是有真实证据的前置交付；本次明确新增跨仓 U01–U04，仅恢复升级 UI 及所需展示元数据，不扩展资金、支付或企业业务。
 
 ## Global Constraints
 
@@ -266,7 +266,7 @@ test("private HTTP origin is loopback only and cannot contain credentials", () =
 
 **依赖：** T01–T09全部实现和G1–G5；客户端§11、canonical§11。
 
-**Files:** Create `docs/xcode/new-api-integration-runbook.md`；Update `docs/xcode/specs/new-api-integration.md` 的实际状态与当前可执行命令，不改变canonical契约；证据保存到本次执行报告，不提交secret/真实用户数据。
+**Files:** Create `docs/aiscoo/new-api-integration-runbook.md`；Update `docs/aiscoo/specs/new-api-integration.md` 的实际状态与当前可执行命令，不改变canonical契约；证据保存到本次执行报告，不提交secret/真实用户数据。
 
 - [ ] 核对实际新New API二进制的源码/构建标记、数据挂载、origin；只在明确允许的部署环境启用 `XCODE_INTEGRATION_ENABLED` 与 `XCODE_PUBLIC_ORIGIN`，不能凭现有status成功直接继续。数据库/重启授权单独取得，不影响现有服务。
 - [ ] 运行全部本计划新增回归；执行仓库现有providerConfigMigration测试证明custom/历史保留。实际命令：
@@ -310,7 +310,7 @@ mise exec -- pnpm architecture:check --changed
 
 ## 4. 完成定义与交接
 
-T01–T09 的可达客户端实现与确定性回归已经落地，T10 已执行隔离后端、三 SDK 与真实 Desktop Agent/主账号/只读页面联调。实际任务状态、源码/二进制来源、回归与审查证据见 `.superpowers/sdd/2026-10-08-new-api-integration/progress.md` 和 [运行手册](../../xcode/new-api-integration-runbook.md)。未提交、推送、发布或重启既有 3001 服务，未修改其业务数据库。
+T01–T09 的可达客户端实现与确定性回归已经落地，T10 已执行隔离后端、三 SDK 与真实 Desktop Agent/主账号/只读页面联调。实际任务状态、源码/二进制来源、回归与审查证据见 `.superpowers/sdd/2026-10-08-new-api-integration/progress.md` 和 [运行手册](../../aiscoo/new-api-integration-runbook.md)。未提交、推送、发布或重启既有 3001 服务，未修改其业务数据库。
 
 **未完成正式发布验收。** G1 全资金/跨周期/Redis/三数据库矩阵、G4 真实官方 Plan/MCP/闲时/分享、目标 OS 安全库和 G5 完整 clean release deployment 均不能以合成上游或源码检查代替。当前隔离构建 `vcs.modified=true`；实际消费证明只覆盖明确记录的受控上游。同一任务包含未满足的 live acceptance 时，不批量勾选步骤、不将其记为完整验收。
 
@@ -318,7 +318,7 @@ T01–T09 的可达客户端实现与确定性回归已经落地，T10 已执行
 
 ## 5. 升级页评审修正：U01–U04
 
-2026-10-10 完成设计评审，2026-10-12 已实施 U01–U03 并完成 U04 原生管理、真实 Full Desktop 续期/替换和视觉闭环；最终回归及质量门禁结果见实施账本。两项设计评审共发现3个P1、5个P2，实施复审另修正 Unicode 边界、custom 周期折扣和 expired 授予说明；完整规则见 [UI规格](../../xcode/specs/new-api-upgrade-ui.md) 与 canonical §9.1。新证据不复用旧T07页面打开结论，也不放行 G1–G5。
+2026-10-10 完成设计评审，2026-10-12 已实施 U01–U03 并完成 U04 原生管理、真实 Full Desktop 续期/替换和视觉闭环；最终回归及质量门禁结果见实施账本。两项设计评审共发现3个P1、5个P2，实施复审另修正 Unicode 边界、custom 周期折扣和 expired 授予说明；完整规则见 [UI规格](../../aiscoo/specs/new-api-upgrade-ui.md) 与 canonical §9.1。新证据不复用旧T07页面打开结论，也不放行 G1–G5。
 
 依赖：U01→U03；U02→U03；U01/U02/U03→U04。U01服务端与U02展示传递可并行，shared/platform与Main由一个集成owner处理；U03在两个契约确定后整合，不能先写固定截图商品。上线仍受原G1–G5约束。
 
@@ -365,7 +365,7 @@ T01–T09 的可达客户端实现与确定性回归已经落地，T10 已执行
 
 ### U04：真实Electron、原生管理闭环与新视觉验收
 
-**依赖:** U01–U03；不宣称替代主集成T10/G1–G5。**Files:** Create `packages/desktop/test/newApiUpgradePresentationElectron.mjs`；Modify `packages/desktop/test/runNewApiElectronSmokes.mjs`、两仓实际验收状态与 [运行手册](../../xcode/new-api-integration-runbook.md)。新增smoke实际渲染当前Native dialog/真实compiled viewer，不用简化壳或复制页面代替。
+**依赖:** U01–U03；不宣称替代主集成T10/G1–G5。**Files:** Create `packages/desktop/test/newApiUpgradePresentationElectron.mjs`；Modify `packages/desktop/test/runNewApiElectronSmokes.mjs`、两仓实际验收状态与 [运行手册](../../aiscoo/new-api-integration-runbook.md)。新增smoke实际渲染当前Native dialog/真实compiled viewer，不用简化壳或复制页面代替。
 
 - [x] fixture E2E先覆盖中英×浅深×personal/team，错误/加载首帧、Cookie写入中换号、旧guest关闭/Storage清空、无跨源资源/弹窗/下载/权限和无长期secret；明确fixture仅确定性UI/边界，不是账务或供应商证明。加入现有runner并按实际场景调整有限超时，不永久安装辅助依赖。
 - [x] 在获准的隔离开发环境构建真实后端Web embed/Go来源；实际管理员配置trial1+三档各月/季/年共10个真实模板并保存权益，原生登录/grant→设置升级→切周期→manual说明→管理员renew/replace→回读真实状态。无体验产品则记录真实目录，不伪造试用；四档视觉fixture与部署商品事实分开。

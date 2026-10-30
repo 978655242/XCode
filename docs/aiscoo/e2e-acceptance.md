@@ -1,6 +1,6 @@
-# XWork 桌面 E2E 验收补充
+# Aiscoo 桌面 E2E 验收补充
 
-本文件收录 XWork 对上游 ZCode 桌面 E2E 的补充说明。按 [UPSTREAM-EXTENSION.md](UPSTREAM-EXTENSION.md) §7，不修改上游 `docs/testing/*`。
+本文件收录 Aiscoo 对上游 ZCode 桌面 E2E 的补充说明。按 [UPSTREAM-EXTENSION.md](UPSTREAM-EXTENSION.md) §7，不修改上游 `docs/testing/*`。
 
 ## 1. 本机隔离验收
 
@@ -30,7 +30,7 @@ CLI 经 `pnpm test:e2e -- ...` 转发时，只移除脚本参数最前面的分�
 Electron 开发入口可能注册 `zcode://`。验收前保存原应用路径，结束后注销本轮 Electron 入口并按原路径恢复，
 不能只按 bundle ID 推断恢复成功。
 
-XWork 同步验收沿用原 case 的业务断言和模型回放，只修正执行前提。脚本入口仅移除参数数组最前面的独立 `--`，后续 `--` 作为真实参数保留。原生 Coding Plan 网关路径由隔离账号 mock 转发给当前 worker 的既有 capture proxy，复用原 fixture 和分阶段响应；抓包保留实际网关 URL 与原始 body，未绑定或未匹配时显式失败，不补通用模型响应。
+Aiscoo 同步验收沿用原 case 的业务断言和模型回放，只修正执行前提。脚本入口仅移除参数数组最前面的独立 `--`，后续 `--` 作为真实参数保留。原生 Coding Plan 网关路径由隔离账号 mock 转发给当前 worker 的既有 capture proxy，复用原 fixture 和分阶段响应；抓包保留实际网关 URL 与原始 body，未绑定或未匹配时显式失败，不补通用模型响应。
 
 账号 mock 仅保存当前串行 worker 的代理绑定，不保存会话或队列事实：
 
@@ -58,7 +58,7 @@ TTFT 诊断的引导场景使用默认项目内的 Read 夹具，须通过 `star
 
 专项夹具替换模型能力后，还须为同一 Composer scope 播种声明范围内的完整 Reasoning Recent；启动默认只保存 provider/model ID，不能代替合法提交选项。只有 `disabled` 的能力没有额外档位控件。草稿晋升后重开文件树，需要重新展开收起的父目录，不能把缺少文件行误判为文件丢失。
 
-`modelSelectionGroups` 过滤空模型目录是 XWork 的产品规则。套餐切换 E2E 通过设置页的 Provider 导航与「连接方式」选择，沿用 `selectTeamPlanInSettings` 的真实 UI 顺序；连接完成后再选择已有模型。不能为建立测试起点重新展示空目录账号分组，也不能把连接身份当成 Composer 已选模型。
+`modelSelectionGroups` 过滤空模型目录是 Aiscoo 的产品规则。套餐切换 E2E 通过设置页的 Provider 导航与「连接方式」选择，沿用 `selectTeamPlanInSettings` 的真实 UI 顺序；连接完成后再选择已有模型。不能为建立测试起点重新展示空目录账号分组，也不能把连接身份当成 Composer 已选模型。
 
 Highspeed 队列回归的 Account 数据面在 replay 模式转发到当前 worker 已选择的原回放服务器，保留 `response.chunks` 的实际间隔、匹配次数及请求证据；capture 模式复用该 worker 的 capture proxy，不要求另起 replay server。不能用只支持静态 `body` 的卡片响应器替代流式队列回放。Stop 工具配对与 Team 权限历史回归不验收自动压缩，使用正常上下文窗口，避免 manual-review 的 240/80 小窗口在原工具历史之间插入无关 compact。
 
@@ -104,11 +104,11 @@ SSH 安装、升级、reset 和故障用例各自持有可丢弃的容器与远�
 
 `conversation-session-snapshot-retention.test.ts` 是连接独立生产构建的 Node/CDP 验收，不交给 WDIO 执行。中断批次保留原始 NDJSON 与生命周期证据，续跑按未完成 spec 列表另建 run；原失败、明确跳过、hook/setup 失败和复测分别记账，不累计重复执行次数形成通过率。与现行产品合同冲突的 pending 断言保留失败及差异证据，不通过修改产品默认行为转绿。
 
-## 2. Coding Plan 团队套餐（XWork 连接方式）
+## 2. Coding Plan 团队套餐（Aiscoo 连接方式）
 
-`modelSelectionGroups` 过滤空模型目录是 XWork 的产品规则，下列说明只适用于 XWork。
+`modelSelectionGroups` 过滤空模型目录是 Aiscoo 的产品规则，下列说明只适用于 Aiscoo。
 
-XWork 保留 `modelSelectionGroups` 的空模型目录过滤。CTP-20/22/23/24/27/30 的账号连接和目录准备通过设置页的 Provider 导航与「连接方式」完成，再在 Composer 选择原有真实模型；普通 API 切换也必须选择真实模型，不能只聚焦供应商分组。
+Aiscoo 保留 `modelSelectionGroups` 的空模型目录过滤。CTP-20/22/23/24/27/30 的账号连接和目录准备通过设置页的 Provider 导航与「连接方式」完成，再在 Composer 选择原有真实模型；普通 API 切换也必须选择真实模型，不能只聚焦供应商分组。
 
 CTP-20/22 的 DOM 采样只记录实际可见的 Composer 控件；设置页期间的卸载不等于思考档位清空。仍检查可见控件的档位、模型、持久化身份及实际出现的 loading/aria-busy，但不强制设置页动作产生旧 Composer 控件的加载次数。CTP-23 在设置页检查连接选项的中英文，CTP-24 从原过期团队切到原有效团队并核对完整 product/org/project。
 
@@ -131,7 +131,7 @@ CTP-05 仍保留账号全部用量来源及未选中 Team tab 断言，不通过
 
 ## 4. 暂缓维护的上游用例
 
-以下用例来自上游接口与入口变化的静态分类，包括 `runtimeStatus` / `sessionEnded`、归档删除入口、`EnterPlanMode` 工具卡和 Recent v2。部分分类尚未逐项在纯上游运行验证，不表示每个失败都已确认是上游缺陷。XWork 暂时撤回这批适配；上游更新后需定向复测，再从跳过清单移除。
+以下用例来自上游接口与入口变化的静态分类，包括 `runtimeStatus` / `sessionEnded`、归档删除入口、`EnterPlanMode` 工具卡和 Recent v2。部分分类尚未逐项在纯上游运行验证，不表示每个失败都已确认是上游缺陷。Aiscoo 暂时撤回这批适配；上游更新后需定向复测，再从跳过清单移除。
 
 - 正式用例（11 个）：列在 `packages/desktop/scripts/xwork-upstream-broken-specs.mjs`，默认全量跳过。用 `--spec` 定向运行时仍会执行，可用来复核上游是否已修复。上游修复后从清单删除。
 - manual-review 用例（77 个）：默认全量不执行，不另行排除。
