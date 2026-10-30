@@ -1,10 +1,10 @@
 # 2026-10-30 ZCode v3.17.1 同步逐文件审查
 
-本表对应 `sync/upstream-20261030 → release` 的同步 PR。上游 `a60ba6a7`，产品比较基线 `855579e8`，被审实现提交 `deecf2d9`；本表自身及后续 PR 链接更新只修改下游文档，不改变以下上游路径集合。完整 merge 保留上游原始 SHA；不 cherry-pick、squash 或 rebase。
+本表对应 `sync/upstream-20261030 → release` 的同步 PR。上游 `a60ba6a7`，产品比较基线 `855579e8`，被审实现提交 `ca55d8cd`；逐文件集合按该提交重新计算；本表自身为新增下游文档，不混入 MD 口径。完整 merge 保留上游原始 SHA；不 cherry-pick、squash 或 rebase。
 
 ## 口径与数量
 
-使用 `git diff --no-renames --name-only --diff-filter=MD origin/release...HEAD`，对照 `upstream/main` 的路径与 blob。改名按旧路径删除、新路径新增处理。本 PR 原有路径修改或删除共 **4246** 个：现存上游 **1924** 个（原样采纳 1723、保留差异 201），旧上游已退役且本 PR 同样删除 2288 个、仅留已有下游回归 11 个、其余为下游原有路径 23 个。新增路径不混入 MD 口径。
+使用 `git diff --no-renames --name-only --diff-filter=MD origin/release...HEAD`，对照 `upstream/main` 的路径与 blob。改名按旧路径删除、新路径新增处理。本 PR 原有路径修改或删除共 **4247** 个：现存上游 **1924** 个（原样采纳 1723、保留差异 201），旧上游已退役且本 PR 同样删除 2288 个、仅留已有下游回归 11 个、其余为下游原有路径 24 个。新增路径不混入 MD 口径。
 
 上游发布包含大量测试退役、工程清单与模块变动；原样采纳和删除不应算作 Aiscoo 改写上游。以下每个保留差异文件分别说明继承内容、同步适配及入口限制。代码可注释处沿用 `// XCODE:`；严格 JSON、锁文件和生成物不能加注释，理由在本表逐项列出。
 
@@ -213,6 +213,16 @@
 | `third-party/README.md` | 继承 Aiscoo.app 声明文件安装路径说明，保留许可证及交付边界；这是既有发布许可导航入口。 |
 | `third-party/inventory.json` | 严格 JSON 生成清单：由许可工具重新扫描新版依赖与既有下游组件，保留原文来源和复核状态；不写注释、不手工改依赖身份。 |
 | `vitest.config.ts` | 保留上游 engineering/CUA 显式选择，仅追加现有独立 globalSetup 分配私有 HOME 并在 worker 退出后回收；公共测试配置是 worker 启动前唯一注入点。 |
+
+## 本轮新引入上游文件的安全接线
+
+以下 3 个文件在旧 release 中不存在，因此三点 diff 将它们归为新增，不在上述 MD 集合；它们确实来自本次上游，安全修复后偏离新版 blob，仍单独逐项说明。
+
+| 文件 | 差异与必要性 |
+| --- | --- |
+| `apps/zcode-cli/packages/bootstrap/src/zcode-protocol/session-data/index.ts` | PR 审查确认上游批次预先排除所有候选，删除失败后会丢失幸存会话引用的附件。保留原批次实现为私有执行端口，公共入口最小委托独立 Aiscoo 安全策略，所有生产和直接调用共用；跨树按实际成功继续，同树跨会话引用及循环保守 kept referenced。文件与 SQL 仍由原 owner 删除，未建立第二写路径；这项安全行为收紧在独立规格明示。 |
+| `apps/zcode-cli/packages/bootstrap/tests/session-data.test.ts` | 保留原成功及失败断言，仅使现有 fake store 在 purge 成功后移除已删引用方，符合真实 SQLite 级联删除 part 的事实；独立安全策略需要按实际存活引用重评，固定返回已删引用会制造假阻塞。原测试入口直接拥有 fake store，无法由独立文件修正。 |
+| `packages/services/src/data-sync/commandDataSync.ts` | PR 审查确认上游创建命令会跟随目标祖先符号链接写出 commands root。通过独立异步路径安全 helper 在创建及写入边界拒绝既有 .zcode/root/祖先/叶子符号链接；现有入口持有实际目标路径，必须在此最小调用。collector、冲突/hash、原子写入及正常同步保持原流程；不声称消除恶意并发 TOCTOU。 |
 
 ## 原样采纳的现存上游文件
 
@@ -4281,13 +4291,14 @@ packages/ui/test/aiscooBranding.test.ts
 packages/ui/test/aiscooLoginBranding.test.ts
 packages/ui/test/aiscooLoginRoot.test.ts
 packages/ui/test/xworkPluginGuideHostBinding.test.ts
+scripts/run-native-unit-tests.mjs
 scripts/test/aiscoo-naming-compatibility.test.mjs
 scripts/xcode/branch-policy.test.mjs
 ```
 
 ## 预演与验收限制
 
-`git merge-tree --write-tree --name-only HEAD upstream/main` 退出 0，无冲突。根类型、Lint、完整架构、CLI/Web/Desktop 构建与定向回归结果见同步记录；原生 198/198、独立 Vitest 63 文件 496/496。完整手工门禁已通过；首轮推送未生成 Husky 启动文件，补齐后提交 `21818899` 的实际 push 完整 hook 已退出 0，包含原生 198/198 与独立 Vitest 496/496；该次工程选择 0/157，整批同步选择 157/157 时按合同跳过，不能混称执行通过。Linux 首轮原生 197/198 的唯一失败为合成 bundle 调用宿主 codesign；既有下游 `devElectronAppBundle.test.mjs` 已改用原 signApp 注入点并补资源就绪及调用次数断言，未修改生产签名，修后 Linux 结果以 PR 最新 verify 为准。6 个正式场景 fixture 校验通过，路径问题的 4 个场景有修前失败/修后通过证据；不将 fixture 校验计作真实 Electron 复跑。
+`git merge-tree --write-tree --name-only HEAD upstream/main` 退出 0，无冲突。根类型、Lint、完整架构、CLI/Web/Desktop 构建与定向回归结果见同步记录；原生 198/198、独立 Vitest 63 文件 496/496。首轮推送未生成 Husky 启动文件，不能计作自动门禁通过；补齐后 `21818899` 和 `53acf7c4` 的实际 push 完整 hook 已退出 0。`53acf7c4` 的 GitHub policy/verify 完整通过，含 Linux 原生 198/198 与 Vitest 496/496；最新审查修复另按 PR 当前提交验证。6 个正式场景 fixture 校验通过，路径问题的 4 个场景有修前失败/修后通过证据；不将 fixture 校验计作真实 Electron 复跑。
 
 Electron 44 真实上下文、周期详情、handoff、升级展示、模型能力、法律入口及头像场景通过；模型设置串行正常退出，无独立摘要。钥匙串 development/seed 两轮 15 秒超时未通过；未放宽安全存储或超时，底层原因未确证。工程 affected 选中 157/157 时按合同明确跳过；私有远控队列不存在时明确跳过。尚未完成 Windows/Linux、真实用户完整冷恢复与手机实机 E2E。许可检查通过，仍有既有 19 项材料需发布前复核。
 
