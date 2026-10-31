@@ -745,7 +745,8 @@ async function main() {
     "exec",
     "electron-builder",
     "--config",
-    "electron-builder.config.js",
+    // XCODE: Aiscoo 包装原 afterPack 补齐 PTY 执行位，上游配置仍可独立使用。
+    "../../scripts/aiscoo-desktop-electron-builder.config.mjs",
     osBuilderFlagMap[os],
     archBuilderFlagMap[arch],
   ];
