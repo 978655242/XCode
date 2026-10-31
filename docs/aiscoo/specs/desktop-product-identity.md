@@ -14,6 +14,8 @@ Aiscoo 正式版、开发版、Preview 和上游 ZCode 必须能够共存。Aisc
 
 唯一身份配置位于 @zcode/shared/aiscoo-desktop-identity，构建工具和运行时复用。Desktop 构建显式固化渠道；未注入 Aiscoo 渠道的通用运行时保持上游默认值。系统应用 ID、Windows executable/AUMID、Linux executable/package/desktop MIME、macOS开发副本与正式协议声明均须与该配置一致。
 
+Aiscoo 桌面打包入口使用独立配置包装上游 afterPack：先等待原 hook 完成全部 asar 重打包，再为 macOS 的 node-pty spawn-helper 恢复执行权限，随后由 Electron Builder 执行签名。原配置单独使用时行为不变；原 hook 失败时不得继续修复或签名。工程回归覆盖 hook 次序、真实重打包和执行权限恢复；最终安装包须以实际 PTY spawn 验收，不能仅检查文件存在。
+
 ## 授权接口与所有者
 
 Native New API authorize、callback parser 与 token exchange 必须使用同一精确 redirect。后端先增加允许的精确 URI，保留旧版 zcode URI；不得接受任意自定义 scheme、URI前缀、额外路径、fragment、用户信息、端口或重复 query。开发/Preview 回调只有后端明确登记才可用。既有 refresh/logout client ID 与凭据 namespace 保持不变。
