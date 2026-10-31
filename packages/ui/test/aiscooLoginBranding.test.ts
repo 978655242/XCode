@@ -80,6 +80,52 @@ afterEach(() => {
 });
 
 describe("Aiscoo 登录页完整字标", () => {
+  it.each([
+    ["zh-CN", "等待 aiscoo 完成认证..."],
+    ["en-US", "Waiting for aiscoo authentication..."],
+  ] as const)("%s 等待展示名映射保留原取消身份", (locale, message) => {
+    oauthState.status = "waiting";
+    render(
+      createElement(AiscooIntlProvider, {
+        initialLocale: locale,
+        children: createElement(WelcomeScreen, {
+          onComplete: vi.fn(),
+          oauthWaitingDisplayNames: resolveAiscooOAuthWaitingDisplayNames(),
+        }),
+      }),
+    );
+    expect(screen.getByText(message)).toBeTruthy();
+    fireEvent.click(screen.getByTestId("oauth-cancel"));
+    expect(oauthState.cancel).toHaveBeenCalledExactlyOnceWith("new-api");
+  });
+
+  it("未装配映射时保留原提供方等待名", () => {
+    oauthState.status = "waiting";
+    render(
+      createElement(ZCodeIntlProvider, {
+        initialLocale: "zh-CN",
+        children: createElement(WelcomeScreen, { onComplete: vi.fn() }),
+      }),
+    );
+    expect(screen.getByText("等待 New API 完成认证...")).toBeTruthy();
+  });
+
+  it("品牌映射不覆盖其他提供方的名称", () => {
+    oauthState.status = "waiting";
+    oauthState.pendingProvider = "bigmodel";
+    oauthState.providers = [{ id: "bigmodel", displayName: "BigModel", enabled: true, order: 0 }];
+    render(
+      createElement(AiscooIntlProvider, {
+        initialLocale: "zh-CN",
+        children: createElement(WelcomeScreen, {
+          onComplete: vi.fn(),
+          oauthWaitingDisplayNames: resolveAiscooOAuthWaitingDisplayNames(),
+        }),
+      }),
+    );
+    expect(screen.getByText("等待 BigModel 完成认证...")).toBeTruthy();
+  });
+
   it("未传品牌头部插槽时保留原默认标题、说明和图标", () => {
     oauthState.status = "idle";
     render(
@@ -240,52 +286,6 @@ describe("Aiscoo 登录页完整字标", () => {
     if (status === "error") {
       expect(screen.getByText("登录失败，请重试")).toBeTruthy();
     }
-  });
-
-  it.each([
-    ["zh-CN", "等待 aiscoo 完成认证..."],
-    ["en-US", "Waiting for aiscoo authentication..."],
-  ] as const)("%s 等待展示名映射保留原取消身份", (locale, message) => {
-    oauthState.status = "waiting";
-    render(
-      createElement(AiscooIntlProvider, {
-        initialLocale: locale,
-        children: createElement(WelcomeScreen, {
-          onComplete: vi.fn(),
-          oauthWaitingDisplayNames: resolveAiscooOAuthWaitingDisplayNames(),
-        }),
-      }),
-    );
-    expect(screen.getByText(message)).toBeTruthy();
-    fireEvent.click(screen.getByTestId("oauth-cancel"));
-    expect(oauthState.cancel).toHaveBeenCalledExactlyOnceWith("new-api");
-  });
-
-  it("未装配映射时保留原提供方等待名", () => {
-    oauthState.status = "waiting";
-    render(
-      createElement(ZCodeIntlProvider, {
-        initialLocale: "zh-CN",
-        children: createElement(WelcomeScreen, { onComplete: vi.fn() }),
-      }),
-    );
-    expect(screen.getByText("等待 New API 完成认证...")).toBeTruthy();
-  });
-
-  it("品牌映射不覆盖其他提供方的名称", () => {
-    oauthState.status = "waiting";
-    oauthState.pendingProvider = "bigmodel";
-    oauthState.providers = [{ id: "bigmodel", displayName: "BigModel", enabled: true, order: 0 }];
-    render(
-      createElement(AiscooIntlProvider, {
-        initialLocale: "zh-CN",
-        children: createElement(WelcomeScreen, {
-          onComplete: vi.fn(),
-          oauthWaitingDisplayNames: resolveAiscooOAuthWaitingDisplayNames(),
-        }),
-      }),
-    );
-    expect(screen.getByText("等待 BigModel 完成认证...")).toBeTruthy();
   });
 
   it("可选生命周期的手动授权链接与既有复制链接共存", () => {

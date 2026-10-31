@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { join } from "node:path";
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { build } from "esbuild";
+import ts from "typescript";
 
 const entry = new URL(
   "../../packages/desktop/src/aiscoo-desktop-identity/index.ts",
@@ -117,6 +118,84 @@ test("Aiscoo child storage paths are isolated and preserve explicit overrides", 
     },
   );
   assert.deepEqual((await loadRuntime()).buildAiscooDesktopStorageEnv("/upstream", {}), {});
+});
+
+test("Main cold startup warms only the selected channel workspace and retains the default HOME fallback", async () => {
+  const root = await mkdtemp(join(tmpdir(), "aiscoo-startup-settings-"));
+  const previousHome = process.env.HOME;
+  const previousSettings = process.env.ZCODE_SETTINGS_FILE_PATH;
+  try {
+    const home = join(root, "old-home");
+    const legacySettings = join(home, ".zcode", "v2", "setting.json");
+    const selectedSettings = join(root, "channel", "setting.json");
+    const legacyWorkspace = join(root, "workspace-a");
+    const selectedWorkspace = join(root, "workspace-b");
+    for (const directory of [
+      join(home, ".zcode", "v2"),
+      join(root, "channel"),
+      legacyWorkspace,
+      selectedWorkspace,
+    ]) {
+      await mkdir(directory, { recursive: true });
+    }
+    for (const [file, workspacePath] of [
+      [legacySettings, legacyWorkspace],
+      [selectedSettings, selectedWorkspace],
+    ]) {
+      await writeFile(
+        file,
+        JSON.stringify({
+          lastActiveWorkspace: { kind: "local", workspacePath, workspacePurpose: "project" },
+        }),
+      );
+    }
+    process.env.HOME = home;
+
+    // XCODE: 取实际 Main 的配置表达式并调用真实启动 owner，只替换外层 Electron 启动，避免测试复制路径选择逻辑。
+    const source = await readFile(
+      new URL("../../packages/desktop/src/main/index.ts", import.meta.url),
+      "utf8",
+    );
+    const parsed = ts.createSourceFile("index.ts", source, ts.ScriptTarget.Latest, true);
+    const declaration = parsed.statements
+      .filter(ts.isVariableStatement)
+      .flatMap((statement) => [...statement.declarationList.declarations])
+      .find((item) => ts.isIdentifier(item.name) && item.name.text === "settingsFile");
+    assert.ok(declaration?.initializer, "Main must explicitly select its startup settings file");
+    const compiled = await build({
+      stdin: {
+        contents: `import { join } from "node:path"; import { homedir } from "node:os"; import { resolveStartupWindowBootstrap } from "./startupWorkspace.ts"; export const settingsFile = ${declaration.initializer.getText(parsed)}; export { resolveStartupWindowBootstrap };`,
+        resolveDir: new URL("../../packages/desktop/src/main", import.meta.url).pathname,
+        loader: "ts",
+      },
+      bundle: true,
+      platform: "node",
+      format: "esm",
+      write: false,
+    });
+    const compiledUrl = `data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString("base64")}`;
+    for (const [override, workspacePath] of [
+      [selectedSettings, selectedWorkspace],
+      [undefined, legacyWorkspace],
+    ]) {
+      if (override === undefined) delete process.env.ZCODE_SETTINGS_FILE_PATH;
+      else process.env.ZCODE_SETTINGS_FILE_PATH = override;
+      const runtime = await import(
+        `${compiledUrl}#startup-${override === undefined ? "default" : "channel"}`
+      );
+      const result = await runtime.resolveStartupWindowBootstrap({
+        settingsFile: runtime.settingsFile,
+        conversationWorkspaceDir: join(root, "conversation"),
+      });
+      assert.deepEqual(result.agentWarmupTargets, [{ workspacePath }]);
+    }
+  } finally {
+    if (previousHome === undefined) delete process.env.HOME;
+    else process.env.HOME = previousHome;
+    if (previousSettings === undefined) delete process.env.ZCODE_SETTINGS_FILE_PATH;
+    else process.env.ZCODE_SETTINGS_FILE_PATH = previousSettings;
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("early Chromium settings use the same isolated file instead of legacy HOME", async () => {

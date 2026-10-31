@@ -1,6 +1,6 @@
 # Browser account reverse bridge
 
-The enabled entry profile reads its backend origin only from `AISCOO_ADMIN_BASE_URL`. The retired backend variable is not an alias or fallback; origin validation and the existing loopback/Origin boundaries are unchanged.
+The enabled entry profile reads its backend origin only from `AISCOO_ADMIN_BASE_URL`. The retired backend variable is not an alias or fallback; origin validation and the existing loopback/Origin boundaries are unchanged. Desktop, CLI, the Host-to-Worker environment, and the existing local launcher use the same configuration name. This rename does not migrate user files, credential keys, provider IDs, or OAuth client IDs.
 
 The browser alone owns credentials, refresh rotation, and its user/SID/generation. This adapter retains one live attachment and a frozen, validated owner projection. It has no credential cache, persistence, network session, or model authorization policy. `origin` is normalized with the existing New API helper; wire owners must already use that exact canonical origin, a positive decimal user ID, a nonempty trimmed SID, and a positive safe integer generation. Additional owner fields are rejected.
 

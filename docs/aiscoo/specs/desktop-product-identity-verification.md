@@ -1,6 +1,6 @@
 # Aiscoo 桌面身份修复验证
 
-日期：2026-10-31。状态：客户端与 Admin 已提交并合入各自本地 release，合并后已重建测试。客户端 Native 仍有 9 项历史失败；真实账号 Native 登录、当前本地签名包的私有钥匙串恢复未通过验收。
+日期：2026-10-31。本文件分别保留本地 release（实际构建 `9932e053`）与 PR #52 独立发布树（`f52e110d`，基线 `cd4af779`）的证据，均不代表本轮 `6a4ab9cd` 合并后的重新验证。前者保留旧 Host WIP 与 Native 9 项失败，后者不包含该 WIP；定向通过不证明旧失败已修。真实账号 Native 登录及本地签名包私有钥匙串恢复仍未通过验收。
 
 ## 本地 release 合并后验证（本次交付）
 
@@ -39,6 +39,10 @@ Native 九项失败分为：历史 LocalWebAccount 的六项 logout（后继 ref
 
 `git merge-tree --write-tree --name-only 9932e053 upstream/main` exit0，结果 tree `7c41edc41dbd1a7f79becec0c91c7bfcfe7e3f47`。新增修改的上游文件 `packages/desktop/scripts/node-pty-package-assets.mjs` 只追加异步权限适配，electron-builder 既有 afterPack 只增加一次调用；tsup 只追加原生依赖外置条目，均带中文 XCODE 原因注释。
 
+## PR #52 独立发布树验证（f52e110d）
+
+该独立发布树以已安装 Node 24.18.0 / pnpm 10.33.2 执行定向验证；仓库固定版本仍是 Node 24.14.0。当前身份模块架构检查已通过（0 violations / 0 baseline / 0 new）。打包/数据隔离/深链、Main OAuth 投递与 Dev bundle 共 5 个 Node 文件 33/33 通过；`pnpm test:aiscoo` 的 Native redirect、settings path、Desktop/Web branding 与 CLI callback 共 5 文件 42/42 通过；`pnpm test:engineering` 的 desktopProductIdentity 与 devElectronAppBundle 共 2 文件 20/20 通过。随后在精确 Node 24.14.0 下新增冷启动回归：修复前真实启动 owner 错误预热旧 HOME 的 workspace A；Main 复用已选设置路径后预热渠道 workspace B，未注入仍沿用 HOME。该数据隔离文件 6/6 通过，定向 lint 为 0 errors / 3 warnings（Main 既有未使用导入）。根 typecheck、lint 和推送门禁由整合负责人统一运行，以最终命令输出为准。该独立发布树未重新打包、注册协议、启动产品或操作钥匙串，未执行全套测试、真实账号登录和计费模型请求。
+
 ## 上一阶段隔离实现记录（历史）
 
 以下内容描述身份分支合并前的验证范围，不能代替上述最新 release 结果。
@@ -60,7 +64,7 @@ macOS Finder、Linux desktop/MIME/图标按渠道独立，不清理 ZCode 或其
 
 历史钥匙串名称保持，启动不自动迁移旧数据库或凭据。
 
-## 验证结果
+## 原身份工作目录验证（691b3a4e 阶段）
 
 | 检查                                                                                        | 实际结果                                                               |
 | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
@@ -100,7 +104,7 @@ NSWorkspace 实际查询：`aiscoo://oauth/callback` 指向本次最终 Aiscoo �
 
 ## 未执行与发布前置条件
 
-运行中的自有账号后端尚未加载新白名单。需要先发布 Admin 6 文件变更，再完成浏览器主动确认 → aiscoo 回跳 → Host 换码 → 模型目录的真实 Native E2E。账号与费用授权未就绪时不自动调用计费模型。
+Admin 身份补丁已进入本地 release，运行中的自有账号后端是否已加载新白名单尚未核验。需要先确认部署，再完成浏览器主动确认 → aiscoo 回跳 → Host 换码 → 模型目录的真实 Native E2E。账号与费用授权未就绪时不自动调用计费模型。
 
 Windows/Linux 实机安装及协议共存、Dev/Preview 的实机 handler、安装顺序矩阵、旧用户数据和凭据迁移均未验。BigModel/Z.ai 官方云依赖对应服务端和中转支持新回调，单独协调与验收，不能由自有 Native 白名单替代。
 
@@ -108,7 +112,7 @@ Windows/Linux 实机安装及协议共存、Dev/Preview 的实机 handler、安�
 
 新增逻辑集中在 `aiscoo-desktop-identity` 共享配置与桌面适配模块。以下存量上游文件没有可直接使用的品牌身份参数，因此在已有装配点增加配置读取、可选参数或最小调用；没有新建账号/队列 owner。
 
-最终工作区（含未跟踪文件）通过独立临时 index 写出 tree，并以不更新任何分支的临时预演对象执行 `git merge-tree --write-tree <preview> upstream/main`：exit 0。预演 tree 为 `35ec080a220915492231f21f290bd254febf3237`。该对象仅用于预演，不是本分支提交；新增本文档后无需推断已完成远端 PR CI。
+原工作目录曾记录 `git merge-tree --write-tree <preview> upstream/main` 为 exit 0，tree 为 `35ec080a220915492231f21f290bd254febf3237`；该历史对象不代表当前 `cd4af779` 发布工作目录的预演。本轮不会更新原工作目录的 index 或 refs；最终整合负责人须对实际 PR tree 重新执行上游合并预演并在 PR 描述记录结果。
 
 | 上游文件                                                                       | 最小改动理由                                     |
 | ------------------------------------------------------------------------------ | ------------------------------------------------ |
@@ -127,7 +131,7 @@ Windows/Linux 实机安装及协议共存、Dev/Preview 的实机 handler、安�
 | packages/desktop/src/main/desktopLinuxAppImageIcon.ts                          | 可选 iconName，默认路径不变                      |
 | packages/desktop/src/main/desktopLinuxDeepLinkRegistration.ts                  | 渠道 desktop/MIME/icon/归属列表配置              |
 | packages/desktop/src/main/desktopRuntimeEnv.ts                                 | 数据名与已有 CLI storage/db/log 环境覆盖键接线   |
-| packages/desktop/src/main/index.ts                                             | Windows AUMID 装配优先读取 profile               |
+| packages/desktop/src/main/index.ts                                             | Windows AUMID 读取 profile；冷启动复用已选设置路径 |
 | packages/desktop/test/desktopProductIdentity.test.ts                           | 既有工程断言反映确认后的身份                     |
 | packages/desktop/test/devElectronAppBundle.test.ts                             | 既有工程断言反映独立开发副本                     |
 | packages/desktop/tsconfig.main.json                                            | 编译清单只追加独立适配模块；严格 JSON 不能写注释 |
@@ -139,4 +143,4 @@ Windows/Linux 实机安装及协议共存、Dev/Preview 的实机 handler、安�
 | packages/web/src/share/conversationSharePreviewClient.ts                       | 可选 scheme 参数，默认 zcode 保持                |
 | packages/web/src/share/ConversationShareLandingPage.tsx                        | 下游 Aiscoo CTA 装配精确 scheme                  |
 
-代码接线处使用 XCODE 中文原因注释。没有提交/推送/PR，因此上述材料是后续 PR 描述依据，不宣称已经完成远端合并或发布。
+代码接线处使用 XCODE 中文原因注释。上述原身份阶段接线理由供整合审查使用，不代表本轮远端合并、部署或发布。

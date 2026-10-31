@@ -588,7 +588,9 @@ async function runBrowserCommandOnView(params: {
 let currentDesktopZoomLevel = 0;
 let currentDesktopWindowSize: DesktopWindowSize | undefined;
 const preloadPath = join(import.meta.dirname, "../preload/index.cjs");
-const settingsFile = join(homedir(), ".zcode", "v2", "setting.json");
+// XCODE: 冷启动预热若仍读旧 HOME，会启动其他产品的活动工作区；复用早期已选设置路径，未注入保持上游默认。
+const settingsFile =
+  process.env.ZCODE_SETTINGS_FILE_PATH?.trim() || join(homedir(), ".zcode", "v2", "setting.json");
 let activeAppShutdownPolicy = resolveAppShutdownPolicy("normal", process.platform);
 let activeAppShutdownKind: AppShutdownKind | null = null;
 const WINDOWS_AGENT_FORCE_KILL_TIMEOUT_MS = 2_000;

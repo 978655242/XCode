@@ -101,7 +101,7 @@ sequenceDiagram
 
 ### 4.1 配置与 Adapter
 
-Aiscoo Admin 的显式服务地址配置为 `AISCOO_ADMIN_BASE_URL`，开发值 `http://127.0.0.1:3001`；解析并规范化精确 origin，HTTP 仅允许本机 loopback。不要复用 Z.ai/BigModel/官方 XCode 服务的 env 或从网页 metadata 接受任意 endpoint。
+公开配置使用 `AISCOO_ADMIN_BASE_URL`，开发值 `http://127.0.0.1:3001`；解析并规范化精确 origin，HTTP 仅允许本机 loopback。旧键 `NEW_API_BASE_URL` 不再读取，也不提供 fallback；用户需自行更新 `.env`、进程环境或启动配置中的键名，本次更名不自动改写用户文件或凭据。不要复用 Z.ai/BigModel/官方 XCode 服务的 env 或从网页 metadata 接受任意 endpoint。
 此显式 origin 启用桌面私有组合；未配置的原非私有宿主及独立 Web/远程路径保留。已配置后，认证、目录、套餐或用量失败不得回退到原官方身份/资金或自配 Provider；配置值不是从 status、metadata 或旧官方 origin 推导的默认值。
 Main 与 Host 使用同一有效环境配置：开发 `.env`/`.env.local` 与进程环境的既有优先级一致，进程中的显式空值也必须一致关闭；安全密钥加载及闲时 scheduler 模式不能仅检查未经合并的进程环境。
 
