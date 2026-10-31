@@ -25,6 +25,9 @@ import { Alert, AlertDescription } from "./components/ui/alert.js";
 import { Button } from "./components/ui/button.js";
 import { ZCodeAboutLogo } from "@/components/ui/ZCodeAboutLogo.js";
 import { useOAuth } from "./hooks/useOAuth.js";
+// XCODE: 可选策略仅限制产品装配，未注入时保持上游默认登录页。
+import { usePlatform } from "./hooks/usePlatform.js";
+import type { OAuthLifecyclePlatform } from "@/oauth-lifecycle/contract.js";
 import { useZCodeIntl } from "./i18n/IntlProvider.js";
 import { LoginApiKeyForm } from "./login/LoginApiKeyForm.js";
 import { renderOAuthProviderIcon } from "./lib/oauthProviderIcon.js";
@@ -114,6 +117,8 @@ export function LoginPanel({
   oauthWaitingDisplayNames,
 }: LoginPanelProps) {
   const { intl } = useZCodeIntl();
+  // XCODE: 登录完成只接受策略允许且已确认的同一账号来源，旧 user 不构成产品登录。
+  const accountPolicy = (usePlatform() as OAuthLifecyclePlatform).oauthAccountPolicy;
   const {
     startLogin,
     startLoginFromUserGesture,
@@ -121,13 +126,23 @@ export function LoginPanel({
     reset,
     status,
     error,
-    providers,
+    providers: availableProviders,
+    activeProvider,
     loadingProviders,
     pendingProvider,
     authorizeUrl,
     manualAuthorizationUrl,
     refreshProviders,
   } = useOAuth();
+  const providers = useMemo(
+    () =>
+      accountPolicy
+        ? availableProviders.filter(
+            (provider) => provider.enabled && accountPolicy.acceptsProvider(provider.id),
+          )
+        : availableProviders,
+    [accountPolicy, availableProviders],
+  );
   const user = useZCodeStore((s) => s.user);
   const oauthError = useZCodeStore((s) => s.oauthError);
   const setOAuthError = useZCodeStore((s) => s.setOAuthError);
@@ -251,7 +266,10 @@ export function LoginPanel({
     if (
       active &&
       shouldCompleteLoginFromExistingUser({
-        hasUser: Boolean(user),
+        hasUser:
+          Boolean(user) &&
+          (!accountPolicy ||
+            Boolean(activeProvider && accountPolicy.acceptsProvider(activeProvider))),
         attempt: activeLoginEntryAttemptRef.current,
       })
     ) {
@@ -261,7 +279,16 @@ export function LoginPanel({
       setOAuthError(null);
       void onComplete("oauth");
     }
-  }, [active, finishActiveLoginEntryAttempt, onComplete, reset, setOAuthError, user]);
+  }, [
+    accountPolicy,
+    active,
+    activeProvider,
+    finishActiveLoginEntryAttempt,
+    onComplete,
+    reset,
+    setOAuthError,
+    user,
+  ]);
 
   useEffect(() => {
     if (!active) {
@@ -277,6 +304,10 @@ export function LoginPanel({
 
     if (
       status === "waiting" &&
+      (!accountPolicy ||
+        Boolean(
+          lastOAuthSuccessProvider && accountPolicy.acceptsProvider(lastOAuthSuccessProvider),
+        )) &&
       shouldCompleteProviderLoginAttempt({
         attempt: activeLoginEntryAttemptRef.current,
         successProvider: lastOAuthSuccessProvider,
@@ -290,6 +321,7 @@ export function LoginPanel({
       void onComplete("oauth");
     }
   }, [
+    accountPolicy,
     active,
     finishActiveLoginEntryAttempt,
     lastOAuthSuccessProvider,
@@ -384,7 +416,9 @@ export function LoginPanel({
               >
                 <TriangleAlertIcon className="size-4" />
                 <AlertDescription className="text-center">
-                  {intl.formatMessage({ id: "login.oauth.noProviders" })}
+                  {intl.formatMessage({
+                    id: accountPolicy?.unavailableMessageId ?? "login.oauth.noProviders",
+                  })}
                 </AlertDescription>
               </Alert>
             ) : null}

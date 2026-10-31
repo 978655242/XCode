@@ -43,6 +43,15 @@ import type { NewApiOwner } from "@zcode/shared";
 import type { OfficialCloudConnectionHost } from "./official-mcp/officialCloudConnectionService.js";
 import { NewApiClient } from "./new-api/newApiClient.js";
 import { NewApiAccountService } from "./new-api/newApiAccountService.js";
+// XCODE: 可选产品策略只在组合层替换端口，未注入保持上游账号默认行为。
+import type { HostAccountPolicy } from "./aiscoo-account-policy/contract.js";
+export {
+  createAiscooAccountPolicy,
+  AISCOO_ACCOUNT_CONFIG_UNAVAILABLE,
+  AISCOO_ACCOUNT_LOGIN_UNSUPPORTED,
+  AISCOO_OFFICIAL_CLOUD_UNAVAILABLE,
+} from "./aiscoo-account-policy/index.js";
+export type { HostAccountPolicy } from "./aiscoo-account-policy/contract.js";
 
 // XCODE: 宿主可注入浏览器凭据权威；现有目录、请求鉴权与 Worker 同步继续复用同一装配。
 export type NewApiAccountAuthority = Pick<
@@ -1271,6 +1280,8 @@ export function createLocalServices(options: {
   newApiRedirectUri?: string;
   /** XCODE: 可选凭据权威由入口注入，默认仍由桌面账号实现持有。 */
   newApiAccountAuthority?: NewApiAccountAuthorityFactory;
+  /** XCODE: 可选账号策略由产品入口固定注入，禁止缺配置回退为其它账号 owner。 */
+  accountPolicy?: HostAccountPolicy;
   /** XCODE: Host-only非秘密分区生命周期；Main负责关闭/清理WebView。 */
   onNewApiOwnerChanged?: (owner: NewApiOwner | null) => void | Promise<void>;
   /** Host-only opaque admission projection for the separate scheduler; never contains credentials. */
@@ -1407,7 +1418,7 @@ export function createLocalServices(options: {
   let invalidateProjectTokens = () => {};
   let invalidatePluginUiAccounts: (() => void) | undefined;
   const provisioningOAuthKeys = new Set<string>(PROVIDER_PROVISIONING_OAUTH_CREDENTIAL_KEYS);
-  const credentialService = createCredentialService({
+  const storedCredentialService = createCredentialService({
     onDidMutate: ({ key }) => {
       if (key === "oauth:active_provider" || /^oauth:[^:]+:user_info$/.test(key))
         invalidatePluginUiAccounts?.();
@@ -1417,6 +1428,9 @@ export function createLocalServices(options: {
       }
     },
   });
+  // XCODE: 产品禁用的旧身份键在 IO 前被拦截，历史密文保留且第三方 OAuth/API Key 不受影响。
+  const credentialService =
+    options.accountPolicy?.wrapCredentials(storedCredentialService) ?? storedCredentialService;
   const accountProviderCredentialStore = createAccountProviderCredentialStore({
     credentialService,
   });
@@ -1448,12 +1462,13 @@ export function createLocalServices(options: {
     resolveClientLanguage: options?.resolveClientLanguage,
   });
   // XCODE: 仅显式本机 origin 启用私有组合；原 Web/远程和未配置宿主保留独立身份。
-  const newApiOrigin =
-    // XCODE: 入口显式注入时复用相同 anchors，未注入保留原桌面 gate。
-    options.newApiAccountAuthority?.origin ??
-    (options.serviceAuthorityMode === "desktop-local"
-      ? process.env.AISCOO_ADMIN_BASE_URL?.trim()
-      : undefined);
+  const newApiOrigin = options.accountPolicy
+    ? options.accountPolicy.newApiOrigin
+    : // XCODE: 入口显式注入时复用相同 anchors，未注入保留原桌面 gate。
+      (options.newApiAccountAuthority?.origin ??
+      (options.serviceAuthorityMode === "desktop-local"
+        ? process.env.AISCOO_ADMIN_BASE_URL?.trim()
+        : undefined));
   const newApiClient = newApiOrigin
     ? new NewApiClient(newApiOrigin, {
         fetch: hostApiNetworkTransport.fetch,
@@ -1487,10 +1502,12 @@ export function createLocalServices(options: {
         repo: new NewApiSessionRepo(newApiClient.origin),
         onOwnerChanged: onNewApiOwnerChanged,
       }))
-    : null;
+    : (options.accountPolicy?.createUnavailableAccount() ?? null);
   const officialCloudHost: OfficialCloudConnectionHost | null =
-    // XCODE: 浏览器主账号不隐式读取桌面独立官方连接的安全凭据。
-    nativeAccount && !options.newApiAccountAuthority
+    // XCODE: 产品策略禁止时不创建独立官方 owner，旧 namespace 也不触发恢复。
+    nativeAccount &&
+    !options.newApiAccountAuthority &&
+    options.accountPolicy?.allowOfficialCloud !== false
       ? createOfficialCloudConnectionHost({
           account: nativeAccount,
           apiClient,
@@ -1501,6 +1518,9 @@ export function createLocalServices(options: {
           },
         })
       : null;
+  // XCODE: 不可用 capability 无凭据/会话状态，显式阻断 MCP/闲时的 legacy fallback。
+  const officialCloudCapability =
+    officialCloudHost ?? options.accountPolicy?.unavailableOfficialCloud;
   const systemService = createSystemService();
   // onboarding 资格与任务列表共用同一份全局 tasks-index；repo 懒加载数据库，提前构造不会
   // 增加启动 I/O，后续 session syncer 也继续复用这一实例。
@@ -1720,7 +1740,12 @@ export function createLocalServices(options: {
               : undefined,
           }),
         })
-      : createAccountProviderConfigSource(legacyAccountProviderSourceOptions);
+      : options.accountPolicy
+        ? new AccountProviderService({
+            configSource: providerConfigRuntime.configService,
+            resolve: options.accountPolicy.unavailableProviders,
+          })
+        : createAccountProviderConfigSource(legacyAccountProviderSourceOptions);
   const accountRequestAuthService = createAccountRequestAuthService(
     nativeAccount
       ? createNewApiAccountRequestAuthResolver({
@@ -1739,7 +1764,7 @@ export function createLocalServices(options: {
                 },
               },
         })
-      : legacyAccountRequestAuthResolver,
+      : (options.accountPolicy?.unavailableRequestAuth ?? legacyAccountRequestAuthResolver),
   );
   const accountProviderRuntimeLog = createServiceLogger("account-provider-runtime");
   const modelSelectionConfiguredDefaultSource = new NodeModelSelectionConfigRepository({
@@ -1750,6 +1775,10 @@ export function createLocalServices(options: {
     settingService,
     credentialFilePath: resolveCredentialFilePath(resolveAppConfigDir()),
     personalConfigFilePath: join(resolveAppConfigDir(), PERSONAL_PROVIDER_CONFIG_FILE_NAME),
+    // XCODE: 官方登录不再是产品身份，分发不读取/解密它的历史凭据。
+    ...(options.accountPolicy?.allowOfficialCloud === false
+      ? { readCredentials: async () => [] }
+      : {}),
   });
   let offPeakAdmissionGeneration = 0;
   let publishNativeOffPeakOwner: (() => void) | undefined;
@@ -1831,8 +1860,8 @@ export function createLocalServices(options: {
   const officialMcpCredentialSource = {
     resolve: () =>
       resolveOfficialMcpCredentials(
-        officialCloudHost
-          ? { officialCloudHost }
+        officialCloudCapability
+          ? { officialCloudHost: officialCloudCapability }
           : {
               accountRequestAuthService,
               credentialService,
@@ -2329,7 +2358,7 @@ export function createLocalServices(options: {
   const resolveDynamicWorkflowUserMode = isDesktopAttachedRemote
     ? undefined
     : async () => (await settingService.get()).dynamicWorkflowMode;
-  const codingPlanSubscriptionService = createCodingPlanSubscriptionService({
+  const ownerCodingPlanSubscriptionService = createCodingPlanSubscriptionService({
     apiClient,
     credentialService,
     ...(nativeAccount && newApiClient
@@ -2348,6 +2377,10 @@ export function createLocalServices(options: {
       return buildOffPeakModelSelectionView(providerRuntime.registryService.getView());
     },
   });
+  // XCODE: 无替代权益的官方能力由产品 wrapper 提前拒绝，不进入旧 token/网络路径。
+  const codingPlanSubscriptionService =
+    options.accountPolicy?.wrapSubscription(ownerCodingPlanSubscriptionService) ??
+    ownerCodingPlanSubscriptionService;
   // OffPeakTaskService 单例在下方 DI register IIFE 中创建（晚于 agent service）；
   // 用前向引用 holder 惰性绑定——offPeak/create 协议请求只会发生在服务集合装配完成后。
   let offPeakTaskServiceForAgent: OffPeakTaskService | undefined;
@@ -2555,8 +2588,8 @@ export function createLocalServices(options: {
     // 官方 Server MCP 身份头：host 是唯一身份权威，Agent 经反向请求索取。
     // Provider 存在性读取正式 Model Selection View；不恢复旧 Provider Snapshot。
     officialMcpAuthHeadersResolver: createOfficialMcpAuthHeadersResolver(
-      officialCloudHost
-        ? { officialCloudHost }
+      officialCloudCapability
+        ? { officialCloudHost: officialCloudCapability }
         : {
             accountRequestAuthService,
             credentialService,
@@ -2815,7 +2848,9 @@ export function createLocalServices(options: {
         apiClient,
         onProviderLogout: handleOAuthProviderLogout,
       });
-  const oauthService = nativeAccount?.oauth ?? legacyOAuthService!;
+  // XCODE: admission wrapper 在调用既有 owner 前拒绝旧 provider/polling/callback。
+  const ownerOAuthService = nativeAccount?.oauth ?? legacyOAuthService!;
+  const oauthService = options.accountPolicy?.wrapOAuth(ownerOAuthService) ?? ownerOAuthService;
   const zcodeJwtLogoutLogger = createServiceLogger("zcode-jwt-logout");
   zcodeJwtLogoutHandlerRef.current = legacyOAuthService
     ? (input, headers) => {
@@ -2840,8 +2875,8 @@ export function createLocalServices(options: {
   // Desktop Host 曾从 Settings View 再扫描一次 Account Provider，既绕开
   // Registry 的 entitlement/executable 事实，也在多个套餐同时可见时无法唯一选择。
   // 闲时服务与 Host 派发必须共享同一个 Registry-backed 凭据解析闭包。
-  const offPeakCredentialResolverDeps = officialCloudHost
-    ? { officialCloudHost }
+  const offPeakCredentialResolverDeps = officialCloudCapability
+    ? { officialCloudHost: officialCloudCapability }
     : {
         credentialService,
         accountRequestAuthService,
@@ -2915,6 +2950,20 @@ export function createLocalServices(options: {
   const marketingAssets = createMarketingAssetRegistry({
     allowLoopback: ZCODE_ENV === "test" || process.env.NODE_ENV === "development",
   });
+  // XCODE: usage 的缺配置分支也必须在 legacy monitor 调用前失败关闭。
+  const ownerUsageStatsService = createUsageStatsService({
+    apiClient,
+    accountRequestAuthService,
+    credentialService,
+    zcodeAgentService,
+    officialMcpCredentialSource,
+    ...(officialCloudCapability ? { officialCloudHost: officialCloudCapability } : {}),
+    ...(nativeAccount && newApiClient
+      ? { native: { account: nativeAccount, client: newApiClient } }
+      : {}),
+  });
+  const usageStatsService =
+    options.accountPolicy?.wrapUsage(ownerUsageStatsService) ?? ownerUsageStatsService;
   const services = new ServiceCollection()
     .register(
       IMarketingTouchService,
@@ -2976,22 +3025,7 @@ export function createLocalServices(options: {
     .register(IFileWatcherService, createFileWatcherService())
     .register(IOAuthService, oauthService)
     .register(ISourceServerWorkspaceService, sourceServerWorkspaceService)
-    .register(
-      IUsageStatsService,
-      createUsageStatsService({
-        apiClient,
-        accountRequestAuthService,
-        credentialService,
-        zcodeAgentService,
-        officialMcpCredentialSource,
-        ...(nativeAccount && newApiClient
-          ? {
-              native: { account: nativeAccount, client: newApiClient },
-              officialCloudHost: officialCloudHost ?? undefined,
-            }
-          : {}),
-      }),
-    )
+    .register(IUsageStatsService, usageStatsService)
     .register(ICodingPlanSubscriptionService, codingPlanSubscriptionService)
     .register(
       IClientConfigService,
@@ -3320,8 +3354,14 @@ export function createLocalServices(options: {
         settingService,
         personalConfigFilePath: join(resolveAppConfigDir(), PERSONAL_PROVIDER_CONFIG_FILE_NAME),
         stateFilePath: join(resolveAppConfigDir(), "runtime", "provider", "provisioning.json"),
+        // XCODE: 关闭的官方身份既不能同步，也不能以 replace-allowlist 名义删除旧密文。
+        ...(options.accountPolicy?.allowOfficialCloud === false ? { oauthCredentialKeys: [] } : {}),
         listProvisioningCredentialKeys: () =>
-          listProviderProvisioningCredentialKeys(resolveCredentialFilePath(resolveAppConfigDir())),
+          options.accountPolicy?.allowOfficialCloud === false
+            ? Promise.resolve([])
+            : listProviderProvisioningCredentialKeys(
+                resolveCredentialFilePath(resolveAppConfigDir()),
+              ),
       }),
     );
   }
@@ -3567,6 +3607,8 @@ export async function createServerHostServices(options: {
   providerProvisioningTargetEnabled?: boolean;
   // XCODE: 独立 Web 入口只注入凭据权威，服务与存储身份装配保持原路径。
   newApiAccountAuthority?: NewApiAccountAuthorityFactory;
+  // XCODE: 可选产品策略贯穿同一个 Server Host 装配，不创建第二账号 owner。
+  accountPolicy?: HostAccountPolicy;
 }) {
   const projectStorageHostId = remoteHostIdFromWorkspaceIdentity(
     buildServerRemoteWorkspaceIdentity({ serverId: options.sourceServerId, workspacePath: "/" }),
@@ -3605,6 +3647,8 @@ export async function createServerHostServices(options: {
     providerProvisioningTargetEnabled: options.providerProvisioningTargetEnabled,
     // XCODE: 可选替代凭据来源不修改默认 standalone-server 的权限模式。
     newApiAccountAuthority: options.newApiAccountAuthority,
+    // XCODE: 入口提供的限制保持贯穿，未注入的上游默认路径不变。
+    accountPolicy: options.accountPolicy,
     serviceAuthorityMode: "standalone-server",
     topicResourceRelayChannel: options.topicResourceRelayChannel,
     projectStorageHostId,

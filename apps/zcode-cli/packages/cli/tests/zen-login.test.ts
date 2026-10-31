@@ -48,15 +48,15 @@ test("Zen CLI reports failure with exit code 1 and no stack", async () => {
   assert.equal(out.read(), "Error: XCODE_STALE_OWNER\n");
 });
 
-test("help keeps upstream text and appends Zen commands once", async () => {
+test("Aiscoo help exposes only product account login", async () => {
   const out = capture();
   const code = await runXwork(
     { argv: ["--help", "--locale", "zh-CN"], stdout: out.stream, stderr: out.stream } as never,
     { env: {} } as never,
   );
   assert.equal(code, 0);
-  assert.match(out.read(), /login \[zai\|bigmodel\]/);
-  assert.equal(out.read().match(/login zen/g)?.length, 1);
+  assert.doesNotMatch(out.read(), /login \[zai\|bigmodel\]/);
+  assert.match(out.read(), /login \[zen\|aiscoo\]/);
   assert.match(out.read(), /退出 Aiscoo Zen Plan/);
 });
 
@@ -75,7 +75,7 @@ const baseDeps = (locale: "zh-CN" | "en-US"): CommandCenterDeps => ({
   },
 });
 
-test("Zen Plan is prepended to the unchanged upstream login choices", async () => {
+test("Aiscoo login choices retain manual keys and exclude official OAuth", async () => {
   const upstream = await createCommandCenter(baseDeps("zh-CN"))("/login", {} as never);
   const center = createXworkCommandCenter(baseDeps("zh-CN"), zenDeps());
   const items = (await center("/login", {} as never)).selection?.items ?? [];
@@ -85,17 +85,51 @@ test("Zen Plan is prepended to the unchanged upstream login choices", async () =
   assert.ok(items[0]?.pending?.cancelStatus);
   assert.deepEqual(
     items.slice(1).map((item) => item.id),
-    upstream.selection?.items.map((item) => item.id),
+    upstream.selection?.items.filter((item) => item.id.endsWith("-api-key")).map((item) => item.id),
   );
 });
 
-test("without Zen configured the command center is the upstream one", async () => {
+test("without Zen configured the command center cannot fall back to official login", async () => {
   const center = createXworkCommandCenter(baseDeps("en-US"), undefined);
   const items = (await center("/login", {} as never)).selection?.items ?? [];
-  assert.equal(
-    items.some((item) => item.id === "zen"),
-    false,
-  );
+  assert.equal(items[0]?.id, "zen");
+  assert.equal(items.some((item) => ["zai-coding-plan", "bigmodel-coding-plan"].includes(item.id)), false);
+  assert.match((await center("/login zen", {} as never)).response, /AISCOO_ADMIN_BASE_URL/);
+});
+
+test("default and headless product login use Zen; legacy targets never call official login", async () => {
+  const out = capture();
+  let zenCalls = 0;
+  let officialCalls = 0;
+  const deps = {
+    env: {},
+    loadDotenv: () => ({}),
+    loginZenCli: async () => { zenCalls++; return { user: { display_name: "Test" } }; },
+    loginZCodeCli: async () => { officialCalls++; throw new Error("official login called"); },
+  };
+  for (const argv of [["login"], ["login", "aiscoo"], ["--prompt", "/login"], ["--prompt", "/login zen"]]) {
+    assert.equal(await runXwork({ argv, stdout: out.stream, stderr: out.stream } as never, deps as never), 0);
+  }
+  for (const argv of [["login", "zai"], ["login", "bigmodel"], ["--prompt", "/login zai-coding-plan"]]) {
+    assert.equal(await runXwork({ argv, stdout: out.stream, stderr: out.stream } as never, deps as never), 1);
+  }
+  assert.equal(zenCalls, 4);
+  assert.equal(officialCalls, 0);
+});
+
+test("slash login rejects explicit official OAuth and preserves manual API key setup", async () => {
+  let officialCalls = 0;
+  const center = createXworkCommandCenter({
+    ...baseDeps("en-US"),
+    login: async () => { officialCalls++; throw new Error("official login called"); },
+    loginBigmodel: async () => { officialCalls++; throw new Error("official login called"); },
+    configureApiKey: async () => ({ configPath: "isolated", model: "custom", providerId: "bigmodel" }),
+  }, zenDeps());
+  for (const provider of ["zai", "bigmodel", "zai-coding-plan", "bigmodel-coding-plan", "authpoll"]) {
+    assert.match((await center(`/login ${provider}`, {} as never)).response, /Aiscoo/);
+  }
+  assert.equal(officialCalls, 0);
+  assert.match((await center("/login bigmodel-coding-plan-api-key fake-test-key", {} as never)).response, /Configured BigModel/);
 });
 
 test("Zen login explains an unavailable catalog without promising a model", async () => {
@@ -111,11 +145,16 @@ test("Zen logout reports unconfirmed server revocation", async () => {
   assert.match(result.response, /could not be confirmed/);
 });
 
-test("slash /help keeps upstream text and appends Zen commands", async () => {
+test("slash /help projects product account help without changing other commands", async () => {
   const upstream = await createCommandCenter(baseDeps("en-US"))("/help", {} as never);
-  const result = await createXworkCommandCenter(baseDeps("en-US"), zenDeps())("/help", {} as never);
-  assert.ok(result.response.startsWith(upstream.response));
+  const center = createXworkCommandCenter(baseDeps("en-US"), zenDeps());
+  const result = await center("/help", {} as never);
   assert.match(result.response, /\/login zen/);
+  assert.doesNotMatch(result.response, /login \[zai-coding-plan\||shared Z\.ai/);
+  assert.equal(result.response.includes("/compact"), upstream.response.includes("/compact"));
+  for (const target of ["login", "logout"]) {
+    assert.match((await center(`/help ${target}`, {} as never)).response, /Aiscoo/);
+  }
 });
 
 // 回归：顶层 login 曾不处理 SIGINT，服务端已签发 SID 后被 Ctrl+C 直接杀死，补偿撤销无机会执行。

@@ -1,6 +1,14 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TID_OAUTH_COPY_LOGIN_LINK } from "@zcode/shared/test-ids";
@@ -13,6 +21,7 @@ import {
 } from "@/xwork/brand/index.js";
 import { ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import { WelcomeScreen } from "@/WelcomeScreen.js";
+import { aiscooAccountPolicy } from "@/aiscoo/account-login/index.js";
 
 const oauthState = vi.hoisted(() => ({
   status: "idle" as "idle" | "waiting" | "error",
@@ -25,6 +34,14 @@ const oauthState = vi.hoisted(() => ({
   manualAuthorizationUrl: null as string | null,
   startLoginFromUserGesture: undefined as undefined | ReturnType<typeof vi.fn>,
   pendingProvider: "new-api",
+  activeProvider: null as string | null,
+  accountPolicy: undefined as
+    | import("@/oauth-lifecycle/contract.js").OAuthAccountPolicy
+    | undefined,
+  user: null as null | { id: string },
+  oauthSuccessSeq: 0,
+  lastOAuthSuccessProvider: null as string | null,
+  polling: vi.fn(),
 }));
 
 vi.mock("@/hooks/useOAuth.js", () => ({
@@ -36,6 +53,7 @@ vi.mock("@/hooks/useOAuth.js", () => ({
     status: oauthState.status,
     error: oauthState.status === "error" ? "登录失败，请重试" : null,
     providers: oauthState.providers,
+    activeProvider: oauthState.activeProvider,
     loadingProviders: false,
     pendingProvider: oauthState.status === "waiting" ? oauthState.pendingProvider : null,
     authorizeUrl: oauthState.authorizeUrl,
@@ -47,10 +65,11 @@ vi.mock("@/hooks/useOAuth.js", () => ({
 vi.mock("@/store/StoreProvider.js", () => ({
   useZCodeStore: (selector: (state: unknown) => unknown) =>
     selector({
-      user: null,
+      user: oauthState.user,
+      setOAuthPollingActive: oauthState.polling,
       oauthError: null,
-      oauthSuccessSeq: 0,
-      lastOAuthSuccessProvider: null,
+      oauthSuccessSeq: oauthState.oauthSuccessSeq,
+      lastOAuthSuccessProvider: oauthState.lastOAuthSuccessProvider,
       loginEntryRequest: null,
       setOAuthError: vi.fn(),
       clearLoginEntryRequest: vi.fn(),
@@ -60,15 +79,36 @@ vi.mock("@/store/StoreProvider.js", () => ({
 }));
 
 vi.mock("@/hooks/usePlatform.js", () => ({
-  usePlatform: () => ({ executeDesktopCommand: vi.fn() }),
+  usePlatform: () => ({
+    executeDesktopCommand: vi.fn(),
+    oauthAccountPolicy: oauthState.accountPolicy,
+  }),
 }));
 
 vi.mock("@/login/LoginApiKeyForm.js", () => ({
   LoginApiKeyForm: () => createElement("div", { "data-testid": "api-key-form-fixture" }),
 }));
 
+const serviceState = vi.hoisted(() => ({
+  oauthService: {
+    getProviders: vi.fn(async () => []),
+    getActiveProvider: vi.fn(async () => null),
+    startOAuth: vi.fn(),
+    startOAuthWithPolling: vi.fn(),
+  },
+}));
+vi.mock("@/hooks/useServices.js", () => ({ useServices: () => serviceState }));
+
 afterEach(() => {
   cleanup();
+  oauthState.accountPolicy = undefined;
+  oauthState.activeProvider = null;
+  oauthState.user = null;
+  oauthState.oauthSuccessSeq = 0;
+  oauthState.lastOAuthSuccessProvider = null;
+  oauthState.polling.mockClear();
+  serviceState.oauthService.startOAuth.mockClear();
+  serviceState.oauthService.startOAuthWithPolling.mockClear();
   oauthState.status = "idle";
   oauthState.authorizeUrl = null;
   oauthState.manualAuthorizationUrl = null;
@@ -80,6 +120,42 @@ afterEach(() => {
 });
 
 describe("Aiscoo 登录页完整字标", () => {
+  it("产品策略阻止旧官方 user 和成功缓存关闭登录页", () => {
+    oauthState.accountPolicy = aiscooAccountPolicy;
+    oauthState.activeProvider = "zai";
+    oauthState.user = { id: "legacy-official-user" };
+    const onComplete = vi.fn();
+    const element = () =>
+      createElement(AiscooIntlProvider, {
+        initialLocale: "zh-CN",
+        children: createElement(WelcomeScreen, { onComplete, hideApiKeyLogin: true }),
+      });
+    const view = render(element());
+    expect(onComplete).not.toHaveBeenCalled();
+    oauthState.status = "waiting";
+    oauthState.lastOAuthSuccessProvider = "bigmodel";
+    oauthState.oauthSuccessSeq++;
+    view.rerender(element());
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it("useOAuth 对旧官方命令显示固定错误，且不创建 polling", async () => {
+    oauthState.accountPolicy = aiscooAccountPolicy;
+    const { useOAuth } =
+      await vi.importActual<typeof import("@/hooks/useOAuth.js")>("@/hooks/useOAuth.js");
+    const hook = renderHook(() => useOAuth(), {
+      wrapper: ({ children }) =>
+        createElement(AiscooIntlProvider, { initialLocale: "zh-CN", children }),
+    });
+    await waitFor(() => expect(hook.result.current.loadingProviders).toBe(false));
+    await act(async () => hook.result.current.startLogin("zai"));
+    expect(hook.result.current.status).toBe("error");
+    expect(hook.result.current.error).toBe("Aiscoo 仅支持 Aiscoo 账号登录。");
+    expect(serviceState.oauthService.startOAuth).not.toHaveBeenCalled();
+    expect(serviceState.oauthService.startOAuthWithPolling).not.toHaveBeenCalled();
+    expect(oauthState.polling).toHaveBeenCalledWith(false);
+  });
+
   it.each([
     ["zh-CN", "等待 aiscoo 完成认证..."],
     ["en-US", "Waiting for aiscoo authentication..."],
@@ -177,7 +253,7 @@ describe("Aiscoo 登录页完整字标", () => {
     expect(screen.getByTestId("api-key-form-fixture")).toBeTruthy();
   });
 
-  it("其他登录提供方仍保留真实名称和原有选择", () => {
+  it("未注入产品策略的通用登录保留真实提供方名称", () => {
     oauthState.providers = [
       { id: "zai", displayName: "Z.ai", enabled: true, order: 1 },
       { id: "bigmodel", displayName: "BigModel", enabled: true, order: 0 },

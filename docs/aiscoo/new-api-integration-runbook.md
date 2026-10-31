@@ -18,6 +18,8 @@
 
 ## 配置与边界
 
+当前账号规则以 [Aiscoo 唯一登录规格](specs/aiscoo-only-login.md) 为准：产品只允许 Aiscoo，缺配置不能启用 Z.ai/BigModel 主登录或独立官方连接。下文带日期的真实部署、历史验证和未完成项仍是原阶段记录，不因此变成最新版本验收。
+
 本次本地合并基线为 `6a4ab9cd`，PR #52 为 `f52e110d`（独立基线 `cd4af779`，不包含旧 Host WIP）。本地 `9932e053` 的 keyring 外置、最终 PTY helper 权限修复及真实打包证据，与 PR #52 的冷启动设置 B 修复和回归分别见 [身份验证记录](specs/desktop-product-identity-verification.md)，不互借通过结论。
 
 当前本机 Web 沿用 [浏览器持有凭据规格](specs/browser-new-api.md)：通过 `pnpm dev:web`，显式设置 `AISCOO_BROWSER_NEW_API=1` 与 `AISCOO_ADMIN_BASE_URL`，由浏览器持有 state、PKCE 和会话凭据；Host 通过现有 account authority 接口读取连接期投影与请求期凭据，不持久化浏览器 refresh token。普通 standalone Web 创建项目和聊天首发仍未验收，不能据登录适配或 CLI 回环验证宣称完整聊天可用。[旧 Host-owner 本机 Web 方案](specs/local-web-new-api.md) 仅保留历史设计，不作为当前启用入口或通过记录。
@@ -29,9 +31,9 @@
 独立 CLI Zen（2026-10-21）：本机 `~/.local/bin/zcode` 使用 `feature/cli-zen-plan-implementation` worktree 的 Node bundle，支持 `login zen`、`logout zen` 及 TUI `/login zen`、`/logout zen`。显式设置 `AISCOO_ADMIN_BASE_URL`；浏览器必须与 CLI 同机。正式服务须先部署 New API 的 `9cffe3717`（客户端与 SID 归属）和 `16024d865`（授权页面）或其合并结果。当前 3001 未因本次实现而升级，不能据 CLI 帮助出现 Zen 推断正式服务可登录。隔离 Chrome→Go→CLI 冷恢复→真实 prompt→本机合成上游→退出验收通过，无外部计费调用；Windows/Linux、SEA 原生资源和完整 PTY 工具交互未实跑。详细证据及限制见 [CLI Zen spec](../../apps/zcode-cli/docs/design/v2/zen-plan.md)。删除功能 worktree 前须重新安装命令，启动器依赖该目录及相邻 node_modules。
 
 - Node 版本使用 `mise.toml`，pnpm 使用根 `package.json`。本次验证使用 Node 24.14.0 / pnpm 10.33.2。
-- 只有显式 `AISCOO_ADMIN_BASE_URL` 且本机桌面 Local Host 才启用私有组合，没有默认 3001。Main 安全库、Host 与 scheduler 使用相同 dotenv→已定义 process env 优先级；显式空 process 值遮蔽 dotenv。未配置的原非私有桌面、独立 Web/远程路径保留；已启用后任何认证、目录或资金错误都不回退到原官方身份或钱包。
+- Aiscoo 产品始终使用唯一账号策略，合法 `AISCOO_ADMIN_BASE_URL` 才能访问账号服务，没有默认 3001。Main 安全库、Host 与 scheduler 使用相同 dotenv→已定义 process env 优先级；显式空 process 值遮蔽 dotenv并显示配置不可用。缺配置、配置错误及认证/目录/资金异常都不得启用或恢复 Z.ai/BigModel 主账号；正式包从系统启动也必须遵守此边界。
 - Origin 必须是精确 origin，不能含路径、query、fragment、用户名或密码；HTTP 仅允许 loopback。生产操作员明确设置后端 `XCODE_INTEGRATION_ENABLED`、与客户端完全一致的 `XCODE_PUBLIC_ORIGIN`，并验证实际二进制、挂载及数据库。
-- 不复用 Z.ai/BigModel 的环境变量。它们继续属于独立官方连接；metadata、网页地址和 `server_address` 均不能改变私有 API origin。
+- 不复用 Z.ai/BigModel 的环境变量，产品也不再装配独立官方登录；metadata、网页地址和 `server_address` 均不能改变 Aiscoo API origin。
 - 现有 3001 服务不能仅凭 `/api/status` 成功判定就绪。2026-10-18 授权页专项已获明确授权并切换真实 Go embed；当前 binary/assets、人工确认门槛和未完成边界见下节生产记录，不能沿用旧隔离报告的“未部署”结论。
 
 显式启用既有测试启动命令（后端与数据隔离需由操作员先准备）：
@@ -89,13 +91,13 @@ Web handoff 在监听端口前异步读取真实 `web/public/xcode-plan-display.
 XCODE_NEW_API_SOURCE_DIR=../aiscoo-admin node packages/desktop/test/runNewApiElectronSmokes.mjs newApiWebHandoffElectron newApiUpgradePresentationElectron
 ```
 
-## 主账号与独立官方连接
+## Aiscoo 主账号与历史官方凭据
 
 1. 主登录打开 New API 原生认证页面，复用原生注册、密码、2FA/Passkey 流程。桌面只持有 PKCE flow，不保存密码；浏览器会话与专用客户端 Session 分开。
 2. Local Host 是 Native 身份与三类凭据的唯一业务 owner。Main 的 OS keystore 仅保护安全库密钥；Renderer、配置、Web Storage、日志及普通凭据 RPC 不得到 control、refresh 或 relay secret。
 3. 恢复前校验 origin、用户、SID、期限及真实 Me。明确撤销会失效模型/权限并清理只读 WebView；503、离线或安全库不可用不是成功退出、无套餐或零用量。
-4. 官方 MCP、闲时任务、分享需要单独连接 BigModel/Z.ai。它们保留真实官方 origin、身份、Plan 和模型；官方登录不替换主账号/头像。连接关闭、迟到回调和 A→B→A 都受主 owner 与凭据 generation 约束。
-5. 官方安全记录只恢复到相同 Native origin/user；旧全局官方 secret 不自动认领。普通官方 Plan 推理仍不从这条云连接恢复到主模型选择。
+4. 产品不再提供 BigModel/Z.ai 独立连接。依赖该连接的官方 MCP、闲时任务和受保护分享动作明确不可用，不附 Aiscoo token、不恢复旧官方会话；公开只读分享继续按匿名规则处理。
+5. 官方历史安全记录保留原样，Aiscoo 不读取、自动认领或恢复；即使同一 Aiscoo 用户重新登录也不启用官方账号。自配模型及第三方 MCP 登录保持原行为。
 
 ```mermaid
 sequenceDiagram
@@ -174,7 +176,7 @@ macOS/Windows 使用 Electron `safeStorage`；Linux 的 `basic_text`、无可用
 | OS key / 加密记录损坏           | 提示安全凭据恢复；不反射 secret，不使用旧 key 解密私有命名空间               |
 | 没有指定实例 / 额度耗尽         | 明确未授权/不可用；钱包/general 余额不能救济托管请求                         |
 | 模型 metadata 错误              | 修真实 backend metadata 并刷新；不补能力、不混用 transport、不切供应商兜底   |
-| 官方连接缺失或失效              | 仅官方功能要求重新连接；Native 主账号与本机推理不替换为官方身份              |
+| 已退役的官方账号能力            | 明确不可用；不提供重新连接入口，Native 主账号与本机推理不替换为官方身份      |
 
 ## 回归与验收
 
@@ -189,11 +191,11 @@ pnpm fmt:check
 pnpm architecture:check --changed
 ```
 
-`pnpm test:unit` 顺序执行 Vitest 与上述 Node 原生测试；`verify:pre-push` 先以 `--scope push` 执行上游 affected 入口，再独立运行 `test:unit:node`。不能把 `--scope` 追加到含 `&&` 的 wrapper 末端而误传给 Node runner。`node:test` 文件不交给 Vitest 收集，避免将其报告成“0 test”或遗漏原生 mock.module 的隔离语义。
+当前根脚本使用 `pnpm test:aiscoo <文件>` 执行获批下游 Vitest 清单，`pnpm test:unit:node` 执行独立 Node 原生回归。`verify:pre-push` 保持上游工程门禁与 `test:engineering:affected --scope push`，Aiscoo 回归按变更另行执行；不存在统一 `pnpm test:unit`。`node:test` 文件不交给 Vitest 收集，避免将其报告成“0 test”或遗漏原生 mock.module 的隔离语义。
 
 `newApiComposerContextElectron.mjs` 已纳入上述 Electron smoke 入口：真实 Composer/额度 hooks 验证自定义 API Key 空草稿不显示订阅、三个 Native transport 保留额度、Native 缓存切换到自定义模型后只展示上下文且 hover 不读取订阅、切回 Native/清空选择，以及触摸按下的上下文展示。全局侧栏与设置额度保持主账号来源；对话浮层跟随当前结构化模型选择。
 
-`newApiModelSettingsElectron.mjs` 同样纳入该入口：使用真实 Native 状态卡与 owner hook，在隔离业务 fixture 下验证授权/查询失败/空模板、换号与退出首帧、旧响应及重复刷新隔离、手动刷新、英文深色与 393px 窄屏。模型设置按 [原版呈现规格](specs/new-api-model-settings-ui.md) 复用套餐卡及个人/团队入口，不再显示独立官方云横幅；连接/断开仍在使用统计 MCP 区。本机完整桌面在 Renderer 重新加载后实际读取部署数据，状态卡与个人入口均打开只读套餐 WebView，手动刷新正常，自定义供应商编辑入口保持；未改真实模板/授权，未以 fixture 声称官方权益或推理通过。
+`newApiModelSettingsElectron.mjs` 同样纳入该入口：使用真实 Native 状态卡与 owner hook，在隔离业务 fixture 下验证授权/查询失败/空模板、换号与退出首帧、旧响应及重复刷新隔离、手动刷新、英文深色与 393px 窄屏。模型设置按 [原版呈现规格](specs/new-api-model-settings-ui.md) 复用套餐卡及个人/团队入口，不再显示独立官方云横幅；2026-10-31 唯一登录清理也移除使用统计 MCP 区的官方连接/断开入口。以下完整桌面观测为此前阶段记录：本机完整桌面在 Renderer 重新加载后实际读取部署数据，状态卡与个人入口均打开只读套餐 WebView，手动刷新正常，自定义供应商编辑入口保持；未改真实模板/授权，未以 fixture 声称官方权益或推理通过。
 
 `newApiModelCapabilitiesElectron.mjs` 复用原 Composer 控件和真实 Host/Registry；隔离 Host 装配位于 `newApiModelCapabilitiesHost.mjs`。该场景验证逐模型不同公开档位、单档 fixed、多档菜单/Ctrl+T、主动选模原策略、已提交选择冻结、真正目录刷新与只重读 View、删除档位及历史空值重选、自配选项、中英/浅深色与 360px 窄屏。截图为受控原组件窗口，不是运行中业务账号的部署验收。
 

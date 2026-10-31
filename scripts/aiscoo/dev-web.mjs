@@ -18,7 +18,7 @@ function normalizeOrigin(value) {
   try {
     url = new URL(value);
   } catch {
-    throw new Error("NEW_API_BASE_URL 必须是有效 origin");
+    throw new Error("AISCOO_ADMIN_BASE_URL 必须是有效 origin");
   }
   const authority = value.match(/^https?:\/\/([^/?#]+)\/?$/i)?.[1];
   const hostname = authority?.replace(/:\d+$/, "").toLowerCase();
@@ -32,7 +32,7 @@ function normalizeOrigin(value) {
     (url.protocol !== "https:" && url.protocol !== "http:") ||
     (url.protocol === "http:" && !["localhost", "127.0.0.1", "[::1]"].includes(hostname ?? ""))
   ) {
-    throw new Error("NEW_API_BASE_URL 必须为精确 origin，HTTP 仅允许本机回环");
+    throw new Error("AISCOO_ADMIN_BASE_URL 必须为精确 origin，HTTP 仅允许本机回环");
   }
   return url.origin;
 }
@@ -44,7 +44,8 @@ export function resolveLocalWebConfig(env = process.env, repoRoot = repoRootDefa
     "AISCOO_LOCAL_WEB_SERVER_PORT",
   );
   if (webPort === serverPort) throw new Error("Web 与 Server 端口不能相同");
-  const backendOrigin = normalizeOrigin(env.NEW_API_BASE_URL ?? "http://127.0.0.1:3001");
+  // 旧启动器也必须使用当前账号配置；无默认地址，不读取退役 NEW_API_BASE_URL。
+  const backendOrigin = normalizeOrigin(env.AISCOO_ADMIN_BASE_URL ?? "");
   const webOrigin = `http://127.0.0.1:${webPort}`;
   return {
     repoRoot,
@@ -57,7 +58,9 @@ export function resolveLocalWebConfig(env = process.env, repoRoot = repoRootDefa
       VITE_AISCOO_LOCAL_WEB: "1",
       AISCOO_LOCAL_WEB_SERVER_PORT: String(serverPort),
       AISCOO_LOCAL_WEB_ORIGINS: `${webOrigin},http://localhost:${webPort}`,
-      NEW_API_BASE_URL: backendOrigin,
+      AISCOO_ADMIN_BASE_URL: backendOrigin,
+      AISCOO_BROWSER_NEW_API: "1",
+      AISCOO_BROWSER_ORIGIN: webOrigin,
       PORT: String(serverPort),
       ZCODE_SERVER_HOST: "127.0.0.1",
       ZCODE_SERVER_AUTH_TOKEN: "",

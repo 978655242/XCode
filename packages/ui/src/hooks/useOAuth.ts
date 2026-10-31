@@ -28,6 +28,8 @@ type OAuthStatus = "idle" | "waiting" | "error";
 export function useOAuth() {
   const { oauthService } = useServices();
   const platform = usePlatform();
+  // XCODE: 可选产品准入在 hook 命令边界执行，未注入时原渠道行为不变。
+  const accountPolicy = (platform as OAuthLifecyclePlatform).oauthAccountPolicy;
   const { intl } = useZCodeIntl();
   const [status, setStatus] = useState<OAuthStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -68,11 +70,19 @@ export function useOAuth() {
     try {
       setLoadingProviders(true);
       const providerList = await oauthService.getProviders();
-      setProviders(providerList);
+      setProviders(
+        accountPolicy
+          ? providerList.filter(
+              (provider) => provider.enabled && accountPolicy.acceptsProvider(provider.id),
+            )
+          : providerList,
+      );
 
       try {
         const active = await oauthService.getActiveProvider();
-        setActiveProvider(active);
+        setActiveProvider(
+          active && accountPolicy && !accountPolicy.acceptsProvider(active) ? null : active,
+        );
       } catch (err) {
         // 只有本地 OAuth 凭据解密失败才可恢复为未登录态；RPC/存储权限等错误需要走外层错误路径。
         if (!isCredentialDecryptError(err)) {
@@ -91,7 +101,7 @@ export function useOAuth() {
     } finally {
       setLoadingProviders(false);
     }
-  }, [oauthService]);
+  }, [accountPolicy, oauthService]);
 
   useEffect(() => {
     void refreshProviders();
@@ -100,6 +110,17 @@ export function useOAuth() {
   const startLogin = useCallback(
     async (provider: OAuthProviderId, options: { purpose?: LoginEntryPurpose } = {}) => {
       const loginAttempt = ++loginAttemptRef.current;
+      // XCODE: 旧设置请求也必须经过准入，拒绝后不创建生命周期或 polling。
+      if (accountPolicy && !accountPolicy.acceptsProvider(provider)) {
+        userGestureRef.current = false;
+        lifecycle?.clear();
+        setOAuthPollingActive(false);
+        setStatus("error");
+        setError(intl.formatMessage({ id: accountPolicy.unsupportedMessageId }));
+        setPendingProvider(null);
+        setAuthorizeUrl(null);
+        return;
+      }
       // XCODE: 消费一次性手势标记后再调用扩展，避免重入或自动登录复用该标记。
       const userGesture = userGestureRef.current;
       userGestureRef.current = false;
@@ -164,11 +185,15 @@ export function useOAuth() {
         setAuthorizeUrl(null);
         // OAuth 启动失败也属于登录失败，不把服务端或平台错误原文展示给用户。
         // 原文通过 i18n 渲染，避免登录页出现 provider/token 等具体失败原因。
-        setError(intl.formatMessage({ id: "login.oauth.loginFailure" }));
+        setError(
+          intl.formatMessage({
+            id: accountPolicy?.errorMessageId(err) ?? "login.oauth.loginFailure",
+          }),
+        );
         setPendingProvider(null);
       }
     },
-    [intl, lifecycle, oauthService, platform, setOAuthPollingActive],
+    [accountPolicy, intl, lifecycle, oauthService, platform, setOAuthPollingActive],
   );
 
   // XCODE: 在点击调用栈内委托原登录入口，让扩展同步准备窗口。

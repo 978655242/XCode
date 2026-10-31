@@ -54,6 +54,8 @@ import { join, resolve } from "node:path";
 import { homedir, hostname } from "node:os";
 import {
   createCredentialService,
+  // XCODE: Main 只通过同一产品策略读取允许的身份投影。
+  createAiscooAccountPolicy,
   createSettingService,
   createTelemetryCore,
   createTelemetryMarketingParamsLoader,
@@ -611,7 +613,15 @@ mainMemoryDiagnosticsRegistry.register("app", () => ({
 const hostProcessLocalEnv = loadHostProcessEnvFromLocalFiles();
 delete hostProcessLocalEnv.XCODE_PRIVATE_CREDENTIAL_SECRET;
 // XCODE: 与 Host 使用相同 dotenv→process 优先级，避免有私有服务但未加载 OS 加密密钥。
+// XCODE: 渠道只决定账号限制；实际 origin 可用性由同一严格解析器裁定。
+const mainAccountPolicy = resolveAiscooDesktopIdentity()
+  ? createAiscooAccountPolicy({
+      adminBaseUrl: process.env.AISCOO_ADMIN_BASE_URL ?? hostProcessLocalEnv.AISCOO_ADMIN_BASE_URL,
+    })
+  : undefined;
 const nativePrivateMode = Boolean(
+  // XCODE: Aiscoo 渠道始终保留原生隔离，缺配置也不开放 legacy scheduler/凭据路径。
+  mainAccountPolicy ||
   (process.env.AISCOO_ADMIN_BASE_URL ?? hostProcessLocalEnv.AISCOO_ADMIN_BASE_URL)?.trim(),
 );
 let privateCredentialSecret: string | undefined;
@@ -751,10 +761,16 @@ const UPDATE_STATUS_WINDOW_PROGRESS_HEIGHT = 224;
 const UPDATE_STATUS_WINDOW_READY_HEIGHT = UPDATE_STATUS_WINDOW_PROGRESS_HEIGHT - 54;
 const UPDATE_STATUS_WINDOW_TRAFFIC_LIGHT_POSITION = { x: 10, y: 10 } as const;
 const mainSettingService = createSettingService();
-const webRemoteControlCredentialService = createCredentialService();
+// XCODE: Main 的远控/遥测不能把历史官方 token 认作当前 Aiscoo 身份。
+const webRemoteControlCredentialStore = createCredentialService();
+const webRemoteControlCredentialService =
+  mainAccountPolicy?.wrapCredentials(webRemoteControlCredentialStore) ??
+  webRemoteControlCredentialStore;
 const appLaunchGate = createAppLaunchGate();
 const appLaunchCoordinator = createAppLaunchCoordinator(appLaunchGate);
-const appTelemetryCredentialService = createCredentialService();
+const appTelemetryCredentialStore = createCredentialService();
+const appTelemetryCredentialService =
+  mainAccountPolicy?.wrapCredentials(appTelemetryCredentialStore) ?? appTelemetryCredentialStore;
 async function resolveCurrentZCodeEndpointOrigin() {
   return resolveZCodeEndpointOrigin({
     env: ZCODE_ENV,
@@ -2247,8 +2263,8 @@ app.whenReady().then(async () => {
   } catch {
     // 读取失败不影响启动，使用默认 homedir
   }
-  // XCODE: 显式私有配置才访问 OS key；不可用时不降级旧 key，不影响非私有启动。
-  if (nativePrivateMode) {
+  // XCODE: 缺失/非法 Aiscoo origin 不访问 OS key；未注入策略保留旧启动条件。
+  if (mainAccountPolicy ? mainAccountPolicy.newApiOrigin !== null : nativePrivateMode) {
     try {
       privateCredentialSecret = await loadPrivateCredentialSecret();
     } catch {

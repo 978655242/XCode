@@ -47,7 +47,7 @@ sequenceDiagram
 
 desktop-continuous 与手机 web-remote-replayable 语义不变；手机继续复用已有 Host attachment。本变更不增加登录、会话或队列 owner。
 
-官方云 BigModel/Z.ai 依赖提供方与官网中转的独立 redirect 配置，不能因本地 Native 回调支持就声称官方云回跳已兼容。Aiscoo 不通过抢注 zcode 或放宽校验补偿其服务端未登记；该能力在其服务端配合后单独验收。
+2026-10-31 起 [唯一登录规格](aiscoo-only-login.md) 退役 Aiscoo 产品中的 BigModel/Z.ai 登录。Aiscoo 渠道不登记或派发官方主账号/独立连接回调；不通过抢注 zcode、放宽校验或官网中转重建登录。通用上游实现未注入产品策略时仍保留原协议边界。
 
 ## 深链覆盖
 

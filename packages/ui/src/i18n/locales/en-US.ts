@@ -2,13 +2,16 @@
 import { requestSecurityMessagesEnUS } from "@/request-security-edition/messages.js";
 /** English translations */
 const enUS: Record<string, string> = {
+  // XCODE: Product account errors never contain the backend origin or credentials.
+  "aiscoo.login.configUnavailable":
+    "Aiscoo sign-in is not configured or is unavailable. Contact your administrator.",
+  "aiscoo.login.unsupported": "Aiscoo supports Aiscoo account sign-in only.",
   // XCODE: Match upstream quota labels using the actual backend reset period.
   "settings.usage.nativeRemaining.daily": "Daily",
   "settings.usage.nativeRemaining.weekly": "Weekly",
   "settings.usage.nativeRemaining.monthly": "Monthly",
   "settings.usage.nativeRemaining.custom": "Current period",
   "settings.usage.nativeRemaining.never": "Subscription remaining",
-  "settings.usage.nativeOfficialDisconnect": "Disconnect official cloud",
   "settings.modelProvider.native.providerGroup": "Official",
   "settings.modelProvider.native.expiresAt": "Valid until {time}",
   "settings.modelProvider.native.teamUnsupported": "Team plans are not supported.",
@@ -50,10 +53,6 @@ const enUS: Record<string, string> = {
   "settings.usage.native.planLimits": "Plan limits",
   "settings.usage.native.remaining": "{percentage} remaining",
   "settings.usage.native.resetsAt": "Resets {time}",
-  "settings.usage.nativeOfficialScope": "Official cloud · {family} · {name} (independently billed)",
-  "settings.usage.nativeOfficialConnectDescription":
-    "Official MCP quota is separate from your private subscription. Connect an official account to read its real quota.",
-  "settings.usage.nativeOfficialConnect": "Connect {family}",
   "settings.usage.nativeLoadingDescription": "Reading recorded usage for the New API account.",
   "settings.usage.nativeStartDate": "Start date",
   "settings.usage.nativeEndDate": "End date",

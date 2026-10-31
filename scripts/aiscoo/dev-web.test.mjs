@@ -9,11 +9,17 @@ import test from "node:test";
 import { resolveLocalWebConfig, runLocalWeb } from "./dev-web.mjs";
 
 test("local Web uses explicit loopback endpoints and aiscoo-admin", () => {
-  const config = resolveLocalWebConfig({}, "/project");
+  const config = resolveLocalWebConfig(
+    { AISCOO_ADMIN_BASE_URL: "https://account.example" },
+    "/project",
+  );
   assert.equal(config.serverPort, 3030);
   assert.equal(config.webPort, 5174);
   assert.equal(config.webOrigin, "http://127.0.0.1:5174");
-  assert.equal(config.env.NEW_API_BASE_URL, "http://127.0.0.1:3001");
+  assert.equal(config.env.AISCOO_ADMIN_BASE_URL, "https://account.example");
+  assert.equal(config.env.AISCOO_BROWSER_NEW_API, "1");
+  assert.equal(config.env.AISCOO_BROWSER_ORIGIN, config.webOrigin);
+  assert.equal(config.env.NEW_API_BASE_URL, undefined);
   assert.equal(config.env.AISCOO_LOCAL_WEB, "1");
   assert.equal(config.env.VITE_AISCOO_LOCAL_WEB, "1");
   assert.equal(config.env.ZCODE_SERVER_HOST, "127.0.0.1");
@@ -26,7 +32,7 @@ test("explicit ports and origin are honored without changing the user data root"
     {
       AISCOO_LOCAL_WEB_PORT: "5281",
       AISCOO_LOCAL_WEB_SERVER_PORT: "3291",
-      NEW_API_BASE_URL: "https://example.com",
+      AISCOO_ADMIN_BASE_URL: "https://example.com",
       ZCODE_DATA_BASE_DIR: "/test/data",
     },
     "/project",
@@ -35,13 +41,15 @@ test("explicit ports and origin are honored without changing the user data root"
   assert.equal(config.env.PORT, "3291");
   assert.equal(config.env.AISCOO_LOCAL_WEB_SERVER_PORT, "3291");
   assert.equal(config.env.AISCOO_LOCAL_WEB_ORIGINS, "http://127.0.0.1:5281,http://localhost:5281");
-  assert.equal(config.env.NEW_API_BASE_URL, "https://example.com");
+  assert.equal(config.env.AISCOO_ADMIN_BASE_URL, "https://example.com");
   assert.equal(config.env.ZCODE_DATA_BASE_DIR, "/test/data");
 });
 
 test("invalid origins and ports fail closed before spawning", () => {
   for (const env of [
-    { NEW_API_BASE_URL: "" },
+    {},
+    { NEW_API_BASE_URL: "https://retired.example" },
+    { AISCOO_ADMIN_BASE_URL: "" },
     { NEW_API_BASE_URL: "http://192.168.1.1:3001" },
     { NEW_API_BASE_URL: "http://127.0.0.1:3001/path" },
     { AISCOO_LOCAL_WEB_PORT: "0" },
@@ -66,6 +74,7 @@ test("a real occupied port is rejected without starting either process", async (
     await assert.rejects(
       runLocalWeb({
         env: {
+          AISCOO_ADMIN_BASE_URL: "https://account.example",
           AISCOO_LOCAL_WEB_PORT: String(occupied),
           AISCOO_LOCAL_WEB_SERVER_PORT: String(freePort),
         },
@@ -156,6 +165,7 @@ else setInterval(() => {}, 1000);
     env: {
       ...process.env,
       PATH: `${dir}:${process.env.PATH}`,
+      AISCOO_ADMIN_BASE_URL: "https://account.example",
       AISCOO_LOCAL_WEB_PORT: String(webPort),
       AISCOO_LOCAL_WEB_SERVER_PORT: String(serverPort),
     },
@@ -227,7 +237,7 @@ test("port conflicts stop before launching services", async () => {
   let launched = false;
   await assert.rejects(
     runLocalWeb({
-      env: {},
+      env: { AISCOO_ADMIN_BASE_URL: "https://account.example" },
       repoRoot: "/project",
       checkPorts: async () => {
         throw new Error("端口 5174 已被占用");

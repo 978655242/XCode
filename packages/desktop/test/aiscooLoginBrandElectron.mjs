@@ -35,18 +35,24 @@ import { StoreProvider } from "./packages/ui/src/store/StoreProvider.tsx";
 import { AiscooIntlProvider, AiscooLoginHeader } from "./packages/ui/src/xwork/brand/index.ts";
 import { ZCodeIntlProvider } from "./packages/ui/src/i18n/IntlProvider.tsx";
 import { WelcomeScreen } from "./packages/ui/src/WelcomeScreen.tsx";
+import { createAiscooAccountLoginServices, createAiscooAccountLoginPlatform } from "./packages/ui/src/aiscoo/account-login/index.ts";
 import { applyTheme } from "./packages/ui/src/useTheme.ts";
 const params = new URLSearchParams(location.search);
 const locale = params.get("locale") || "zh-CN";
 const theme = params.get("theme") || "zai-light";
 const upstream = params.get("upstream") === "1";
+const providerMode = params.get("providers") || "native";
 const events = [];
 let fail = false;
 window.loginFixture = { events, failNext: () => { fail = true; } };
 localStorage.setItem("zcode-theme", theme);
 applyTheme(theme);
 const oauthService = {
-  getProviders: async () => [{ id: "new-api", displayName: "New API", enabled: true, order: 0 }],
+  getProviders: async () => {
+    const official = [{ id: "zai", displayName: "Z.ai", enabled: true, order: 0 }, { id: "bigmodel", displayName: "BigModel", enabled: true, order: 1 }];
+    const native = { id: "new-api", displayName: "New API", enabled: true, order: 2 };
+    return providerMode === "empty" ? [] : providerMode === "official" ? official : providerMode === "mixed" ? [...official, native] : providerMode === "disabled" ? [{ ...native, enabled: false }] : [native];
+  },
   getActiveProvider: async () => null,
   startOAuth: async (provider) => {
     events.push(["start", provider]);
@@ -64,7 +70,7 @@ const platform = {
 };
 const Intl = upstream ? ZCodeIntlProvider : AiscooIntlProvider;
 createRoot(document.getElementById("root")).render(
-  <ServiceProvider services={services}><PlatformProvider platform={platform}>
+  <ServiceProvider services={upstream ? services : createAiscooAccountLoginServices(services)}><PlatformProvider platform={upstream ? platform : createAiscooAccountLoginPlatform(platform)}>
     <StoreProvider broadcastService={broadcastService}><Intl initialLocale={locale}>
       <WelcomeScreen onComplete={() => events.push(["complete"])}
         {...(upstream ? {} : { header: <AiscooLoginHeader />, hideApiKeyLogin: true })} />
@@ -199,6 +205,36 @@ createRoot(document.getElementById("root")).render(
       }
     }
   }
+  for (const providerMode of ["empty", "official", "mixed", "disabled"]) {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    await context.route("**/*", blockOutside);
+    try {
+      const page = await context.newPage();
+      await page.goto(`${origin}/?locale=zh-CN&providers=${providerMode}`, {
+        waitUntil: "networkidle",
+      });
+      assert.equal(await page.getByRole("button", { name: /Z\.ai|BigModel/u }).count(), 0);
+      if (providerMode === "mixed") {
+        await page.getByRole("button", { name: "登录", exact: true }).click();
+        await page.getByRole("button", { name: "取消", exact: true }).waitFor();
+        assert.deepEqual(
+          await page.evaluate(() =>
+            window.loginFixture.events.filter((event) => event[0] === "start"),
+          ),
+          [["start", "new-api"]],
+        );
+      } else {
+        assert.equal(await page.getByRole("button", { name: "登录", exact: true }).count(), 0);
+        const error = page.getByTestId("oauth-error");
+        await error.waitFor();
+        assert.match(await error.innerText(), /Aiscoo/u);
+        assert.doesNotMatch(await error.innerText(), /https?:|example\.|New API/u);
+        assert.deepEqual(await page.evaluate(() => window.loginFixture.events), []);
+      }
+    } finally {
+      await context.close();
+    }
+  }
   const defaultContext = await browser.newContext();
   await defaultContext.route("**/*", blockOutside);
   try {
@@ -248,7 +284,7 @@ app.whenReady().then(() => {
     engine: "electron",
   });
   console.log(
-    "PASS: 12 Chrome viewport/theme/locale cases, upstream API key form, 2 isolated Electron cases; synthetic OAuth only",
+    "PASS: 12 Chrome viewport/theme/locale cases, 4 provider admission cases, upstream API key form, 2 isolated Electron cases; synthetic OAuth only",
   );
 } finally {
   await electronApp?.close();

@@ -113,7 +113,7 @@ flowchart LR
 
 登录页通过 Root 的可选 `header` 插槽装配下游 `AiscooLoginHeader`，保留上游 `LoginPanelHeader` 默认实现和 title／description／children 接口；品牌模块只负责视觉，不引用登录业务组件。产品头部使用完整动态 `aiscoo` 字标，保留 240px 宽及窄屏自适应，移除欢迎标题；中文说明为“连接账号，开始使用”。浅深主题复用原稿的 8 秒动效，系统减少动态效果时显示完整静态字标。真实组件预览验证 320／390px 与桌面布局，未见横向溢出；两次截图确认探头动作变化。登录状态与取消／重试测试及品牌契约合计 14/14 通过，文案调整后的三文件定向测试 36/36 通过。
 
-2026-10-30 用户确认登录页产品简化：Aiscoo 的 New API 主按钮中英文分别显示“登录”和“Sign in”，隐藏登录页的“使用 API key”入口；登录、取消、重试仍使用原 provider ID。Desktop、普通 Web 及远控连接后的共享 Root 都采用这一展示规则；远控连接前的独立登录页仍显示 Z.ai 和 BigModel，供用户选择与桌面相同的账号。`WelcomeScreen` 未传可选配置时保留原按钮和 API key 表单。此改动不新增认证状态或本机 Web OAuth，也不改变已有用户配置、设置中的 provider、协议及远控身份。验收应覆盖中英文、原默认值、provider 选择和取消重试、真实远控登录入口，以及隔离的桌面／浏览器界面。
+2026-10-30 的登录页简化保留历史：Aiscoo 的 New API 主按钮中英文分别显示“登录”和“Sign in”，隐藏登录页的“使用 API key”入口；登录、取消、重试仍使用稳定 provider ID。2026-10-31 用户进一步要求 [仅保留 Aiscoo 登录](../specs/aiscoo-only-login.md)：Desktop、Web、远控前置页和 Aiscoo CLI 均不再显示或发起 Z.ai/BigModel 产品账号登录；缺配置时明确不可用，不启用旧官方 owner。Root 的产品策略与服务/RPC/原生边界共同拒绝旧官方恢复、polling 和 callback；独立官方云连接卡也移除。`WelcomeScreen` 未注入产品配置时保留通用上游行为，自配模型/API Key 与第三方 MCP OAuth 不受影响。旧视觉回归不作为本次唯一登录验收结果。
 
 品牌隔离预览曾显式使用临时数据目录，因此不显示原有会话和自定义模型；这是测试启动参数，不是产品迁移。按用户要求关闭隔离预览后，真实 Aiscoo Dev 复用原 `~/.zcode` 与 `ZCode Dev` Electron 用户目录启动；进程文件句柄确认读取原 `tasks-index.sqlite` 与 CLI `db.sqlite`，任务列表、项目树和模型设置接口均成功返回。没有复制或删除原会话／模型配置。
 

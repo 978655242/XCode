@@ -74,9 +74,9 @@ ZCODE_DATA_BASE_DIR="$HOME/.zcode-dev-home" pnpm dev:desktop:test
 
 ### Web Development
 
-For the browser app with an Aiscoo account, start aiscoo-admin and run `pnpm dev:aiscoo:web`, then open `http://127.0.0.1:5174`. This starts no Electron process. The default account service is `http://127.0.0.1:3001`; set `NEW_API_BASE_URL` to use another supported service. If the page port is occupied, set `AISCOO_LOCAL_WEB_PORT` and open the corresponding address. See the [local Web specification](docs/aiscoo/specs/local-web-new-api.md) for details.
+Aiscoo product entrypoints support Aiscoo accounts only. Use `pnpm dev:web` with explicit `AISCOO_BROWSER_NEW_API=1` and `AISCOO_ADMIN_BASE_URL` configuration. The browser uses the existing same-origin proxy and strict loopback PKCE callback; open an `http://127.0.0.1` address with an explicit port. Missing or invalid configuration reports that login is unavailable and never restores Z.ai or BigModel login. See the [browser account specification](docs/aiscoo/specs/browser-new-api.md) and [account policy](docs/aiscoo/specs/aiscoo-only-login.md).
 
-The `pnpm dev:web` command below retains the upstream Web development and official-account behavior. Use the Aiscoo entry above when signing in through aiscoo-admin.
+The old Host-owned credential flow behind `pnpm dev:aiscoo:web` is a historical snapshot, not the current login entrypoint. The retired `NEW_API_BASE_URL` key is no longer read.
 
 Use development mode when editing Web or backend source code:
 
@@ -131,7 +131,7 @@ pnpm --filter @zcode/cli... build
 node apps/zcode-cli/packages/cli/dist/zcode.cjs --help
 ```
 
-This entry runs the Agent CLI directly and does not handle the distribution's `--web` switch. Use `pnpm dev:aiscoo:web` for Web development with aiscoo-admin, or the extracted `bin/zcode.mjs` shown below to test the unified command.
+This entry runs the Agent CLI directly and does not handle the distribution's `--web` switch. Use `pnpm dev:web` with the Aiscoo browser configuration described above, or the extracted `bin/zcode.mjs` shown below to test the unified command.
 
 ### UI Plugin development
 

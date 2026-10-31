@@ -70,6 +70,8 @@ import {
 } from "@zcode/services";
 import {
   createLocalServices,
+  // XCODE: 渠道入口固定产品账号策略，配置缺失也不能回到官方 owner。
+  createAiscooAccountPolicy,
   createProjectWorkspaceNavigation,
   createRemoteProjectConnectionAdmission,
   remoteProjectHostIdForProfile,
@@ -3988,6 +3990,14 @@ parentPort.on("message", async (e: Electron.MessageEvent) => {
             const initializedServices = createLocalServices({
               // XCODE: 仅 Desktop Native 注入精确回调，服务默认与 Web/远端保持原有语义。
               newApiRedirectUri: resolveAiscooDesktopIdentity()?.oauthRedirectUri,
+              // XCODE: 以渠道身份启用策略，空/非法 origin 由阻断权威投影稳定错误。
+              ...(resolveAiscooDesktopIdentity()
+                ? {
+                    accountPolicy: createAiscooAccountPolicy({
+                      adminBaseUrl: process.env.AISCOO_ADMIN_BASE_URL,
+                    }),
+                  }
+                : {}),
               reportPluginTelemetryEvent: (event) => {
                 parentPort?.postMessage({
                   type: HostResponseTypes.PluginTelemetry,

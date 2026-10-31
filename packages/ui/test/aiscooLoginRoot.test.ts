@@ -4,6 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // 基于 Root 独立的受控服务夹具，只验证下游对三类客户端的登录页装配。
 // Root 模块图的冷启动曾计入首个用例并触发超时；静态导入将加载与渲染断言的计时分开。
 import { Root } from "@/Root.js";
+import type { IOAuthService, IServiceAccessor } from "@zcode/services";
+import type { IPlatformService, OAuthCallbackEvent } from "@zcode/shared";
+import {
+  createAiscooAccountLoginServices,
+  createAiscooAccountLoginPlatform,
+} from "@/aiscoo/account-login/index.js";
 
 const mockSetUser = vi.fn();
 const mockModelSelectionRead = { failed: false };
@@ -353,4 +359,417 @@ describe("Aiscoo Root 登录展示", () => {
       expect(html).toContain('data-hide-api-key-login="true"');
     },
   );
+
+  it.each(["empty", "official", "mixed", "disabled"])(
+    "%s providers 不恢复旧官方身份",
+    async (mode) => {
+      const restoreCachedSessionState = vi.fn(async () => ({
+        status: "authenticated",
+        userInfo: { id: "legacy", username: "legacy", displayName: "legacy" },
+      }));
+      const getProviders = vi.fn(async () =>
+        mode === "empty"
+          ? []
+          : [
+              { id: "zai", displayName: "Z.ai", enabled: true, order: 0 },
+              ...(mode === "mixed" || mode === "disabled"
+                ? [
+                    {
+                      id: "new-api",
+                      displayName: "New API",
+                      enabled: mode !== "disabled",
+                      order: 1,
+                    },
+                  ]
+                : []),
+            ],
+      );
+      const underlying = {
+        getProviders,
+        getActiveProvider: vi.fn(async () => "zai"),
+        restoreCachedSessionState,
+        restoreCachedSession: vi.fn(),
+        restoreSession: vi.fn(),
+        startOAuthWithPolling: vi.fn(),
+        pollPendingOAuth: vi.fn(),
+        cancelPending: vi.fn(),
+      };
+      const service = createAiscooAccountLoginServices({
+        oauthService: underlying,
+      } as unknown as IServiceAccessor).oauthService;
+      expect((await service.getProviders()).map((provider) => provider.id)).toEqual(
+        mode === "mixed" ? ["new-api"] : [],
+      );
+      expect(await service.getActiveProvider()).toBeNull();
+      expect(await service.restoreCachedSessionState()).toEqual({ status: "signed-out" });
+      expect(await service.restoreCachedSession()).toBeNull();
+      expect(await service.restoreSession()).toBeNull();
+      expect(restoreCachedSessionState).not.toHaveBeenCalled();
+      expect(underlying.restoreCachedSession).not.toHaveBeenCalled();
+      expect(underlying.restoreSession).not.toHaveBeenCalled();
+      await expect(service.startOAuth("zai")).rejects.toThrow("AISCOO_ACCOUNT_LOGIN_UNSUPPORTED");
+      await expect(service.startOAuthWithPolling("bigmodel")).rejects.toThrow(
+        "AISCOO_ACCOUNT_LOGIN_UNSUPPORTED",
+      );
+      await expect(service.pollPendingOAuth()).rejects.toThrow("AISCOO_ACCOUNT_LOGIN_UNSUPPORTED");
+      expect(underlying.startOAuthWithPolling).not.toHaveBeenCalled();
+      expect(underlying.pollPendingOAuth).not.toHaveBeenCalled();
+      if (mode !== "mixed") await expect(service.cancelPending()).resolves.toBeUndefined();
+    },
+  );
+
+  it.each(["restoreCachedSessionState", "restoreSession"] as const)(
+    "真实 Native owner 冷启动经 %s 恢复既有会话",
+    async (method) => {
+      const { NewApiAccountService } =
+        await import("../../services/src/new-api/newApiAccountService.js");
+      const { NewApiClient } = await import("../../services/src/new-api/newApiClient.js");
+      const { NewApiProviderAdapter } =
+        await import("../../services/src/oauth/providers/newApiProviderAdapter.js");
+      const now = 1_800_000_000_000;
+      const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
+      const bundle = {
+        schema_version: 1,
+        server_time: now,
+        access_token: `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ iss: "new-api", aud: ["new-api-xcode"], token_use: "xcode_access", sub: "1", sid: "synthetic-sid", exp: (now + 60_000) / 1000, uv: 1, sv: 1, nbf: now / 1000, iat: now / 1000, scopes: ["profile:read", "wallet:read", "usage:read"] })}.${Buffer.alloc(32, 1).toString("base64url")}`,
+        access_expires_at: now + 60_000,
+        refresh_token: "synthetic-refresh",
+        refresh_expires_at: now + 600_000,
+        token_type: "Bearer",
+        session_id: "synthetic-sid",
+        user: { id: "1", username: "synthetic", display_name: "Synthetic", avatar_url: null },
+        relay_credential: { token: "sk-synthetic-relay", expires_at: now + 600_000 },
+      };
+      const fetch = vi.fn(async (input: unknown) => {
+        expect(String(input)).toBe("https://native.example/api/xcode/v1/me");
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              schema_version: 1,
+              server_time: now,
+              session_id: bundle.session_id,
+              user: bundle.user,
+              authorization_revision: "0",
+            },
+          }),
+        );
+      });
+      const repo = {
+        assertStorageAvailable: vi.fn(),
+        loadActive: vi.fn(async () => ({
+          schemaVersion: 1,
+          origin: "https://native.example",
+          bundle,
+        })),
+      };
+      const owner = new NewApiAccountService({
+        adapter: new NewApiProviderAdapter(
+          new NewApiClient("https://native.example", {
+            fetch: fetch as typeof globalThis.fetch,
+            now: () => now,
+          }),
+        ),
+        repo: repo as unknown as ConstructorParameters<typeof NewApiAccountService>[0]["repo"],
+        now: () => now,
+      });
+      expect(await owner.oauth.getActiveProvider()).toBeNull();
+      const service = createAiscooAccountLoginServices({
+        oauthService: owner.oauth,
+      } as IServiceAccessor).oauthService;
+      const userInfo = { id: "1", username: "synthetic", displayName: "Synthetic" };
+      const result = await service[method]();
+      expect(result).toEqual(
+        method === "restoreCachedSessionState" ? { status: "authenticated", userInfo } : userInfo,
+      );
+      expect(await service.getActiveProvider()).toBe("new-api");
+      expect(repo.loadActive).toHaveBeenCalledOnce();
+      expect(fetch).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each([
+    ["logout", "restore"],
+    ["logoutAll", "restore"],
+    ["logout", "pending"],
+    ["logoutAll", "pending"],
+    ["cancelPending", "pending"],
+  ] as const)("真实 Native %s 同步失效 %s，迟到结果不可重新登录", async (command, phase) => {
+    const { NewApiAccountService } =
+      await import("../../services/src/new-api/newApiAccountService.js");
+    const { NewApiClient } = await import("../../services/src/new-api/newApiClient.js");
+    const { NewApiProviderAdapter } =
+      await import("../../services/src/oauth/providers/newApiProviderAdapter.js");
+    const now = 1_800_000_000_000;
+    const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
+    const bundle = {
+      schema_version: 1,
+      server_time: now,
+      access_token: `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ iss: "new-api", aud: ["new-api-xcode"], token_use: "xcode_access", sub: "1", sid: "synthetic-sid", exp: (now + 60_000) / 1000, uv: 1, sv: 1, nbf: now / 1000, iat: now / 1000, scopes: ["profile:read", "wallet:read", "usage:read"] })}.${Buffer.alloc(32, 1).toString("base64url")}`,
+      access_expires_at: now + 60_000,
+      refresh_token: "synthetic-refresh",
+      refresh_expires_at: now + 600_000,
+      token_type: "Bearer",
+      session_id: "synthetic-sid",
+      user: { id: "1", username: "synthetic", display_name: "Synthetic", avatar_url: null },
+      relay_credential: { token: "sk-synthetic-relay", expires_at: now + 600_000 },
+    };
+    const record = { schemaVersion: 1, origin: "https://native.example", bundle };
+    let stored: typeof record | null = phase === "restore" ? record : null;
+    let releaseMe!: () => void;
+    let startedMe!: () => void;
+    const meBlocked = new Promise<void>((resolve) => {
+      releaseMe = resolve;
+    });
+    const meStarted = new Promise<void>((resolve) => {
+      startedMe = resolve;
+    });
+    const requests: string[] = [];
+    const success = (data: unknown) => new Response(JSON.stringify({ success: true, data }));
+    const fetch = vi.fn(async (input: unknown) => {
+      const path = new URL(String(input)).pathname;
+      requests.push(path);
+      if (path.endsWith("/me")) {
+        startedMe();
+        await meBlocked;
+        return success({
+          schema_version: 1,
+          server_time: now,
+          session_id: bundle.session_id,
+          user: bundle.user,
+          authorization_revision: "0",
+        });
+      }
+      if (path.endsWith("/auth/token")) return success(bundle);
+      if (path.endsWith("/auth/logout"))
+        return success({ schema_version: 1, server_time: now, revoked: true });
+      throw new Error("Unexpected synthetic endpoint");
+    });
+    const repo = {
+      assertStorageAvailable: vi.fn(),
+      loadActive: vi.fn(async () => stored),
+      commit: vi.fn(async (next) => {
+        stored = next;
+      }),
+      remove: vi.fn(async () => {
+        const previous = stored;
+        stored = null;
+        return previous;
+      }),
+    };
+    const owner = new NewApiAccountService({
+      adapter: new NewApiProviderAdapter(
+        new NewApiClient("https://native.example", {
+          fetch: fetch as typeof globalThis.fetch,
+          now: () => now,
+        }),
+      ),
+      repo: repo as unknown as ConstructorParameters<typeof NewApiAccountService>[0]["repo"],
+      now: () => now,
+    });
+    const service = createAiscooAccountLoginServices({
+      oauthService: owner.oauth,
+    } as IServiceAccessor).oauthService;
+    const events: string[] = [];
+    owner.oauth.onDidChangeSession((event) => events.push(event));
+    if (phase === "restore") {
+      const restore = service.restoreCachedSessionState();
+      await meStarted;
+      expect(await owner.oauth.getActiveProvider()).toBeNull();
+      const logout = service[command]();
+      const synchronouslyInvalidated = events.includes("signed-out");
+      releaseMe();
+      await logout;
+      expect(await restore).toEqual({ status: "signed-out" });
+      expect(synchronouslyInvalidated).toBe(true);
+    } else {
+      const flow = await service.startOAuth("new-api");
+      events.length = 0;
+      expect(await owner.oauth.getActiveProvider()).toBeNull();
+      const logout = service[command]();
+      const synchronouslyInvalidated = events.includes("signed-out");
+      releaseMe();
+      const callback = owner.oauth.handleCallback(
+        `zcode://oauth/callback?provider=new-api&state=${flow.state}&code=${"c".repeat(43)}`,
+      );
+      await logout;
+      expect(await callback).toBeNull();
+      expect(synchronouslyInvalidated).toBe(true);
+      expect(requests).not.toContain("/api/xcode/v1/auth/token");
+    }
+    expect(events).not.toContain("signed-in");
+    expect(await owner.oauth.getActiveProvider()).toBeNull();
+  });
+
+  it.each(["only-official", "mixed-official"])(
+    "%s 的退出始终限制 new-api 作用域，不删除官方凭据",
+    async (mode) => {
+      const legacy = { token: "untouched-official", pending: true };
+      const scopedLogout = vi.fn(async (provider?: string) => {
+        if (provider === "zai" || provider === undefined) {
+          legacy.token = "";
+          legacy.pending = false;
+        }
+      });
+      const logoutAll = vi.fn();
+      const service = createAiscooAccountLoginServices({
+        oauthService: {
+          getProviders: async () => [
+            { id: "zai", displayName: "Z.ai", enabled: true, order: 0 },
+            ...(mode === "mixed-official"
+              ? [{ id: "new-api", displayName: "Aiscoo", enabled: true, order: 1 }]
+              : []),
+          ],
+          getActiveProvider: async () => "zai",
+          logout: scopedLogout,
+          logoutAll,
+        },
+      } as unknown as IServiceAccessor).oauthService;
+      await expect(service.logout("zai")).rejects.toThrow("AISCOO_ACCOUNT_LOGIN_UNSUPPORTED");
+      await service.logout();
+      await service.logoutAll();
+      expect(scopedLogout.mock.calls).toEqual([["new-api"], ["new-api"]]);
+      expect(logoutAll).not.toHaveBeenCalled();
+      expect(legacy).toEqual({ token: "untouched-official", pending: true });
+    },
+  );
+
+  it.each(["cached", "validated"])(
+    "Aiscoo 冷启动 %s 由原 owner 恢复后建立 active 身份",
+    async (mode) => {
+      let active: string | null = null;
+      const userInfo = { id: "cold-start", username: "cold-start", displayName: "cold-start" };
+      const restoreCachedSessionState = vi.fn(async () => {
+        active = "new-api";
+        return { status: "authenticated", userInfo };
+      });
+      const restoreSession = vi.fn(async () => {
+        active = "new-api";
+        return userInfo;
+      });
+      const underlying = {
+        getProviders: vi.fn(async () => [
+          { id: "new-api", displayName: "New API", enabled: true, order: 0 },
+        ]),
+        getActiveProvider: vi.fn(async () => active),
+        restoreCachedSessionState,
+        restoreSession,
+      };
+      const service = createAiscooAccountLoginServices({
+        oauthService: underlying,
+      } as unknown as IServiceAccessor).oauthService;
+      if (mode === "cached") {
+        expect(await service.restoreCachedSessionState()).toEqual({
+          status: "authenticated",
+          userInfo,
+        });
+        expect(restoreCachedSessionState).toHaveBeenCalledOnce();
+      } else {
+        expect(await service.restoreSession()).toEqual(userInfo);
+        expect(restoreSession).toHaveBeenCalledOnce();
+      }
+      expect(await service.getActiveProvider()).toBe("new-api");
+    },
+  );
+
+  it.each([
+    { status: "reauthentication-required", reason: "jwt-expired" },
+    { status: "unavailable", reason: "credential-recovery-required" },
+    { status: "unavailable", reason: "backend-unavailable" },
+  ] as const)("Aiscoo 冷启动保留 $status / $reason 的 owner 投影", async (result) => {
+    const service = createAiscooAccountLoginServices({
+      oauthService: {
+        getProviders: async () => [
+          { id: "new-api", displayName: "New API", enabled: true, order: 0 },
+        ],
+        getActiveProvider: async () => null,
+        restoreCachedSessionState: async () => result,
+      },
+    } as unknown as IServiceAccessor).oauthService;
+    expect(await service.restoreCachedSessionState()).toEqual(result);
+  });
+
+  it("合法 Aiscoo 继续委托既有 owner，回调与 refresh 不接受官方 provider", async () => {
+    const userInfo = { id: "native", username: "native", displayName: "native" };
+    const underlying = {
+      getProviders: vi.fn(async () => [
+        { id: "new-api", displayName: "New API", enabled: true, order: 0 },
+      ]),
+      getActiveProvider: vi.fn(async () => "new-api"),
+      restoreCachedSessionState: vi.fn(async () => ({ status: "authenticated", userInfo })),
+      startOAuth: vi.fn(async (provider) => ({
+        provider,
+        purpose: "primary-account",
+        state: "synthetic",
+        authorizeUrl: "https://example.invalid/synthetic",
+      })),
+      handleCallback: vi.fn(async () => ({ kind: "session", provider: "new-api", userInfo })),
+      refreshToken: vi.fn(),
+      cancelPending: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as IOAuthService;
+    const service = createAiscooAccountLoginServices({
+      oauthService: underlying,
+    } as IServiceAccessor).oauthService;
+    expect(await service.restoreCachedSessionState()).toEqual({
+      status: "authenticated",
+      userInfo,
+    });
+    expect((await service.startOAuth("new-api")).provider).toBe("new-api");
+    await expect(
+      service.handleCallback("zcode://oauth/callback?provider=zai&state=legacy&code=legacy"),
+    ).rejects.toThrow("AISCOO_ACCOUNT_LOGIN_UNSUPPORTED");
+    expect(underlying.handleCallback).not.toHaveBeenCalled();
+    await expect(service.refreshToken("bigmodel")).rejects.toThrow(
+      "AISCOO_ACCOUNT_LOGIN_UNSUPPORTED",
+    );
+    expect(underlying.refreshToken).not.toHaveBeenCalled();
+    await service.cancelPending("new-api");
+    await service.logout();
+    expect(underlying.cancelPending).toHaveBeenCalledWith("new-api");
+    expect(underlying.logout).toHaveBeenCalledWith("new-api");
+  });
+
+  it("平台拒绝官方 state 注册且回调不触发官方处理器", () => {
+    const registerOAuthState = vi.fn();
+    let receive: ((event: OAuthCallbackEvent) => void) | undefined;
+    const onOAuthCallback = vi.fn((handler) => {
+      receive = handler;
+      return () => {};
+    });
+    const platform = createAiscooAccountLoginPlatform({
+      registerOAuthState,
+      onOAuthCallback,
+    } as unknown as IPlatformService);
+    const callback = vi.fn();
+    platform.onOAuthCallback(callback);
+    expect(() =>
+      platform.registerOAuthState({ provider: "zai", purpose: "primary-account", state: "old" }),
+    ).toThrow("AISCOO_ACCOUNT_LOGIN_UNSUPPORTED");
+    expect(() =>
+      platform.registerOAuthState({ provider: "new-api", purpose: "official-cloud", state: "old" }),
+    ).toThrow("AISCOO_ACCOUNT_LOGIN_UNSUPPORTED");
+    receive?.({
+      provider: "bigmodel",
+      purpose: "official-cloud",
+      url: "zcode://oauth/callback?provider=bigmodel",
+    });
+    expect(callback).not.toHaveBeenCalled();
+    platform.registerOAuthState({
+      provider: "new-api",
+      purpose: "primary-account",
+      state: "native",
+    });
+    receive?.({
+      provider: "new-api",
+      purpose: "primary-account",
+      url: "zcode://oauth/callback?provider=new-api",
+    });
+    expect(registerOAuthState).toHaveBeenCalledExactlyOnceWith({
+      provider: "new-api",
+      purpose: "primary-account",
+      state: "native",
+    });
+    expect(callback).toHaveBeenCalledOnce();
+  });
 });

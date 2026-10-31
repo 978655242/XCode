@@ -78,9 +78,9 @@ ZCODE_DATA_BASE_DIR="$HOME/.zcode-dev-home" pnpm dev:desktop:test
 
 ### Web 开发
 
-本机使用 Aiscoo 账号的浏览器版，请先启动 aiscoo-admin，再运行 `pnpm dev:aiscoo:web`，打开 `http://127.0.0.1:5174`。该入口不启动 Electron；默认账号服务为 `http://127.0.0.1:3001`，可用 `NEW_API_BASE_URL` 指定其他受支持的服务。页面端口被占用时，可设置 `AISCOO_LOCAL_WEB_PORT` 后访问对应地址。详细规则见 [本机 Web 规格](docs/aiscoo/specs/local-web-new-api.md)。
+Aiscoo 产品只保留 Aiscoo 账号登录。浏览器版沿用 `pnpm dev:web`，显式配置 `AISCOO_BROWSER_NEW_API=1` 与 `AISCOO_ADMIN_BASE_URL`，通过现有同源代理和严格回环 PKCE 回调登录；使用带明确端口的 `http://127.0.0.1` 页面。缺少有效配置时显示不可用，不恢复 Z.ai／BigModel 登录。详细规则见 [浏览器账号规格](docs/aiscoo/specs/browser-new-api.md) 与 [唯一登录规格](docs/aiscoo/specs/aiscoo-only-login.md)。
 
-下方 `pnpm dev:web` 保留上游 Web 开发行为，使用原有官方账号配置；需要 aiscoo-admin 登录时请使用上面的 Aiscoo 入口。
+旧 `pnpm dev:aiscoo:web` 的 Host 持凭据方案仅保留历史快照，不作为现行账号入口；退役配置键 `NEW_API_BASE_URL` 不再读取。
 
 修改 Web 或后端源码时，使用开发模式：
 
@@ -135,7 +135,7 @@ pnpm --filter @zcode/cli... build
 node apps/zcode-cli/packages/cli/dist/zcode.cjs --help
 ```
 
-这个入口直接运行 Agent CLI，不经过发行包的 `--web` 分流。开发使用 aiscoo-admin 登录的 Web 时用 `pnpm dev:aiscoo:web`；验证统一的 `zcode` 命令，用下方解压后的 `bin/zcode.mjs`。
+这个入口直接运行 Agent CLI，不经过发行包的 `--web` 分流。开发 Aiscoo 浏览器登录时使用上文配置后的 `pnpm dev:web`；验证统一的 `zcode` 命令，用下方解压后的 `bin/zcode.mjs`。
 
 ### UI Plugin 开发
 

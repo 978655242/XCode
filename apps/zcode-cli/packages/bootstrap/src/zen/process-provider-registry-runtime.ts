@@ -13,6 +13,7 @@ import {
 import { ZenAccountRuntime } from "./account.js";
 import { resolveZenAccountProviders } from "./account-provider.js";
 import { createZenAccount } from "./factory.js";
+import { createAiscooProductCredentialStore } from "./product-credentials.js";
 
 export interface ZenProcessProviderRegistryRuntimeOptions extends ProcessProviderRegistryRuntimeOptions {
   readonly standalone?: ProcessProviderRegistryRuntimeOptions["standalone"] & {
@@ -62,18 +63,22 @@ async function mergeZenResolution(
 
 /**
  * 启动进程 Provider Registry；独立 CLI 且配置 AISCOO_ADMIN_BASE_URL 时叠加 Zen 账号。
- * 未启用 Zen 时直接返回上游结果，Zen 专属字段为 undefined。
+ * 缺少 Zen 配置时保留自配 Provider；产品 store 始终阻止旧官方账号恢复。
  */
 export async function startProcessProviderRegistryRuntime(
   env: Readonly<Record<string, string | undefined>>,
   options: ZenProcessProviderRegistryRuntimeOptions = {},
 ) {
-  const standalone = options.standalone;
+  const standalone = options.standalone && {
+    ...options.standalone,
+    credentialStore: createAiscooProductCredentialStore(env, options.standalone.credentialStore),
+  };
+  const productOptions = { ...options, ...(standalone ? { standalone } : {}) };
   const zenAccount =
     standalone?.zenAccount ??
     (standalone && env.AISCOO_ADMIN_BASE_URL?.trim() ? await createZenAccount(env) : undefined);
   if (!standalone || !zenAccount) {
-    const upstream = await startUpstreamRuntime(env, options);
+    const upstream = await startUpstreamRuntime(env, productOptions);
     return Object.freeze({
       ...upstream,
       zenAccount: undefined,

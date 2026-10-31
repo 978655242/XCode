@@ -294,3 +294,31 @@ modules:
     layers:
       adapters: .
     owner: desktop
+  # XCODE: Aiscoo 产品始终使用唯一账号策略，通用服务装配只接受可选策略端口。
+  - id: aiscoo-account-policy
+    roots: [packages/services/src/aiscoo-account-policy]
+    managed: true
+    requires: [services, shared, rpc, provider]
+    publicEntrypoints:
+      - packages/services/src/aiscoo-account-policy/index.ts
+      - packages/services/src/aiscoo-account-policy/contract.ts
+    layers: { adapters: . }
+    owner: account
+  - id: aiscoo-account-login-ui
+    roots: [packages/ui/src/aiscoo/account-login]
+    managed: true
+    requires: [ui, shared, services, ui-oauth-lifecycle]
+    publicEntrypoints:
+      - packages/ui/src/aiscoo/account-login/index.ts
+      - packages/ui/src/aiscoo/account-login/contract.ts
+    layers: { contract: contract.ts, adapters: . }
+    owner: account
+  - id: aiscoo-account-login-web
+    roots: [packages/web/src/aiscoo-account-login]
+    managed: true
+    requires: [shared, web, xwork-brand]
+    publicEntrypoints:
+      - packages/web/src/aiscoo-account-login/index.ts
+      - packages/web/src/aiscoo-account-login/contract.ts
+    layers: { ui: . }
+    owner: account

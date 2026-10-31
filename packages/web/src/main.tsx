@@ -38,19 +38,22 @@ import {
 } from "@zcode/client";
 
 import { WebCallbackPage } from "./auth/WebCallbackPage.js";
-import { WebLoginPage } from "./auth/WebLoginPage.js";
-import { createWebAuthService } from "./auth/webAuthService.js";
-// XCODE: 普通本机 Web 只替换账号来源；远控/分享继续使用原浏览器 OAuth。
+// XCODE: 产品前置页与匿名分享不再创建或恢复官方浏览器 OAuth owner。
+import {
+  AiscooWebLoginPage as WebLoginPage,
+  createAiscooWebAuth as createWebAuthService,
+  AiscooPublicShareLoader as ConversationShareLandingLoader,
+  anonymousAiscooShareFetch,
+  resolveAiscooWebEntry,
+} from "./aiscoo-account-login/index.js";
+// XCODE: 本机 Web 沿用唯一 New API 浏览器账号 owner。
 import {
   createBrowserNewApiAccount,
   registerBrowserAccountChannel,
 } from "./aiscoo-browser-account/index.js";
 import { WEB_ZAI_OAUTH_CONFIG, resolveWebAuthDevReturnTo } from "./auth/webZaiOAuthConfig.js";
 import { parseOAuthState, resolveSafeAppReturnTo } from "./auth/oauthStateCodec.js";
-import {
-  ConversationShareLandingLoader,
-  ConversationShareLandingStatus,
-} from "./share/ConversationShareLandingPage.js";
+import { ConversationShareLandingStatus } from "./share/ConversationShareLandingPage.js";
 import {
   ConversationSharePreviewClient,
   resolveConversationShareRouteLocale,
@@ -371,7 +374,11 @@ async function renderConversationSharePage(): Promise<void> {
     ? new (
         await import("./share/mockConversationSharePreviewClient.js")
       ).MockConversationSharePreviewClient()
-    : new ConversationSharePreviewClient({ baseUrl: `${endpointOrigin}/api/v1` });
+    : // XCODE: 匿名分享显式省略 cookie；旧同源官方会话不能隐式认证。
+      new ConversationSharePreviewClient({
+        baseUrl: `${endpointOrigin}/api/v1`,
+        fetchImpl: anonymousAiscooShareFetch,
+      });
   const getMockToken = () =>
     mockMode && window.sessionStorage.getItem("zcode:share:mock-auth") === "owner"
       ? "mock-owner-token"
@@ -411,7 +418,8 @@ async function renderConversationSharePage(): Promise<void> {
 
 function renderWebLoginPage(): void {
   document.title = brandProductText("XWork - Web Remote Control Sign In");
-  root.render(<WebLoginPage onLogin={(provider) => remoteEntry.startLogin(provider)} />);
+  // XCODE: 不支持的账号入口只显示状态，不提供旧 provider 回调。
+  root.render(<WebLoginPage />);
 }
 
 // 访问 window.localStorage 本身在部分浏览器会抛错，统一包在方法里交给调用方兜底。
@@ -1827,6 +1835,16 @@ async function bootstrapExternalRelayWebRemoteControl(
 }
 
 async function bootstrapWebApp() {
+  // XCODE: 先拒绝不支持的账号入口，不能让旧 callback/JWT 进入上游登录或 relay admission。
+  const entry = resolveAiscooWebEntry({
+    href: window.location.href,
+    browserAccountOrigin,
+    remoteRoute: isWebRemoteControlRoute(),
+  });
+  if (entry === "unsupported" || entry === "unconfigured") {
+    root.render(<WebLoginPage reason={entry} />);
+    return;
+  }
   const params = new URLSearchParams(window.location.search);
   if (isWebRemoteControlRoute() || isWebRemoteControlOAuthCallback(new URL(window.location.href))) {
     document.documentElement.lang = resolveWebRemoteControlScreenLocale(navigator.language);

@@ -56,6 +56,11 @@ import { WelcomeScreen, type LoginCompleteReason } from "@/WelcomeScreen.js";
 import { AiscooLoginHeader, resolveAiscooOAuthWaitingDisplayNames } from "@/xwork/brand/index.js";
 // XCODE: 仅桌面装配公开法律入口，其他平台保留默认登录页。
 import { AiscooLegalLinks } from "@/aiscoo/legal/index.js";
+// XCODE: 产品入口固定只允许 Aiscoo 账号；空配置也不回退上游官方认证。
+import {
+  createAiscooAccountLoginPlatform,
+  createAiscooAccountLoginServices,
+} from "@/aiscoo/account-login/index.js";
 import { setDefaultFileDisplayBasePath } from "@/lib/fileDisplay.js";
 import { readRendererLaunchTimings, shouldReportLaunchToInput } from "@/lib/launchToInputReport.js";
 import { reportUiLaunchToInput } from "@/lib/uiPerfArmsTelemetry.js";
@@ -147,6 +152,15 @@ type WelcomeScreenOpenReason =
  * 外层挂载 StoreProvider（连接广播服务）+ TabStoreProvider，内层处理认证和路由。
  */
 export function Root(props: RootProps) {
+  // XCODE: 同一个产品边界供 Context、Root effects 与本机服务注册复用，不复制身份状态。
+  const services = useMemo(
+    () => createAiscooAccountLoginServices(props.services),
+    [props.services],
+  );
+  const platform = useMemo(
+    () => createAiscooAccountLoginPlatform(props.platform),
+    [props.platform],
+  );
   return (
     <LucideProvider strokeWidth={DEFAULT_LUCIDE_STROKE_WIDTH}>
       {/*
@@ -161,11 +175,11 @@ export function Root(props: RootProps) {
          * React 点击切换任务时会同步构造数量级相同的 Radix 上下文树；根层共享一次即可保留零延迟配置。
          */}
         <ServiceProvider
-          services={props.services}
+          services={services}
           composerClientNamespace={props.composerClientNamespace}
           terminalOwnerId={props.terminalOwnerId}
         >
-          <PlatformProvider platform={props.platform}>
+          <PlatformProvider platform={platform}>
             <StoreProvider
               broadcastService={props.services.broadcastService}
               initialIsRestoringOAuthSession
@@ -182,7 +196,7 @@ export function Root(props: RootProps) {
                             <RequestSecurityHost />
                             <MarketingTouchProvider desktop={props.isDesktop === true}>
                               <RemoteConnectionProgressProvider>
-                                <RootInner {...props} />
+                                <RootInner {...props} services={services} platform={platform} />
                               </RemoteConnectionProgressProvider>
                             </MarketingTouchProvider>
                           </RewardsProvider>
