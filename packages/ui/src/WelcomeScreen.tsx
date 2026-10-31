@@ -41,11 +41,19 @@ interface WelcomeScreenProps {
   footer?: (providers: readonly OAuthProviderMeta[]) => ReactNode;
   // XCODE: 产品可隐藏 API key 入口；默认继续提供原登录表单。
   hideApiKeyLogin?: boolean;
+  // XCODE: 等待提示可投影品牌展示名，provider ID 与认证状态保持不变。
+  oauthWaitingDisplayNames?: Readonly<Record<string, string>>;
 }
 
 export type LoginCompleteReason = "oauth" | "apiKey" | "skip";
 
-export function WelcomeScreen({ onComplete, header, footer, hideApiKeyLogin }: WelcomeScreenProps) {
+export function WelcomeScreen({
+  onComplete,
+  header,
+  footer,
+  hideApiKeyLogin,
+  oauthWaitingDisplayNames,
+}: WelcomeScreenProps) {
   return (
     <main className="relative flex h-full min-h-dvh items-center justify-center overflow-hidden bg-background px-4 py-6 text-foreground sm:px-6">
       <ThemeHeroVisual className="absolute inset-0" />
@@ -60,6 +68,7 @@ export function WelcomeScreen({ onComplete, header, footer, hideApiKeyLogin }: W
           header={header}
           footer={footer}
           hideApiKeyLogin={hideApiKeyLogin}
+          oauthWaitingDisplayNames={oauthWaitingDisplayNames}
         />
       </section>
     </main>
@@ -74,6 +83,7 @@ interface LoginPanelProps {
   footer?: (providers: readonly OAuthProviderMeta[]) => ReactNode;
   // XCODE: 与欢迎页同一展示开关，直接使用 LoginPanel 时保持默认入口。
   hideApiKeyLogin?: boolean;
+  oauthWaitingDisplayNames?: Readonly<Record<string, string>>;
 }
 
 interface ActiveLoginEntryAttempt {
@@ -101,6 +111,7 @@ export function LoginPanel({
   header,
   footer,
   hideApiKeyLogin,
+  oauthWaitingDisplayNames,
 }: LoginPanelProps) {
   const { intl } = useZCodeIntl();
   const {
@@ -430,7 +441,12 @@ export function LoginPanel({
               <LoaderIcon className="size-4 animate-spin" />
               {intl.formatMessage(
                 { id: "login.oauth.waiting" },
-                { provider: pendingProviderName ?? "OAuth" },
+                {
+                  provider:
+                    (pendingProvider && oauthWaitingDisplayNames?.[pendingProvider]) ||
+                    pendingProviderName ||
+                    "OAuth",
+                },
               )}
             </div>
             <Button

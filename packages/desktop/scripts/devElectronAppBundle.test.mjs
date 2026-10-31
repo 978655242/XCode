@@ -60,12 +60,18 @@ test("prepareDevElectronAppBundle links the package root as the Electron app ent
 
   const infoPlist = await readFile(join(bundle.appPath, "Contents", "Info.plist"), "utf8");
   assert.match(infoPlist, /<key>ZCODE_LOCAL_DEV_BUNDLE<\/key>\s*<string>1<\/string>/u);
+  assert.match(
+    infoPlist,
+    /<key>CFBundleURLSchemes<\/key>\s*<array>\s*<string>aiscoo-dev<\/string>/u,
+  );
+  assert.doesNotMatch(infoPlist, /<string>zcode<\/string>/u);
   // XCODE: plist 展示新品牌；加密钥匙串身份由 Main 的 ready 前名称独立保持。
   assert.match(infoPlist, /<key>CFBundleDisplayName<\/key>\s*<string>Aiscoo Dev<\/string>/u);
   assert.match(infoPlist, /<key>CFBundleName<\/key>\s*<string>Aiscoo Dev<\/string>/u);
   assert.match(
     infoPlist,
-    /<key>CFBundleIdentifier<\/key>\s*<string>dev\.zcode\.app\.development<\/string>/u,
+    // XCODE: Dev bundle 的系统身份与共享 development profile 保持一致。
+    /<key>CFBundleIdentifier<\/key>\s*<string>dev\.aiscoo\.app\.dev<\/string>/u,
   );
   assert.match(
     infoPlist,

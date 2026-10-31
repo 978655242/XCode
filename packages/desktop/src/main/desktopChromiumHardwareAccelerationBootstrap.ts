@@ -43,10 +43,12 @@ function readBootstrapChromiumHardwareAccelerationEnabledFromDisk(
 export function applyEarlyChromiumHardwareAccelerationBootstrap(
   app: ChromiumHardwareAccelerationApp,
   rawSettings?: unknown,
+  // XCODE: 可选精确设置路径供独立产品装配，未指定仍读取上游默认 HOME。
+  settingsFile?: string,
 ): boolean {
   const enabled =
     rawSettings === undefined
-      ? readBootstrapChromiumHardwareAccelerationEnabledFromDisk()
+      ? readBootstrapChromiumHardwareAccelerationEnabledFromDisk(settingsFile)
       : extractBootstrapChromiumHardwareAccelerationEnabled(rawSettings);
   if (!enabled) {
     // Electron 只能在 app ready 前关闭 Chromium 硬件加速。

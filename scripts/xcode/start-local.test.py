@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 SOURCE = Path(__file__).with_name("start-local.py")
 
@@ -77,6 +78,34 @@ class StartupTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 launcher.validate_native_files(backend)
             self.assertEqual(config.read_text(), "PORT=3001\n")
+
+    def test_desktop_environment_injects_admin_origin(self):
+        launcher = load_launcher()
+        configured = {"AISCOO_ADMIN_BASE_URL": "https://other.example", "KEEP": "unchanged"}
+        environment = launcher.desktop_environment({"desktopEnvironment": configured}, "/mock/bin")
+        self.assertEqual(environment, {**configured, "HOME": str(launcher.HOME),
+                                      "PATH": "/mock/bin", "AISCOO_ADMIN_BASE_URL": launcher.ORIGIN})
+        self.assertNotIn("NEW_API_BASE_URL", environment)
+        self.assertEqual(configured["AISCOO_ADMIN_BASE_URL"], "https://other.example")
+
+    def test_job_attests_only_admin_origin(self):
+        launcher = load_launcher()
+        for key, origin, accepted in (("AISCOO_ADMIN_BASE_URL", launcher.ORIGIN, True),
+                                      ("NEW_API_BASE_URL", launcher.ORIGIN, False),
+                                      ("AISCOO_ADMIN_BASE_URL", "https://other.example", False),
+                                      ("AISCOO_ADMIN_BASE_URL", "", False)):
+            output = f"pid = 123\nworking directory = {launcher.ROOT}\n{key} => {origin}\n"
+            result = subprocess.CompletedProcess([], 0, stdout=output)
+            with self.subTest(key=key, origin=origin), \
+                    mock.patch.object(launcher, "run", return_value=result) as run, \
+                    mock.patch.object(launcher, "has_ancestor", return_value=True) as ancestor:
+                self.assertEqual(launcher.job_attests_origin(456), accepted)
+                run.assert_called_once_with(["/bin/launchctl", "print",
+                                            f"gui/{os.getuid()}/{launcher.LABEL}"], check=False)
+                if accepted:
+                    ancestor.assert_called_once_with(456, 123)
+                else:
+                    ancestor.assert_not_called()
 
     def test_mismatched_origin_is_not_success(self):
         launcher = load_launcher()

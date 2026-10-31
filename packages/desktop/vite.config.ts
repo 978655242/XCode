@@ -227,6 +227,10 @@ export default defineConfig(({ command, mode }) => {
       __ZCODE_BUILD_TIME__: JSON.stringify(buildMetadata.buildTime),
       __ZCODE_ENV__: JSON.stringify(zcodeEnv),
       __ZCODE_PRODUCT_FLAVOR__: JSON.stringify(zcodeProductFlavor),
+      // XCODE: Renderer 与 Main/Host 使用相同渠道，不能只迁移打包协议声明。
+      __AISCOO_DESKTOP_CHANNEL__: JSON.stringify(
+        mode === "production" ? zcodeProductFlavor : "development",
+      ),
       ...buildTimeConfigDefines,
       __ZCODE_LOCAL_DEVELOPMENT_RUNTIME__: JSON.stringify(mode !== "production"),
       "import.meta.env.VITE_ZCODE_BASE_URL": JSON.stringify(zcodeEndpointOrigin),

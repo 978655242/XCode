@@ -1,7 +1,8 @@
 import { createElement, type ReactElement } from "react";
 import { useDraftComposerCentering } from "./useDraftComposerCentering.js";
 import "../../xwork/brand/brand.css";
-import { brandMessageCatalog, PRODUCT_NAME } from "@zcode/shared/xwork-brand";
+import { NEW_API_PROVIDER_ID } from "@zcode/shared";
+import { brandMessageCatalog, PRODUCT_NAME, PRODUCT_WORDMARK } from "@zcode/shared/xwork-brand";
 import { useZCodeIntl, ZCodeIntlProvider } from "@/i18n/IntlProvider.js";
 import type {
   AiscooBrandProps,
@@ -254,6 +255,11 @@ function aiscooMessageCatalog(messages: Record<string, string>): Record<string, 
     catalog["login.oauth.button.native"] = "Sign in";
   }
   return catalog;
+}
+
+/** OAuth 身份继续由原服务拥有；这里只提供等待提示的静态品牌投影。 */
+export function resolveAiscooOAuthWaitingDisplayNames(): Readonly<Record<string, string>> {
+  return { [NEW_API_PROVIDER_ID]: PRODUCT_WORDMARK };
 }
 
 /** 产品入口显式投影词典，原 Provider 仍拥有同一套语言偏好、广播与插值状态。 */

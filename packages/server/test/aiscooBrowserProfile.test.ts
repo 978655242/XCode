@@ -4,7 +4,7 @@ import { resolveBrowserAccountProfile } from "../src/aiscoo-browser-account/prof
 describe("browser account entry profile", () => {
   const env = {
     AISCOO_BROWSER_NEW_API: "1",
-    NEW_API_BASE_URL: "https://account.example",
+    AISCOO_ADMIN_BASE_URL: "https://account.example",
     AISCOO_BROWSER_ORIGIN: "http://127.0.0.1:5173",
     PORT: "3030",
   };
@@ -40,6 +40,24 @@ describe("browser account entry profile", () => {
     expect(() => resolveBrowserAccountProfile({ ...env, AISCOO_BROWSER_ORIGIN: origin })).toThrow();
   });
   it("fails before starting the Host when account configuration is missing", () => {
-    expect(() => resolveBrowserAccountProfile({ ...env, NEW_API_BASE_URL: "" })).toThrow();
+    expect(() => resolveBrowserAccountProfile({ ...env, AISCOO_ADMIN_BASE_URL: "" })).toThrow();
+  });
+  it("does not use the retired environment key as a fallback", () => {
+    expect(() =>
+      resolveBrowserAccountProfile({
+        AISCOO_BROWSER_NEW_API: "1",
+        NEW_API_BASE_URL: env.AISCOO_ADMIN_BASE_URL,
+      }),
+    ).toThrow();
+    expect(
+      resolveBrowserAccountProfile({ ...env, NEW_API_BASE_URL: "https://retired.example" })?.origin,
+    ).toBe(env.AISCOO_ADMIN_BASE_URL);
+    expect(() =>
+      resolveBrowserAccountProfile({
+        ...env,
+        AISCOO_ADMIN_BASE_URL: "",
+        NEW_API_BASE_URL: "https://retired.example",
+      }),
+    ).toThrow();
   });
 });

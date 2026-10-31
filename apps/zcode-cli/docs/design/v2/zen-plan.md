@@ -17,7 +17,7 @@
 
 ## 产品规则
 
-1. 显式 `NEW_API_BASE_URL` 配置 Zen origin，复用现有 origin 校验；缺配置时 Zen 入口显示配置提示，不猜域名，不回退官方服务。HTTP 只允许现有明确 loopback 白名单。
+1. 显式 `AISCOO_ADMIN_BASE_URL` 配置 Zen origin，复用现有 origin 校验；旧键 `NEW_API_BASE_URL` 不再读取，也不提供 fallback。缺配置时 Zen 入口显示配置提示，不猜域名，不回退官方服务。HTTP 只允许现有明确 loopback 白名单。
 2. `zcode login zen` 发起独立授权。登录成功须完成 SessionBundle 校验、Me 身份确认、安全持久化，以及当前代次检查；只有成功提交后才显示账号信息与可选模型。
 3. TUI 首次登录列表显示 Zen；正在登录时支持取消，取消使迟到回调失效。现有官方登录命令和参数保持兼容。
 4. CLI 使用独立 SID，不认领桌面设备 SID，不读写桌面 active pointer，不导出桌面密钥。CLI 自己退出仅撤销自己的 SID。增加 `zcode logout zen` 和 `/logout zen`；原无参数退出保留官方行为，并在帮助中写清目标。

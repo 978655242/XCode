@@ -143,7 +143,7 @@ def has_ancestor(pid, ancestor):
 def job_attests_origin(pid):
     result = run(["/bin/launchctl", "print", f"gui/{os.getuid()}/{LABEL}"], check=False)
     parent = re.search(r"^\s*pid = (\d+)\s*$", result.stdout, re.MULTILINE)
-    origin = re.search(r"^\s*NEW_API_BASE_URL => ([^\n]+)$", result.stdout, re.MULTILINE)
+    origin = re.search(r"^\s*AISCOO_ADMIN_BASE_URL => ([^\n]+)$", result.stdout, re.MULTILINE)
     return (result.returncode == 0 and parent is not None and origin is not None
             and origin.group(1).strip() == ORIGIN
             and f"working directory = {ROOT}\n" in result.stdout
@@ -162,7 +162,7 @@ def desktop_pid():
                 or executable.parts[-4:] != (f"{BRAND['developmentName']}.app", "Contents", "MacOS", "Electron")):
             raise RuntimeError(f"9229不是本仓库{BRAND['developmentName']}；不会启动第二个桌面")
         value = run(["/bin/ps", "eww", "-p", str(pid), "-o", "command="]).stdout
-        found = re.search(r"(?:^|\s)NEW_API_BASE_URL=([^\s]*)", value)
+        found = re.search(r"(?:^|\s)AISCOO_ADMIN_BASE_URL=([^\s]*)", value)
         # Electron may rewrite argv/environment visible to ps; our launchd ancestry proves its launch environment.
         origin = found.group(1) if found else (ORIGIN if job_attests_origin(pid) else None)
         require_private_origin(origin)
@@ -239,7 +239,7 @@ def load_spec():
 
 
 def desktop_environment(spec, path):
-    return {**spec["desktopEnvironment"], "HOME": str(HOME), "PATH": path, "NEW_API_BASE_URL": ORIGIN}
+    return {**spec["desktopEnvironment"], "HOME": str(HOME), "PATH": path, "AISCOO_ADMIN_BASE_URL": ORIGIN}
 
 
 def ensure_desktop_job(spec, path):

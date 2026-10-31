@@ -1,9 +1,17 @@
 import assert from "node:assert/strict";
-import { mock, test } from "node:test";
+import { after, mock, test } from "node:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { build } from "esbuild";
 import { PlatformChannels } from "@zcode/shared";
+import { getAiscooDesktopIdentity } from "@zcode/shared/aiscoo-desktop-identity";
 import { createOAuthCallbackHandler } from "../src/preload/oauthCallbackBridge.js";
 
 const delivered: Array<{ windowId: number; channel: string; value: unknown }> = [];
+const registeredSchemes: string[] = [];
 const windows = [1, 2].map((id) => ({
   webContents: {
     id,
@@ -15,7 +23,13 @@ const windows = [1, 2].map((id) => ({
 }));
 mock.module("electron", {
   namedExports: {
-    app: { show() {} },
+    app: {
+      show() {},
+      setAsDefaultProtocolClient(scheme: string) {
+        registeredSchemes.push(scheme);
+        return true;
+      },
+    },
     dialog: {},
     BrowserWindow: { getAllWindows: () => windows, getFocusedWindow: () => windows[1] },
   },
@@ -39,6 +53,112 @@ const reset = () => {
   clearOAuthRoutesForWindow(2);
   delivered.length = 0;
 };
+
+// XCODE: 每个渠道单独编译真实 Main，验证编译期身份与 Electron 注册/投递一致。
+const compiledRoot = await mkdtemp(join(tmpdir(), "aiscoo-oauth-routes-"));
+after(() => rm(compiledRoot, { recursive: true, force: true }));
+const require = createRequire(import.meta.url);
+async function loadChannelRoutes(channel: "production" | "development" | "preview") {
+  const outfile = join(compiledRoot, `${channel}.mjs`);
+  await build({
+    entryPoints: [fileURLToPath(new URL("../src/main/desktopOAuthDeepLink.ts", import.meta.url))],
+    outfile,
+    bundle: true,
+    platform: "node",
+    format: "esm",
+    target: "node24",
+    external: [require.resolve("electron")],
+    alias: { electron: require.resolve("electron"), zod: require.resolve("zod") },
+    define: { __AISCOO_DESKTOP_CHANNEL__: JSON.stringify(channel) },
+    logLevel: "silent",
+  });
+  return import(pathToFileURL(outfile).href) as Promise<
+    typeof import("../src/main/desktopOAuthDeepLink.js")
+  >;
+}
+for (const channel of ["production", "development", "preview"] as const) {
+  test(`${channel} accepts only its native callback and preserves route ownership`, async () => {
+    reset();
+    registeredSchemes.length = 0;
+    const profile = getAiscooDesktopIdentity(channel);
+    const routes = await loadChannelRoutes(channel);
+    routes.registerDeepLinkProtocol(logger);
+    assert.deepEqual(registeredSchemes, [profile.scheme]);
+    const ownCallback = (state: string, provider = "new-api") =>
+      `${profile.oauthRedirectUri}?provider=${provider}&state=${state}&code=${"c".repeat(43)}`;
+    const register = () =>
+      routes.registerOAuthState(1, {
+        state: nativeState,
+        provider: "new-api",
+        purpose: "primary-account",
+      });
+    assert.equal(routes.handleDeepLink(ownCallback(closedState), logger), false);
+    routes.deliverPendingDeepLink(windows[1]!.webContents as never);
+    assert.deepEqual(delivered, []);
+    register();
+    for (const scheme of ["zcode", "aiscoo", "aiscoo-dev", "aiscoo-preview"]) {
+      if (scheme !== profile.scheme) {
+        assert.equal(
+          routes.handleDeepLink(
+            ownCallback(nativeState).replace(`${profile.scheme}:`, `${scheme}:`),
+            logger,
+          ),
+          false,
+        );
+      }
+    }
+    for (const url of [
+      ownCallback(nativeState, "zai"),
+      `${ownCallback(nativeState)}&purpose=official-cloud`,
+      `${ownCallback(nativeState)}&state=${closedState}`,
+      `${ownCallback(nativeState)}&code=${"d".repeat(43)}`,
+      `${ownCallback(nativeState)}#fragment`,
+      ownCallback(nativeState).replace("/callback?", "/callback/extra?"),
+      ownCallback(nativeState).replace("://oauth/", "://user@oauth/"),
+      ownCallback(nativeState).replace("://oauth/", "://oauth:123/"),
+    ]) {
+      assert.equal(routes.handleDeepLink(url, logger), false, url);
+    }
+    assert.equal(routes.handleDeepLink(ownCallback(nativeState), logger), true);
+    assert.deepEqual(delivered, []);
+    routes.deliverPendingDeepLink(windows[1]!.webContents as never);
+    assert.deepEqual(delivered, []);
+    routes.deliverPendingDeepLink(windows[0]!.webContents as never);
+    assert.deepEqual(delivered, [
+      {
+        windowId: 1,
+        channel: PlatformChannels.OAuthCallback,
+        value: { url: ownCallback(nativeState), provider: "new-api", purpose: "primary-account" },
+      },
+    ]);
+    assert.equal(routes.handleDeepLink(ownCallback(nativeState), logger), false);
+    assert.equal(delivered.length, 1);
+    register();
+    mock.timers.tick(5 * 60 * 1000);
+    assert.equal(routes.handleDeepLink(ownCallback(nativeState), logger), false);
+    register();
+    routes.clearOAuthRoutesForWindow(1);
+    assert.equal(routes.handleDeepLink(ownCallback(nativeState), logger), false);
+    routes.clearOAuthRoutesForWindow(2);
+    reset();
+  });
+}
+
+test("unconfigured Main keeps zcode registration and rejects Aiscoo schemes", async () => {
+  reset();
+  registeredSchemes.length = 0;
+  const { registerDeepLinkProtocol } = await import("../src/main/desktopOAuthDeepLink.js");
+  registerDeepLinkProtocol(logger);
+  assert.deepEqual(registeredSchemes, ["zcode"]);
+  registerOAuthState(1, { state: nativeState, provider: "new-api", purpose: "primary-account" });
+  for (const scheme of ["aiscoo", "aiscoo-dev", "aiscoo-preview"]) {
+    assert.equal(
+      handleDeepLink(callback(nativeState).replace("zcode:", `${scheme}:`), logger),
+      false,
+    );
+  }
+  reset();
+});
 
 // XCODE: 真实 Main 路由必须保护窗口/用途；只替换 Electron 原生投递，不替换被测路由。
 test("registration rejects missing or conflicting provider/purpose", () => {

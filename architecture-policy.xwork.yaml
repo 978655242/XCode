@@ -232,3 +232,29 @@ modules:
       - packages/server/src/aiscoo-browser-account/contract.ts
     layers: { adapters: . }
     owner: account
+  # aiscoo-desktop-identity：由 architecture:adopt 登记
+  - id: aiscoo-desktop-identity
+    roots:
+      - packages/shared/src/aiscoo-desktop-identity
+    managed: true
+    requires: []
+    publicEntrypoints:
+      - packages/shared/src/aiscoo-desktop-identity/index.ts
+      - packages/shared/src/aiscoo-desktop-identity/contract.ts
+      - packages/shared/src/aiscoo-desktop-identity/runtime.js
+      - packages/shared/src/aiscoo-desktop-identity/runtime.d.ts
+    layers:
+      domain: .
+    owner: product
+  # aiscoo-desktop-runtime：由 architecture:adopt 登记
+  - id: aiscoo-desktop-runtime
+    roots:
+      - packages/desktop/src/aiscoo-desktop-identity
+    managed: true
+    requires: [aiscoo-desktop-identity]
+    publicEntrypoints:
+      - packages/desktop/src/aiscoo-desktop-identity/index.ts
+      - packages/desktop/src/aiscoo-desktop-identity/contract.ts
+    layers:
+      adapters: .
+    owner: desktop

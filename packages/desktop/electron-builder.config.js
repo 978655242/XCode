@@ -599,6 +599,8 @@ export default {
     zcodeProductFlavor: desktopProductIdentity.flavor,
     // XCODE: 运行包 metadata 展示同源品牌，源码 package.json 的上游默认项保持原样。
     productName: desktopProductIdentity.productName,
+    // XCODE: Electron 的 Linux app_id 与 Builder 生成的 desktop 文件使用同一渠道标识。
+    desktopName: desktopProductIdentity.desktopFileName,
     description: productBrand.desktopName,
     homepage: "https://zcode.z.ai",
     // XCODE: 包装中的通用产品作者显示名迁移，来源地址和签名身份保持不变。
@@ -859,10 +861,9 @@ export default {
   // OAuth deep link 协议注册（macOS 打包后需要 Info.plist 中声明 CFBundleURLTypes）
   protocols: [
     {
-      // 协议处理器的展示名之前使用小写 scheme，打包产物里的协议描述无法体现产品名。
-      // 展示名跟随安装包身份；scheme 仍保持 zcode，因此两个应用中最后注册者会成为默认 handler。
+      // XCODE: 展示名与协议均取自渠道身份，防止 Aiscoo 安装包接管上游 ZCode 回调。
       name: desktopProductIdentity.productName,
-      schemes: ["zcode"],
+      schemes: [desktopProductIdentity.scheme],
     },
   ],
   mac: {
@@ -907,7 +908,7 @@ export default {
     ],
   },
   win: {
-    // XCODE: 主 EXE 保留历史名；安装器和快捷方式可以展示新品牌。
+    // XCODE: 主 EXE 与渠道 profile 一致，避免与上游安装共享可执行名。
     executableName: desktopProductIdentity.windowsExecutableName,
     target: ["nsis"],
     artifactName: buildDesktopArtifactName("win"),
@@ -930,9 +931,10 @@ export default {
     artifactName: buildDesktopArtifactName("linux"),
     // desktop 包名是 scoped package（@zcode/desktop），electron-builder 默认会把
     // Linux executable/Icon 推成 @zcodedesktop。部分桌面环境无法按这个 icon name 命中
-    // hicolor 图标，最终回退成系统齿轮。这里固定成稳定的小写名称，让 Icon=zcode
-    // 与 /usr/share/icons/hicolor/*/apps/zcode.png 保持一致。
+    // hicolor 图标，最终回退成系统齿轮。
+    // XCODE: executable/Icon 与 desktopName 均来自同一渠道，Builder 自动派生协议 MIME。
     executableName: desktopProductIdentity.linuxExecutableName,
+    syncDesktopName: true,
     category: "Development",
     maintainer: `${productBrand.productName} <dev@zcode.z.ai>`,
   },

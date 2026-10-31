@@ -1,9 +1,21 @@
 import { z } from "zod";
 import { completeModelPropertiesDataSchema } from "./model-config.js";
+import { getAiscooDesktopIdentity } from "./aiscoo-desktop-identity/index.js";
 
 export const NEW_API_PROVIDER_ID = "new-api";
 export const NEW_API_CALLBACK_URI = "zcode://oauth/callback";
 export const NEW_API_CLIENT_ID = "xcode-desktop";
+
+// XCODE: 任意 scheme 或前缀会让不同渠道接管授权，只接收集中身份配置的完整回调 URI。
+const newApiAuthorizationRedirectUris = new Set([
+  NEW_API_CALLBACK_URI,
+  getAiscooDesktopIdentity("production").oauthRedirectUri,
+  getAiscooDesktopIdentity("development").oauthRedirectUri,
+  getAiscooDesktopIdentity("preview").oauthRedirectUri,
+]);
+export function isNewApiAuthorizationRedirectUri(redirectUri: string): boolean {
+  return newApiAuthorizationRedirectUris.has(redirectUri);
+}
 
 // XCODE: CLI 使用独立客户端及精确回环回调，不扩大桌面深链的接收范围。
 export const ZEN_CLI_CLIENT_ID = "xwork-cli";
@@ -40,10 +52,12 @@ export function parseZenAuthorizationCallback(
   }
 }
 
-// XCODE: Main路由与Host兑换复用精确语法，不能分别放宽回调别名或重复query。
+// XCODE: Main路由与Host兑换绑定同一精确回调，未注入时保留上游默认且不放宽query。
 export function parseNewApiAuthorizationCallback(
   raw: string,
+  redirectUri = NEW_API_CALLBACK_URI,
 ): { state: string; code: string } | null {
+  if (!isNewApiAuthorizationRedirectUri(redirectUri)) return null;
   let url: URL;
   try {
     url = new URL(raw);
@@ -54,12 +68,12 @@ export function parseNewApiAuthorizationCallback(
   const state = url.searchParams.get("state");
   const code = url.searchParams.get("code");
   if (
-    !raw.startsWith(`${NEW_API_CALLBACK_URI}?`) ||
+    !raw.startsWith(`${redirectUri}?`) ||
     raw.includes("#") ||
     url.hash ||
     url.username ||
     url.password ||
-    url.protocol !== "zcode:" ||
+    url.protocol !== new URL(redirectUri).protocol ||
     url.hostname !== "oauth" ||
     url.port ||
     url.pathname !== "/callback" ||

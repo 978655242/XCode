@@ -40,7 +40,8 @@
     "./web-remote-relay": "./src/web-remote-relay/index.ts",
     "./conversation-telemetry": "./src/conversation-telemetry/index.ts",
     "./conversation-telemetry/messageTelemetry": "./src/conversation-telemetry/messageTelemetry.ts",
-    "./conversation-telemetry/providerTelemetryIdentity": "./src/conversation-telemetry/providerTelemetryIdentity.ts"
+    "./conversation-telemetry/providerTelemetryIdentity": "./src/conversation-telemetry/providerTelemetryIdentity.ts",
+    "./aiscoo-desktop-identity": "./src/aiscoo-desktop-identity/runtime.js"
   },
   "scripts": {
     "lint": "oxlint",

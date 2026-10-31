@@ -11,7 +11,7 @@ export function composeBrowserWebProxy(profile, existing) {
 // 本机 Web 只增加公开配置、同源代理与开发服务器入口限制，不持有登录凭据。
 export function browserWebProfile(env) {
   if (env.AISCOO_BROWSER_NEW_API !== "1") return null;
-  const origin = new URL(env.NEW_API_BASE_URL || "");
+  const origin = new URL(env.AISCOO_ADMIN_BASE_URL || "");
   const browser = new URL(env.AISCOO_BROWSER_ORIGIN || "http://127.0.0.1:5173");
   const serverPort = Number(env.PORT || 3030);
   if (

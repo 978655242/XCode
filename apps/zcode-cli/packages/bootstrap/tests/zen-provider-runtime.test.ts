@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createZenDefaultDependencies } from "@zcode/adapters/auth";
 import { resolveZenAccountProviders } from "../src/zen/index.js";
 import { createAccountProviderConfigSnapshot } from "@zcode/provider";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
@@ -13,6 +14,14 @@ import {
 } from "@zcode/shared";
 
 describe("Zen account model authorization", () => {
+  it.each([
+    {},
+    { NEW_API_BASE_URL: "http://127.0.0.1:3001" },
+    { AISCOO_ADMIN_BASE_URL: "", NEW_API_BASE_URL: "http://127.0.0.1:3001" },
+  ])("缺少新键时先拒绝配置，不访问系统安全库：%j", async (env) => {
+    await expect(createZenDefaultDependencies(env)).rejects.toThrow("Set AISCOO_ADMIN_BASE_URL");
+  });
+
   it("publishes a restored owner through the actual standalone AccountProviderService", async () => {
     const directory = await mkdtemp(join(tmpdir(), "zen-registry-"));
     const configPath = join(directory, "builtin.json");
@@ -84,7 +93,7 @@ describe("Zen account model authorization", () => {
         {
           ZCODE_BUILTIN_PROVIDER_CONFIG_FILE: configPath,
           ZCODE_PERSONAL_PROVIDER_CONFIG_FILE: join(directory, "personal.json"),
-          NEW_API_BASE_URL: "https://zen.example.com",
+          AISCOO_ADMIN_BASE_URL: "https://zen.example.com",
           ZCODE_DATA_BASE_DIR: directory,
         },
         {

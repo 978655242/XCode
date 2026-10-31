@@ -29,24 +29,30 @@ def icon(dark):
     return svg(1024, 1024, body)
 
 
-write("logo/svg/aiscoo-light.svg", ai.lockup(ai.INK, ai.PAPER, "l", False, tucked=True))
-write("logo/svg/aiscoo-dark.svg", ai.lockup(ai.PAPER, "#1C1C1E", "d", False, tucked=True))
-write("logo-animated/aiscoo-animated-light.svg", ai.lockup(ai.INK, ai.PAPER, "l", True, tucked=True))
-write("logo-animated/aiscoo-animated-dark.svg", ai.lockup(ai.PAPER, "#1C1C1E", "d", True, tucked=True))
-write("splash/ai-animated-light.svg", ai.mark(ai.INK, ai.PAPER, "m", True, tucked=True))
-write("splash/ai-animated-dark.svg", ai.mark(ai.PAPER, "#1C1C1E", "w", True, tucked=True))
-write("mark/svg/ai-light.svg", ai.mark(ai.INK, ai.PAPER, "t", False, tucked=True))
-write("mark/svg/ai-dark.svg", ai.mark(ai.PAPER, "#1C1C1E", "tw", False, tucked=True))
-write("app-icon/png/icon-light.svg", icon(False))
-write("app-icon/png/icon-dark.svg", icon(True))
+def main():
+    write("logo/svg/aiscoo-light.svg", ai.lockup(ai.INK, ai.PAPER, "l", False, tucked=True))
+    write("logo/svg/aiscoo-dark.svg", ai.lockup(ai.PAPER, "#1C1C1E", "d", False, tucked=True))
+    write("logo-animated/aiscoo-animated-light.svg", ai.lockup(ai.INK, ai.PAPER, "l", True, tucked=True))
+    write("logo-animated/aiscoo-animated-dark.svg", ai.lockup(ai.PAPER, "#1C1C1E", "d", True, tucked=True))
+    write("splash/ai-animated-light.svg", ai.mark(ai.INK, ai.PAPER, "m", True, tucked=True))
+    write("splash/ai-animated-dark.svg", ai.mark(ai.PAPER, "#1C1C1E", "w", True, tucked=True))
+    write("mark/svg/ai-light.svg", ai.mark(ai.INK, ai.PAPER, "t", False, tucked=True))
+    write("mark/svg/ai-dark.svg", ai.mark(ai.PAPER, "#1C1C1E", "tw", False, tucked=True))
+    write("app-icon/png/icon-light.svg", icon(False))
+    write("app-icon/png/icon-dark.svg", icon(True))
 
-# The splash page inlines the animated marks so it plays without external files.
-splash = PKG / "splash/splash.html"
-s = splash.read_text()
-for theme, rel in (("light", "splash/ai-animated-light.svg"), ("dark", "splash/ai-animated-dark.svg")):
-    s, n = re.subn(rf'<div class="logo {theme}">.*?</svg></div>',
-                   lambda m, rel=rel: f'<div class="logo {theme}">' + (PKG / rel).read_text().strip() + '</div>',
-                   s, flags=re.S)
-    assert n == 1, f"splash.html: expected one {theme} logo slot, found {n}"
-splash.write_text(s)
-print("updated SVGs and splash/splash.html under", PKG)
+    # The splash page inlines the animated marks so it plays without external files.
+    splash = PKG / "splash/splash.html"
+    s = splash.read_text()
+    for theme, rel in (("light", "splash/ai-animated-light.svg"), ("dark", "splash/ai-animated-dark.svg")):
+        s, n = re.subn(rf'<div class="logo {theme}">.*?</svg></div>',
+                       lambda m, rel=rel: f'<div class="logo {theme}">' + (PKG / rel).read_text().strip() + '</div>',
+                       s, flags=re.S)
+        assert n == 1, f"splash.html: expected one {theme} logo slot, found {n}"
+    splash.write_text(s)
+    print("updated SVGs and splash/splash.html under", PKG)
+
+
+if __name__ == "__main__":
+    # 原因：旧入口复用 icon() 时不应覆盖正式资源；只有显式执行 make 才写入设计包。
+    main()
